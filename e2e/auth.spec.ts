@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { PASSWORD, newEmail, sessionOf, signUp, test } from './helpers';
+import { PASSWORD, PHONE, newEmail, sessionOf, signUp, test } from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -147,5 +147,60 @@ test.describe('an instance closed to sign-up', () => {
 
     await page.goto(`${base}/sign-up`);
     await expect(page.getByRole('heading', { name: 'Sign-up is closed' })).toBeVisible();
+  });
+});
+
+test('Settings: a name is changed, a password is changed, and the account is deleted from it', async ({
+  page,
+}) => {
+  const email = await signUp(page);
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+
+  // Profile: the name is changed, and shown wherever the person is named.
+  await page.getByRole('textbox', { name: /^Name/ }).fill('Ada Lovelace');
+  await page.getByRole('button', { name: 'Save name' }).click();
+  await expect(page.getByText('Your name is saved.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: /^Name/ })).toHaveValue('Ada Lovelace');
+  await expect(page.getByText(email)).toBeVisible();
+
+  // Sign-in: a wrong current password is refused, the right one changes it, and the new one signs in.
+  await page.getByRole('button', { name: 'Sign-in' }).click();
+  const form = page.getByRole('form', { name: 'Change password' });
+  await form.getByLabel('Current password').fill('not the password');
+  await form.getByLabel(/^New password(?! again)/).fill('another horse battery');
+  await form.getByLabel('New password again').fill('another horse battery');
+  await form.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText(/do not match|not right/i).first()).toBeVisible();
+  await form.getByLabel('Current password').fill(PASSWORD);
+  await form.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText(/Your password is changed/)).toBeVisible();
+
+  // Data: the account is deleted with the new password.
+  await page.getByRole('button', { name: 'Data' }).click();
+  await page.getByRole('button', { name: 'Delete my account…' }).click();
+  const remove = page.getByRole('form', { name: 'Delete account' });
+  await expect(remove.getByText(/nobody else is in them, so they are deleted/)).toBeVisible();
+  await remove.getByLabel('Your password').fill('another horse battery');
+  await remove.getByRole('button', { name: 'Delete my account for good' }).click();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+});
+
+test.describe('Settings at a phone’s width', () => {
+  test.use({ viewport: PHONE });
+
+  test('has nothing to scroll sideways, and the sections are reachable', async ({ page }) => {
+    await signUp(page);
+    await page.goto('/settings');
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await page.getByRole('button', { name: 'Sign-in' }).click();
+    await expect(page.getByRole('form', { name: 'Change password' })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      ),
+    ).toBe(false);
   });
 });

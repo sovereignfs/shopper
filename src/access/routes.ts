@@ -32,6 +32,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'page',
+    address: '/settings',
+    who: 'signed-in',
+    note: "The signed-in person's own profile, sign-in and data: a visitor is sent to sign in.",
+  },
+  {
+    kind: 'page',
     address: '/shell',
     who: 'public',
     note: 'The frame the service worker keeps: it holds nothing of a person (task 1.12).',
@@ -72,6 +78,12 @@ export const ACCESS: readonly Access[] = [
     address: '/api/account/delete',
     who: 'signed-in',
     note: "The session's own account only: what deleting it would do, and doing it, after the password.",
+  },
+  {
+    kind: 'route',
+    address: '/api/account/profile',
+    who: 'signed-in',
+    note: "The session's own name only: kept in step in better-auth and in person.",
   },
   {
     kind: 'route',

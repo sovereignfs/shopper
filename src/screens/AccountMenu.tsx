@@ -1,15 +1,17 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UserMenu } from '@sovereignfs/ui';
 import { authClient } from '../auth/client';
 
 /**
- * The avatar menu at the right of the header: who the person is (name and address) and _Sign out_. Settings joins this menu with task 2.6. Signing out
+ * The avatar menu at the right of the header: who the person is (name and address) and _Sign out_. Settings is the other entry. Signing out
  * ends the session and returns to the front address. **Task 6.2 makes it leave the device as well:** it tries to send what is waiting, asks before it
  * throws away what it cannot, and deletes this account's store from the device.
  */
 export function AccountMenu({ name, email }: { name: string; email: string }) {
+  const router = useRouter();
   const [leaving, setLeaving] = useState(false);
 
   async function signOut() {
@@ -30,6 +32,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
       size="sm"
       aria-label="User menu"
       items={[
+        { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings') },
         {
           label: leaving ? 'Signing out…' : 'Sign out',
           icon: 'log-out',
