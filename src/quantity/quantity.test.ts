@@ -85,9 +85,11 @@ describe('arithmetic is exact', () => {
     expect(compareQuantity('0.5', '0.25')).toBe(1);
     expect(compareQuantity('1.5', '1.5')).toBe(0);
     expect(largerQuantity('9', '10')).toBe('10');
+    expect(compareQuantity('2', '2') + compareQuantity('2', '2')).toBe(0);
     fc.assert(
       fc.property(quantity, quantity, (a, b) => {
-        expect(compareQuantity(a, b)).toBe(-compareQuantity(b, a));
+        // Antisymmetric: the two directions add to zero (and not `toBe(-x)`, which is `-0` for an equal pair).
+        expect(compareQuantity(a, b) + compareQuantity(b, a)).toBe(0);
         expect(compareQuantity(a, b) === 0).toBe(a === b);
         expect(largerQuantity(a, b)).toBe(compareQuantity(a, b) >= 0 ? a : b);
       }),
