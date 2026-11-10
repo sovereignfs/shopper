@@ -207,7 +207,7 @@ describe(`a mutation sent again (${leg})`, () => {
     const first = applied(await applyMutation(deps(), ada.accountId, m));
     const seq = await seqOf(ada.household);
     const again = applied(await applyMutation(deps(), ada.accountId, m));
-    expect(again).toEqual({ status: 'replayed', seq: first.seq, changed: [] });
+    expect(again).toEqual({ status: 'replayed', seq: first.seq, changed: [], folds: [] });
     expect(await seqOf(ada.household)).toBe(seq);
 
     const racing = mutation(ada.household, [create(crypto.randomUUID(), 'Beans')]);
@@ -373,18 +373,19 @@ describe(`what is refused (${leg})`, () => {
     expect(result).toMatchObject({ status: 'refused', reason: 'unsupported' });
   });
 
-  it('a name the household already has, until folding exists', async () => {
+  it('a rename to a name the household already has, which is a person’s decision and is refused', async () => {
+    const taken = crypto.randomUUID();
+    const other = crypto.randomUUID();
     applied(
-      await applyMutation(
-        deps(),
-        ada.accountId,
-        mutation(ada.household, [create(crypto.randomUUID(), 'Honey')]),
-      ),
+      await applyMutation(deps(), ada.accountId, mutation(ada.household, [create(taken, 'Honey')])),
+    );
+    applied(
+      await applyMutation(deps(), ada.accountId, mutation(ada.household, [create(other, 'Jam')])),
     );
     const result = await applyMutation(
       deps(),
       ada.accountId,
-      mutation(ada.household, [create(crypto.randomUUID(), 'HONEY')]),
+      mutation(ada.household, [edit(other, { name: 'HONEY' })]),
     );
     expect(result).toMatchObject({ status: 'refused', reason: 'duplicate' });
   });

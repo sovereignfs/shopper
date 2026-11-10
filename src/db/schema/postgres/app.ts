@@ -156,3 +156,44 @@ export const appliedMutation = app.table(
   },
   (table) => [primaryKey({ columns: [table.accountId, table.id] })],
 );
+
+/**
+ * **A row made twice that became one** (DESIGN.md §12.4): the product a second device made for a name the household already had, folded into the
+ * first by the server, in the mutation's transaction. `from_id` is the id the device made, `to_id` the row it became; the server re-points later changes
+ * that name `from_id` before applying them, and pull hands the alias to devices, which re-point what they hold (task 6.1). The one change the server makes
+ * that a device did not send. Pruned after ninety days with the history (phase 2).
+ */
+export const alias = app.table(
+  'alias',
+  {
+    householdId: ref('household_id').notNull(),
+    tableName: text('table_name').notNull(),
+    fromId: ref('from_id').notNull(),
+    toId: ref('to_id').notNull(),
+    seq: counter('seq').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.householdId, table.tableName, table.fromId] }),
+    index('alias_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **What was removed, so that devices learn of it** (DESIGN.md §12.9): the id of a row that is gone, with the `seq` it went at, so that a device that pulls
+ * past it deletes its copy. A folded id has one too. A household's row, deleted with it.
+ */
+export const tombstone = app.table(
+  'tombstone',
+  {
+    householdId: ref('household_id').notNull(),
+    tableName: text('table_name').notNull(),
+    id: ref('id').notNull(),
+    seq: counter('seq').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.householdId, table.tableName, table.id] }),
+    index('tombstone_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);

@@ -8,6 +8,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
 import { memberOf } from '../access/membership';
 import type { Limits } from '../limits/config';
+import { type Fold, foldProductFields, recordFold, resolveAlias } from './fold';
 import { mergeChange } from './merge';
 import { Refusal, duplicate, invalid, limited, notFound, unsupported } from './refusal';
 import { TABLES, type TableSpec } from './tables';
@@ -41,6 +42,8 @@ export type ApplyResult =
       readonly status: 'applied' | 'replayed';
       readonly seq: number;
       readonly changed: readonly Changed[];
+      /** What the server folded: a row the device made that became another (`fold.ts`), so that the device re-points what it holds. */
+      readonly folds: readonly Fold[];
     }
   | { readonly status: 'refused'; readonly reason: Refusal['reason']; readonly sentence: string };
 
@@ -60,7 +63,7 @@ export async function applyMutation(
     database,
     sql`SELECT seq FROM ${appTable(database, 'applied_mutation')} WHERE account_id = ${accountId} AND id = ${mutation.mutationId}`,
   );
-  if (done) return { status: 'replayed', seq: Number(done.seq), changed: [] };
+  if (done) return { status: 'replayed', seq: Number(done.seq), changed: [], folds: [] };
 
   try {
     return await transaction(database, async (tx) =>
@@ -73,7 +76,7 @@ export async function applyMutation(
       database,
       sql`SELECT seq FROM ${appTable(database, 'applied_mutation')} WHERE account_id = ${accountId} AND id = ${mutation.mutationId}`,
     );
-    if (again) return { status: 'replayed', seq: Number(again.seq), changed: [] };
+    if (again) return { status: 'replayed', seq: Number(again.seq), changed: [], folds: [] };
     throw error;
   }
 }
@@ -101,12 +104,17 @@ async function run(
   const seq = Number(stepped.seq);
 
   const changed: Changed[] = [];
-  for (const change of mutation.changes) {
-    const spec = (deps.tables ?? TABLES)[change.table];
-    if (!spec) throw unsupported(change.table);
-    if (await applyChange(deps, spec, mutation.householdId, change, seq, now)) {
-      changed.push({ table: change.table, id: change.id });
-    }
+  const folds: Fold[] = [];
+  for (const raw of mutation.changes) {
+    const spec = (deps.tables ?? TABLES)[raw.table];
+    if (!spec) throw unsupported(raw.table);
+    // A change that names a row that was folded into another is a change to the other (`fold.ts`).
+    const target = await resolveAlias(database, mutation.householdId, raw.table, raw.id);
+    const change: Change =
+      target === raw.id ? raw : { table: raw.table, id: target, fields: raw.fields };
+    const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
+    if (outcome.fold) folds.push(outcome.fold);
+    for (const id of outcome.written) changed.push({ table: change.table, id });
   }
 
   await dbAll(
@@ -114,12 +122,20 @@ async function run(
     sql`INSERT INTO ${appTable(database, 'applied_mutation')} (account_id, id, household_id, seq, created_at)
         VALUES (${accountId}, ${mutation.mutationId}, ${mutation.householdId}, ${seq}, ${now}) RETURNING id`,
   );
-  return { status: 'applied', seq, changed };
+  return { status: 'applied', seq, changed, folds };
 }
 
 type Row = Record<string, unknown>;
 
-/** One change, merged into its row. Returns whether the row was written (a change that changes nothing writes nothing). */
+interface Outcome {
+  /** The rows written: none for a change that changes nothing, the row it was folded into for a fold. */
+  readonly written: readonly string[];
+  readonly fold?: Fold;
+}
+
+const NOTHING: Outcome = { written: [] };
+
+/** One change, merged into its row. A change that changes nothing writes nothing; a row made for a name the household has is folded into it. */
 async function applyChange(
   deps: ApplyDeps,
   spec: TableSpec,
@@ -127,7 +143,7 @@ async function applyChange(
   change: Change,
   seq: number,
   now: number,
-): Promise<boolean> {
+): Promise<Outcome> {
   const { database, ring } = deps;
   const t = appTable(database, spec.sql);
   const existing = await dbGet<Row>(
@@ -159,7 +175,7 @@ async function applyChange(
   }
 
   const merged = mergeChange(values, stamps, change.fields, seq);
-  if (existing && merged.changed.length === 0) return false;
+  if (existing && merged.changed.length === 0) return NOTHING;
 
   const sealedChanged = spec.sealed.some((field) => merged.changed.includes(field)) || !existing;
   const sealedFields: Record<string, FieldValue> = {};
@@ -171,13 +187,17 @@ async function applyChange(
   const derived =
     sealedChanged && spec.derive ? spec.derive({ household, ring, sealed: sealedFields }) : {};
 
-  // A name already in the household is another product's: task 5.3 folds the two; until then the second is refused.
+  // A name already in the household is another product's: a new one is folded into it, and a rename is refused.
   if (derived.name_key !== undefined) {
     const same = await dbGet<{ id: string }>(
       database,
       sql`SELECT id FROM ${t} WHERE household_id = ${household} AND name_key = ${derived.name_key} AND id <> ${change.id}`,
     );
-    if (same) throw duplicate();
+    if (same) {
+      // Renaming to a name that is taken is a person's decision, and is refused with the merge offered (task 5.6); making one is folded.
+      if (existing) throw duplicate();
+      return foldInto(deps, spec, household, change, same.id, seq, now);
+    }
   }
 
   if (!existing) {
@@ -209,7 +229,7 @@ async function applyChange(
             sql`, `,
           )}) RETURNING id`,
     );
-    return true;
+    return { written: [change.id] };
   }
 
   const sets: SQL[] = [];
@@ -227,7 +247,46 @@ async function applyChange(
   );
   if (done.length === 0) throw notFound();
   void now;
-  return true;
+  return { written: [change.id] };
+}
+
+/**
+ * A row the household already has under this name: the new one is not made. It is folded into the existing one, which takes the fields it has nothing in
+ * from what was sent, and the fold is recorded with an alias and a tombstone (`fold.ts`).
+ */
+async function foldInto(
+  deps: ApplyDeps,
+  spec: TableSpec,
+  household: string,
+  change: Change,
+  into: string,
+  seq: number,
+  now: number,
+): Promise<Outcome> {
+  const { database, ring } = deps;
+  const row = await dbGet<Row>(
+    database,
+    sql`SELECT * FROM ${appTable(database, spec.sql)} WHERE id = ${into} AND household_id = ${household}`,
+  );
+  if (!row) throw notFound();
+  const have: Record<string, FieldValue> = {};
+  for (const { field, column } of spec.plain)
+    have[field] = (row[column] as FieldValue | undefined) ?? null;
+  if (typeof row.sealed === 'string')
+    Object.assign(have, unsealRow(spec.sql, into, row.sealed, ring));
+  const additions = foldProductFields(have, change.fields);
+  const fold: Fold = { table: change.table, from: change.id, to: into };
+  await recordFold(database, household, fold, seq, now);
+  if (Object.keys(additions).length === 0) return { written: [into], fold };
+  const merged = await applyChange(
+    deps,
+    spec,
+    household,
+    { table: change.table, id: into, fields: additions },
+    seq,
+    now,
+  );
+  return { written: merged.written.length > 0 ? merged.written : [into], fold };
 }
 
 /** Every field a new row says is stamped with the counter it was made at. */

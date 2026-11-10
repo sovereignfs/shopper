@@ -26,6 +26,8 @@ const DECIDED_APP: Record<string, string> = {
   person: 'kept as a name only: the account link, the core identity and the email are gone',
   household:
     'deleted with the account when nobody else is in it, else passed on; the person leaves it',
+  alias: 'a household’s, deleted with it; ids only',
+  tombstone: 'a household’s, deleted with it; ids only',
   applied_mutation: 'the account’s own record of what it sent, deleted by account_id',
   member: 'ended (left_at), or deleted with a household nobody else is in',
   category: 'a household’s, deleted with it',

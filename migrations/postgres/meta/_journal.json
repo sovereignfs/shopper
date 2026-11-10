@@ -43,6 +43,13 @@
       "when": 1794325899252,
       "tag": "0005_applied_mutation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794336411660,
+      "tag": "0006_alias_and_tombstone",
+      "breakpoints": true
     }
   ]
 }
