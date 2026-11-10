@@ -110,7 +110,7 @@ job on it, the rotation of the encryption key (1.11);** trips, mail, notices and
 
 **Done as:** `src/security/csp.ts` and its tests copied from Tusk and renamed (the nonce policy, `connect-src 'self'`, no `'unsafe-inline'` in `script-src`, the response headers and HSTS over https); `proxy.ts` is Tusk's reduced to the nonce, the policy and HSTS, with its own tests: the sign-in pages that answer 404 when local sign-in is off and `/` for someone with a session cookie are left to 2.1 and 2.2, which add them to it. `next.config.ts` sends the headers every response has; the layout waits for the connection so that every page is rendered per request and carries its nonce. `/api/live`'s `text/event-stream` headers are 6.4's (phase 2). **Seen on the built server:** a page, a 404 and `/api/health` each carry the security headers, and the two pages the policy with a nonce of their own.
 
-#### 📋 1.8 — Design system boundary and shell
+#### ✅ 1.8 — Design system boundary and shell
 
 **Goal:** `@sovereignfs/ui` wired in, with the app's frame. **Design:** §16.1, §16.2. **Depends on:** 1.2.
 
@@ -119,6 +119,8 @@ bell's place is left for 9.2) and the sidebar's frame (_Add item_ and the sectio
 and error pages, the error page saying plainly that nothing is lost (the plugin's lesson). The places are filled by epic 8.
 
 **Accepts when:** the shell renders in light and dark at desktop and phone widths, with no literal colour anywhere.
+
+**Done as:** `src/theme/` (the theme script and choice, with their tests), `src/ui/` (`AppShell`, `SidebarToggle`, `useSidebar` and the pure `sidebar.ts`, `mobile-nav`, the CSS check `design-tokens.ts` with its test, `no-fork.test.ts`) copied from Tusk and renamed; the wordmark is _shopper._ and the sidebar opens full on every page (Tusk's rail on non-home pages is not Shopper's). **Left to later tasks, said here:** the phone's `MobileFooter` and its content (8.8, whose list is Lists and Settings, since the footer's links must have pages to go to), the bell and avatar menu slots (9.2, 2.6), the `UndoProvider` (8.2), `contrast.ts` (no colour here is data; a household's colour is a token) and `motion.test.ts` (no stylesheet animates yet). The frame is `ShellFrame` (header, `AppSidebar` with a place for the lists, the page, and on a phone the same places in a `Drawer`), shown at `/shell`, which is also the page 1.12's service worker keeps. `app/not-found.tsx`, `error.tsx` (which says that nothing is lost) and `loading.tsx`; the app's mark is `public/icons/icon.svg` (a bag with a tick: new; the PNG sizes arrive with 1.12). The layout serves the tokens and the theme script with the request's nonce. **Seen** in the browser pane at `/shell`: desktop in light, and a 375 px phone in dark with the drawer opening, with no console error; the tests hold the app's CSS to `--sv-*` tokens alone.
 
 #### 📋 1.9 — Browser tests
 

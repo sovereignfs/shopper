@@ -1,0 +1,38 @@
+'use client';
+
+import type { ReactNode } from 'react';
+import { site } from '../site';
+import { Drawer, useIsMobile } from '@sovereignfs/ui';
+import { AppShell } from '../ui/AppShell';
+import { MobileNavProvider, useMobileNav } from '../ui/mobile-nav';
+import { SidebarToggle } from '../ui/SidebarToggle';
+import { AppFrame } from './AppFrame';
+import { DrawerNavigation } from './AppSidebar';
+
+/**
+ * The frame of a signed-in page with nothing in it yet: the header, the sidebar and the page. **It is the one composition**: the signed-in area
+ * (task 2.2 onward) and the page the service worker keeps (task 1.12) both make it, with what they have to put in it, so that the app is the same in
+ * both. It holds nothing of a person.
+ */
+export function ShellFrame({ children }: { children: ReactNode }) {
+  return (
+    <MobileNavProvider>
+      <AppShell name={site.name} toolbar={<SidebarToggle />}>
+        <AppFrame>{children}</AppFrame>
+        <NavigationDrawer />
+      </AppShell>
+    </MobileNavProvider>
+  );
+}
+
+/** On a phone the header's button opens the navigation in a drawer: the same places by the same addresses, and only what is drawn differs. */
+function NavigationDrawer() {
+  const nav = useMobileNav();
+  const mobile = useIsMobile();
+  if (!mobile) return null;
+  return (
+    <Drawer open={nav.open} onClose={() => nav.setOpen(false)} aria-label="Navigation">
+      <DrawerNavigation />
+    </Drawer>
+  );
+}
