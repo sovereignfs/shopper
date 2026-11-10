@@ -197,3 +197,26 @@ export const tombstone = app.table(
     index('tombstone_household_seq_idx').on(table.householdId, table.seq),
   ],
 );
+
+/**
+ * A shopping list of a household (DESIGN.md §9.1). `sealed` holds its name; `position` orders the household's lists (a fractional key, §9.6); `clearing` is
+ * how bought items leave it, `manual` in 0.1.0 (§9.5). **Archived** (`archived_at`) lists are kept and offered to restore; **deleted** (`deleted_at`) is a
+ * soft delete that an edit undoes; **deleted for good** is an Admin's online operation on an archived list that removes the row, its items, and leaves a
+ * tombstone.
+ */
+export const list = app.table(
+  'list',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    sealed: sealed('sealed').notNull(),
+    position: position('position').notNull(),
+    clearing: text('clearing').notNull().default('manual'),
+    archivedAt: epochMs('archived_at'),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [index('list_household_seq_idx').on(table.householdId, table.seq)],
+);

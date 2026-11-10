@@ -87,7 +87,7 @@ module. **Done when** the property tests hold and a mutation is applied, merged,
 | 22  | [5.1](docs/epics/items.md)   | Actions and validators              | P0       | 4.1, 4.2, 4.6 | ✅     |
 | 23  | [5.2](docs/epics/items.md)   | Applying a mutation, field by field | P0       | 5.1, 3.2      | ✅     |
 | 24  | [5.3](docs/epics/items.md)   | Folding and aliases                 | P0       | 5.2           | ✅     |
-| 25  | [5.4](docs/epics/items.md)   | Lists                               | P0       | 5.2           | 📋     |
+| 25  | [5.4](docs/epics/items.md)   | Lists                               | P0       | 5.2           | ✅     |
 | 26  | [5.5](docs/epics/items.md)   | Items, ticking and clearing         | P0       | 5.3, 5.4      | 📋     |
 | 27  | [4.3](docs/epics/catalog.md) | The starter catalog                 | P1       | 4.2           | 📋     |
 | 28  | [4.4](docs/epics/catalog.md) | Suggestions                         | P1       | 4.3, 5.5      | 📋     |

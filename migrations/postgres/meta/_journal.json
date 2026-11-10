@@ -50,6 +50,13 @@
       "when": 1794336411660,
       "tag": "0006_alias_and_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794336804375,
+      "tag": "0007_list",
+      "breakpoints": true
     }
   ]
 }

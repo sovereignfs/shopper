@@ -2,7 +2,11 @@ import { getConfig } from '../config/current';
 import type { KeyRing } from '../crypto/keys';
 import { getDatabase } from '../db/boot';
 import type { Database } from '../db/client';
-import { createHousehold, ensureStarterCategories } from '../households/households';
+import {
+  createHousehold,
+  ensureFirstList,
+  ensureStarterCategories,
+} from '../households/households';
 import { ensurePerson } from './people';
 
 /** An account as the records are made from it. */
@@ -32,6 +36,7 @@ export async function makeAccountRecords(
   });
   // A household made before the starter categories existed, or whose making was cut short, has them by the account's next request.
   await ensureStarterCategories(database, householdId);
+  await ensureFirstList(database, ring, householdId, now);
   return { personId: person.id, householdId };
 }
 

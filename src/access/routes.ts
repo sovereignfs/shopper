@@ -91,4 +91,10 @@ export const ACCESS: readonly Access[] = [
     who: 'signed-in',
     note: 'The online operations: each says who may do it, and an outsider gets not found.',
   },
+  {
+    kind: 'operation',
+    address: 'list.delete',
+    who: 'admin',
+    note: 'An Admin deletes an archived list of the household for good; a Member, an outsider and an unknown list read as not found.',
+  },
 ];

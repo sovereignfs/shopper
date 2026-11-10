@@ -32,6 +32,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
   { table: 'person' },
   { table: 'household' },
   { table: 'category' },
+  { table: 'list' },
   {
     // A product's name key is an HMAC under a key derived from the instance key, so it changes with the key and is recomputed with the row.
     table: 'product',

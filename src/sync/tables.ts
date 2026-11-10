@@ -10,7 +10,7 @@ import { productNameKey } from '../catalog/product-key';
  * is the only way a field's name reaches SQL). `refs` are the fields that name another row, which must be **the household's own**. Everything else a table has
  * (its `seq`, its `fseq`, its name key) is the server's.
  *
- * A table is added here by the task that makes it: products with their table (4.1, here), lists (5.4) and items (5.5).
+ * A table is added here by the task that makes it: products with their table (4.1), lists (5.4, here) and items (5.5).
  */
 export interface ColumnOf {
   readonly field: string;
@@ -38,6 +38,20 @@ export interface TableSpec {
 }
 
 export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
+  list: {
+    table: 'list',
+    sql: 'list',
+    sealed: ['name'],
+    plain: [
+      { field: 'position', column: 'position' },
+      { field: 'clearing', column: 'clearing' },
+      { field: 'archivedAt', column: 'archived_at' },
+      { field: 'deletedAt', column: 'deleted_at' },
+      { field: 'createdAt', column: 'created_at' },
+    ],
+    refs: {},
+    limit: { kind: 'householdLists', of: (limits) => limits.householdLists },
+  },
   product: {
     table: 'product',
     sql: 'product',

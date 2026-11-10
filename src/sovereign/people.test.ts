@@ -31,6 +31,7 @@ const DECIDED_APP: Record<string, string> = {
   applied_mutation: 'the account’s own record of what it sent, deleted by account_id',
   member: 'ended (left_at), or deleted with a household nobody else is in',
   category: 'a household’s, deleted with it',
+  list: 'a household’s, deleted with it',
   product:
     'a household’s, deleted with it; what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',

@@ -5,6 +5,7 @@ import { adminOf, memberOf } from '../access/membership';
 import { sql } from 'drizzle-orm';
 import { dbGet } from '../db/exec';
 import { personOfAccount } from '../people/people';
+import { deleteList } from './list-ops';
 
 /**
  * **The online operations** (DESIGN.md §12.8): households, membership, roles, invitations and moving a list are decided by the server at once, never queued
@@ -37,7 +38,7 @@ export interface Operation {
 }
 
 /** Every operation there is. Each task that adds one lists it here, and in `src/access/routes.ts`. */
-export const OPERATIONS: readonly Operation[] = [];
+export const OPERATIONS: readonly Operation[] = [deleteList];
 
 export interface Reply {
   readonly status: number;

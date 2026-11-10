@@ -214,7 +214,8 @@ async function applyChange(
       ['household_id', household],
     ];
     for (const { field, column } of spec.plain)
-      columns.push([column, merged.values[field] ?? change.fields[field] ?? null]);
+      // Only the fields the row was made with: the others take the table's defaults (a list's clearing rule), not a null.
+      if (field in change.fields) columns.push([column, change.fields[field] ?? null]);
     columns.push(['sealed', sealedText ?? null]);
     for (const [column, value] of Object.entries(derived)) columns.push([column, value]);
     columns.push(['seq', seq], ['fseq', JSON.stringify(stampsOf(change, seq))]);

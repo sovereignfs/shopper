@@ -6,6 +6,7 @@
 export const HOUSEHOLD_TABLES: readonly string[] = [
   'member',
   'category',
+  'list',
   'product',
   'alias',
   'tombstone',

@@ -23,6 +23,7 @@ export const SEALED: SealedRegistry = {
   household: ['name'],
   product: ['name', 'note'],
   category: ['name'],
+  list: ['name'],
 };
 
 /** A sealed field's value: text, or a number (money, in phase 2), or nothing. */

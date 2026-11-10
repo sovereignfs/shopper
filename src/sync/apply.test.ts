@@ -363,10 +363,18 @@ describe(`what is refused (${leg})`, () => {
       ada.accountId,
       mutation(ada.household, [
         {
-          table: 'list',
+          table: 'item',
           id: crypto.randomUUID(),
           create: true,
-          fields: { name: 'x', position: 'a0', createdAt: 1 },
+          fields: {
+            listId: crypto.randomUUID(),
+            productId: crypto.randomUUID(),
+            name: 'x',
+            quantity: '1',
+            position: 'a0',
+            addedBy: crypto.randomUUID(),
+            addedAt: 1,
+          },
         },
       ]),
     );

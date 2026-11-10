@@ -7,6 +7,7 @@ import { appTable } from '../db/tables';
 import { adminOf, memberOf } from '../access/membership';
 import { STARTER_CATEGORIES, STARTER_POSITIONS } from '../catalog/categories';
 import { canSeeEmail } from '../people/visibility';
+import { STARTER_POSITIONS as _unused } from '../catalog/categories';
 import { householdLabel } from './label';
 
 /**
@@ -74,6 +75,7 @@ export async function createHousehold(
           ON CONFLICT (household_id, person_id) DO NOTHING RETURNING id`,
     );
     await insertStarterCategories(tx, id, 1);
+    await insertGroceries(tx, ring, id, 1, now);
     return id;
   });
 }
@@ -123,6 +125,54 @@ export async function ensureStarterCategories(
     );
     if (!stepped) return 0;
     return insertStarterCategories(tx, household, Number(stepped.seq));
+  });
+}
+
+/** The name of the list every household is made with (DESIGN.md §7.1). */
+export const FIRST_LIST_NAME = 'Groceries';
+
+/** Makes the _Groceries_ list of a household at `seq`, sealed, in the first position. */
+async function insertGroceries(
+  database: Database,
+  ring: KeyRing,
+  household: string,
+  seq: number,
+  now: number,
+): Promise<void> {
+  const id = crypto.randomUUID();
+  const fields = ['name', 'position', 'clearing', 'createdAt'];
+  await dbAll(
+    database,
+    sql`INSERT INTO ${appTable(database, 'list')} (id, household_id, sealed, position, clearing, seq, fseq, created_at)
+        VALUES (${id}, ${household}, ${sealRow('list', id, { name: FIRST_LIST_NAME }, ring)}, 'a0', 'manual', ${seq},
+                ${JSON.stringify(Object.fromEntries(fields.map((f) => [f, seq])))}, ${now}) RETURNING id`,
+  );
+}
+
+/**
+ * Gives a household made before lists existed its _Groceries_ list: **only if it has never had a list**, which is a household with no list row and no
+ * list tombstone, so that one whose people deleted every list is not given one back. Idempotent, and steps the counter only when it made one.
+ */
+export async function ensureFirstList(
+  database: Database,
+  ring: KeyRing,
+  household: string,
+  now: number = Date.now(),
+): Promise<boolean> {
+  return transaction(database, async (tx) => {
+    const had = await dbGet<{ n: number | string }>(
+      tx,
+      sql`SELECT (SELECT COUNT(*) FROM ${appTable(tx, 'list')} WHERE household_id = ${household})
+               + (SELECT COUNT(*) FROM ${appTable(tx, 'tombstone')} WHERE household_id = ${household} AND table_name = 'list') AS n`,
+    );
+    if (Number(had?.n) > 0) return false;
+    const stepped = await dbGet<{ seq: number | string }>(
+      tx,
+      sql`UPDATE ${appTable(tx, 'household')} SET seq = seq + 1 WHERE id = ${household} RETURNING seq`,
+    );
+    if (!stepped) return false;
+    await insertGroceries(tx, ring, household, Number(stepped.seq), now);
+    return true;
   });
 }
 
