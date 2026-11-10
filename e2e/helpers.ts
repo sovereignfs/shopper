@@ -57,6 +57,15 @@ export async function signUp(
   return email;
 }
 
+/**
+ * Forgets the session the way a browser that lost it would: the page is left first, because a signed-in page syncs in the background and, finding its session
+ * gone, sends itself to sign-in (DESIGN.md §12.10), which would meet the next thing a test does with the page.
+ */
+export async function forgetSession(page: Page): Promise<void> {
+  await page.goto('about:blank');
+  await page.context().clearCookies();
+}
+
 /** Whether the browser has a session, asked of the server as the app's own pages ask it. */
 export async function sessionOf(
   page: Page,

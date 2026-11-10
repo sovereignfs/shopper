@@ -3,25 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UserMenu } from '@sovereignfs/ui';
-import { authClient } from '../auth/client';
+import { useLocal } from '../local/react';
 
 /**
- * The avatar menu at the right of the header: who the person is (name and address) and _Sign out_. Settings is the other entry. Signing out
- * ends the session and returns to the front address. **Task 6.2 makes it leave the device as well:** it tries to send what is waiting, asks before it
- * throws away what it cannot, and deletes this account's store from the device.
+ * The avatar menu at the right of the header: who the person is (name and address) and _Sign out_. Settings is the other entry. Signing out leaves the
+ * device (`src/local/signout.ts`): it tries to send what is waiting, asks before it throws away what it cannot, ends the session, deletes this account's
+ * working copy from the device and returns to the front address.
  */
 export function AccountMenu({ name, email }: { name: string; email: string }) {
   const router = useRouter();
+  const { leave } = useLocal();
   const [leaving, setLeaving] = useState(false);
 
   async function signOut() {
     setLeaving(true);
-    const { error } = await authClient.signOut();
-    // A session that is already gone is as signed out as one that was just ended; only a failure to reach the server is a failure.
-    if (error && error.status !== 401) {
-      setLeaving(false);
-      return;
-    }
+    // Not left: the person kept their unsent changes, or the server could not be reached to end the session. Either way they are as they were.
+    if ((await leave()).status !== 'left') return setLeaving(false);
     window.location.assign('/');
   }
 

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { authClient } from '../auth/client';
 import { messageFor } from '../auth/messages';
+import { deleteLocal } from '../local/db';
+import { useLocal } from '../local/react';
 import { Alert, Button, FormField, Input } from '@sovereignfs/ui';
 import styles from './Account.module.css';
 
@@ -24,6 +26,7 @@ interface Preview {
  * out at their next sync, when their session has ended (task 6.2 also deletes this device's store).
  */
 export function DeleteAccountSection() {
+  const { accountId } = useLocal();
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [password, setPassword] = useState('');
@@ -70,6 +73,8 @@ export function DeleteAccountSection() {
       // page and not a sign-in for an account that does not exist.
       setPassword('');
       await authClient.signOut().catch(() => undefined);
+      // The account's lists go from this device with it: there is nothing to send them to.
+      await deleteLocal(accountId).catch(() => undefined);
       window.location.assign('/');
     } catch {
       setProblem('That needs a connection.');

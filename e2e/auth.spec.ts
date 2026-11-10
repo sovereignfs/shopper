@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { PASSWORD, PHONE, newEmail, sessionOf, signUp, test } from './helpers';
+import { PASSWORD, PHONE, forgetSession, newEmail, sessionOf, signUp, test } from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -16,7 +16,7 @@ test('signing in with the right password signs in, and signing in again, signed 
   page,
 }) => {
   const email = await signUp(page);
-  await page.context().clearCookies();
+  await forgetSession(page);
   expect(await sessionOf(page)).toBeNull();
 
   await page.goto('/sign-in');
@@ -35,7 +35,7 @@ test('a wrong password reads the same as an address with no account, and signs n
   page,
 }) => {
   const email = await signUp(page);
-  await page.context().clearCookies();
+  await forgetSession(page);
   const messages: string[] = [];
   for (const address of [email, newEmail('nobody')]) {
     await page.goto('/sign-in');
@@ -116,7 +116,7 @@ test('an account is deleted with its password, and nothing of it signs in again'
   expect(done.status()).toBe(204);
   expect(await sessionOf(page)).toBeNull();
 
-  await page.context().clearCookies();
+  await forgetSession(page);
   await page.goto('/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);
@@ -136,7 +136,7 @@ test.describe('an instance closed to sign-up', () => {
     await page.goto(`${base}/sign-up`);
     if (await page.getByRole('heading', { name: 'Create your account' }).isVisible()) {
       await signUp(page, { base });
-      await page.context().clearCookies();
+      await forgetSession(page);
     }
     const reply = await request.post(`${base}/api/auth/sign-up/email`, {
       headers: { origin: base, 'x-forwarded-for': ip },
