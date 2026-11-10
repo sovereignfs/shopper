@@ -1,4 +1,4 @@
-import { index, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { bool, counter, decimal, epochMs, fseq, id, position, ref, sealed } from './columns';
 
 /**
@@ -143,4 +143,21 @@ export const category = sqliteTable(
     uniqueIndex('category_household_starter_key_idx').on(table.householdId, table.starterKey),
     index('category_household_seq_idx').on(table.householdId, table.seq),
   ],
+);
+
+/**
+ * **Every mutation the server has applied** (DESIGN.md §12.3), by the account that sent it and the id the device made, with the household's `seq` it
+ * was applied at. A mutation sent again, because an answer was lost, finds its row and **writes nothing**: it is answered as it was. Pruned after ninety
+ * days with the history (task 6.6, phase 2). Not a row of a household's: it is the account's, and goes with it (`deletePerson`).
+ */
+export const appliedMutation = sqliteTable(
+  'applied_mutation',
+  {
+    accountId: ref('account_id').notNull(),
+    id: ref('id').notNull(),
+    householdId: ref('household_id').notNull(),
+    seq: counter('seq').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.id] })],
 );

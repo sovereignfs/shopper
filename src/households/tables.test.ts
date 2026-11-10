@@ -13,6 +13,8 @@ describe("a household's tables", () => {
     const carrying = tables
       .filter((config) => config.columns.some((column) => column.name === 'household_id'))
       .map((config) => config.name)
+      // The record of mutations an account sent is the account's, and goes with it (`deletePerson`); it holds ids and a counter, no content.
+      .filter((name) => name !== 'applied_mutation')
       .sort();
     expect([...HOUSEHOLD_TABLES].sort()).toEqual(carrying);
   });

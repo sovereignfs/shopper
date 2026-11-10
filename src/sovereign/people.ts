@@ -16,7 +16,7 @@ import { HOUSEHOLD_TABLES } from '../households/tables';
  *  1. The households the person is in. **Where they were the only Admin and others remain, the Admin role passes to the member who has been in longest**
  *     (who is told, in phase 2); where nobody else remains, the household is deleted with everything of it, by `household_id`; elsewhere they simply
  *     leave. A household that changes has its counter stepped, so that its other members' devices learn of it. What they added stays, by their name.
- *  2. What was kept for them: the rate counters that carry their account.
+ *  2. What was kept for them: the record of the mutations they sent, and the rate counters that carry their account.
  *  3. The sign-in store: sessions, sign-ins, pending verifications, and then the account.
  *  4. Their person is kept **as a name only**: the link to the account and to a core identity cleared, the email gone from the sealed row, `deleted_at` set.
  *     Everywhere they appear in a shared household they are shown as "Kasun (left Shopper)".
@@ -80,7 +80,11 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     }
   }
 
-  // 2. What was kept for them.
+  // 2. What was kept for them: the record of the mutations they sent, and the rate counters that carry their account.
+  await dbAll(
+    database,
+    sql`DELETE FROM ${appTable(database, 'applied_mutation')} WHERE account_id = ${accountId} RETURNING id`,
+  );
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'rate_bucket')} WHERE "key" LIKE ${`%:${accountId}`} RETURNING "key"`,
