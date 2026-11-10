@@ -56,7 +56,7 @@ CI proves it.
 | 7   | [1.8](docs/epics/foundation.md)  | Design system boundary and shell | P0       | 1.2        | ✅     |
 | 8   | [1.7](docs/epics/foundation.md)  | Security headers                 | P0       | 1.4        | ✅     |
 | 9   | [1.6](docs/epics/foundation.md)  | The job runner                   | P1       | 1.5        | ✅     |
-| 10  | [1.9](docs/epics/foundation.md)  | Browser tests                    | P0       | 1.5        | 📋     |
+| 10  | [1.9](docs/epics/foundation.md)  | Browser tests                    | P0       | 1.5        | ✅     |
 
 ### Milestone B — Accounts and your first household
 

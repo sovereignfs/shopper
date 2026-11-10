@@ -15,7 +15,7 @@ on:
 # A push to main runs, because a rebase-and-merge makes new commits and the pull request's run does not vouch for the one that lands. The weekly
 # schedule runs every job, because it exists to catch what a dependency broke.
 #
-# The legs for the browsers (task 1.9) and the image (1.10) join this file with those tasks.
+# The image leg (task 1.10) joins this file with that task.
 
 permissions:
   contents: read
@@ -220,6 +220,23 @@ jobs:
           SHOPPER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
           SHOPPER_ENCRYPTION_KEY: Y2ktb25seS1rZXktY2ktb25seS1rZXktY2ktb25seS0=
 
+      # What only a browser can show (task 1.9), on this leg's database, **before the unit tests**, which put rows of their own in the same database: the
+      # smoke spec, in Chromium. The server is the one built above, started from the same variables. The whole of the browser tests, in both browsers, is
+      # the `browser` job below.
+      - name: Install the browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser tests on this database
+        run: pnpm e2e --project=chromium e2e/smoke.spec.ts
+      - name: Keep the report of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-${{ matrix.database }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
       # A leg sets the variables an operator would set, and the boot above used them as they are. The tests are given the same database under
       # SHOPPER_TEST_* names instead, because they drop whole schemas and namespaces and must never be pointed at a real database by the
       # variables a developer might have exported (src/db/test-support.ts).
@@ -237,3 +254,34 @@ jobs:
         run: shellcheck -x scripts/*.sh
       - name: The classifier's tests
         run: scripts/test-ci-changes.sh
+
+  # All of the browser tests, in Chromium and in WebKit, on a SQLite file. The legs above run a few of them on each database form.
+  browser:
+    name: browser tests (Chromium and WebKit)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm e2e
+      - name: Keep the report of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

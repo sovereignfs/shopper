@@ -125,7 +125,7 @@ and error pages, the error page saying plainly that nothing is lost (the plugin'
 
 **Done as:** `src/theme/` (the theme script and choice, with their tests), `src/ui/` (`AppShell`, `SidebarToggle`, `useSidebar` and the pure `sidebar.ts`, `mobile-nav`, the CSS check `design-tokens.ts` with its test, `no-fork.test.ts`) copied from Tusk and renamed; the wordmark is _shopper._ and the sidebar opens full on every page (Tusk's rail on non-home pages is not Shopper's). **Left to later tasks, said here:** the phone's `MobileFooter` and its content (8.8, whose list is Lists and Settings, since the footer's links must have pages to go to), the bell and avatar menu slots (9.2, 2.6), the `UndoProvider` (8.2), `contrast.ts` (no colour here is data; a household's colour is a token) and `motion.test.ts` (no stylesheet animates yet). The frame is `ShellFrame` (header, `AppSidebar` with a place for the lists, the page, and on a phone the same places in a `Drawer`), shown at `/shell`, which is also the page 1.12's service worker keeps. `app/not-found.tsx`, `error.tsx` (which says that nothing is lost) and `loading.tsx`; the app's mark is `public/icons/icon.svg` (a bag with a tick: new; the PNG sizes arrive with 1.12). The layout serves the tokens and the theme script with the request's nonce. **Seen** in the browser pane at `/shell`: desktop in light, and a 375 px phone in dark with the drawer opening, with no console error; the tests hold the app's CSS to `--sv-*` tokens alone.
 
-#### 📋 1.9 — Browser tests
+#### ✅ 1.9 — Browser tests
 
 **Goal:** Playwright on the built app. **Design:** §21 Testing. **Depends on:** 1.5.
 
@@ -133,6 +133,8 @@ and error pages, the error page saying plainly that nothing is lost (the plugin'
 browser context (for sync tests), for going offline (`context.setOffline`), and for a phone's viewport.
 
 **Accepts when:** a smoke test opens the built app on each database form in CI.
+
+**Done as:** `playwright.config.ts` (Chromium and WebKit, one instance on the database the environment names or a file of its own, the instance's settings blanked so that a developer's `.env` cannot reach it), `e2e/ports.ts` and `scripts/serve-standalone.mjs` adapted from Tusk (the other instances, the fake Sovereign and the sharding script are left for the tasks that need them). `e2e/helpers.ts` is new: the phone's viewport, `offline` and `online` for a context, and `anotherDevice` for a second person or device in a context of its own. `e2e/smoke.spec.ts` is Tusk's, adapted to `/shell`: health on the database's dialect, the shell's header and wordmark, no policy violation or console error, an inline handler refused by the browser, a not-found page with a way back, the first paint dark, a phone's width with nothing to scroll sideways, and the typeface served from this origin. CI runs it in Chromium on each database leg and in both browsers in a `browser` job. **Seen:** 14 tests passing, in both browsers, against the built app.
 
 #### 📋 1.10 — The image and deployment setups
 

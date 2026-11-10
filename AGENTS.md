@@ -159,7 +159,7 @@ task's "Accepts when" says.
 | `pnpm lint`         | ESLint, strict TypeScript and jsx-a11y (`pnpm lint:fix` fixes)                            |
 | `pnpm test`         | Vitest, files one after another                                                           |
 
-Not yet: `seed`, `e2e`, `manifest:check`, `scripts/deploy-check.sh`.
+Not yet: `seed`, `manifest:check`, `scripts/deploy-check.sh`.
 
 ## Layout
 
