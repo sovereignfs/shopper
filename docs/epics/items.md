@@ -19,7 +19,7 @@ phase 2.
 
 ## Tasks
 
-#### 📋 5.1 — Actions and validators
+#### ✅ 5.1 — Actions and validators
 
 **Goal:** every recorded action as a pure function from intent to a mutation. **Design:** §12.2. **Depends on:** 4.1, 4.2, 4.6.
 
@@ -31,6 +31,8 @@ applying (shapes, sizes, decimal quantities, known units, references within the 
 
 **Accepts when:** each action has unit tests; the validators refuse every malformed case in a table; nothing in `src/actions/` imports from the server
 or the browser.
+
+**Done as:** `src/actions/`, new and pure. `rows.ts` is the rows as a device holds them (lists, products and items, camelCase, sealed fields in the clear, and `itemState`: open, bought, cleared or deleted); `format.ts` is **the one definition of a mutation** (`Change`, `Mutation`, `FIELDS`: for each synced table the fields it has, each with its shape, and which a create needs; a field not named is refused, so a device cannot send what only the server sets, such as a product's name key or how often it was bought; categories have no entry in 0.1.0); `position.ts` (fractional keys, with the tie broken by id); `env.ts` (the time and `newId` are parameters); `items.ts` (add, add to an open item, edit with "remember for next time", tick, untick, delete, restore, move, clear bought and its undo) and `lists.ts` (make, rename, reorder, archive, restore), each returning a mutation of **only the fields that differ** or `null` when it would say nothing; and `validate.ts`, **the one validator** the browser runs before it queues and the server before it applies: shape, ids, tables, each field's shape, that a create has what it needs, that no row is named twice, and a limit on size; a problem names the field and never the value. It cannot check what needs the database (that what a field names is the household's own), which apply does in the statement (5.2). The actions are grouped in two modules rather than one each. `zod` (3.2) is what the shapes are written in. **Tests (64):** each action, that every mutation an action makes passes the validator, a table of 39 malformed mutations each refused with its reason, ids and positions, and that nothing in `src/actions` imports the server, the browser, a store, a clock or the random source.
 
 #### 📋 5.2 — Applying a mutation, field by field
 
