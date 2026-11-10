@@ -50,7 +50,7 @@ for the device store's tests (6.2); `fast-check` for the property tests (5.2, 5.
 
 **Done as:** Prettier and ESLint as Tusk's (`prettier.config.ts`, `eslint.config.ts` and `types/` copied; the `tools/` ignore left out until there are tools); Vitest 5 with the design system inlined and files run one after another (`vitest.config.ts` is Tusk's without its operator-key setup file); `fake-indexeddb` and `fast-check` installed for 6.2 and 5.2. Scripts `format`, `format:check`, `lint`, `lint:fix`, `typecheck`, `test`; the one real test is `src/site.test.ts`. A planted unformatted file, an unused variable, a type error and a failing test were each seen to fail their check.
 
-#### 📋 1.3 — Continuous integration
+#### ✅ 1.3 — Continuous integration
 
 **Goal:** CI that runs what a change can affect. **Design:** §21. **Depends on:** 1.2.
 
@@ -58,6 +58,8 @@ for the device store's tests (6.2); `fast-check` for the property tests (5.2, 5.
 with 1.10, the browser with 1.9. Skipped on drafts and `skip-ci`.
 
 **Accepts when:** a PR runs only the legs its files affect, and a failing leg fails the PR.
+
+**Done as:** `.github/workflows/ci.yml`, `scripts/ci-changes.sh` and its tests copied from Tusk (the action versions pinned by hash as there; the classifier unchanged, one test path renamed). Legs: `what changed` (the draft and `skip-ci` guard, and the classifier), `check` (format, lint, types, tests and build) and `shell scripts` (shellcheck and the classifier's own tests). Left out until their tasks: the database legs and the migrations check (1.5), the browser and image legs (1.9, 1.10), the manifest check (1.10), `test:zones` and the release script's tests (no such code here). Nothing has run on GitHub yet, since nothing is pushed.
 
 #### 📋 1.4 — Configuration and start-up
 
