@@ -11,31 +11,50 @@ const accountId = async (page: Page) => {
   return session?.user.id ?? '';
 };
 
+/**
+ * A page that is navigating while it is asked a question has no answer, and a poll asks again: the page reloads on its own (a reset, a sign-out), and a
+ * question that lands in the middle of it is not a failure.
+ */
+async function whileNavigating<T>(ask: Promise<T>, otherwise: T): Promise<T> {
+  try {
+    return await ask;
+  } catch (error) {
+    if (/context was destroyed|navigat|closed/i.test(String(error))) return otherwise;
+    throw error;
+  }
+}
+
 /** Reads a store of the account's database as the page sees it. */
 const read = (page: Page, account: string, store: string) =>
-  page.evaluate(
-    ([name, storeName]) =>
-      new Promise<unknown[]>((resolve, reject) => {
-        const open = indexedDB.open(name as string);
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          const request = db
-            .transaction(storeName as string)
-            .objectStore(storeName as string)
-            .getAll();
-          request.onsuccess = () => {
-            db.close();
-            resolve(request.result);
+  whileNavigating(
+    page.evaluate(
+      ([name, storeName]) =>
+        new Promise<unknown[]>((resolve, reject) => {
+          const open = indexedDB.open(name as string);
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result;
+            const request = db
+              .transaction(storeName as string)
+              .objectStore(storeName as string)
+              .getAll();
+            request.onsuccess = () => {
+              db.close();
+              resolve(request.result);
+            };
+            request.onerror = () => reject(request.error);
           };
-          request.onerror = () => reject(request.error);
-        };
-      }),
-    [`shopper-${account}`, store],
+        }),
+      [`shopper-${account}`, store],
+    ),
+    [],
   );
 
 const databases = (page: Page) =>
-  page.evaluate(async () => (await indexedDB.databases()).map((db) => db.name));
+  whileNavigating(
+    page.evaluate(async () => (await indexedDB.databases()).map((db) => db.name)),
+    [] as (string | undefined)[],
+  );
 
 test('a signed-in page holds the account’s household on the device, filled by the sync loop', async ({
   page,
@@ -117,4 +136,154 @@ test('another account on the same browser has a database of its own', async ({ p
   const mine = (await read(other, second, 'household')) as { id: string }[];
   const theirs = (await read(other, first, 'household').catch(() => [])) as { id: string }[];
   expect(theirs.map((h) => h.id).filter((id) => mine.some((m) => m.id === id))).toEqual([]);
+});
+
+/** Puts a mutation in the device's outbox as a screen that wrote it would have: the loop then sends it, and the server decides. */
+const queue = (page: Page, account: string, mutation: unknown) =>
+  page.evaluate(
+    ([name, value]) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open(name as string);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction('outbox', 'readwrite');
+          tx.objectStore('outbox').add({ mutation: value, queuedAt: Date.now() });
+          tx.oncomplete = () => {
+            open.result.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    [`shopper-${account}`, mutation],
+  );
+
+test('a change the server refuses is kept in Couldn’t sync with its sentence, and can be moved or discarded', async ({
+  page,
+}) => {
+  await signUp(page);
+  await page.goto('/home');
+  const account = await accountId(page);
+  await expect
+    .poll(async () => (await read(page, account, 'household')).length, { timeout: 15_000 })
+    .toBe(1);
+  const [household] = (await read(page, account, 'household')) as { id: string }[];
+  const [groceries] = (await read(page, account, 'list')) as { id: string }[];
+  const person = ((await read(page, account, 'member')) as { personId: string }[])[0]?.personId;
+  const uuid = () => crypto.randomUUID();
+  const deletedList = uuid();
+  const product = uuid();
+  const item = uuid();
+  const mutation = (listId: string) => ({
+    mutationId: uuid(),
+    householdId: household?.id,
+    changes: [
+      {
+        table: 'product',
+        id: product,
+        create: true,
+        fields: { name: 'Oat milk', createdAt: Date.now() },
+      },
+      {
+        table: 'item',
+        id: item,
+        create: true,
+        fields: {
+          listId,
+          productId: product,
+          name: 'Oat milk',
+          quantity: '2',
+          position: 'a0',
+          addedBy: person,
+          addedAt: Date.now(),
+        },
+      },
+    ],
+  });
+  await queue(page, account, mutation(deletedList));
+  await page.reload();
+
+  // The server refuses it; the device keeps it, and a toast says so.
+  await expect
+    .poll(async () => (await read(page, account, 'failed')).length, { timeout: 15_000 })
+    .toBe(1);
+  await expect(page.getByText(/Couldn.t add that/)).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Some changes could not be synced' })).toBeVisible();
+  expect(await read(page, account, 'outbox')).toHaveLength(0);
+
+  // The avatar menu leads to it, and it is read in words.
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: /Couldn.t sync \(1\)/ }).click();
+  await expect(page).toHaveURL(/section=device/);
+  const entry = page
+    .getByRole('list', { name: 'Changes that could not be synced' })
+    .getByRole('listitem');
+  await expect(entry).toContainText('Added Oat milk');
+  await expect(entry).toContainText('That list was deleted.');
+  await expect(page.getByText(/Last synced/)).toBeVisible();
+
+  // Moved to Groceries: it is a new change, which the server takes this time.
+  await entry.getByRole('combobox').selectOption({ label: 'Groceries' });
+  await entry.getByRole('button', { name: 'Move' }).click();
+  await expect(page.getByText(/Nothing is waiting here/)).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        ((await read(page, account, 'item')) as { name: string; listId: string; seq: number }[])
+          .filter((i) => i.seq > 0)
+          .map((i) => [i.name, i.listId]),
+      { timeout: 15_000 },
+    )
+    .toEqual([['Oat milk', groceries?.id]]);
+  await expect(page.getByRole('img', { name: 'Some changes could not be synced' })).toHaveCount(0);
+
+  // Another one is discarded, after asking.
+  await queue(page, account, {
+    ...mutation(deletedList),
+    mutationId: uuid(),
+    changes: [
+      {
+        table: 'item',
+        id: uuid(),
+        create: true,
+        fields: {
+          listId: deletedList,
+          productId: product,
+          name: 'Bread',
+          quantity: '1',
+          position: 'a1',
+          addedBy: person,
+          addedAt: Date.now(),
+        },
+      },
+    ],
+  });
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Changes that could not be synced' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole('button', { name: 'Discard' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click();
+  await expect(page.getByText(/Nothing is waiting here/)).toBeVisible();
+  expect(await read(page, account, 'failed')).toHaveLength(0);
+});
+
+test('resetting the device sends what is waiting, clears it and loads the household again', async ({
+  page,
+}) => {
+  await signUp(page);
+  await page.goto('/settings?section=device');
+  const account = await accountId(page);
+  await expect
+    .poll(async () => (await read(page, account, 'household')).length, { timeout: 15_000 })
+    .toBe(1);
+  const [before] = (await read(page, account, 'household')) as { id: string }[];
+  await page.getByRole('button', { name: 'Reset this device' }).click();
+  // Nothing was waiting, so it does not ask: the page reloads and the device fills again from the server.
+  await expect
+    .poll(async () => (await read(page, account, 'household')).length, { timeout: 20_000 })
+    .toBe(1);
+  const [after] = (await read(page, account, 'household')) as { id: string }[];
+  expect(after?.id).toBe(before?.id);
+  expect(await sessionOf(page)).not.toBeNull();
 });

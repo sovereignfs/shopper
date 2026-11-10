@@ -1,11 +1,16 @@
 import { type Mutation } from '../actions/format';
 import { validateMutation } from '../actions/validate';
 import { PROTOCOL, MAX_OUTBOX } from '../sync/protocol';
+import { remake } from './describe';
 import type { LocalDatabase } from './db';
 import {
   type Refusal,
   commitMutation,
   cursorsOf,
+  discardFailed,
+  failedCount,
+  failedOf,
+  itemsOf,
   lastSyncedAt,
   outboxSize,
   readOutbox,
@@ -126,6 +131,36 @@ export class SyncClient {
   /** The number of changes waiting to be sent. */
   pending(): Promise<number> {
     return outboxSize(this.options.db);
+  }
+
+  /** The number of changes the server refused and the person has not yet moved or discarded (Couldn't sync). */
+  failedCount(): Promise<number> {
+    return failedCount(this.options.db);
+  }
+
+  /** Gives up a refused change for good. */
+  async discard(n: number): Promise<void> {
+    await discardFailed(this.options.db, n);
+    this.announce('synced');
+  }
+
+  /**
+   * Moves a refused change to another list: **a new mutation made from it**, queued like any other, and taken out of Couldn't sync in the same write.
+   * Resolves `false` if it cannot be moved (it put nothing on a list, the list is not of its household, or it is already gone).
+   */
+  async move(n: number, listId: string): Promise<boolean> {
+    const db = this.options.db;
+    const entry = (await failedOf(db)).find((each) => each.n === n);
+    const list = await db.get('list', listId);
+    if (!entry || !list || list.deletedAt !== null) return false;
+    const last = (await itemsOf(db, list.id, { cleared: true })).at(-1)?.position ?? null;
+    const mutation = remake(entry.mutation, list, last, this.newId);
+    if (!mutation) return false;
+    const verdict = validateMutation(mutation);
+    if (!verdict.ok) throw new InvalidMutation(verdict.problem);
+    await commitMutation(db, verdict.mutation, this.now(), this.newId, n);
+    this.announce('write');
+    return true;
   }
 
   /**

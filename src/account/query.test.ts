@@ -5,6 +5,7 @@ describe('which section of Settings an address asks for', () => {
   it('opens the one it names, and Profile for anything else', () => {
     expect(sectionOf({ section: 'sign-in' })).toBe('sign-in');
     expect(sectionOf({ section: 'data' })).toBe('data');
+    expect(sectionOf({ section: 'device' })).toBe('device');
     for (const section of [undefined, '', 'nonsense', 'Sign-In', '__proto__', 'profile ']) {
       expect(sectionOf({ section })).toBe('profile');
     }

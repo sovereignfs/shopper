@@ -1,0 +1,17 @@
+/* The avatar, with a quiet mark while anything is in Couldn't sync (DESIGN.md §12.5). */
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.mark {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--sv-color-surface-raised);
+  border-radius: 50%;
+  background-color: var(--sv-color-warning-text);
+  pointer-events: none;
+}

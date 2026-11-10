@@ -1,9 +1,8 @@
 /**
  * Which part of Settings an address asks for (DESIGN.md §17): `/settings?section=sign-in`. Pure, so that what a stray or hostile address does is tested
- * with no browser. Only sections that exist can be asked for; an address that names another, or nothing, opens Profile. **This device** (task 6.3) and,
- * in phase 2, Notifications and Updates join the list with the tasks that build them.
+ * with no browser. Only sections that exist can be asked for; an address that names another, or nothing, opens Profile. In phase 2 Notifications and Updates join the list with the tasks that build them.
  */
-export const SECTIONS = ['profile', 'sign-in', 'data'] as const;
+export const SECTIONS = ['profile', 'device', 'sign-in', 'data'] as const;
 export type AccountSection = (typeof SECTIONS)[number];
 
 export interface AccountQuery {

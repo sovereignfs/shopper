@@ -212,7 +212,7 @@ export async function previewLeaving(
         JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
         JOIN ${appTable(database, 'household')} h ON h.id = m.household_id
         WHERE p.account_id = ${accountId} AND m.left_at IS NULL
-        ORDER BY m.joined_at`,
+        ORDER BY CASE WHEN h.own_of = ${accountId} THEN 0 ELSE 1 END, m.joined_at, m.household_id`,
   );
   return rows.map((row) => {
     const others = Number(row.others);

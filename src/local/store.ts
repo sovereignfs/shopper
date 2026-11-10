@@ -9,7 +9,14 @@ import {
 } from '../actions/format';
 import { canonicalName } from '../catalog/canonical';
 import type { HouseholdPull, SyncAnswer } from '../sync/protocol';
-import { type LocalDatabase, type LocalSchema, type OutboxEntry, WRITE_STORES } from './db';
+import {
+  type FailedEntry,
+  type LocalDatabase,
+  type LocalSchema,
+  type OutboxEntry,
+  WRITE_STORES,
+} from './db';
+import { type Kind, describeMutation } from './describe';
 import {
   type CategoryRow,
   type HouseholdRecord,
@@ -74,10 +81,13 @@ export async function commitMutation(
   mutation: Mutation,
   now: number,
   newId: () => string,
+  /** A Couldn't sync entry this mutation is made from: it is taken out of there in the same transaction, so that it is in one place or the other, never both and never neither. */
+  resolves?: number,
 ): Promise<Mutation | null> {
   return inTransaction(db, async (tx) => {
     if (!(await tx.objectStore('household').get(mutation.householdId)))
       throw new UnknownHousehold();
+    if (resolves !== undefined) await tx.objectStore('failed').delete(resolves);
     const undo: Change[] = [];
     const items: { before: ItemRow | undefined; after: ItemRow }[] = [];
 
@@ -188,10 +198,9 @@ export const rememberPersistence = (db: LocalDatabase, granted: boolean): Promis
 /* ---- Taking the server's answer ---- */
 
 /** A refused mutation, kept whole so that what the person typed is not lost (`Couldn't sync`, task 6.3). */
-export interface Refusal {
-  readonly mutation: Mutation;
-  readonly reason: string;
-  readonly sentence: string;
+export interface Refusal extends Omit<FailedEntry, 'n'> {
+  /** What kind of change it was, for what a toast says of it. */
+  readonly kind: Kind;
 }
 
 export interface Settled {
@@ -237,12 +246,19 @@ export async function settle(
         touched.add(keyOf(change.table, change.id));
         if (refusal) undone.add(keyOf(change.table, change.id));
       }
-      if (refusal)
-        refused.push({
+      if (refusal) {
+        // Kept whole, out of the outbox and off the screens, with its reason: nothing a person typed is thrown away (DESIGN.md §12.5).
+        const why = await explain(tx, entry.mutation, refusal, answer);
+        const failed = {
           mutation: entry.mutation,
           reason: refusal.reason,
-          sentence: refusal.sentence,
-        });
+          sentence: why.sentence,
+          what: why.what,
+          failedAt: now,
+        };
+        await tx.objectStore('failed').add(failed);
+        refused.push({ ...failed, kind: why.kind });
+      }
     }
     for (const each of answer.applied)
       for (const fold of each.folds) await repoint(tx, fold.table, fold.from, fold.to, touched);
@@ -262,6 +278,52 @@ export async function settle(
 }
 
 type Raw = Record<string, unknown>;
+
+/**
+ * What a refused mutation was, and why, **before the pull is taken** (the rows it names are still as the device showed them). The server's refusal reads as
+ * not found whatever the cause, so that it says nothing about what exists; **the device knows more about its own household**, and says so: a household the
+ * account has left, a list that was deleted. Anything else is the server's sentence.
+ */
+async function explain(
+  tx: Tx,
+  mutation: Mutation,
+  refusal: SyncAnswer['refused'][number],
+  answer: SyncAnswer,
+): Promise<{ kind: Kind; what: string; sentence: string }> {
+  const names = new Map<string, string>();
+  // The lists the change is about: the one it names, the one it puts an item on, and the one an item it changes is on (a tick names the item and not the list).
+  const lists = new Set<string>();
+  for (const change of mutation.changes) {
+    const row = await (
+      tx.objectStore(change.table) as unknown as {
+        get(id: string): Promise<{ name?: string; listId?: string } | undefined>;
+      }
+    ).get(change.id);
+    if (row?.name) names.set(keyOf(change.table, change.id), row.name);
+    if (change.table === 'list') lists.add(change.id);
+    if (typeof change.fields.listId === 'string') lists.add(change.fields.listId);
+    else if (typeof row?.listId === 'string') lists.add(row.listId);
+  }
+  const { kind, what } = describeMutation(mutation, (table, id) => names.get(keyOf(table, id)));
+
+  const household = await tx.objectStore('household').get(mutation.householdId);
+  if (answer.gone.includes(mutation.householdId) || !household)
+    return { kind, what, sentence: `You're no longer in ${household?.label ?? 'that household'}.` };
+
+  if (refusal.reason === 'not_found') {
+    const tombstoned = new Set(
+      answer.households.flatMap((pull) =>
+        pull.tombstones.filter((t) => t.table === 'list').map((t) => t.id),
+      ),
+    );
+    for (const id of lists) {
+      const list = await tx.objectStore('list').get(id);
+      if (tombstoned.has(id) || !list)
+        return { kind, what, sentence: `${list ? list.name : 'That list'} was deleted.` };
+    }
+  }
+  return { kind, what, sentence: refusal.sentence };
+}
 
 async function takeHousehold(
   tx: Tx,
@@ -595,3 +657,16 @@ export async function getRow<T extends SyncedTable>(
 ): Promise<(T extends 'list' ? ListRow : T extends 'item' ? ItemRow : ProductRow) | undefined> {
   return (await db.get(table, id)) as never;
 }
+
+/* ---- Couldn't sync ---- */
+
+/** The changes the server refused, oldest first. */
+export async function failedOf(db: LocalDatabase): Promise<(FailedEntry & { n: number })[]> {
+  return (await db.getAll('failed')) as (FailedEntry & { n: number })[];
+}
+
+export const failedCount = (db: LocalDatabase): Promise<number> => db.count('failed');
+
+/** Gives up a refused change for good. It is the only way one leaves Couldn't sync besides being moved. */
+export const discardFailed = (db: LocalDatabase, n: number): Promise<void> =>
+  db.delete('failed', n);

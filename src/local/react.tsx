@@ -9,10 +9,12 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useToast } from '@sovereignfs/ui';
 import { authClient } from '../auth/client';
 import { SyncClient } from './client';
 import { type LocalDatabase, openLocal } from './db';
 import { DEFAULT_INTERVAL_MS, browserEnvironment, startSyncLoop } from './loop';
+import { refusalToast } from './describe';
 import { requestPersistence } from './persist';
 import { type Left, leaveDevice } from './signout';
 import { rememberPersistence } from './store';
@@ -36,6 +38,9 @@ const Context = createContext<Local | null>(null);
 export function LocalProvider({ accountId, children }: { accountId: string; children: ReactNode }) {
   const [client, setClient] = useState<SyncClient | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   useEffect(() => {
     let stopped = false;
@@ -84,9 +89,19 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         // The session ended elsewhere: show sign-in, keep the outbox for the same account (§12.10).
         onSignedOut: () => window.location.assign('/sign-in'),
       });
+      // A refused change has been taken back and kept (Couldn't sync); a toast says why, **a refused tick most of all**, since it was put back (§12.5).
+      const unrefused = made.onRefused((refusals) => {
+        for (const refusal of refusals)
+          toastRef.current.show({
+            category: 'warning',
+            duration: 8000,
+            ...refusalToast({ kind: refusal.kind, what: refusal.what }, refusal.sentence),
+          });
+      });
       void requestPersistence().then((granted) => rememberPersistence(db, granted));
       teardown = () => {
         loop.stop();
+        unrefused();
         channel?.removeEventListener('message', onLeft);
         made.close();
         channel?.close();

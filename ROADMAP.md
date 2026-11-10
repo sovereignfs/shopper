@@ -102,7 +102,7 @@ Couldn't sync.
 | --- | -------------------------------- | ----------------------------------- | -------- | ---------- | ------ |
 | 29  | [6.1](docs/epics/sync.md)        | The sync endpoint                   | P0       | 5.5        | ✅     |
 | 30  | [6.2](docs/epics/sync.md)        | The device's store, outbox and loop | P0       | 6.1        | ✅     |
-| 31  | [6.3](docs/epics/sync.md)        | Couldn't sync                       | P1       | 6.2        | 📋     |
+| 31  | [6.3](docs/epics/sync.md)        | Couldn't sync                       | P1       | 6.2        | ✅     |
 | 32  | [1.12](docs/epics/foundation.md) | The PWA                             | P1       | 1.8        | 📋     |
 | 33  | [6.5](docs/epics/sync.md)        | Opening offline                     | P1       | 6.2, 1.12  | 📋     |
 
