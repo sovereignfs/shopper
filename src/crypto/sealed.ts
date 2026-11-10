@@ -18,7 +18,9 @@ export type SealedRegistry = Readonly<Record<string, readonly string[]>>;
  * Table by table, the fields it seals. It grows with the tables: persons (3.1), households (3.2), categories (4.2), products (5.3), lists (5.4)
  * and items (5.5) in phase 1; shops, trips and trip lines (7.1), prices and the invitation's email (3.10) in phase 2.
  */
-export const SEALED: SealedRegistry = {};
+export const SEALED: SealedRegistry = {
+  person: ['name', 'email'],
+};
 
 /** A sealed field's value: text, or a number (money, in phase 2), or nothing. */
 export type SealedValue = string | number | null;

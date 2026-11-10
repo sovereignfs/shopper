@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
+import { ensureAccountRecords } from '../people/account-records';
 import { authSettings, getAuth } from './server';
 import type { Auth } from './auth';
 
@@ -25,5 +26,7 @@ export async function requireSession(): Promise<Session> {
   if (!authSettings()) notFound();
   const session = await getSession();
   if (!session) redirect('/sign-in');
+  // The app's own records of the account (its person), made again if the sign-up could not make them (`ensureAccountRecords`).
+  await ensureAccountRecords(session.user);
   return session;
 }

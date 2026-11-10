@@ -1,6 +1,7 @@
 import { getConfig } from '../config/current';
 import { getAuthDatabase } from '../db/boot';
 import { smtpMailer } from '../mail/smtp';
+import { ensureAccountRecords } from '../people/account-records';
 import { site } from '../site';
 import { type Auth, createAuth } from './auth';
 import type { AuthSettings } from './config';
@@ -32,6 +33,7 @@ export function getAuth(): Promise<Auth | null> {
         name: site.name,
         database,
         mailer: mail ? smtpMailer(mail) : undefined,
+        onAccountCreated: ensureAccountRecords,
       });
     })
     .catch((error: unknown) => {

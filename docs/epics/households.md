@@ -21,7 +21,7 @@ phase 2 adds screens and operations and moves nothing.
 
 ## Tasks
 
-#### 📋 3.1 — Persons
+#### ✅ 3.1 — Persons
 
 **Goal:** Shopper's own record of who someone is. **Design:** §6.1, §6.2. **Depends on:** 2.1, 1.11.
 
@@ -31,6 +31,8 @@ of a household they are in); initials and a colour from the id for avatars.
 
 **Accepts when:** every new account has exactly one person; a second member of a household sees the name and not the email; an Admin sees both; the
 person's sealed fields are not readable in the database.
+
+**Done as:** `person` (`DESIGN.md` §20.3, the columns of 0.1.0) with the migration `0001_person`; `src/people/people.ts` (`ensurePerson`, `personOfAccount`, `personById`, `updatePerson`, the name and email sealed through `sealed.ts`, and `person` the first entry of `SEALED` and `SEALED_TABLES`), `src/people/visibility.ts` (`canSeeEmail`, the one function that says who sees an email: the person themselves and an Admin they share a household with; the caller supplies the second from the statement that reads the rows, 3.2) and `src/people/account-records.ts`; `src/db/tables.ts` (`appTable`, a table's name as raw SQL needs it) is new and `rotate.ts` uses it. **Not one transaction:** the account is in the auth store and the person in the app store, which are separate databases (separate pools on PostgreSQL, a namespace and a file each elsewhere), so the person is made by `createAuth`'s `onAccountCreated` after the account, never the account's failure, and **again by every `requireSession`**, idempotently, by a conflict on the unique `account_id`; two at once make one. The initials and colour of an avatar are the design system's `Avatar`'s, from the name, so nothing here makes them. **Seen on all three databases:** one person for an account however often and from however many at once, name and email absent from the whole row, concurrent edits of name and of email both kept, and a sign-up that succeeds while the app store is down and is given its person afterwards (244 tests).
 
 #### 📋 3.2 — Households, members and access
 

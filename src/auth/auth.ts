@@ -34,6 +34,13 @@ export interface AuthDependencies {
    * a single-use link that ends every other session; without one, neither exists** and the routes that would do them are not mounted (`app/api/auth`).
    */
   mailer?: Mailer | undefined;
+  /**
+   * Run once an account has been made, whichever way: the app's own records of it (its person, and its household, tasks 3.1 and 3.3). It lives in the
+   * app store, which is another database, so it is not in the account's transaction: a failure is not told to the person, and **the records are made
+   * again, idempotently, whenever a session is checked** (`src/auth/session.ts`).
+   */
+  onAccountCreated?:
+    ((account: { id: string; name: string; email: string }) => Promise<void>) | undefined;
 }
 
 /** The prefix of better-auth's cookies, so that ours do not collide with another app's on localhost. */
@@ -45,7 +52,13 @@ export const COOKIE_PREFIX = 'shopper';
  */
 export const FRESH_SESSION_SECONDS = 10 * 60;
 
-export function createAuth({ settings, name, database, mailer }: AuthDependencies) {
+export function createAuth({
+  settings,
+  name,
+  database,
+  mailer,
+  onAccountCreated,
+}: AuthDependencies) {
   const schema = database.dialect === 'postgres' ? postgresAuth : sqliteAuth;
   const { local, sovereign } = settings;
   // Mail is for the password's account: an address is verified, and a password reset, only where there is a password.
@@ -137,6 +150,15 @@ export function createAuth({ settings, name, database, mailer }: AuthDependencie
                 code: SIGNUP_CLOSED,
               });
             }
+          },
+          after: async (user) => {
+            // Never the account's failure: the sign-up has happened, and the next request makes what is missing.
+            await onAccountCreated?.({ id: user.id, name: user.name, email: user.email }).catch(
+              () =>
+                console.error(
+                  '[shopper] an account was made and its records were not (they will be)',
+                ),
+            );
           },
         },
       },

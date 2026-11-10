@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { dbAll, dbRun, transaction } from '../db/exec';
-import { APP_STORE } from '../db/config';
+import { appTable } from '../db/tables';
 import { fingerprintOfSealed, rewrap } from './envelope';
 import type { KeyRing } from './keys';
 import { SEALED, unsealRow, type SealedFields, type SealedRegistry } from './sealed';
@@ -25,12 +25,9 @@ export interface SealedTable {
 }
 
 /** The tables that hold sealed rows. Each task that adds one lists it here, with the registry (`SEALED`) and the design's §13.1. */
-export const SEALED_TABLES: readonly SealedTable[] = [];
+export const SEALED_TABLES: readonly SealedTable[] = [{ table: 'person' }];
 
 const BATCH = 100;
-
-const qualified = (database: Database, table: string): SQL =>
-  database.dialect === 'postgres' ? sql.raw(`"${APP_STORE}"."${table}"`) : sql.raw(`"${table}"`);
 
 const columns = (names: readonly string[]): SQL =>
   sql.raw(names.map((name) => `"${name}"`).join(', '));
@@ -58,7 +55,7 @@ export async function keysInUse(
   for (const { table } of tables) {
     const rows = await dbAll<{ fp: string }>(
       database,
-      sql`SELECT DISTINCT SUBSTR(sealed, 4, 16) AS fp FROM ${qualified(database, table)} WHERE sealed IS NOT NULL`,
+      sql`SELECT DISTINCT SUBSTR(sealed, 4, 16) AS fp FROM ${appTable(database, table)} WHERE sealed IS NOT NULL`,
     );
     for (const row of rows) found.add(row.fp);
   }
@@ -93,7 +90,7 @@ export async function rotateSealed(
   if (!previous) return 0;
   let total = 0;
   for (const spec of tables) {
-    const t = qualified(database, spec.table);
+    const t = appTable(database, spec.table);
     const extra = spec.read && spec.read.length > 0 ? sql`, ${columns(spec.read)}` : sql``;
     const prefix = `t1.${previous.fingerprint}.%`;
     for (;;) {
