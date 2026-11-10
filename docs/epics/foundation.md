@@ -138,7 +138,7 @@ a file and PostgreSQL; `scripts/deploy-check.sh`; `publish.yml` on a `vX.Y.Z` ta
 
 **Accepts when:** `scripts/deploy-check.sh` boots every setup from nothing and as an instance would host it, answering `/api/health` with `200`.
 
-#### 📋 1.11 — Encryption at rest
+#### ✅ 1.11 — Encryption at rest
 
 **Goal:** sealed rows and the name key, before any table holds a name. **Design:** §13. **Depends on:** 1.5.
 
@@ -151,6 +151,8 @@ recomputes name keys, claimed and resumable. Whichever of Tally and Roam built t
 **Accepts when:** a sealed row round-trips on all three databases and its fields are not readable in the database file; a row sealed for one id does
 not open as another; rotation with `_PREVIOUS` set re-wraps every row and every name key, twice safely; the registry test fails for a table with a
 sealed field not listed.
+
+**Done as:** `src/crypto/keys.ts` (1.4) and `envelope.ts` and its tests copied from Tusk and renamed (the authenticated data now reads `shopper:sealed:…`, a row's `purpose` being its table); Roam is not built, so `sealed.ts` is new, in the shape the design gives: `sealRow` and `unsealRow` make and read a row's one `sealed` column (its fields as one JSON object, one data key, bound to table and id), and know only the fields of `SEALED`, the registry, which is **empty until the tables exist** and is held to `DESIGN.md` §13.1's table by `sealed.test.ts` (a listed field the design does not seal fails it; so does a schema table with a `sealed` column that is not listed, which the test shows with a probe table). `name-key.ts` is `HMAC-SHA-256(K_name, household_id ‖ normalised name)` with `K_name` from HKDF under a label of its own. `rotate.ts` re-wraps every row of `SEALED_TABLES` from `SHOPPER_ENCRYPTION_KEY_PREVIOUS` to the current key and recomputes what depends on it (a table's `recompute`, for the product's name key) in the row's own transaction, by an update that holds only while the row is as it was read, so two replicas move each row once and a second run moves none; `assertKeys` stops start-up naming the fingerprints of a key that is missing. Both run at start-up (`instrumentation-node.ts`), not as a job: 1.6 is not needed for it. The `credential` table is not copied (10.2, phase 2). Tests on a probe table on all three databases: round trip, the fields absent from the column and, for a file, from its bytes, rotation, two at once, a missing key. **Seen:** the suite (127 tests) on sqld, a file and PostgreSQL.
 
 #### 📋 1.12 — The PWA
 
