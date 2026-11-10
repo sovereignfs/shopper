@@ -123,7 +123,8 @@ describe('the registry and the design', () => {
     const cell = line.split('|')[1] ?? '';
     const out = new Map<string, Set<string>>();
     for (const part of cell.split(';')) {
-      const [table, fields] = part.split(':');
+      // The design's words in brackets say how a field is shown, not what it is: "name (a starter category is its key until renamed)".
+      const [table, fields] = part.replace(/\([^)]*\)/g, '').split(':');
       if (!table || !fields) continue;
       out.set(squash(table), new Set(fields.split(',').map(squash)));
     }

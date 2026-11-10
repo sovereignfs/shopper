@@ -83,7 +83,7 @@ module. **Done when** the property tests hold and a mutation is applied, merged,
 | --- | ---------------------------- | ----------------------------------- | -------- | ------------- | ------ |
 | 19  | [4.1](docs/epics/catalog.md) | Names and the name key              | P0       | 1.11          | ✅     |
 | 20  | [4.6](docs/epics/catalog.md) | Quantities and units                | P0       | 1.2           | ✅     |
-| 21  | [4.2](docs/epics/catalog.md) | Categories, units and icons         | P0       | 3.2           | 📋     |
+| 21  | [4.2](docs/epics/catalog.md) | Categories, units and icons         | P0       | 3.2           | ✅     |
 | 22  | [5.1](docs/epics/items.md)   | Actions and validators              | P0       | 4.1, 4.2, 4.6 | 📋     |
 | 23  | [5.2](docs/epics/items.md)   | Applying a mutation, field by field | P0       | 5.1, 3.2      | 📋     |
 | 24  | [5.3](docs/epics/items.md)   | Folding and aliases                 | P0       | 5.2           | 📋     |

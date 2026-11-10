@@ -1,6 +1,6 @@
 import { index, pgSchema, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { APP_STORE } from '../../config';
-import { counter, decimal, epochMs, fseq, id, ref, sealed } from './columns';
+import { bool, counter, decimal, epochMs, fseq, id, position, ref, sealed } from './columns';
 
 /** The app's schema; better-auth's is `shopper_auth` (DESIGN.md §20.1). */
 export const app = pgSchema(APP_STORE);
@@ -111,5 +111,31 @@ export const product = app.table(
   (table) => [
     uniqueIndex('product_household_name_key_idx').on(table.householdId, table.nameKey),
     index('product_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * A section of the shop, of one household (DESIGN.md §8.3): the starter categories are rows of its own, keyed by `starter_key` until renamed, and their
+ * `position` is the household's **aisle order**, which lists and shopping mode group items by. **In 0.1.0 they are fixed**: made with the household
+ * (`src/catalog/categories.ts`), never changed, and renaming, hiding, adding and reordering them are task 4.7's, so that the rows, the sync and the
+ * sealing are the ones phase 2 edits. `sealed` holds the name once a person gives one, and is null for a starter name, which is the code's.
+ */
+export const category = app.table(
+  'category',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    starterKey: text('starter_key'),
+    sealed: sealed('sealed'),
+    icon: text('icon'),
+    position: position('position').notNull(),
+    hidden: bool('hidden').notNull().default(false),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+  },
+  (table) => [
+    uniqueIndex('category_household_starter_key_idx').on(table.householdId, table.starterKey),
+    index('category_household_seq_idx').on(table.householdId, table.seq),
   ],
 );

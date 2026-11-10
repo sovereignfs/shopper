@@ -31,7 +31,7 @@ encryption key and the rotation job recomputes it.
 
 **Done as:** `src/catalog/name.ts` (`normaliseName`: NFKC, white space made one space and trimmed, root-locale lower case; `isName`; the plural rule is left for 4.3 to give it, and until then there is none), `product-key.ts` (`productNameKey`, the name key of the normalised name, from 1.11) and **the `product` table** (`DESIGN.md` §20.3, the columns of 0.1.0) with its migration `0003_product`, the unique index `(household_id, name_key)` and the index by `(household_id, seq)` that pull will use. It is the first synced table, so it also joined `SEALED` (name, note), `SEALED_TABLES` with a `recompute` that gives a rotated key the new name key in the row's own transaction (`recompute` now takes the ring), `HOUSEHOLD_TABLES` and the decisions of `deletePerson`'s test. **Seen on all three databases:** one key for every way of writing a name in a household; keys that differ by household, by name and by instance key; a second product with a name already in the household refused by the index while the same name is free in another; and a rotation that gives every product the new key with the row, twice safely, with the index still holding.
 
-#### 📋 4.2 — Categories, units and icons
+#### ✅ 4.2 — Categories, units and icons
 
 **Goal:** a household's categories in its aisle order, the units, and the icons. **Design:** §8.3, §8.4, §9.3. **Depends on:** 3.2.
 
@@ -44,6 +44,8 @@ household's most used category for a shared word, then _Other_).
 **Accepts when:** a new household has the starter categories in order; the guess picks _Dairy & eggs_ for "goat cheese" with no history and the
 household's own choice once it has one.
 
+**Done as:** `category` (`DESIGN.md` §20.3, the columns of 0.1.0) with the migration `0004_category`, the unique index `(household_id, starter_key)` and the index by `(household_id, seq)`; `src/catalog/categories.ts` (the fifteen starter categories with keys, English names and icons, their fractional positions, and `OTHER`), `icons.ts` (the grocery icons the design system already has, in the order `IconPicker` offers them, held to `IconName` by `satisfies`) and `guess.ts` (the pure category guess: the starter catalog's entry, then the household's most used category for a shared word of two letters or more with a tie to the earlier in the aisle, then _Other_). **The starter categories are rows made with the household, in the same transaction as its first member** (`createHousehold`), **and given to one that lacks them by `ensureStarterCategories`** (called with the account's records on its next request, so "an idempotent job" is that, as with 3.3), stepping the household's counter only when it made some. They are fixed in 0.1.0: nothing edits them, so _Other_'s being undeletable and unhideable is for 4.7's validators, and a starter name is the code's and is not sealed (`sealed` is null until a person names one). Joined the registry, the rotation list, `HOUSEHOLD_TABLES` and `deletePerson`'s decisions; the design-table test now reads past a bracketed note in §13.1. Starter icons that have no nearer grocery icon (Personal care, Baby, Pets) take `package` until 16.4. The "goat cheese" acceptance needs the starter catalog and is now part of 4.3's. **Seen on all three databases** (the suite, 316 tests): the fifteen in order at counter 1, given once to a household that lacked two with the counter stepping to 2, made once when four make a household at once, and not shared between households.
+
 #### 📋 4.3 — The starter catalog
 
 **Goal:** the common groceries that come right the first time. **Design:** §8.6. **Depends on:** 4.2.
@@ -54,7 +56,7 @@ quantity, as typed data with a schema test (every category and icon exists, no t
 reviewed by the owner in this task's PR; used by suggestions (4.4), the guess (4.2) and, later, parsing (4.5) and the plugin import's icon mapping
 (11.3). English only. It grows to about 400 with grocery icons in 4.8.
 
-**Accepts when:** the schema test passes; every entry's icon is in the released icon set; the owner has approved the list in review.
+**Accepts when:** the schema test passes; every entry's icon is in the released icon set; the category guess (4.2) picks _Dairy & eggs_ for "goat cheese" with no history, by the entry for _cheese_; the owner has approved the list in review.
 
 #### 📋 4.4 — Suggestions
 

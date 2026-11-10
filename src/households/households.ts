@@ -5,6 +5,7 @@ import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
 import { adminOf, memberOf } from '../access/membership';
+import { STARTER_CATEGORIES, STARTER_POSITIONS } from '../catalog/categories';
 import { canSeeEmail } from '../people/visibility';
 import { householdLabel } from './label';
 
@@ -72,7 +73,56 @@ export async function createHousehold(
           VALUES (${crypto.randomUUID()}, ${id}, ${input.creatorPersonId}, 'admin', ${now}, 1)
           ON CONFLICT (household_id, person_id) DO NOTHING RETURNING id`,
     );
+    await insertStarterCategories(tx, id, 1);
     return id;
+  });
+}
+
+/**
+ * The starter categories of a household (DESIGN.md §8.3), each a row of its own in the starter order, **the ones it does not have yet**: a conflict on
+ * the household's `starter_key` is skipped, so this is safe to run again and from several places at once. Stamped with `seq`, the household's counter at
+ * this change. Returns how many it made.
+ */
+async function insertStarterCategories(
+  database: Database,
+  household: string,
+  seq: number,
+): Promise<number> {
+  const table = appTable(database, 'category');
+  let made = 0;
+  for (const [index, starter] of STARTER_CATEGORIES.entries()) {
+    const done = await dbAll<{ id: string }>(
+      database,
+      sql`INSERT INTO ${table} (id, household_id, starter_key, icon, position, hidden, seq)
+          VALUES (${crypto.randomUUID()}, ${household}, ${starter.key}, ${starter.icon}, ${STARTER_POSITIONS[index] ?? 'a0'}, ${false}, ${seq})
+          ON CONFLICT (household_id, starter_key) DO NOTHING RETURNING id`,
+    );
+    made += done.length;
+  }
+  return made;
+}
+
+/**
+ * Gives a household the starter categories it lacks, for one made before they existed or whose making was cut short. Idempotent: it makes nothing when
+ * all are there, and steps the household's counter, so that devices learn of them, only when it made some.
+ */
+export async function ensureStarterCategories(
+  database: Database,
+  household: string,
+): Promise<number> {
+  const h = appTable(database, 'household');
+  return transaction(database, async (tx) => {
+    const have = await dbGet<{ n: number | string }>(
+      tx,
+      sql`SELECT COUNT(*) AS n FROM ${appTable(tx, 'category')} WHERE household_id = ${household} AND starter_key IS NOT NULL`,
+    );
+    if (Number(have?.n) >= STARTER_CATEGORIES.length) return 0;
+    const stepped = await dbGet<{ seq: number | string }>(
+      tx,
+      sql`UPDATE ${h} SET seq = seq + 1 WHERE id = ${household} RETURNING seq`,
+    );
+    if (!stepped) return 0;
+    return insertStarterCategories(tx, household, Number(stepped.seq));
   });
 }
 
