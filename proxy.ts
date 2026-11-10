@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasSessionCookie } from './src/auth/cookie';
 import { HSTS, contentSecurityPolicy, newNonce } from './src/security/csp';
 import { edgeSettings } from './src/config/edge';
 
@@ -9,13 +10,16 @@ import { edgeSettings } from './src/config/edge';
  * answer is data, with no page to protect, so it gets only the headers every response has (`next.config.ts`).
  *
  * It keeps the Edge discipline: no Node built-ins and no database. It only looks at the request, so a session is for the page to check, and a
- * proxy is never the only thing standing in the way (DESIGN.md §5.2). `/` for someone with a session cookie joins with task 2.2.
+ * proxy is never the only thing standing in the way (DESIGN.md §5.2). `/` for someone with a session cookie is the signed-in area's first page.
  *
  * The service worker keeps one page, `/shell` (task 1.12), and answers a signed-in address with it when there is no network. It is kept with the
  * headers it was sent with, so the nonce in its policy is the nonce on its scripts: it needs no fresh one. A page the worker builds itself ("needs a
  * connection") carries a policy of its own, which allows no script.
  */
 const SIGN_IN_PAGES = new Set(['/sign-in', '/sign-up', '/forgot-password', '/reset-password']);
+/** Set on the request the proxy rewrites `/` into, so that the page it is rewritten to is not sent back to `/` (which would be a loop). */
+const HOME_MARK = 'x-shopper-home';
+
 /** What a Sovereign-only instance has of them: the page that takes a person away to sign in there. Sign-up, and resetting a password, are local. */
 const SOVEREIGN_PAGES = new Set(['/sign-in']);
 
@@ -37,10 +41,17 @@ export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const absent =
     !authLocal && SIGN_IN_PAGES.has(path) && !(authSovereign && SOVEREIGN_PAGES.has(path));
-  const response = absent
-    ? NextResponse.rewrite(new URL('/not-found', request.url), {
-        request: { headers: requestHeaders },
-      })
+  // The front address is the signed-in area's first page for someone with a session cookie, and the address stays `/` (DESIGN.md §16.4). Only the cookie is
+  // looked at: it cannot be checked here, and the page checks it and sends a forged one to sign in. The page's own address, `/home`, goes to `/`, so that
+  // there is one.
+  const cookie = hasSessionCookie(request.cookies);
+  if (cookie && path === '/home' && !request.headers.has(HOME_MARK))
+    return NextResponse.redirect(new URL('/', request.url), 308);
+  const signedIn = path === '/' && cookie;
+  const target = absent ? '/not-found' : signedIn ? '/home' : null;
+  if (signedIn && !absent) requestHeaders.set(HOME_MARK, '1');
+  const response = target
+    ? NextResponse.rewrite(new URL(target, request.url), { request: { headers: requestHeaders } })
     : NextResponse.next({ request: { headers: requestHeaders } });
   if (page) response.headers.set('content-security-policy', policy);
   if (secure) response.headers.set('strict-transport-security', HSTS);

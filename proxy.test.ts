@@ -59,6 +59,31 @@ describe('the proxy', () => {
     expect(rewrite(proxy(request('/sign-up')))).toMatch(/\/not-found$/);
   });
 
+  it('answers the front address with the signed-in area for someone with a session cookie, and keeps the address', () => {
+    const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
+    const withCookie = (path: string, cookie = 'shopper.session_token=x') =>
+      new NextRequest(`https://shopper.example.com${path}`, { headers: { cookie } });
+    expect(rewrite(proxy(withCookie('/')))).toMatch(/\/home$/);
+    expect(rewrite(proxy(withCookie('/', '__Secure-shopper.session_token=x')))).toMatch(/\/home$/);
+    // A visitor, and a cookie with nothing in it, get the landing page.
+    expect(rewrite(proxy(request('/')))).toBeNull();
+    expect(rewrite(proxy(withCookie('/', 'shopper.session_token=')))).toBeNull();
+    // Other addresses are not rewritten, and a rewritten page keeps its policy.
+    expect(rewrite(proxy(withCookie('/l/abc')))).toBeNull();
+    expect(proxy(withCookie('/')).headers.get('content-security-policy')).toContain('nonce-');
+  });
+
+  it('sends the signed-in area’s own address to the front one, once, and leaves it to the page for anyone else', () => {
+    const reply = proxy(
+      new NextRequest('https://shopper.example.com/home', {
+        headers: { cookie: 'shopper.session_token=x' },
+      }),
+    );
+    expect(reply.status).toBe(308);
+    expect(reply.headers.get('location')).toBe('https://shopper.example.com/');
+    expect(proxy(request('/home')).headers.get('location')).toBeNull();
+  });
+
   it('puts no page policy on an API answer, and does not forward a nonce to it', () => {
     const reply = proxy(request('/api/health'));
     expect(reply.headers.get('content-security-policy')).toBeNull();

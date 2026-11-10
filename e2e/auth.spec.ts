@@ -65,6 +65,30 @@ test('a password that is too short is refused by the server, and the form asks f
   expect((await reply.json()).code).toBe('PASSWORD_TOO_SHORT');
 });
 
+test('the front address is the landing page for a visitor and the signed-in area for a person, and signing out returns to the landing page', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: /Shopping lists that work in the shop/ }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create an account' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
+
+  await signUp(page);
+  await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+  await expect(page).toHaveURL('/');
+  // The signed-in area's own address is the front one.
+  await page.goto('/home');
+  await expect(page).toHaveURL('/');
+
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  expect(await sessionOf(page)).toBeNull();
+});
+
 test('an account is deleted with its password, and nothing of it signs in again', async ({
   page,
   ip,

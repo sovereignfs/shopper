@@ -14,10 +14,17 @@ import { DrawerNavigation } from './AppSidebar';
  * (task 2.2 onward) and the page the service worker keeps (task 1.12) both make it, with what they have to put in it, so that the app is the same in
  * both. It holds nothing of a person.
  */
-export function ShellFrame({ children }: { children: ReactNode }) {
+export function ShellFrame({
+  children,
+  account,
+}: {
+  children: ReactNode;
+  /** The person's avatar menu, for a signed-in page; the page the worker keeps has none, since it holds nothing of a person. */
+  account?: ReactNode;
+}) {
   return (
     <MobileNavProvider>
-      <AppShell name={site.name} toolbar={<SidebarToggle />}>
+      <AppShell name={site.name} toolbar={<SidebarToggle />} account={account}>
         <AppFrame>{children}</AppFrame>
         <NavigationDrawer />
       </AppShell>

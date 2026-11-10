@@ -22,7 +22,13 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/',
     who: 'public',
-    note: 'A placeholder until the landing page and the signed-in area (task 2.2).',
+    note: 'The landing page for a visitor; for someone with a session cookie the proxy answers it with /home.',
+  },
+  {
+    kind: 'page',
+    address: '/home',
+    who: 'signed-in',
+    note: 'The signed-in area: a visitor is sent to sign in. Reached as / by someone with a session cookie; /home itself goes to /.',
   },
   {
     kind: 'page',
