@@ -10,7 +10,7 @@ import { productNameKey } from '../catalog/product-key';
  * is the only way a field's name reaches SQL). `refs` are the fields that name another row, which must be **the household's own**. Everything else a table has
  * (its `seq`, its `fseq`, its name key) is the server's.
  *
- * A table is added here by the task that makes it: products with their table (4.1), lists (5.4, here) and items (5.5).
+ * A table is added here by the task that makes it: products with their table (4.1), lists (5.4) and items (5.5, here: the limit on open items is checked by `apply`, since it counts a list's open items and not a table's rows).
  */
 export interface ColumnOf {
   readonly field: string;
@@ -38,6 +38,33 @@ export interface TableSpec {
 }
 
 export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
+  item: {
+    table: 'item',
+    sql: 'item',
+    sealed: ['name', 'note'],
+    plain: [
+      { field: 'listId', column: 'list_id' },
+      { field: 'productId', column: 'product_id' },
+      { field: 'quantity', column: 'quantity' },
+      { field: 'unit', column: 'unit' },
+      { field: 'categoryId', column: 'category_id' },
+      { field: 'icon', column: 'icon' },
+      { field: 'position', column: 'position' },
+      { field: 'addedBy', column: 'added_by' },
+      { field: 'addedAt', column: 'added_at' },
+      { field: 'boughtAt', column: 'bought_at' },
+      { field: 'boughtBy', column: 'bought_by' },
+      { field: 'clearedAt', column: 'cleared_at' },
+      { field: 'deletedAt', column: 'deleted_at' },
+    ],
+    refs: {
+      listId: 'list',
+      productId: 'product',
+      categoryId: 'category',
+      addedBy: 'person',
+      boughtBy: 'person',
+    },
+  },
   list: {
     table: 'list',
     sql: 'list',

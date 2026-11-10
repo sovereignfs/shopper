@@ -24,6 +24,7 @@ const change = z.object({
   table: z.enum(SYNCED_TABLES),
   id: z.string().refine(isId, 'not an id'),
   create: z.literal(true).optional(),
+  separate: z.literal(true).optional(),
   fields: z.record(z.string(), z.unknown()),
 });
 
@@ -35,7 +36,7 @@ export function validateMutation(input: unknown): Verdict {
   for (const [index, raw] of head.data.changes.entries()) {
     const parsed = change.safeParse(raw);
     if (!parsed.success) return refuse(parsed.error, `change ${index + 1}`);
-    const { table, id, create, fields } = parsed.data;
+    const { table, id, create, separate, fields } = parsed.data;
     const key = `${table}:${id}`;
     // One row twice in a mutation is two things said about it at once; they are one change, or the mutation is wrong.
     if (seen.has(key))
@@ -66,7 +67,13 @@ export function validateMutation(input: unknown): Verdict {
           problem: `change ${index + 1}: a new ${table} needs ${missing.join(', ')}`,
         };
     }
-    changes.push({ table, id, ...(create ? { create: true as const } : {}), fields: clean });
+    changes.push({
+      table,
+      id,
+      ...(create ? { create: true as const } : {}),
+      ...(create && separate ? { separate: true as const } : {}),
+      fields: clean,
+    });
   }
   return {
     ok: true,

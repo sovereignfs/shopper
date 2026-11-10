@@ -9,7 +9,7 @@ import type { Operation } from './ops';
 
 /**
  * **`list.delete`: delete a list for good** (DESIGN.md §9.1, §12.8), an Admin's online operation, and only for a list that is **archived**: a person
- * archives first, which is the step that can be undone. It removes the list and its items by `list_id` (task 5.5 adds the items' table to this), steps the
+ * archives first, which is the step that can be undone. It removes the list and its items by `list_id`, steps the
  * household's counter and leaves a tombstone, so that every device learns of it at its next sync. Items' trip lines keep the list's name (phase 2).
  *
  * The statement carries the Admin condition itself: the dispatcher's check is only the early, uniform refusal.
@@ -40,6 +40,10 @@ export const deleteList: Operation = {
         // Not archived, or not there: nothing is changed, and the counter step is undone with the transaction.
         throw new RefusedDelete();
       }
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'item')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
+      );
       await recordTombstone(tx, household, 'list', listId, Number(stepped.seq), now);
       return { ok: true as const };
     }).catch((error: unknown) => {

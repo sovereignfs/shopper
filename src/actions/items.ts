@@ -24,6 +24,8 @@ export interface AddItem {
   readonly last: string | null;
   /** The person adding it. */
   readonly by: string;
+  /** "Add another anyway": a second row for what is already open, when it really is two (two brands, with notes). */
+  readonly anyway?: boolean | undefined;
 }
 
 /**
@@ -63,6 +65,7 @@ export function addItem(env: Env, input: AddItem): Mutation {
     table: 'item',
     id: env.newId(),
     create: true,
+    ...(input.anyway ? { separate: true as const } : {}),
     fields: {
       listId: list.id,
       productId,

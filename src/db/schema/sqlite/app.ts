@@ -225,3 +225,37 @@ export const list = sqliteTable(
   },
   (table) => [index('list_household_seq_idx').on(table.householdId, table.seq)],
 );
+
+/**
+ * One thing on a list (DESIGN.md §9.2): **open** until ticked, then **bought**, then **cleared** from the list, or deleted. It points at a product, and
+ * carries its own name, quantity, unit, category and icon (the product's at the time of adding, the item's own after). `sealed` holds the name and the
+ * note. `position` is a fractional key among the items of a category on a list, ties broken by `id` (§9.6). `bought_at` and `bought_by` are the tick, **and
+ * the first tick stands** (§12.4). A price and the trip are phase 2's columns.
+ */
+export const item = sqliteTable(
+  'item',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    productId: ref('product_id').notNull(),
+    sealed: sealed('sealed').notNull(),
+    quantity: decimal('quantity').notNull(),
+    unit: text('unit'),
+    categoryId: ref('category_id'),
+    icon: text('icon'),
+    position: position('position').notNull(),
+    addedBy: ref('added_by').notNull(),
+    addedAt: epochMs('added_at').notNull(),
+    boughtAt: epochMs('bought_at'),
+    boughtBy: ref('bought_by'),
+    clearedAt: epochMs('cleared_at'),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+  },
+  (table) => [
+    index('item_household_seq_idx').on(table.householdId, table.seq),
+    index('item_list_idx').on(table.listId),
+  ],
+);

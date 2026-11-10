@@ -57,6 +57,13 @@
       "when": 1794336804375,
       "tag": "0007_list",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794337055501,
+      "tag": "0008_item",
+      "breakpoints": true
     }
   ]
 }

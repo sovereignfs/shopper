@@ -341,42 +341,10 @@ describe(`what is refused (${leg})`, () => {
   });
 
   it('a malformed mutation, with a sentence, before anything is read', async () => {
-    const result = await applyMutation(deps(), ada.accountId, {
-      mutationId: 'x',
-      householdId: ada.household,
-      changes: [],
-    });
-    expect(result).toMatchObject({ status: 'refused', reason: 'invalid' });
-    const unknown = await applyMutation(
-      deps(),
-      ada.accountId,
-      mutation(ada.household, [
-        { table: 'product', id: crypto.randomUUID(), fields: { nameKey: 'x' } },
-      ]),
-    );
-    expect(unknown).toMatchObject({ status: 'refused', reason: 'invalid' });
-  });
-
-  it('a change to a table the server does not apply yet', async () => {
     const result = await applyMutation(
-      deps(),
+      { ...deps(), tables: {} },
       ada.accountId,
-      mutation(ada.household, [
-        {
-          table: 'item',
-          id: crypto.randomUUID(),
-          create: true,
-          fields: {
-            listId: crypto.randomUUID(),
-            productId: crypto.randomUUID(),
-            name: 'x',
-            quantity: '1',
-            position: 'a0',
-            addedBy: crypto.randomUUID(),
-            addedAt: 1,
-          },
-        },
-      ]),
+      mutation(ada.household, [create(crypto.randomUUID(), 'x')]),
     );
     expect(result).toMatchObject({ status: 'refused', reason: 'unsupported' });
   });

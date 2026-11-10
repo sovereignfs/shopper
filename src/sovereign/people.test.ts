@@ -32,6 +32,7 @@ const DECIDED_APP: Record<string, string> = {
   member: 'ended (left_at), or deleted with a household nobody else is in',
   category: 'a household’s, deleted with it',
   list: 'a household’s, deleted with it',
+  item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
     'a household’s, deleted with it; what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',

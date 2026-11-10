@@ -9,8 +9,10 @@ import { appTable } from '../db/tables';
 import { memberOf } from '../access/membership';
 import type { Limits } from '../limits/config';
 import { type Fold, foldProductFields, recordFold, resolveAlias } from './fold';
+import { foldItemFields, withoutSecondTick } from './items';
 import { mergeChange } from './merge';
 import { Refusal, duplicate, invalid, limited, notFound, unsupported } from './refusal';
+import { OPEN_ITEM } from './open';
 import { TABLES, type TableSpec } from './tables';
 
 /**
@@ -140,12 +142,14 @@ async function applyChange(
   deps: ApplyDeps,
   spec: TableSpec,
   household: string,
-  change: Change,
+  incoming: Change,
   seq: number,
   now: number,
 ): Promise<Outcome> {
   const { database, ring } = deps;
   const t = appTable(database, spec.sql);
+  // A change that names a product that was folded into another names the other (`fold.ts`).
+  let change = await repointRefs(database, household, spec, incoming);
   const existing = await dbGet<Row>(
     database,
     sql`SELECT * FROM ${t} WHERE id = ${change.id} AND household_id = ${household}`,
@@ -160,7 +164,26 @@ async function applyChange(
     if (elsewhere) throw notFound();
   }
 
+  // The first tick stands: a tick of an item that is already bought says nothing about who bought it, and when.
+  if (spec.table === 'item' && existing) {
+    change = {
+      ...change,
+      fields: withoutSecondTick(
+        existing.bought_at === null || existing.bought_at === undefined
+          ? null
+          : Number(existing.bought_at),
+        change.fields,
+      ),
+    };
+  }
+
   await checkReferences(deps, spec, household, change);
+
+  // An item made for a product that is already open on the list, in the same unit, is folded into it, unless it was made with "add another anyway".
+  if (spec.table === 'item' && !existing && !change.separate) {
+    const twin = await openTwin(deps, household, change);
+    if (twin) return foldItem(deps, spec, household, change, twin, seq, now);
+  }
 
   // The row as it is: plain columns by field name, and the sealed envelope opened.
   const values: Record<string, FieldValue> = {};
@@ -200,6 +223,9 @@ async function applyChange(
     }
   }
 
+  if (spec.table === 'item')
+    await checkOpenItemLimit(deps, household, existing, merged.values, change, !existing);
+
   if (!existing) {
     if (spec.limit) {
       const count = await dbGet<{ n: number | string }>(
@@ -230,6 +256,8 @@ async function applyChange(
             sql`, `,
           )}) RETURNING id`,
     );
+    if (spec.table === 'item')
+      await afterItemWritten(deps, household, change.id, null, change.fields, seq, now);
     return { written: [change.id] };
   }
 
@@ -247,7 +275,16 @@ async function applyChange(
     sql`UPDATE ${t} SET ${sql.join(sets, sql`, `)} WHERE id = ${change.id} AND household_id = ${household} RETURNING id`,
   );
   if (done.length === 0) throw notFound();
-  void now;
+  if (spec.table === 'item')
+    await afterItemWritten(
+      deps,
+      household,
+      change.id,
+      existing,
+      Object.fromEntries(merged.changed.map((f) => [f, merged.values[f] ?? null])),
+      seq,
+      now,
+    );
   return { written: [change.id] };
 }
 
@@ -335,5 +372,162 @@ async function checkReferences(
             sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
           );
     if (!found) throw notFound();
+  }
+}
+
+/** Replaces, in a change, an id that names a product that was folded into another with the other (`fold.ts`). */
+async function repointRefs(
+  database: Database,
+  household: string,
+  spec: TableSpec,
+  change: Change,
+): Promise<Change> {
+  let fields = change.fields;
+  for (const [field, target] of Object.entries(spec.refs)) {
+    const value = fields[field];
+    if (target !== 'product' || typeof value !== 'string') continue;
+    const to = await resolveAlias(database, household, 'product', value);
+    if (to !== value) fields = { ...fields, [field]: to };
+  }
+  return fields === change.fields ? change : { ...change, fields };
+}
+
+/** The open item for the same product, in the same unit, on the list a new item is being made for, if there is one. */
+async function openTwin(
+  deps: ApplyDeps,
+  household: string,
+  change: Change,
+): Promise<Row | undefined> {
+  const { database } = deps;
+  const { listId, productId, unit } = change.fields;
+  if (typeof listId !== 'string' || typeof productId !== 'string') return undefined;
+  const sameUnit = typeof unit === 'string' ? sql`unit = ${unit}` : sql`unit IS NULL`;
+  return dbGet<Row>(
+    database,
+    sql`SELECT * FROM ${appTable(database, 'item')}
+        WHERE household_id = ${household} AND list_id = ${listId} AND product_id = ${productId} AND ${OPEN_ITEM} AND ${sameUnit}
+        ORDER BY added_at, id LIMIT 1`,
+  );
+}
+
+/** A new item folded into the open one: one item, the larger quantity, both notes, the earlier adder; recorded as an alias and a tombstone. */
+async function foldItem(
+  deps: ApplyDeps,
+  spec: TableSpec,
+  household: string,
+  change: Change,
+  twin: Row,
+  seq: number,
+  now: number,
+): Promise<Outcome> {
+  const into = String(twin.id);
+  let note: string | null = null;
+  if (typeof twin.sealed === 'string') {
+    const opened = unsealRow('item', into, twin.sealed, deps.ring);
+    note = typeof opened.note === 'string' ? opened.note : null;
+  }
+  const additions = foldItemFields(
+    {
+      quantity: String(twin.quantity),
+      note,
+      addedBy: String(twin.added_by),
+      addedAt: Number(twin.added_at),
+    },
+    change.fields,
+  );
+  const fold: Fold = { table: 'item', from: change.id, to: into };
+  await recordFold(deps.database, household, fold, seq, now);
+  if (Object.keys(additions).length === 0) return { written: [into], fold };
+  const merged = await applyChange(
+    deps,
+    spec,
+    household,
+    { table: 'item', id: into, fields: additions },
+    seq,
+    now,
+  );
+  return { written: merged.written.length > 0 ? merged.written : [into], fold };
+}
+
+/**
+ * **A list holds at most so many open items** (`SHOPPER_LIMIT_LIST_OPEN_ITEMS`): checked when an item is made, moved to another list, or restored, against
+ * the list it will be on, in this transaction. Bought and cleared items do not count.
+ */
+async function checkOpenItemLimit(
+  deps: ApplyDeps,
+  household: string,
+  existing: Row | undefined,
+  values: Readonly<Record<string, FieldValue>>,
+  change: Change,
+  creating: boolean,
+): Promise<void> {
+  const becomesOpen =
+    values.boughtAt === undefined || values.boughtAt === null
+      ? (values.clearedAt ?? null) === null && (values.deletedAt ?? null) === null
+      : false;
+  const was = existing
+    ? existing.bought_at === null && existing.cleared_at === null && existing.deleted_at === null
+    : false;
+  const moved = existing && 'listId' in change.fields && change.fields.listId !== existing.list_id;
+  const listId = String(
+    creating ? change.fields.listId : moved ? change.fields.listId : existing?.list_id,
+  );
+  if (!(creating ? becomesOpen : becomesOpen && (!was || moved))) return;
+  const count = await dbGet<{ n: number | string }>(
+    deps.database,
+    sql`SELECT COUNT(*) AS n FROM ${appTable(deps.database, 'item')} WHERE household_id = ${household} AND list_id = ${listId} AND ${OPEN_ITEM}`,
+  );
+  if (Number(count?.n ?? 0) + 1 > deps.limits.listOpenItems)
+    throw limited('listOpenItems', deps.limits.listOpenItems);
+}
+
+/**
+ * What an item's being written does to others, in the same transaction: **a list that was archived is restored** by an item added to it or moved onto it
+ * (DESIGN.md §12.4), and a product's **`times_bought` and `last_bought_at`** follow the ticks, which suggestions rank by (§8.5): a tick adds one, an untick
+ * takes it back.
+ */
+async function afterItemWritten(
+  deps: ApplyDeps,
+  household: string,
+  id: string,
+  before: Row | null | undefined,
+  changed: Readonly<Record<string, FieldValue>>,
+  seq: number,
+  now: number,
+): Promise<void> {
+  const { database } = deps;
+  const row = await dbGet<Row>(
+    database,
+    sql`SELECT list_id, product_id, bought_at FROM ${appTable(database, 'item')} WHERE id = ${id} AND household_id = ${household}`,
+  );
+  if (!row) return;
+  if (!before || 'listId' in changed) {
+    const list = TABLES.list;
+    const archived = await dbGet<{ yes: number }>(
+      database,
+      sql`SELECT 1 AS yes FROM ${appTable(database, 'list')} WHERE id = ${String(row.list_id)} AND household_id = ${household} AND archived_at IS NOT NULL`,
+    );
+    if (archived && list)
+      await applyChange(
+        deps,
+        list,
+        household,
+        { table: 'list', id: String(row.list_id), fields: { archivedAt: null } },
+        seq,
+        now,
+      );
+  }
+  const was = before ? before.bought_at : null;
+  const is = row.bought_at;
+  if ((was === null || was === undefined) !== (is === null || is === undefined)) {
+    const bought = is !== null && is !== undefined;
+    await dbAll(
+      database,
+      bought
+        ? sql`UPDATE ${appTable(database, 'product')} SET times_bought = times_bought + 1, last_bought_at = ${Number(is)}, seq = ${seq}
+              WHERE id = ${String(row.product_id)} AND household_id = ${household} RETURNING id`
+        : sql`UPDATE ${appTable(database, 'product')} SET times_bought = CASE WHEN times_bought > 0 THEN times_bought - 1 ELSE 0 END, seq = ${seq}
+              WHERE id = ${String(row.product_id)} AND household_id = ${household} RETURNING id`,
+    );
   }
 }

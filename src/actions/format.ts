@@ -19,6 +19,8 @@ export interface Change {
   readonly id: string;
   /** The row is new. Every required field is then given. */
   readonly create?: true;
+  /** For a new item: "add another anyway" (DESIGN.md §9.3), which the server does not fold into the open item for the same product. */
+  readonly separate?: true;
   readonly fields: Readonly<Record<string, FieldValue>>;
 }
 
