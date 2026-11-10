@@ -74,7 +74,7 @@ carry on), and the token survives the sign-in or sign-up round trip; `invite.acc
 creating and on opening links. No mail is sent and none is needed. In phase 2, 3.10 adds email and 9.2 adds the notices.
 
 **Accepts when:** journey 3 of §3 passes alone with no mail set up; an expired, revoked, used or unknown token shows the same page; a second
-acceptance of one link is refused; a person already in the household who opens its link is told so and nothing changes.
+acceptance of one link is refused; a person already in the household who opens its link is told so and nothing changes; at the limit of members of a household, or of households of an account (`src/limits/limits.ts`), accepting is refused with the limit's sentence, in the statement that adds the member.
 
 #### 📋 3.5 — Leaving and removing
 
@@ -99,7 +99,7 @@ a list becomes private, or shared, after the household it began in was shared.
 **Accepts when:** journey 10 of §3 passes; a moved list's items carry the destination's products and categories; the source household's devices drop
 it and the destination's receive it; a non-Admin's attempt reads as not found.
 
-#### 📋 3.7 — Limits
+#### ✅ 3.7 — Limits
 
 **Goal:** the operator's limits, checked by the server. **Design:** §7.6. **Depends on:** 3.2.
 
@@ -109,6 +109,8 @@ lists, open items, products at apply); each refusal a sentence naming the limit;
 comes with 4.7.
 
 **Accepts when:** each limit, set low in a test, refuses the change that would pass it, online and through sync, with its sentence.
+
+**Done as:** `src/limits/config.ts` (the five settings and their defaults, 1.4) and `src/limits/limits.ts`: `exceeds`, `limitSentence` (a sentence for each limit that names the number and says what it counts, and names a list only where the caller has unsealed its name), and the two counts the first limits are checked against, `countActiveMembers` and `countHouseholdsOf`. **The checks themselves are made by the tasks that make the things, in their own statement or transaction,** since a check made first and then made is not a limit: members and households at acceptance (3.4), and lists, open items and products when a mutation is applied (5.2 to 5.5), each of whose "Accepts when" now says so; a refusal from apply reaches Couldn't sync with the sentence (6.3). There is nothing to refuse until those exist, so this task's own acceptance is the numbers, the sentences and the counts, which are seen on all three databases.
 
 #### 📋 3.8 — Making households (phase 2)
 

@@ -58,7 +58,7 @@ no trip line.
 
 **Accepts when:** two devices adding _milk_ offline to one list end with one item and one alias; two making _Oat milk_ end with one product and every
 item pointing at it; two ticking one item end with the first's tick; an edit sent to an alias lands on its target; property tests hold that no
-household has two products with one name key or two open items for one product on one list (unless made by "Add another anyway").
+household has two products with one name key or two open items for one product on one list (unless made by "Add another anyway"); a product made at the limit of products of a household is refused with the limit's sentence, in apply's transaction.
 
 #### 📋 5.4 — Lists
 
@@ -68,7 +68,7 @@ household has two products with one name key or two open items for one product o
 column exists, and 7.2 adds the others); delete for good as an Admin's online operation on an archived list (`/api/ops`), removing its items by
 `list_id`; 3.3 makes _Groceries_ with the household; an item added to an archived list restores it; one added to a list deleted for good is refused.
 
-**Accepts when:** every action works offline and syncs; deleting for good is refused for a list not archived and for a Member.
+**Accepts when:** every action works offline and syncs; deleting for good is refused for a list not archived and for a Member; a list made at the limit of lists of a household is refused with the limit's sentence, in apply's transaction, and reaches Couldn't sync when it came from a device.
 
 #### 📋 5.5 — Items, ticking and clearing
 
@@ -82,7 +82,7 @@ product in the same mutation, move within or across the household's lists, delet
 
 **Accepts when:** adding an open product offers _+1_ on the device and the server never keeps two open items for it on one list; "Remember for next
 time" changes the next add; position ties order the same on every device; ticking, unticking and clearing work offline and a cleared item is gone
-from every device after sync; a product's `times_bought` follows its ticks.
+from every device after sync; a product's `times_bought` follows its ticks; an item added to a list at its limit of open items is refused with the limit's sentence, which names the list, in apply's transaction.
 
 #### 📋 5.6 — Products: editing and merging (phase 2)
 
