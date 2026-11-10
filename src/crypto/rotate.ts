@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { dbAll, dbRun, transaction } from '../db/exec';
-import { normaliseName } from '../catalog/name';
+import { canonicalName } from '../catalog/canonical';
 import { appTable } from '../db/tables';
 import { nameKeyOf } from './name-key';
 import { fingerprintOfSealed, rewrap } from './envelope';
@@ -39,7 +39,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
     table: 'product',
     read: ['household_id'],
     recompute: (row, fields, ring) => ({
-      name_key: nameKeyOf(ring, String(row.household_id), normaliseName(String(fields.name ?? ''))),
+      name_key: nameKeyOf(ring, String(row.household_id), canonicalName(String(fields.name ?? ''))),
     }),
   },
 ];
