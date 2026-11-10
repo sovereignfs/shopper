@@ -14,6 +14,7 @@ import { authClient } from '../auth/client';
 import { SyncClient } from './client';
 import { type LocalDatabase, openLocal } from './db';
 import { DEFAULT_INTERVAL_MS, browserEnvironment, startSyncLoop } from './loop';
+import { onWake, registerBackgroundSync } from './background';
 import { refusalToast } from './describe';
 import { requestPersistence } from './persist';
 import { type Left, leaveDevice } from './signout';
@@ -98,10 +99,15 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
             ...refusalToast({ kind: refusal.kind, what: refusal.what }, refusal.sentence),
           });
       });
+      // Where the browser has Background Sync, a write asks to be woken when the network is back, and the wake syncs through this loop.
+      const unwrite = made.onWrite(registerBackgroundSync);
+      const unwake = onWake(() => void loop.syncNow());
       void requestPersistence().then((granted) => rememberPersistence(db, granted));
       teardown = () => {
         loop.stop();
         unrefused();
+        unwrite();
+        unwake();
         channel?.removeEventListener('message', onLeft);
         made.close();
         channel?.close();

@@ -63,6 +63,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/sw.js',
+    who: 'public',
+    note: 'The service worker: the same text for everyone, with the names of the build’s own files; it holds nothing of a person.',
+  },
+  {
+    kind: 'route',
     address: '/api/health',
     who: 'public',
     note: 'Says whether the database answers, and which dialect; nothing else.',

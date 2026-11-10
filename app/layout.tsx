@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import '@sovereignfs/ui/tokens.css';
 import './globals.css';
+import { RegisterWorker } from '@/src/screens/RegisterWorker';
 import { site } from '@/src/site';
 import { themeScript } from '@/src/theme/script';
 import { ToastProvider } from '@sovereignfs/ui';
@@ -13,11 +14,16 @@ import { ToastProvider } from '@sovereignfs/ui';
 export const metadata: Metadata = {
   title: { default: site.title, template: `%s · ${site.name}` },
   description: site.description,
-  icons: { icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }] },
+  icons: {
+    icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
+  },
 };
 
 export const viewport: Viewport = {
   colorScheme: 'light dark',
+  // The colour of the browser's own bar around an installed app: the design system's grey 900, as the manifest and the icon.
+  themeColor: '#18181b',
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -32,6 +38,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <ToastProvider>{children}</ToastProvider>
+        <RegisterWorker />
       </body>
     </html>
   );
