@@ -1,7 +1,9 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { dbAll, dbRun, transaction } from '../db/exec';
+import { normaliseName } from '../catalog/name';
 import { appTable } from '../db/tables';
+import { nameKeyOf } from './name-key';
 import { fingerprintOfSealed, rewrap } from './envelope';
 import type { KeyRing } from './keys';
 import { SEALED, unsealRow, type SealedFields, type SealedRegistry } from './sealed';
@@ -21,11 +23,23 @@ export interface SealedTable {
   readonly recompute?: (
     row: Record<string, unknown>,
     fields: SealedFields,
+    ring: KeyRing,
   ) => Record<string, string | number | null>;
 }
 
 /** The tables that hold sealed rows. Each task that adds one lists it here, with the registry (`SEALED`) and the design's §13.1. */
-export const SEALED_TABLES: readonly SealedTable[] = [{ table: 'person' }, { table: 'household' }];
+export const SEALED_TABLES: readonly SealedTable[] = [
+  { table: 'person' },
+  { table: 'household' },
+  {
+    // A product's name key is an HMAC under a key derived from the instance key, so it changes with the key and is recomputed with the row.
+    table: 'product',
+    read: ['household_id'],
+    recompute: (row, fields, ring) => ({
+      name_key: nameKeyOf(ring, String(row.household_id), normaliseName(String(fields.name ?? ''))),
+    }),
+  },
+];
 
 const BATCH = 100;
 
@@ -111,7 +125,7 @@ export async function rotateSealed(
           );
           if (changed.length === 0 || !spec.recompute) return changed.length;
           const fields = unsealRow(spec.table, row.id, again, ring, registry);
-          for (const [column, value] of Object.entries(spec.recompute(row, fields))) {
+          for (const [column, value] of Object.entries(spec.recompute(row, fields, ring))) {
             await dbRun(
               tx,
               sql`UPDATE ${t} SET ${sql.raw(`"${column}"`)} = ${value} WHERE id = ${row.id}`,

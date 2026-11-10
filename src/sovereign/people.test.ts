@@ -27,6 +27,8 @@ const DECIDED_APP: Record<string, string> = {
   household:
     'deleted with the account when nobody else is in it, else passed on; the person leaves it',
   member: 'ended (left_at), or deleted with a household nobody else is in',
+  product:
+    'a household’s, deleted with it; what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',
 };
 const DECIDED_AUTH: Record<string, string> = {

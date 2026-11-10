@@ -19,7 +19,7 @@ yet), **quantities and no money.** Editing categories (4.7), a larger starter ca
 
 ## Tasks
 
-#### 📋 4.1 — Names and the name key
+#### ✅ 4.1 — Names and the name key
 
 **Goal:** one product per name in a household, found without reading names. **Design:** §8.7, §13.2. **Depends on:** 1.11.
 
@@ -28,6 +28,8 @@ until then, none); `name-key.ts` from 1.11 applied to it; the unique index `(hou
 
 **Accepts when:** _Oat Milk_, `oat  milk` and _OAT MILK_ give one key; two households' keys for one name differ; the key changes under a rotated
 encryption key and the rotation job recomputes it.
+
+**Done as:** `src/catalog/name.ts` (`normaliseName`: NFKC, white space made one space and trimmed, root-locale lower case; `isName`; the plural rule is left for 4.3 to give it, and until then there is none), `product-key.ts` (`productNameKey`, the name key of the normalised name, from 1.11) and **the `product` table** (`DESIGN.md` §20.3, the columns of 0.1.0) with its migration `0003_product`, the unique index `(household_id, name_key)` and the index by `(household_id, seq)` that pull will use. It is the first synced table, so it also joined `SEALED` (name, note), `SEALED_TABLES` with a `recompute` that gives a rotated key the new name key in the row's own transaction (`recompute` now takes the ring), `HOUSEHOLD_TABLES` and the decisions of `deletePerson`'s test. **Seen on all three databases:** one key for every way of writing a name in a household; keys that differ by household, by name and by instance key; a second product with a name already in the household refused by the index while the same name is free in another; and a rotation that gives every product the new key with the row, twice safely, with the index still holding.
 
 #### 📋 4.2 — Categories, units and icons
 

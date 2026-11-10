@@ -3,4 +3,4 @@
  * order that leaves nothing pointing at what is gone. `household` itself is deleted last, by `id`. **Each task that adds such a table lists it here**, and
  * `tables.test.ts` fails for one that is in the schema and not here, since a household deleted with a row left behind has not been deleted.
  */
-export const HOUSEHOLD_TABLES: readonly string[] = ['member'];
+export const HOUSEHOLD_TABLES: readonly string[] = ['member', 'product'];

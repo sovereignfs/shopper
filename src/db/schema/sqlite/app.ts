@@ -1,5 +1,5 @@
 import { index, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { counter, epochMs, id, ref, sealed } from './columns';
+import { counter, decimal, epochMs, fseq, id, ref, sealed } from './columns';
 
 /**
  * What the server holds in the app store (`shopper`, DESIGN.md §20). An account is better-auth's, in the other store, so an `account_id` is a
@@ -83,5 +83,38 @@ export const member = sqliteTable(
   (table) => [
     uniqueIndex('member_household_person_idx').on(table.householdId, table.personId),
     index('member_person_idx').on(table.personId),
+  ],
+);
+
+/**
+ * What a household remembers about something it buys (DESIGN.md §8.2), so that adding is one tap and the item arrives right. **One product per name in a
+ * household**: `name_key` is the HMAC of its normalised name (`src/crypto/name-key.ts`), unique with `household_id`, so the server finds "the same
+ * product" without reading a name, and a second made for the same name is folded into the first (task 5.3). The name and the note are sealed. Its
+ * category and icon are what the next add comes with; `default_quantity` and `default_unit` likewise; `times_bought`, `last_bought_at` and
+ * `last_added_at` are what suggestions rank by (§8.5), kept by apply. The last unit price and the barcode are phase 2's and 4's columns. `fseq` is
+ * the `seq` of each field's last change (§12.4), which merging reads without unsealing; `seq` is the household's counter at the row's last change.
+ */
+export const product = sqliteTable(
+  'product',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    nameKey: ref('name_key').notNull(),
+    sealed: sealed('sealed').notNull(),
+    categoryId: ref('category_id'),
+    icon: text('icon'),
+    defaultQuantity: decimal('default_quantity'),
+    defaultUnit: text('default_unit'),
+    timesBought: counter('times_bought').notNull().default(0),
+    lastBoughtAt: epochMs('last_bought_at'),
+    lastAddedAt: epochMs('last_added_at'),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('product_household_name_key_idx').on(table.householdId, table.nameKey),
+    index('product_household_seq_idx').on(table.householdId, table.seq),
   ],
 );
