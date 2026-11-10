@@ -30,15 +30,15 @@ copied. **All of epic 1 is phase 1,** trimmed to what 0.1.0 needs: where a task 
 **Accepts when:** a clean checkout installs with `pnpm install --frozen-lockfile`, `pnpm typecheck` passes, and `git status` is clean after.
 
 **Done as:** `LICENSE`, `.editorconfig`, `.node-version`, `.prettierignore`, `tsconfig.json`, `.github/dependabot.yml`, the pull request template and
-`CONTRIBUTING.md` copied from Tusk (renamed; Dependabot's ignore rules unchanged); `.gitignore` and `pnpm-workspace.yaml` from Tusk, trimmed (no Alpine
-`libc` variants dropped, no `peerDependencyRules` or `allowBuilds` entries until a dependency needs them); `prettier.config.ts` is Tusk's with a
+`CONTRIBUTING.md` copied from Tusk (renamed; Dependabot's ignore rules unchanged); `.gitignore` and `pnpm-workspace.yaml` from Tusk, trimmed (no
+`peerDependencyRules` or `allowBuilds` entries until a dependency needs them); `prettier.config.ts` is Tusk's with a
 150-column override for Markdown, since the documents are wrapped there. `package.json` is `@sovereignfs/shopper`, pnpm 11.14.0 (the installed one),
 Next 16.4, React 19.3, TypeScript 6.0 strict with `noUncheckedIndexedAccess`, `@sovereignfs/ui`, `config` and `sdk` at Tusk's exact versions (listed in
 `minimumReleaseAgeExclude`), and `@sovereignfs/manifest` as a dev dependency; it holds only what is used so far, and each task adds its own. `app/` is
 a layout with the design system's tokens and one placeholder page; `README.md` and `CHANGELOG.md` are new. Left out: the Dependabot `design-system`
 grouping is kept but nothing yet depends on `sdk`.
 
-#### 📋 1.2 — Format, lint and test tooling
+#### ✅ 1.2 — Format, lint and test tooling
 
 **Goal:** the checks every later task runs. **Design:** §21 Testing. **Depends on:** 1.1.
 
@@ -47,6 +47,8 @@ for the device store's tests (6.2); `fast-check` for the property tests (5.2, 5.
 (`next typegen && tsc --noEmit`), `test`; one real test.
 
 **Accepts when:** each check passes, and each is seen to fail on a planted fault.
+
+**Done as:** Prettier and ESLint as Tusk's (`prettier.config.ts`, `eslint.config.ts` and `types/` copied; the `tools/` ignore left out until there are tools); Vitest 5 with the design system inlined and files run one after another (`vitest.config.ts` is Tusk's without its operator-key setup file); `fake-indexeddb` and `fast-check` installed for 6.2 and 5.2. Scripts `format`, `format:check`, `lint`, `lint:fix`, `typecheck`, `test`; the one real test is `src/site.test.ts`. A planted unformatted file, an unused variable, a type error and a failing test were each seen to fail their check.
 
 #### 📋 1.3 — Continuous integration
 

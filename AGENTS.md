@@ -156,8 +156,10 @@ task's "Accepts when" says.
 | `pnpm build`        | The production build, a standalone server                                                 |
 | `pnpm typecheck`    | `next typegen && tsc --noEmit`                                                            |
 | `pnpm format:check` | Prettier over everything (`pnpm format` writes); the documents are wrapped at 150 columns |
+| `pnpm lint`         | ESLint, strict TypeScript and jsx-a11y (`pnpm lint:fix` fixes)                            |
+| `pnpm test`         | Vitest, files one after another                                                           |
 
-Not yet: `lint`, `test`, `db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`, `manifest:check`, `scripts/deploy-check.sh`.
+Not yet: `db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`, `manifest:check`, `scripts/deploy-check.sh`.
 
 ## Layout
 
