@@ -66,6 +66,18 @@ export async function forgetSession(page: Page): Promise<void> {
   await page.context().clearCookies();
 }
 
+/** Records every Content-Security-Policy violation the page raises, from before it runs anything. */
+export async function recordViolations(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __violations: string[] };
+    w.__violations = [];
+    document.addEventListener('securitypolicyviolation', (event) => {
+      w.__violations.push(`${event.violatedDirective} ${event.blockedURI}`);
+    });
+  });
+  return () => page.evaluate(() => (window as unknown as { __violations: string[] }).__violations);
+}
+
 /** Whether the browser has a session, asked of the server as the app's own pages ask it. */
 export async function sessionOf(
   page: Page,

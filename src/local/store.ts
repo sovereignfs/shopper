@@ -181,6 +181,10 @@ export async function readMeta<T>(
 const isNumber = (value: unknown): value is number => typeof value === 'number';
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
+/** Whether this device has ever heard from the server: until it has, a new device has nothing to show and says so by showing nothing. */
+export const hasSynced = async (db: LocalDatabase): Promise<boolean> =>
+  (await lastSyncedAt(db)) !== undefined;
+
 export const lastSyncedAt = async (db: LocalDatabase): Promise<number | undefined> =>
   (await readMeta<number | undefined>(db, 'lastSyncedAt', undefined, isNumber)) ?? undefined;
 

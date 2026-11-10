@@ -1,0 +1,141 @@
+/* The households and their lists, in the sidebar, the phone's drawer and the front page (DESIGN.md §16.2). */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+}
+
+.heading {
+  margin: 0;
+  padding: var(--sv-space-1) var(--sv-space-3);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lists {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row,
+.action {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+  width: 100%;
+  min-height: 36px;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  text-align: left;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+.row[aria-current='page'] {
+  color: var(--sv-color-text-primary);
+  font-weight: var(--sv-font-weight-semibold);
+  background: var(--sv-color-surface-sunken);
+}
+
+@media (hover: hover) {
+  .row:hover,
+  .action:hover {
+    color: var(--sv-color-text-primary);
+    background: var(--sv-color-surface-sunken);
+  }
+}
+
+.row:focus-visible,
+.action:focus-visible,
+.field:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* How many items are open: a number, in tabular figures so that a column of them lines up. */
+.count {
+  color: var(--sv-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An item or a list the server has not answered for yet: a small clock and nothing more (DESIGN.md §16.1). */
+.unsynced {
+  display: inline-flex;
+  color: var(--sv-color-text-muted);
+}
+
+.action {
+  color: var(--sv-color-text-muted);
+}
+
+.form {
+  padding: var(--sv-space-1) var(--sv-space-2);
+}
+
+.field {
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  background: var(--sv-color-surface);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+/* The rail: a letter for each list, with the name as its title, and a plus. */
+.rail .heading,
+.rail .name,
+.rail .count,
+.rail .action span {
+  display: none;
+}
+
+.rail .row,
+.rail .action {
+  justify-content: center;
+  width: 40px;
+  padding: var(--sv-space-2);
+}
+
+.initial {
+  display: none;
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.rail .initial {
+  display: inline;
+}

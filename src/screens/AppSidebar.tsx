@@ -2,25 +2,39 @@
 
 import { Icon } from '@sovereignfs/ui';
 import { site } from '@/src/site';
+import { useLocalOptional } from '../local/react';
+import { useMobileNav } from '../ui/mobile-nav';
 import { useSidebar } from '../ui/useSidebar';
+import { ListsNav } from './ListsNav';
 import styles from './AppSidebar.module.css';
 
-/** What the sidebar holds, and what the phone's drawer holds too: the places, and the lists of each household the person is in (task 8.1). */
-function NavigationContent() {
+/**
+ * What the sidebar holds, and what the phone's drawer holds too: the households and their lists (task 8.1), from the device. **An entry is here only when its
+ * page is**, since a link to a page that is not there is worse than none: All lists, Trips, Catalog and _Add item_ join with the tasks that build them. The page
+ * the service worker keeps has no working copy to read, so it holds nothing of a person and draws none.
+ */
+function NavigationContent({
+  rail = false,
+  onNavigate,
+  widen,
+}: {
+  rail?: boolean;
+  onNavigate?: () => void;
+  widen?: () => void;
+}) {
+  const local = useLocalOptional();
+  if (!local) return null;
   return (
-    <ul className={styles.places}>
-      <li>
-        <p className={styles.empty}>Your lists will be here.</p>
-      </li>
-    </ul>
+    <ListsNav rail={rail} {...(onNavigate ? { onNavigate } : {})} {...(widen ? { widen } : {})} />
   );
 }
 
 /** The navigation as the phone's drawer shows it: the same places by the same addresses, full width, with no rail and no collapse. */
 export function DrawerNavigation() {
+  const nav = useMobileNav();
   return (
     <nav className={styles.drawerNav} aria-label={site.name}>
-      <NavigationContent />
+      <NavigationContent onNavigate={() => nav.setOpen(false)} />
     </nav>
   );
 }
@@ -42,7 +56,7 @@ export function AppSidebar() {
       aria-label={site.name}
       data-sidebar={sidebar.state}
     >
-      <NavigationContent />
+      <NavigationContent rail={rail} widen={sidebar.toggleRail} />
       <button
         type="button"
         className={styles.collapse}

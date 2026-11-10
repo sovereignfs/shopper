@@ -145,6 +145,11 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
   return <Context.Provider value={{ accountId, client, leave }}>{children}</Context.Provider>;
 }
 
+/** The working copy if there is a provider above, and `null` if there is not: the page the service worker keeps has none, since it holds nothing of a person. */
+export function useLocalOptional(): Local | null {
+  return useContext(Context);
+}
+
 export function useLocal(): Local {
   const local = useContext(Context);
   if (!local) throw new Error('useLocal is used outside a LocalProvider');

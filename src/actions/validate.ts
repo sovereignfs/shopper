@@ -1,3 +1,4 @@
+import '../zod-jitless';
 import { z } from 'zod';
 import { FIELDS, MAX_CHANGES, SYNCED_TABLES, isId, type Mutation } from './format';
 

@@ -1,3 +1,4 @@
+import '../zod-jitless';
 import { z } from 'zod';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import { isGroceryIcon } from '../catalog/icons';

@@ -1,5 +1,5 @@
-import { expect, type Page } from '@playwright/test';
-import { PHONE, test } from './helpers';
+import { expect } from '@playwright/test';
+import { PHONE, recordViolations, test } from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -7,18 +7,6 @@ import { PORTS } from './ports';
  * sent. It is small on purpose: the point of this task is that there is a way to test what only a browser can show, and that it fails when the
  * page is broken.
  */
-
-/** Records every Content-Security-Policy violation the page raises, from before it runs anything. */
-async function recordViolations(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as unknown as { __violations: string[] };
-    w.__violations = [];
-    document.addEventListener('securitypolicyviolation', (event) => {
-      w.__violations.push(`${event.violatedDirective} ${event.blockedURI}`);
-    });
-  });
-  return () => page.evaluate(() => (window as unknown as { __violations: string[] }).__violations);
-}
 
 test('the app is up on its database, and says which', async ({ request }) => {
   const response = await request.get('/api/health');
