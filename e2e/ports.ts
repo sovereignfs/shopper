@@ -12,4 +12,6 @@ if (!Number.isInteger(offset) || offset < 0 || offset > 20_000) {
 export const PORTS = {
   /** The app under test, on the database the environment names. */
   app: 3899 + offset,
+  /** The instance that is closed to sign-up (`e2e/auth.spec.ts`): its own file, so that its first account is its own. */
+  closed: 3898 + offset,
 } as const;

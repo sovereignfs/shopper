@@ -20,7 +20,7 @@ trimmed (`DESIGN.md` §5.1); the person record as Tally designs it.
 
 ## Tasks
 
-#### 📋 2.1 — Local sign-in
+#### ✅ 2.1 — Local sign-in
 
 **Goal:** accounts of the app's own, with an email and a password. **Design:** §15.1, §6.3. **Depends on:** 1.5, 1.8.
 
@@ -33,6 +33,8 @@ Tusk's `src/auth/`, the mailer, `src/limits/`.
 
 **Accepts when:** the first account can register and the second is refused with sign-up closed; sign-in works on all three databases over real
 requests; the pages answer 404 with local sign-in off; the README's note says that `open` is the default and what `closed` is for.
+
+**Done as:** `src/auth/` (better-auth in the `shopper_auth` store through its Drizzle adapter; the settings; the server's view with `getAuth`, `signUpAvailable` and `mailAvailable`; `getSession`, `requireSession` and `requireAccount`; messages that never say whether an address has an account; the session cookie's name for the proxy; the sign-in, sign-up, forgot and reset forms and the pages and `/api/auth` route), `src/mail/` (the mailer interface, SMTP, a memory mailer and an SMTP sink for tests, the two messages) and `src/limits/rate.ts` copied from Tusk and renamed, with their tests. **Left out, as the task says:** passkeys and the authenticator app (their clients, plugin, hook, forms and tables; 2.8), and `notificationMessage` (phase 2); the fake Sovereign and its test of redirects wait for 2.3, although `createAuth` already carries the `genericOAuth` configuration, which 2.3 tests and finishes (the person and household it makes, and that `closed` does not refuse it). Sign-up is `open` by default and `closed` on request, in the user-creation hook. `proxy.ts` answers the sign-in pages with the page that is not found when local sign-in is off, and keeps `/sign-in` alone when a core is set; `AuthShell` takes `src/ui/ShopperMark.tsx`, a new mark (the app's icon in the text's colour). `makeStore` joined `src/db/test-support.ts`. Browser tests (`e2e/auth.spec.ts`): an account is made and signed in, signing in again, a wrong password reading as an unknown address, a too-short password refused by the server, and a second instance closed to sign-up that takes the first account and refuses the second; each test is a visitor of its own (`X-Forwarded-For`, in the `test` fixture of `e2e/helpers.ts`), since sign-up is rate-limited per address. **Seen:** the suite (237 tests) on all three databases and the 24 browser tests in both browsers, the auth ones also on sqld.
 
 #### 📋 2.2 — Landing page and the address `/`
 

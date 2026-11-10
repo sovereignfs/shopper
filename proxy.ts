@@ -9,15 +9,18 @@ import { edgeSettings } from './src/config/edge';
  * answer is data, with no page to protect, so it gets only the headers every response has (`next.config.ts`).
  *
  * It keeps the Edge discipline: no Node built-ins and no database. It only looks at the request, so a session is for the page to check, and a
- * proxy is never the only thing standing in the way (DESIGN.md §5.2). The sign-in pages that are not there when local sign-in is off, and `/` for
- * someone with a session cookie, join with tasks 2.1 and 2.2.
+ * proxy is never the only thing standing in the way (DESIGN.md §5.2). `/` for someone with a session cookie joins with task 2.2.
  *
  * The service worker keeps one page, `/shell` (task 1.12), and answers a signed-in address with it when there is no network. It is kept with the
  * headers it was sent with, so the nonce in its policy is the nonce on its scripts: it needs no fresh one. A page the worker builds itself ("needs a
  * connection") carries a policy of its own, which allows no script.
  */
+const SIGN_IN_PAGES = new Set(['/sign-in', '/sign-up', '/forgot-password', '/reset-password']);
+/** What a Sovereign-only instance has of them: the page that takes a person away to sign in there. Sign-up, and resetting a password, are local. */
+const SOVEREIGN_PAGES = new Set(['/sign-in']);
+
 export function proxy(request: NextRequest) {
-  const { secure, development } = edgeSettings();
+  const { secure, development, authLocal, authSovereign } = edgeSettings();
   const page = !request.nextUrl.pathname.startsWith('/api/');
   const nonce = newNonce();
   const policy = contentSecurityPolicy({ nonce, secure, development });
@@ -28,7 +31,17 @@ export function proxy(request: NextRequest) {
     requestHeaders.set('content-security-policy', policy);
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  // Off means off (DESIGN.md §15): with local sign-in off, the sign-in pages are not there (but the one page that takes a person to Sovereign, when that
+  // is set up). A page cannot say so itself: the root loading state has already sent a 200 by the time it would, so the proxy answers with the page that
+  // is not found, and its status.
+  const path = request.nextUrl.pathname;
+  const absent =
+    !authLocal && SIGN_IN_PAGES.has(path) && !(authSovereign && SOVEREIGN_PAGES.has(path));
+  const response = absent
+    ? NextResponse.rewrite(new URL('/not-found', request.url), {
+        request: { headers: requestHeaders },
+      })
+    : NextResponse.next({ request: { headers: requestHeaders } });
   if (page) response.headers.set('content-security-policy', policy);
   if (secure) response.headers.set('strict-transport-security', HSTS);
   return response;

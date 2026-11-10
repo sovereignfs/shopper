@@ -16,6 +16,7 @@ import {
   resolveDatabaseConfig,
   resolveDatabaseSettings,
 } from './config';
+import { runMigrations } from './migrate';
 import { provisionStores } from './provision';
 import { createSqldClient, provisionNamespace } from './sqld';
 
@@ -161,3 +162,10 @@ export const APP_TABLES: readonly string[] = namesIn(sqliteApp);
 
 /** What the auth store holds once it is migrated. */
 export const AUTH_TABLES: readonly string[] = namesIn(sqliteAuth);
+
+/** A migrated app store, from empty, for the tests of what the server writes there; `close` it afterwards. */
+export async function makeStore(): Promise<{ database: Database; close(): Promise<void> }> {
+  const { database } = await freshDatabase('app');
+  await runMigrations(database);
+  return { database, close: () => database.close() };
+}

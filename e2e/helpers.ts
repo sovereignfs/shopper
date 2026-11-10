@@ -1,4 +1,10 @@
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import {
+  expect,
+  test as base,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from '@playwright/test';
 
 /**
  * What the browser tests share. The helpers are the three things a test of an app that works offline and is shared needs: a phone's width, the
@@ -29,3 +35,52 @@ export async function anotherDevice(
   });
   return { context, page: await context.newPage() };
 }
+
+export const PASSWORD = 'correct horse battery';
+
+let counter = 0;
+/** An address no other test has used, in either browser: the instance is shared, and a person is made once. */
+export const newEmail = (label = 'person'): string =>
+  `${label}-${process.pid}-${Date.now()}-${++counter}@example.com`;
+
+/** Makes an account through the sign-up page, as a person would, and waits until they are signed in and on the front address. */
+export async function signUp(
+  page: Page,
+  { name = 'Ada', email = newEmail(), password = PASSWORD, base = '' } = {},
+): Promise<string> {
+  await page.goto(`${base}/sign-up`);
+  await page.getByLabel('Name').fill(name);
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page).toHaveURL(`${base}/`);
+  return email;
+}
+
+/** Whether the browser has a session, asked of the server as the app's own pages ask it. */
+export async function sessionOf(
+  page: Page,
+  base = '',
+): Promise<{ user: { email: string } } | null> {
+  const reply = await page.request.get(`${base}/api/auth/get-session`);
+  return (await reply.json()) as { user: { email: string } } | null;
+}
+
+/**
+ * Sign-up and sign-in are rate-limited per address, and every test reaches the one instance from the same one, so they would meet each other's limit. A
+ * person on their own connection does not, so each test is a visitor of its own: an address in `X-Forwarded-For`, which is what a proxy in front of the
+ * app tells it. `ip` is that address, for a test that calls the API itself.
+ */
+export const test = base.extend<{ ip: string }>({
+  // eslint-disable-next-line no-empty-pattern -- Playwright reads which fixtures a fixture needs from its destructuring, and this one needs none
+  ip: async ({}, use, testInfo) => {
+    let hash = 0;
+    for (const char of `${testInfo.project.name}|${testInfo.titlePath.join('|')}`)
+      hash = (hash * 31 + char.charCodeAt(0)) % 64_000;
+    await use(`10.${Math.floor(hash / 250) % 250}.${hash % 250}.${testInfo.retry + 1}`);
+  },
+  context: async ({ context, ip }, use) => {
+    await context.setExtraHTTPHeaders({ 'x-forwarded-for': ip });
+    await use(context);
+  },
+});

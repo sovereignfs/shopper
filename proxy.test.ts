@@ -38,6 +38,27 @@ describe('the proxy', () => {
     }
   });
 
+  it('turns the sign-in pages into a page that is not found when local sign-in is off, and leaves them when it is on', () => {
+    const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
+    vi.stubEnv('SHOPPER_AUTH_LOCAL', '');
+    for (const path of ['/sign-in', '/sign-up', '/forgot-password', '/reset-password']) {
+      expect(rewrite(proxy(request(path))), path).toMatch(/\/not-found$/);
+      // Still a page with a policy: the page that is not found is sent like any other.
+      expect(proxy(request(path)).headers.get('content-security-policy'), path).toContain('nonce-');
+    }
+    expect(rewrite(proxy(request('/')))).toBeNull();
+    vi.stubEnv('SHOPPER_AUTH_LOCAL', '1');
+    for (const path of ['/sign-in', '/sign-up']) expect(rewrite(proxy(request(path)))).toBeNull();
+  });
+
+  it('keeps the sign-in page for a Sovereign-only instance, and not the local pages', () => {
+    const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
+    vi.stubEnv('SHOPPER_AUTH_LOCAL', '');
+    vi.stubEnv('SHOPPER_CORE_URL', 'https://sovereign.example.com');
+    expect(rewrite(proxy(request('/sign-in')))).toBeNull();
+    expect(rewrite(proxy(request('/sign-up')))).toMatch(/\/not-found$/);
+  });
+
   it('puts no page policy on an API answer, and does not forward a nonce to it', () => {
     const reply = proxy(request('/api/health'));
     expect(reply.headers.get('content-security-policy')).toBeNull();

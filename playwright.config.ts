@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -49,6 +49,11 @@ const database = process.env.SHOPPER_DB_DIALECT
   ? {}
   : { SHOPPER_DB_DIALECT: 'sqlite', SHOPPER_SQLITE_URL: `file:${join(directory, 'shopper.db')}` };
 
+// A directory of its own for the instance that is closed to sign-up: the auth database is `shopper_auth.db` beside the app's, so two instances in one
+// directory would share their accounts, and a session cookie (which a port does not separate) would sign a person in on both.
+const closedFolder = join(directory, 'closed');
+mkdirSync(closedFolder, { recursive: true });
+
 export default defineConfig({
   testDir: 'e2e',
   // One at a time: the instance shares one database, and the tests are quick.
@@ -74,6 +79,22 @@ export default defineConfig({
         SHOPPER_AUTH_SECRET: SECRET,
         SHOPPER_AUTH_SIGNUP: 'open',
         // A key, as the app refuses to start without one: for this throwaway instance only.
+        SHOPPER_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+      } as Record<string, string>,
+    },
+    {
+      command: `node scripts/serve-standalone.mjs ${PORTS.closed}`,
+      url: `http://localhost:${PORTS.closed}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        SHOPPER_DB_DIALECT: 'sqlite',
+        SHOPPER_SQLITE_URL: `file:${join(closedFolder, 'shopper.db')}`,
+        SHOPPER_URL: `http://localhost:${PORTS.closed}`,
+        SHOPPER_AUTH_LOCAL: '1',
+        SHOPPER_AUTH_SECRET: SECRET,
+        SHOPPER_AUTH_SIGNUP: 'closed',
         SHOPPER_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
       } as Record<string, string>,
     },
