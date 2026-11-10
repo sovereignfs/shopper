@@ -61,7 +61,7 @@ with 1.10, the browser with 1.9. Skipped on drafts and `skip-ci`.
 
 **Done as:** `.github/workflows/ci.yml`, `scripts/ci-changes.sh` and its tests copied from Tusk (the action versions pinned by hash as there; the classifier unchanged, one test path renamed). Legs: `what changed` (the draft and `skip-ci` guard, and the classifier), `check` (format, lint, types, tests and build) and `shell scripts` (shellcheck and the classifier's own tests). Left out until their tasks: the database legs and the migrations check (1.5), the browser and image legs (1.9, 1.10), the manifest check (1.10), `test:zones` and the release script's tests (no such code here). Nothing has run on GitHub yet, since nothing is pushed.
 
-#### 📋 1.4 — Configuration and start-up
+#### ✅ 1.4 — Configuration and start-up
 
 **Goal:** settings declared once and checked before anything is served. **Design:** §7.6, §12.6, §15.1, §21 Deployment. **Depends on:** 1.2.
 
@@ -74,6 +74,8 @@ households of an account, lists, open items, products) with their defaults; phas
 `/api/health`. Copied: Tusk's `src/config/`, instrumentation.
 
 **Accepts when:** a missing or malformed setting stops start-up with every problem named and no value printed; `.env.example` matches the code.
+
+**Done as:** `src/config/` (env, the loader, the cached settings, the Edge subset), `instrumentation.ts` and `instrumentation-node.ts`, `src/auth/config.ts` and `src/mail/config.ts` and the key parsing of `src/crypto/keys.ts` copied from Tusk and renamed to `SHOPPER_`, trimmed of everything Tusk-only (GitHub App, Web Push, operator encryption, the personal cipher). New: `src/limits/config.ts` (the five limits of 0.1.0 with their defaults), `SHOPPER_SYNC_INTERVAL_SECONDS` (default 20, 5 to 600), `SHOPPER_AUTH_SIGNUP` as `open` (the default) or `closed`. **Changes in behaviour from Tusk, stated:** the encryption key is required, since nothing is stored in plain text (Tusk's is optional); sign-up defaults to `open`. The database settings are declared and read here, and checked by 1.5 (`Config.database` arrives with it); the key ring is parsed here, and 1.11 builds the envelope on it. `.env.example` is held to the declarations in both directions by `src/config/process-env.test.ts`, which also holds `process.env` to `src/config`. `/api/health` answers 200; 1.5 makes it wait for the database. Seen working: the built server refuses to start with a missing secret and key, naming both and no value, and answers `/api/health` with 200 when they are given.
 
 #### 📋 1.5 — The database layer
 
