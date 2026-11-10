@@ -133,9 +133,10 @@ describe('the starter catalog’s entries', () => {
       'Courgette',
       'zuc',
     ]);
+    // "chee" starts a word of _Goat cheese_ (tier two) and is one edit from the start of _Cheddar_ (tier three).
     expect(names(suggest({ text: 'chee', products: [], items: [], starter }))).toEqual([
-      'Cheddar',
       'Goat cheese',
+      'Cheddar',
       'chee',
     ]);
     expect(names(suggest({ text: 'chedar', products: [], items: [], starter }))).toEqual([
