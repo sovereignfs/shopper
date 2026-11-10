@@ -39,3 +39,44 @@ export const person = app.table(
     uniqueIndex('person_core_sub_idx').on(table.coreSub),
   ],
 );
+
+/**
+ * A household (DESIGN.md §7.1): the unit of sharing, and of sync (`seq` is its change counter, incremented by every transaction that writes a row of it,
+ * §12.3). Everything a household shops with carries its `household_id`. `own_of` is the account whose first household this is, made with the account
+ * (§7.4): unique, so making it twice is harmless, and null for any other. `sealed` holds the name and is **null while a household has none**, which in
+ * 0.1.0 is always (it is shown by the rule of §7.4; naming one is task 3.8). The colour and the currency are phase 2's columns.
+ */
+export const household = app.table(
+  'household',
+  {
+    id: id('id'),
+    ownOf: ref('own_of'),
+    sealed: sealed('sealed'),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [uniqueIndex('household_own_of_idx').on(table.ownOf)],
+);
+
+/**
+ * A person's place in a household, with a role: `admin` or `member` (DESIGN.md §7.2). A person who leaves keeps the row with `left_at` set, so that what
+ * they added keeps their name and joining again is the same row; **active** means `left_at` is null, and every statement says so (§5.2).
+ */
+export const member = app.table(
+  'member',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    personId: ref('person_id').notNull(),
+    role: text('role').notNull().default('member'),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('member_household_person_idx').on(table.householdId, table.personId),
+    index('member_person_idx').on(table.personId),
+  ],
+);

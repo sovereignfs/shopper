@@ -67,7 +67,7 @@ A person signs in with an email and a password and finds a household of their ow
 | --- | ------------------------------- | -------------------------------- | -------- | ------------- | ------ |
 | 11  | [2.1](docs/epics/accounts.md)   | Local sign-in                    | P0       | 1.5, 1.8      | ✅     |
 | 12  | [3.1](docs/epics/households.md) | Persons                          | P0       | 2.1, 1.11     | ✅     |
-| 13  | [3.2](docs/epics/households.md) | Households, members and access   | P0       | 3.1           | 📋     |
+| 13  | [3.2](docs/epics/households.md) | Households, members and access   | P0       | 3.1           | ✅     |
 | 14  | [3.3](docs/epics/households.md) | Your first household             | P0       | 3.2           | 📋     |
 | 15  | [2.5](docs/epics/accounts.md)   | Deleting a person                | P0       | 3.3           | 📋     |
 | 16  | [2.2](docs/epics/accounts.md)   | Landing page and the address `/` | P1       | 2.1           | 📋     |

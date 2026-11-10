@@ -20,6 +20,7 @@ export type SealedRegistry = Readonly<Record<string, readonly string[]>>;
  */
 export const SEALED: SealedRegistry = {
   person: ['name', 'email'],
+  household: ['name'],
 };
 
 /** A sealed field's value: text, or a number (money, in phase 2), or nothing. */

@@ -25,7 +25,7 @@ export interface SealedTable {
 }
 
 /** The tables that hold sealed rows. Each task that adds one lists it here, with the registry (`SEALED`) and the design's §13.1. */
-export const SEALED_TABLES: readonly SealedTable[] = [{ table: 'person' }];
+export const SEALED_TABLES: readonly SealedTable[] = [{ table: 'person' }, { table: 'household' }];
 
 const BATCH = 100;
 
