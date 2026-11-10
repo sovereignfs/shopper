@@ -65,6 +65,41 @@ test('a password that is too short is refused by the server, and the form asks f
   expect((await reply.json()).code).toBe('PASSWORD_TOO_SHORT');
 });
 
+test('an account is deleted with its password, and nothing of it signs in again', async ({
+  page,
+  ip,
+}) => {
+  const email = await signUp(page);
+  const headers = { origin: new URL(page.url()).origin, 'x-forwarded-for': ip };
+
+  // What it would do, before it is done: the first household, with nobody else in it, would be deleted.
+  const preview = await page.request.get('/api/account/delete', { headers });
+  expect(preview.status()).toBe(200);
+  expect((await preview.json()).households).toMatchObject([{ own: true, outcome: 'deleted' }]);
+
+  const wrong = await page.request.post('/api/account/delete', {
+    headers,
+    data: { password: 'not the password' },
+  });
+  expect(wrong.status()).toBe(403);
+  expect((await wrong.json()).code).toBe('WRONG_PASSWORD');
+  expect((await sessionOf(page))?.user.email).toBe(email);
+
+  const done = await page.request.post('/api/account/delete', {
+    headers,
+    data: { password: PASSWORD },
+  });
+  expect(done.status()).toBe(204);
+  expect(await sessionOf(page)).toBeNull();
+
+  await page.context().clearCookies();
+  await page.goto('/sign-in');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText(/do not match/)).toBeVisible();
+});
+
 test.describe('an instance closed to sign-up', () => {
   const base = `http://localhost:${PORTS.closed}`;
 

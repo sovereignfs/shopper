@@ -71,7 +71,7 @@ once 6.4 is in. Account deleted runs `deletePerson` and answers `200` only once 
 **Accepts when:** against `createFakeCore`, a logout notice ends every session of the person, an account-deleted notice leaves nothing personal of
 them and every shared household intact, and a replayed `jti` is refused after a restart.
 
-#### 📋 2.5 — Deleting a person
+#### ✅ 2.5 — Deleting a person
 
 **Goal:** one routine that removes everything personal of an account and keeps its name on the shared record. **Design:** §19. **Depends on:** 3.3.
 
@@ -85,6 +85,8 @@ household, and fails for a table nobody decided about. Each later task that adds
 **Accepts when:** after deletion no table holds the person's email, sign-in or anything listed in §19; their name still shows on items they added in
 the second person's household; that household is intact with a new Admin where needed; a household they were alone in is gone; a second run
 succeeds.
+
+**Done as:** `src/sovereign/people.ts` (`deletePerson`, and `previewLeaving` for the confirmation), `delete-account.ts` (its handler: the password asked for, counted, the session's own account only; a session made in the last ten minutes where there is no password) and `app/api/account/delete/route.ts`, adapted from Tusk; `src/access/route.ts` (`accountRoute`: session, then `Origin` for a write, then the handler with the account id and nothing else) and `body.ts` are new, and the route is in `src/access/routes.ts`. One routine in a fixed order, safe to run again: the households (**the Admin role passes to the member who has been in longest** where they were its only Admin and others remain; a household nobody else is in is deleted **by `household_id` over `HOUSEHOLD_TABLES`**, a list `src/households/tables.ts` that a test holds to every schema table carrying `household_id`; otherwise they leave; each its own transaction, the household's counter stepped for what changed), the rate counters that carry their account, the sign-in store (sessions, sign-ins, pending verifications found by the address, then the account), and **last** the person, kept as a name only (the account link, the core identity and the email gone). `admin_passed` waits for notices (9.2). **`people.test.ts` decides what happens to every table of both stores and fails for one that is undecided,** seeds the sign-in rows and counters of two people, and finds nothing of the first after (the name aside) and the second's household and account intact; a run cut off before the person is finished by running it again. Browser test: the preview, a wrong password refused, deletion with the right one, and the account no longer signing in. **Seen on all three databases** (271 tests) and in both browsers (26).
 
 #### 📋 2.6 — Settings
 

@@ -46,11 +46,12 @@ export async function join(
   household: string,
   person: Someone,
   role: 'admin' | 'member' = 'member',
+  joinedAt: number = Date.now(),
 ): Promise<void> {
   await dbRun(
     database,
     sql`INSERT INTO ${appTable(database, 'member')} (id, household_id, person_id, role, joined_at, seq)
-        VALUES (${crypto.randomUUID()}, ${household}, ${person.personId}, ${role}, ${Date.now()}, 1)
+        VALUES (${crypto.randomUUID()}, ${household}, ${person.personId}, ${role}, ${joinedAt}, 1)
         ON CONFLICT (household_id, person_id) DO UPDATE SET left_at = NULL, role = ${role}`,
   );
 }

@@ -63,6 +63,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/account/delete',
+    who: 'signed-in',
+    note: "The session's own account only: what deleting it would do, and doing it, after the password.",
+  },
+  {
+    kind: 'route',
     address: '/api/ops',
     who: 'signed-in',
     note: 'The online operations: each says who may do it, and an outsider gets not found.',
