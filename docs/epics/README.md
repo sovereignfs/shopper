@@ -9,6 +9,8 @@ the task is corrected.
 - **Task IDs are permanent:** `<epic>.<n>`, for example `4.3`. Use them in dependency lists and cross-references. They never appear in branch names,
   commit messages or PR titles, and an ID is never reused, even for a task that was superseded.
 - **One task, one branch, one draft PR.** A task is done when its "Accepts when" holds and its PR is merged.
+- **A task's phase is the milestone it is in, in `ROADMAP.md`;** in an epic, a task of phase 2 or later says so in its heading. A phase 2 task is
+  written to be built but is not started before 0.1.0 is released, except where a phase 1 task says it prepares for it.
 - **Every task** has a Goal, a Design reference, what it Depends on, Technical detail, and Accepts when. Once done it gains **Done as**: how it was
   done, where, and what was left out.
 - **On completion,** the task's heading here and its row in `ROADMAP.md` are marked ✅ in the same PR, and a change in behaviour adds a line to
@@ -27,21 +29,21 @@ _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a deci
 
 ## Epics
 
-| #   | Epic                                    | What it holds                                                                                                        | Tasks |
-| --- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----- |
-| 1   | [Foundation](foundation.md)             | Tooling, CI, configuration, the database, encryption at rest, jobs, the shell, the image, the PWA                    | 12    |
-| 2   | [Accounts and sign-in](accounts.md)     | Local and Sovereign sign-in, the sign-up policy, core's notices, deleting a person, landing, Settings                | 7     |
-| 3   | [Households](households.md)             | Persons, households and access, your own household, invitations, roles and lifecycle, moving lists, limits           | 7     |
-| 4   | [The catalog](catalog.md)               | Names and the name key, categories, units and icons, the starter catalog, suggestions, parsing, quantities and money | 6     |
-| 5   | [Lists and items](items.md)             | Actions and validators, the write path with field merging, folding, lists, items, products                           | 6     |
-| 6   | [Offline and sync](sync.md)             | The endpoint, the device's store, Couldn't sync, live updates and freshness, opening offline, pruning                | 6     |
-| 7   | [Trips and shopping](trips.md)          | Trips and lines, finishing and clearing, shopping mode, several lists, the trips history                             | 5     |
-| 8   | [Screens](screens.md)                   | The shell, a list, adding, an item, all lists, the catalog, household settings, the phone                            | 8     |
-| 9   | [Mail and notices](notices.md)          | The mail outbox, notices and the bell, the digest, preferences and delivery                                          | 4     |
-| 10  | [The suite](suite.md)                   | Core's bell, email and activity; inviting from the directory                                                         | 2     |
-| 11  | [Portability](portability.md)           | Export, import, import from the plugin                                                                               | 3     |
-| 12  | [Release](release.md)                   | Seed, security review, documents, the first release, hosting                                                         | 5     |
-| 13  | [Pantry and routines](pantry.md)        | Phase 2: pantry, staples, repeating items, templates, shops' aisle order, prices, insights, Push                     | 9     |
-| 14  | [Capture](capture.md)                   | Phase 3: barcode scanning and lookup, the media store, photos, receipts                                              | 6     |
-| 15  | [Later](later.md)                       | Candidates: Git backup, links to Ledger and Tally, AI, other languages                                               | 4     |
-| 16  | [Upstream, in `sovereign`](upstream.md) | `AUTH_SIGNUP`'s `invite`, the port, `AvatarStack`, grocery icons, a floating button, charts, `MoneyInput`            | 7     |
+| #   | Epic                                    | What it holds                                                                                                                                                               | Tasks |
+| --- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| 1   | [Foundation](foundation.md)             | Tooling, CI, configuration, the database, encryption at rest, jobs, the shell, the image, the PWA                                                                           | 12    |
+| 2   | [Accounts and sign-in](accounts.md)     | Local and Sovereign sign-in, core's notices, deleting a person, landing, Settings; later the sign-up policy, passkeys, linking                                              | 9     |
+| 3   | [Households](households.md)             | Persons, households and access, your first household, invitations by link, leaving and removing, limits; later making households, roles, moving lists, invitations by email | 10    |
+| 4   | [The catalog](catalog.md)               | Names and the name key, categories, units and icons, the starter catalog, suggestions, quantities; later parsing, editing categories, money                                 | 9     |
+| 5   | [Lists and items](items.md)             | Actions and validators, the write path with field merging, folding, lists, items and ticking; later products                                                                | 6     |
+| 6   | [Offline and sync](sync.md)             | The endpoint, the device's store, Couldn't sync, opening offline; later live updates and freshness, pruning                                                                 | 6     |
+| 7   | [Trips and shopping](trips.md)          | Shopping mode; later trips and lines, finishing and clearing, shopping mode with trips, several lists, the history                                                          | 6     |
+| 8   | [Screens](screens.md)                   | The shell, a list, adding, an item, sharing, the phone; later all lists, the catalog, household settings, prices, Add                                                       | 11    |
+| 9   | [Mail and notices](notices.md)          | Phase 2: the mail outbox, notices and the bell, the digest, preferences and delivery                                                                                        | 4     |
+| 10  | [The suite](suite.md)                   | Phase 2: core's bell, email and activity; inviting from the directory                                                                                                       | 2     |
+| 11  | [Portability](portability.md)           | Phase 2: export, import, import from the plugin                                                                                                                             | 3     |
+| 12  | [Release](release.md)                   | Seed, security review, documents, the first release, hosting; the second release                                                                                            | 6     |
+| 13  | [Pantry and routines](pantry.md)        | Phase 3: pantry, staples, repeating items, templates, shops' aisle order, prices, insights, Push                                                                            | 9     |
+| 14  | [Capture](capture.md)                   | Phase 4: barcode scanning and lookup, the media store, photos, receipts                                                                                                     | 6     |
+| 15  | [Later](later.md)                       | Candidates: Git backup, links to Ledger and Tally, AI, other languages                                                                                                      | 4     |
+| 16  | [Upstream, in `sovereign`](upstream.md) | `AUTH_SIGNUP`'s `invite`, the port, `AvatarStack`, grocery icons, a floating button, charts, `MoneyInput` (none needed by 0.1.0)                                            | 7     |

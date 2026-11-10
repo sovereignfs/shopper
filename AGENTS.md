@@ -13,8 +13,8 @@ which.
 ## What this is
 
 **Shopper**, an app of the Sovereign suite exactly as Tusk, Fjord, Tally and Roam are: a household's shopping lists, a catalog that learns what the
-household buys, ticking things off in the shop into trips, and a shopping mode made for the aisle, all working with no network and syncing in the
-background, with others' changes arriving as fast as each person chooses, up to live. A Sovereign instance can host it, and **it runs fully on its
+household buys, ticking things off in the shop (into trips, from phase 2), and a shopping mode made for the aisle, all working with no network and
+syncing in the background, with others' changes arriving as fast as each person chooses (up to live, from phase 2). A Sovereign instance can host it, and **it runs fully on its
 own, with every feature, needing no instance**: its own accounts, people, mail and notices. It replaces the legacy plugin
 `sovereignfs/sovereign-plugin-shopper`, whose behaviour is the starting point and none of whose code or interface is carried over; its export can be
 imported. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL), signing people in locally, through a Sovereign core, or
@@ -22,6 +22,11 @@ both, from one image.
 
 **Nothing is built yet.** `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A starts by copying Tusk's infrastructure (`DESIGN.md`
 §5.1).
+
+**Phase 1 (0.1.0) is a minimum viable product,** built to be used as soon as it can be: sign-in by password or through a core, lists and items offline,
+ticking and a light shopping mode, sharing by a link, everything sealed at rest. `DESIGN.md` §2.2 says exactly what it holds and what waits. **A task
+of phase 2 or later is not started before 0.1.0 is released** unless the owner decides it, and a phase 1 task builds the design's data model
+and rules as written, leaving out only the screens and features §2.2 lists, so that phase 2 adds to it and moves nothing.
 
 ## Source of truth
 
@@ -77,7 +82,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Every feature works with no Sovereign instance.** Core adds a way in, a directory, a bell and email; a feature that only works with core is not
   done. A call to core that fails, is refused or is not supported changes nothing but that call (`DESIGN.md` §15.4).
 - **An account is known by its better-auth user id (`account_id`); someone on a shared row is a `person`.** Every account has exactly one person and
-  exactly one own household. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
+  exactly one household made with it (`own_of`), which others may be invited into. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
   a person at sign-in.
 - **People join a household only by accepting an invitation;** nobody is added without agreeing. An email is shown only to whom `DESIGN.md` §6.1
   allows, through the one visibility function, and never in a notice or another person's export.
@@ -93,7 +98,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Lists, items, products, categories, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
   mutation, and `src/sync/apply.ts` applies it, re-checking membership and limits, merging field by field, folding duplicates (`src/sync/fold.ts`), in
   one short transaction that increments the household's `seq`. A replayed mutation writes nothing. The property tests pass.
-- **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** and a second makes no trip line;
+- **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** (and, from phase 2, a second makes no trip line);
   the same product twice in a household, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
   refused change goes to Couldn't sync, never to nowhere.
 - **Households, membership, roles, invitations and moving a list between households are online operations** (`/api/ops`), decided by the server at
@@ -104,7 +109,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   figure has one implementation, pure, shared by the browser, the server and the tests (suggestions, totals, unit prices, aisle order).
 - **The device's store is per account and holds only the account's households;** it is deleted at sign-out. **The service worker caches the shell
   only,** by allow-list; no page or answer with a person's data is ever in a cache.
-- **Notices are raised in the change's transaction or by the digest job, never for the person who acted, never in an own household.** Mail goes
+- **Notices are raised in the change's transaction or by the digest job, never for the person who acted.** Mail goes
   through `mail_outbox`, in the background; no address or content is logged.
 - **An invitation token is random, stored only as its hash, compared in constant time,** single-use and expiring; every invalid link shows the same
   page.
@@ -126,7 +131,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   app. **Reusable UI is built in `@sovereignfs/ui` in `sovereign`, released, then used** (epic 16), never forked here.
 - **Never fork a navigation decision by viewport;** fork only what is rendered.
 - **No third-party loads and no third-party requests from the browser.** What people write is rendered as text, never as HTML. A lookup by barcode
-  (phase 3) is made by the server.
+  (phase 4) is made by the server.
 - **User-facing words are "household", "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
   (`DESIGN.md` §4), never "ledger", "purchase transaction", "owner", "viewer", "editor", "tenant", "client" or "plugin".
 - **Next.js tracks the latest stable release.** Read the guide bundled with the installed version (`node_modules/next/dist/docs/`) before writing Next

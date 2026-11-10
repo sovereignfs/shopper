@@ -2,7 +2,8 @@
 
 ## Status
 
-📋 Planned.
+📋 Planned. **All of epic 9 is phase 2:** 0.1.0 has no bell, no notices and no mail of its own beyond what sign-in sends (2.1). People share by a link
+(3.4) and see each other's changes when their device syncs.
 
 ## Overview
 
@@ -11,11 +12,11 @@ Shopper's own mail and its own bell, so that both work with no instance; core's 
 
 ## Related
 
-[`DESIGN.md`](../../DESIGN.md) §14 · Tally's `docs/epics/notices.md` and `docs/epics/invites.md` (8.1)
+[`DESIGN.md`](../../DESIGN.md) §2.2, §14 · Tally's `docs/epics/notices.md` and `docs/epics/invites.md` (8.1)
 
 ## Tasks
 
-#### 📋 9.1 — The mail outbox
+#### 📋 9.1 — The mail outbox (phase 2)
 
 **Goal:** mail sent in the background, never lost, never logged. **Design:** §14.3. **Depends on:** 1.6.
 
@@ -26,18 +27,19 @@ as plain text and simple HTML from typed content; with no SMTP set, rows are not
 **Accepts when:** against a fake SMTP server, a queued mail is sent once even with two processes; a failing server retries and gives up after the set
 attempts; logs hold no address.
 
-#### 📋 9.2 — Notices and the bell
+#### 📋 9.2 — Notices and the bell (phase 2)
 
-**Goal:** people are told what concerns them, in Shopper. **Design:** §14.1. **Depends on:** 5.2, 8.1.
+**Goal:** people are told what concerns them, in Shopper. **Design:** §14.1. **Depends on:** 5.2, 8.1, 3.5.
 
 **Technical:** `notice` (§20.3); kinds `invited`, `member_joined`, `removed`, `household_deleted`, `admin_passed`, `trip_finished` written in the
-change's transaction, never for the actor, never in an own household; words from one pure function (`src/notices/describe.ts`); the bell left of the
+change's transaction, never for the actor (so never in a household of one); `invited` once 3.10 is in, `admin_passed` for 2.5, `removed` for 3.5,
+`household_deleted` for 3.9, `trip_finished` for 7.2; words from one pure function (`src/notices/describe.ts`); the bell left of the
 avatar with the unread count to "99+" and `NotificationsPanel`; `/notifications` by day; read per notice and Mark all read; 90 days and at most 500 a
 person kept (a job); a notice for a household left is not shown; the unread count as last synced, offline.
 
 **Accepts when:** each kind reaches exactly the people §14.1 names and never the actor; the bell works with no core and no mail.
 
-#### 📋 9.3 — The items-added digest
+#### 📋 9.3 — The items-added digest (phase 2)
 
 **Goal:** a burst of adds is one quiet notice. **Design:** §14.1. **Depends on:** 9.2, 1.6.
 
@@ -48,7 +50,7 @@ old, and drops windows at zero.
 **Accepts when:** ten adds in five minutes by one person give the others one notice saying ten; an add and its removal give none; nobody with the kind
 off gets anything.
 
-#### 📋 9.4 — Preferences and delivery
+#### 📋 9.4 — Preferences and delivery (phase 2)
 
 **Goal:** each person chooses what reaches them, and how. **Design:** §14.2, §14.3. **Depends on:** 9.2, 9.1.
 
