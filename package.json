@@ -1,0 +1,43 @@
+{
+  "name": "@sovereignfs/shopper",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sovereignfs/shopper.git"
+  },
+  "type": "module",
+  "packageManager": "pnpm@11.14.0",
+  "description": "Shopper: a household's shopping lists that work in the shop with no signal, and run on their own or on a Sovereign instance.",
+  "engines": {
+    "node": ">=24.15 <25"
+  },
+  "scripts": {
+    "dev": "next dev --port 3007",
+    "build": "next build",
+    "start": "PORT=${PORT:-3007} node .next/standalone/server.js",
+    "typecheck": "next typegen && tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@sovereignfs/config": "0.1.0",
+    "@sovereignfs/sdk": "2.1.0",
+    "@sovereignfs/ui": "0.92.0",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@sovereignfs/manifest": "^0.1.0",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "jiti": "^2.7.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3"
+  }
+}

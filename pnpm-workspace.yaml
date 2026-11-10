@@ -1,0 +1,29 @@
+# pnpm's settings for this app (it is one package, not a workspace).
+
+# Refuse to install on a Node outside package.json "engines".
+engineStrict: true
+
+# Without this, pnpm only records optional-dependency variants (Next's compiler, for one) for the host platform that ran `pnpm install`, so a
+# lockfile made on a Mac has nothing for the Linux image to install. Covers the contributors' Macs, CI, and the image on arm64 and x64.
+supportedArchitectures:
+  os:
+    - darwin
+    - linux
+  cpu:
+    - arm64
+    - x64
+  libc:
+    - glibc
+    - musl
+
+# A release of a package younger than pnpm's minimum age is installed only by being listed here. These are ours and exact-pinned, and are listed
+# in the commit that bumps them; any other needs an argument.
+minimumReleaseAgeExclude:
+  - '@sovereignfs/ui@0.92.0'
+  - '@sovereignfs/config@0.1.0'
+  - '@sovereignfs/sdk@2.1.0'
+
+# pnpm 11 refuses to run a dependency's install script unless it is decided here, and `pnpm install` fails while any is undecided. A script runs on
+# every developer's machine and in CI, so each one is a choice, not a default. None is needed yet; each task that adds a dependency with one
+# decides it here.
+allowBuilds: {}

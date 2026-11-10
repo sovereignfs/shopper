@@ -147,11 +147,19 @@ ours, exact-pinned. Never accept pnpm's offer to add one.
 
 ## Commands
 
-None exist yet. Milestone A brings Tusk's set (`format`, `lint`, `typecheck`, `test`, `db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`,
-`manifest:check`, `build`, `scripts/deploy-check.sh`), and this list is where they are written as they land. Until then, `verify` means the Markdown
-is formatted and every relative link resolves.
+Tusk's set is brought by Milestone A, and this list is where each is written as it lands. Until a command is here, `verify` for it means what the
+task's "Accepts when" says.
+
+| Command             | What                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| `pnpm dev`          | The app on port 3007                                                                      |
+| `pnpm build`        | The production build, a standalone server                                                 |
+| `pnpm typecheck`    | `next typegen && tsc --noEmit`                                                            |
+| `pnpm format:check` | Prettier over everything (`pnpm format` writes); the documents are wrapped at 150 columns |
+
+Not yet: `lint`, `test`, `db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`, `manifest:check`, `scripts/deploy-check.sh`.
 
 ## Layout
 
-`DESIGN.md` §5.1 is where things go as the app is built. Today the repository holds only `DESIGN.md`, `ROADMAP.md`, `docs/epics/`, this file and
-`CLAUDE.md`. It is not yet a Git repository; the owner initialises it.
+`DESIGN.md` §5.1 is where things go as the app is built: `app/` for routes, `src/` for everything else, tests beside the code. Directories are made
+when a task needs them.

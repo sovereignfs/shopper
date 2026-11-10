@@ -18,7 +18,7 @@ copied. **All of epic 1 is phase 1,** trimmed to what 0.1.0 needs: where a task 
 
 ## Tasks
 
-#### 📋 1.1 — Repository conventions
+#### ✅ 1.1 — Repository conventions
 
 **Goal:** the files a repository of the suite is expected to have. **Design:** §21, `AGENTS.md`. **Depends on:** nothing.
 
@@ -28,6 +28,15 @@ copied. **All of epic 1 is phase 1,** trimmed to what 0.1.0 needs: where a task 
 `manifest` pinned exactly at Tusk's versions. `git init` and the GitHub repository `sovereignfs/shopper` are made by the owner.
 
 **Accepts when:** a clean checkout installs with `pnpm install --frozen-lockfile`, `pnpm typecheck` passes, and `git status` is clean after.
+
+**Done as:** `LICENSE`, `.editorconfig`, `.node-version`, `.prettierignore`, `tsconfig.json`, `.github/dependabot.yml`, the pull request template and
+`CONTRIBUTING.md` copied from Tusk (renamed; Dependabot's ignore rules unchanged); `.gitignore` and `pnpm-workspace.yaml` from Tusk, trimmed (no Alpine
+`libc` variants dropped, no `peerDependencyRules` or `allowBuilds` entries until a dependency needs them); `prettier.config.ts` is Tusk's with a
+150-column override for Markdown, since the documents are wrapped there. `package.json` is `@sovereignfs/shopper`, pnpm 11.14.0 (the installed one),
+Next 16.4, React 19.3, TypeScript 6.0 strict with `noUncheckedIndexedAccess`, `@sovereignfs/ui`, `config` and `sdk` at Tusk's exact versions (listed in
+`minimumReleaseAgeExclude`), and `@sovereignfs/manifest` as a dev dependency; it holds only what is used so far, and each task adds its own. `app/` is
+a layout with the design system's tokens and one placeholder page; `README.md` and `CHANGELOG.md` are new. Left out: the Dependabot `design-system`
+grouping is kept but nothing yet depends on `sdk`.
 
 #### 📋 1.2 — Format, lint and test tooling
 

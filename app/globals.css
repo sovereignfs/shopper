@@ -1,0 +1,26 @@
+/* Page-level defaults. The tokens (--sv-*) come from @sovereignfs/ui, imported in the layout; the pages and components style themselves with them,
+   and nothing else supplies a colour. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--sv-color-surface);
+  color: var(--sv-color-text-primary);
+  font-family: var(--sv-font-family);
+  font-size: var(--sv-font-size-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
