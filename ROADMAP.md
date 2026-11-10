@@ -90,7 +90,7 @@ module. **Done when** the property tests hold and a mutation is applied, merged,
 | 25  | [5.4](docs/epics/items.md)   | Lists                               | P0       | 5.2           | ✅     |
 | 26  | [5.5](docs/epics/items.md)   | Items, ticking and clearing         | P0       | 5.3, 5.4      | ✅     |
 | 27  | [4.3](docs/epics/catalog.md) | The starter catalog                 | P1       | 4.2           | ✅     |
-| 28  | [4.4](docs/epics/catalog.md) | Suggestions                         | P1       | 4.3, 5.5      | 📋     |
+| 28  | [4.4](docs/epics/catalog.md) | Suggestions                         | P1       | 4.3, 5.5      | ✅     |
 
 ### Milestone D — Offline and sync
 

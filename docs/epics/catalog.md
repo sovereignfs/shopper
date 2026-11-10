@@ -60,7 +60,7 @@ reviewed by the owner in this task's PR; used by suggestions (4.4), the guess (4
 
 **Done as:** `src/catalog/starter.ts`: **190 entries** (the epic said about 150; the owner may cut it in review) in every category but Other, each with a stable key, an English name, aliases (_zucchini_, _yogurt_, _ground beef_), a category key, an icon **from the set the design system already has**, and a default unit and quantity, as typed data; `plural` marks the entries whose name with an _s_ is the same product. `starterEntryFor` finds one by name, alias or plural; `starterCategoryFor` gives `guessCategory` (4.2) the entry's category for the whole name and, failing that, for its last word, then the words before it (_goat cheese_ is _cheese_). `src/catalog/canonical.ts` is **the plural rule 4.1 left for here:** `canonicalName` is the normalised name with a trailing _s_ stripped only for a starter singular whose entry says so (_apples_ is _apple_; _peas_, _hummus_ and _oat milks_ are left), and `productNameKey` and the key rotation's recompute now use it, so that Apple and apples are one product in a household and not across two. **`starter.test.ts` is the schema test:** every category, icon, unit and quantity exists, no two entries share a key, a normalised name, an alias or a plural, and the catalog is a sensible size; "goat cheese" goes to _Dairy & eggs_ with no history by the entry for _cheese_, and the household's own habit decides only what the catalog does not know. **The owner's review of the list is still to be done in the pull request.** Seen on all three databases (the suite, 441 tests).
 
-#### 📋 4.4 — Suggestions
+#### ✅ 4.4 — Suggestions
 
 **Goal:** the add field's suggestions, learned from the household. **Design:** §8.5. **Depends on:** 4.3, 5.5.
 
@@ -72,6 +72,8 @@ eight; with empty text, "Often bought" (the most bought products not on the list
 
 **Accepts when:** hand-worked fixtures rank as designed; an open match offers _+1_; the empty field offers often-bought products not on the list; the
 benchmark answers in under 10 ms on CI's machine for the largest household the limits allow.
+
+**Done as:** `src/catalog/suggest.ts`, pure: for typed text, the household's products in three tiers (the name starts with it, a word does, within one edit of the name or a word for three letters or more), then the starter catalog's entries it has no product for in the same tiers, **ranked within a tier by how many times it was bought, then when it was last bought, then last added, then by name** (in 0.1.0 from the product's own `times_bought`, which `apply` keeps, 5.5; 7.1 gives it the decayed count over trip lines); a match open on the list carries the open item (`onList`) so that choosing it offers _+1_; at most eight matches, then the text as typed to add as new; with nothing typed, "Often bought" (the products bought most that are not on the list, never a new item). Deleted products are not offered, and bought, cleared and deleted items are not "on the list". **Hand-worked fixtures** hold each rule, and a benchmark holds the largest household the limits allow (5000 products) to a median under ten milliseconds once the names are normalised (they are cached on the row). Seen: 12 tests, and the benchmark run repeatedly.
 
 #### 📋 4.5 — Reading what is typed (phase 2)
 
