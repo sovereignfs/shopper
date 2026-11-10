@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import '@sovereignfs/ui/tokens.css';
 import './globals.css';
@@ -16,7 +17,10 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Every page has a nonce of its own (proxy.ts), so every page is rendered per request: Next puts the nonce from the request's policy on the scripts
+  // it makes only for a page that is not prerendered.
+  await connection();
   return (
     <html lang="en">
       <body>{children}</body>

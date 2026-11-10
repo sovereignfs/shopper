@@ -99,7 +99,7 @@ job on it, the rotation of the encryption key (1.11);** trips, mail, notices and
 
 **Accepts when:** a job's work is done once when two processes run it; SIGTERM stops the runner and the server cleanly.
 
-#### 📋 1.7 — Security headers
+#### ✅ 1.7 — Security headers
 
 **Goal:** the CSP and headers every response has. **Design:** §21 Security. **Depends on:** 1.4.
 
@@ -107,6 +107,8 @@ job on it, the rotation of the encryption key (1.11);** trips, mail, notices and
 `/api/live` (6.4, phase 2) answers `text/event-stream` with `Cache-Control: no-cache` and `X-Accel-Buffering: no`.
 
 **Accepts when:** every response, including errors and redirects, carries the policy; a test fails if `'unsafe-inline'` appears in `script-src`.
+
+**Done as:** `src/security/csp.ts` and its tests copied from Tusk and renamed (the nonce policy, `connect-src 'self'`, no `'unsafe-inline'` in `script-src`, the response headers and HSTS over https); `proxy.ts` is Tusk's reduced to the nonce, the policy and HSTS, with its own tests: the sign-in pages that answer 404 when local sign-in is off and `/` for someone with a session cookie are left to 2.1 and 2.2, which add them to it. `next.config.ts` sends the headers every response has; the layout waits for the connection so that every page is rendered per request and carries its nonce. `/api/live`'s `text/event-stream` headers are 6.4's (phase 2). **Seen on the built server:** a page, a 404 and `/api/health` each carry the security headers, and the two pages the policy with a nonce of their own.
 
 #### 📋 1.8 — Design system boundary and shell
 
