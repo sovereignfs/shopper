@@ -1,11 +1,12 @@
 import { resolveAuth, type AuthSettings } from '../auth/config';
 import { type KeyRing, parseKey, ringOf } from '../crypto/keys';
+import { DatabaseConfigError, resolveDatabaseSettings, type DatabaseSettings } from '../db/config';
 import { resolveLimits, type Limits } from '../limits/config';
 import { resolveMail } from '../mail/config';
 import type { MailSettings } from '../mail/config';
 import { readEnvironment, type Env, type ReadFile } from './env';
 
-/** What the app was told, once it has been checked. It grows as the tasks that read a setting are built (the database is task 1.5's). */
+/** What the app was told, once it has been checked. It grows as the tasks that read a setting are built. */
 export interface Config {
   /** The address people use, with no path. Absent when the app is run with no sign-in, which only a development machine does. */
   readonly url: string | undefined;
@@ -17,6 +18,8 @@ export interface Config {
   readonly encryption: KeyRing;
   /** Where mail goes, or `undefined`: then an address is not verified, a password is not reset by mail, and no screen or route offers either. */
   readonly mail: MailSettings | undefined;
+  /** Which database, and how to wait for it and migrate it (DESIGN.md §20.1). */
+  readonly database: DatabaseSettings;
   /** How often a visible device pulls, in seconds (DESIGN.md §12.6). */
   readonly syncIntervalSeconds: number;
   /** The operator's limits (DESIGN.md §7.6). */
@@ -162,13 +165,28 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
 
   const limits = resolveLimits(read, problems);
 
-  if (problems.length > 0 || encryption === undefined) return { ok: false, problems };
+  // The database: which of the three forms, and the address it needs. A secret address may arrive as a file.
+  let database: DatabaseSettings | undefined;
+  try {
+    database = resolveDatabaseSettings({
+      ...env,
+      SHOPPER_POSTGRES_URL: read('SHOPPER_POSTGRES_URL'),
+      SHOPPER_POSTGRES_URL_FILE: undefined,
+    });
+  } catch (error) {
+    if (error instanceof DatabaseConfigError) problems.push(error.message);
+    else throw error;
+  }
+
+  if (problems.length > 0 || encryption === undefined || database === undefined)
+    return { ok: false, problems };
   return {
     ok: true,
     config: {
       url,
       auth,
       worker: rawWorker !== 'off',
+      database,
       encryption,
       mail,
       syncIntervalSeconds,

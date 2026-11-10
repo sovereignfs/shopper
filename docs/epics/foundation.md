@@ -77,7 +77,7 @@ households of an account, lists, open items, products) with their defaults; phas
 
 **Done as:** `src/config/` (env, the loader, the cached settings, the Edge subset), `instrumentation.ts` and `instrumentation-node.ts`, `src/auth/config.ts` and `src/mail/config.ts` and the key parsing of `src/crypto/keys.ts` copied from Tusk and renamed to `SHOPPER_`, trimmed of everything Tusk-only (GitHub App, Web Push, operator encryption, the personal cipher). New: `src/limits/config.ts` (the five limits of 0.1.0 with their defaults), `SHOPPER_SYNC_INTERVAL_SECONDS` (default 20, 5 to 600), `SHOPPER_AUTH_SIGNUP` as `open` (the default) or `closed`. **Changes in behaviour from Tusk, stated:** the encryption key is required, since nothing is stored in plain text (Tusk's is optional); sign-up defaults to `open`. The database settings are declared and read here, and checked by 1.5 (`Config.database` arrives with it); the key ring is parsed here, and 1.11 builds the envelope on it. `.env.example` is held to the declarations in both directions by `src/config/process-env.test.ts`, which also holds `process.env` to `src/config`. `/api/health` answers 200; 1.5 makes it wait for the database. Seen working: the built server refuses to start with a missing secret and key, naming both and no value, and answers `/api/health` with 200 when they are given.
 
-#### 📋 1.5 — The database layer
+#### ✅ 1.5 — The database layer
 
 **Goal:** three forms, two dialects, migrations at start-up. **Design:** §20.1, §20.2. **Depends on:** 1.4.
 
@@ -87,6 +87,8 @@ read, as Ledger's) joins with 4.9 in phase 2; the two stores `shopper` and `shop
 `pnpm db:dev`; the parity test; CI legs on sqld, a file and PostgreSQL.
 
 **Accepts when:** an empty database of each form is provisioned and migrated at start-up, twice safely; CI fails if generating would write anything.
+
+**Done as:** `src/db/` (config, client, provision, migrate, boot with retries, `exec.ts`, the column vocabulary, `test-support.ts` reading `SHOPPER_TEST_*`, and their tests), the four drizzle configs, `scripts/db-generate.mjs`, `dev-db.mjs`, `boot-check.mjs` and `scripts/lib/standalone.mjs` copied from Tusk and renamed; the stores are `shopper` and `shopper_auth`; the dev containers use ports 27080, 27081 and 27432. **Changed from Tusk:** the vocabulary is `id`, `ref`, `epochMs`, `counter`, `bool`, `position` and the new `decimal`, `sealed` and `fseq` (the two date words and `fields` are gone). `decimal` is text on both dialects: the canonical-string check is in `src/quantity` (4.6) and the write path, because queries here are raw SQL and a column type cannot refuse a write; `money` joins with 4.9. The first migration of the app store holds `rate_bucket` alone (the tables of the product arrive with their tasks), and of the auth store better-auth's `user`, `session`, `account`, `verification` and `rate_limit` without the passkey and two-factor tables (2.8). `Config.database` and `/api/health` (200 only once the database answers, naming its dialect) are wired, and `instrumentation-node.ts` provisions and migrates before serving. CI gained the `tests` legs on sqld, a `file:` database and PostgreSQL (each also boots the built server with `pnpm boot-check`) and a check that generating migrations writes nothing; it has not run on GitHub. **Seen locally:** the whole suite (96 tests) on all three forms, the built server booting and answering health on each, and the migrations check clean.
 
 #### 📋 1.6 — The job runner
 

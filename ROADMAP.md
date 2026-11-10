@@ -51,7 +51,7 @@ CI proves it.
 | 2   | [1.2](docs/epics/foundation.md)  | Format, lint and test tooling    | P0       | 1.1        | ✅     |
 | 3   | [1.3](docs/epics/foundation.md)  | Continuous integration           | P0       | 1.2        | ✅     |
 | 4   | [1.4](docs/epics/foundation.md)  | Configuration and start-up       | P0       | 1.2        | ✅     |
-| 5   | [1.5](docs/epics/foundation.md)  | The database layer               | P0       | 1.4        | 📋     |
+| 5   | [1.5](docs/epics/foundation.md)  | The database layer               | P0       | 1.4        | ✅     |
 | 6   | [1.11](docs/epics/foundation.md) | Encryption at rest               | P0       | 1.5        | 📋     |
 | 7   | [1.8](docs/epics/foundation.md)  | Design system boundary and shell | P0       | 1.2        | 📋     |
 | 8   | [1.7](docs/epics/foundation.md)  | Security headers                 | P0       | 1.4        | 📋     |
