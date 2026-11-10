@@ -87,6 +87,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/sync',
+    who: 'signed-in',
+    note: "The session's own account: its outbox is applied with the permission in each statement, and only the households it is in are pulled.",
+  },
+  {
+    kind: 'route',
     address: '/api/ops',
     who: 'signed-in',
     note: 'The online operations: each says who may do it, and an outsider gets not found.',

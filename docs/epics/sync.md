@@ -20,7 +20,7 @@ pruning the history (6.6).
 
 ## Tasks
 
-#### 📋 6.1 — The sync endpoint
+#### ✅ 6.1 — The sync endpoint
 
 **Goal:** `POST /api/sync`. **Design:** §12.3. **Depends on:** 5.5.
 
@@ -32,6 +32,8 @@ their lines, in a snapshot of the last 180 days, join with 7.1. Shape from Tusk'
 
 **Accepts when:** a device starting at zero gets each household whole; a cursor gets only what is new; a household left between two syncs is named
 gone and its rows stop; a lost answer retried applies nothing twice.
+
+**Done as:** `POST /api/sync` in `app/api/sync/route.ts`, through `accountRoute` (session and `Origin`), a 2 MB body cap (`readCapped`), 240 requests a minute per account (database-counted), and `handleSync` in `src/sync/endpoint.ts`, which is pure of HTTP. `src/sync/protocol.ts` is the one definition of the request (a `version`, an outbox of at most 200 mutations, a cursor per household) and the answer; a device on another protocol gets 426 and keeps its outbox, a malformed body 400. The outbox is applied in order through `applyMutation`: each is answered `applied` or `replayed` (with its folds) or `refused` (reason and sentence), and a refusal does not stop the rest. Then, for the households `householdsOf` returns (active membership, in the statement), `src/sync/pull.ts` returns what is past each cursor: lists, items, products, categories, members, tombstones and aliases, unsealed and in the device's camelCase shape, with a member's address shown only as `canSeeEmail` allows. A page is cut at a whole `seq` (`PAGE_ROWS` 500, tested at 3), so a device never sees half a change, and `more` says to ask again; a household new to the device starts at 0, which is its snapshot. Households named in the cursors that the account is not in now are `gone`, which is the answer for one that never existed or was never theirs as well, so it reveals nothing. The answer carries `SHOPPER_SYNC_INTERVAL_SECONDS`. Seven tests in `src/sync/endpoint.test.ts` on all three databases, including a second person, a refused write answered as one to a household that is not there, a member who leaves, a lost answer retried, and paging; the pull's membership guard was seen to fail when removed. Left out: trips and their lines (7.1), the live stream (phase 2), and a test of the route's rate limit and body cap, which are one line each in the route and are exercised in the browser tests of 6.2.
 
 #### 📋 6.2 — The device's store, outbox and loop
 

@@ -100,7 +100,7 @@ Couldn't sync.
 
 | #   | ID                               | Task                                | Priority | Depends on | Status |
 | --- | -------------------------------- | ----------------------------------- | -------- | ---------- | ------ |
-| 29  | [6.1](docs/epics/sync.md)        | The sync endpoint                   | P0       | 5.5        | 📋     |
+| 29  | [6.1](docs/epics/sync.md)        | The sync endpoint                   | P0       | 5.5        | ✅     |
 | 30  | [6.2](docs/epics/sync.md)        | The device's store, outbox and loop | P0       | 6.1        | 📋     |
 | 31  | [6.3](docs/epics/sync.md)        | Couldn't sync                       | P1       | 6.2        | 📋     |
 | 32  | [1.12](docs/epics/foundation.md) | The PWA                             | P1       | 1.8        | 📋     |
