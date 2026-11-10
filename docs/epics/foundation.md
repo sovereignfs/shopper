@@ -90,14 +90,17 @@ read, as Ledger's) joins with 4.9 in phase 2; the two stores `shopper` and `shop
 
 **Done as:** `src/db/` (config, client, provision, migrate, boot with retries, `exec.ts`, the column vocabulary, `test-support.ts` reading `SHOPPER_TEST_*`, and their tests), the four drizzle configs, `scripts/db-generate.mjs`, `dev-db.mjs`, `boot-check.mjs` and `scripts/lib/standalone.mjs` copied from Tusk and renamed; the stores are `shopper` and `shopper_auth`; the dev containers use ports 27080, 27081 and 27432. **Changed from Tusk:** the vocabulary is `id`, `ref`, `epochMs`, `counter`, `bool`, `position` and the new `decimal`, `sealed` and `fseq` (the two date words and `fields` are gone). `decimal` is text on both dialects: the canonical-string check is in `src/quantity` (4.6) and the write path, because queries here are raw SQL and a column type cannot refuse a write; `money` joins with 4.9. The first migration of the app store holds `rate_bucket` alone (the tables of the product arrive with their tasks), and of the auth store better-auth's `user`, `session`, `account`, `verification` and `rate_limit` without the passkey and two-factor tables (2.8). `Config.database` and `/api/health` (200 only once the database answers, naming its dialect) are wired, and `instrumentation-node.ts` provisions and migrates before serving. CI gained the `tests` legs on sqld, a `file:` database and PostgreSQL (each also boots the built server with `pnpm boot-check`) and a check that generating migrations writes nothing; it has not run on GitHub. **Seen locally:** the whole suite (96 tests) on all three forms, the built server booting and answering health on each, and the migrations check clean.
 
-#### 📋 1.6 — The job runner
+#### ✅ 1.6 — The job runner
 
 **Goal:** background work in the web process, safe across processes. **Design:** §5. **Depends on:** 1.5.
 
-**Technical:** copy Tusk's `src/jobs/` (runner, `claim.ts`, `index.ts`) and `job_claim`; `SHOPPER_WORKER=off`; stopped on SIGTERM. **0.1.0 runs one
-job on it, the rotation of the encryption key (1.11);** trips, mail, notices and the history (7.2, 9.1, 9.3, 6.6) are phase 2's.
+**Technical:** copy Tusk's `src/jobs/` (runner, `claim.ts`, `index.ts`); `SHOPPER_WORKER=off`; stopped on SIGTERM. A job claims its work by a conditional
+update of the row it works on (`claim.ts`), and there is no `job_claim` table. **0.1.0 has no job on it** (the key rotation runs at start-up, 1.11);
+trips, mail, notices and the history (7.2, 9.1, 9.3, 6.6) are phase 2's.
 
 **Accepts when:** a job's work is done once when two processes run it; SIGTERM stops the runner and the server cleanly.
+
+**Done as:** `src/jobs/runner.ts` and `claim.ts` with their tests copied from Tusk and renamed (a job never overlaps itself, a failure is logged by name and kind and never its message, the clock is given to the job, and a stop gives runs in flight a grace period); `index.ts` is new and holds **no job**, so `startJobs` is called at start-up and starts a runner with nothing to run. **Correction:** there is no `job_claim` table, in Tusk or here: a job claims its work by a conditional update of the row it works on, which is what `claim()` is, and the design's table list and this task said otherwise until now. Seen on the built server: it starts the runner, and a SIGTERM stops it.
 
 #### ✅ 1.7 — Security headers
 

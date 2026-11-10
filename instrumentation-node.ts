@@ -11,8 +11,7 @@ import { processEnv } from './src/config/env';
  * 3. What is sealed must be openable with the keys it was given, or the server stops, naming the fingerprints; and what is wrapped under
  *    `SHOPPER_ENCRYPTION_KEY_PREVIOUS` is moved to the current key, with the name keys that depend on it (DESIGN.md §13.1). Any replica may do it,
  *    and all of them at once.
- *
- * The background jobs (task 1.6) join here.
+ * 4. The background jobs start, unless `SHOPPER_WORKER=off` (src/jobs), and stop when the process is told to (SIGTERM, which Docker sends).
  */
 export async function start(): Promise<void> {
   const result = loadConfig(processEnv());
@@ -32,5 +31,15 @@ export async function start(): Promise<void> {
     console.error('Shopper cannot start, because its database or its keys are not usable:');
     console.error(`  - ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
+  }
+
+  const { startJobs } = await import('./src/jobs');
+  const runner = startJobs(result.config);
+  if (runner) {
+    // Next's own handler closes the server and exits with the signal's code; this one stops the timers at once and gives a run in flight a moment,
+    // which it may not use up if Next finishes first: a run cut off is safe, because every job claims its work (src/jobs/claim.ts).
+    const stop = () => void runner.stop();
+    process.once('SIGTERM', stop);
+    process.once('SIGINT', stop);
   }
 }
