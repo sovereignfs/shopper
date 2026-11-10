@@ -79,7 +79,7 @@ splits a name the starter catalog knows with a number in it (_7 Up_); what it un
 
 **Accepts when:** a table of examples parses as expected, including the ones that must not split.
 
-#### 📋 4.6 — Quantities and units
+#### ✅ 4.6 — Quantities and units
 
 **Goal:** the arithmetic of how much, with no binary float. **Design:** §9.3. **Depends on:** 1.2.
 
@@ -89,6 +89,8 @@ product's last quantity). Money is 4.9.
 
 **Accepts when:** property tests hold that adding quantities is exact and that a canonical string parses back to itself; a decimal comma and a point
 both parse; more than three places is refused.
+
+**Done as:** `src/quantity/decimal.ts` and `units.ts`, new and pure. A quantity is a canonical decimal string (positive, up to three places, no leading or trailing zero, at most 999999.999) calculated on **thousandths as `bigint`**, so adding and subtracting are exact and nothing is rounded: `isQuantity`, `addQuantity` (which refuses a sum past the largest), `subtractQuantity`, `compareQuantity`, `largerQuantity` (what two devices' items are folded to), `parseQuantity` (a decimal point or comma, tidied; **`1,500` is one and a half and a comma is never a group separator**; a sign, words, an exponent, zero, too many places or too large are refused) and `formatQuantity` (the same digits with the locale's separator, a comma where it writes one and a point otherwise, so that what is shown can be typed back). `UNITS` is the fixed list with each unit counted or measured, `isUnit` compares exactly, and `stepFor` is one for a counted unit and the product's last quantity for a measured one. Money joins with 4.9. **Property tests (`fast-check`):** adding is exact and commutative, subtracting what was added gives back the first, comparison is antisymmetric and agrees with string equality, thousandths and strings are one-to-one, and a shown quantity parses back in six locales.
 
 #### 📋 4.7 — Editing categories and the aisle order (phase 2)
 
