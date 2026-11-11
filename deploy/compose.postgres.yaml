@@ -1,0 +1,35 @@
+# Replaces sqld with PostgreSQL. Use it with the default file:
+#
+#   docker compose -f compose.yaml -f compose.postgres.yaml up -d --build
+#
+# Needs Docker Compose 2.24 or later (`!reset` and `!override`). To use a PostgreSQL server you already run, skip this file and set
+# SHOPPER_DB_DIALECT=postgres and SHOPPER_POSTGRES_URL in .env instead (README.md).
+services:
+  web:
+    environment: !override
+      SHOPPER_DB_DIALECT: postgres
+      SHOPPER_POSTGRES_URL: postgres://shopper:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/shopper
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+
+  sqld: !reset null
+
+  postgres:
+    # Pinned, not `latest`; matches what the tests run against.
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shopper
+      POSTGRES_DB: shopper
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shopper -d shopper']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres-data:

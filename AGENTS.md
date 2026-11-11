@@ -150,18 +150,18 @@ ours, exact-pinned. Never accept pnpm's offer to add one.
 Tusk's set is brought by Milestone A, and this list is where each is written as it lands. Until a command is here, `verify` for it means what the
 task's "Accepts when" says.
 
-| Command             | What                                                                                                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`          | The app on port 3007                                                                                                                                             |
-| `pnpm build`        | The production build, a standalone server                                                                                                                        |
-| `pnpm typecheck`    | `next typegen && tsc --noEmit`                                                                                                                                   |
-| `pnpm format:check` | Prettier over everything (`pnpm format` writes); the documents are wrapped at 150 columns                                                                        |
-| `pnpm lint`         | ESLint, strict TypeScript and jsx-a11y (`pnpm lint:fix` fixes)                                                                                                   |
-| `pnpm test`         | Vitest, files one after another                                                                                                                                  |
-| `pnpm seed`         | Three development accounts with shared and own households, items and a link (`-- --reset` makes them again, `-- --remove` takes them away; local databases only) |
-| `pnpm icons`        | The PNG icons, made again from `public/icons/icon.svg` (committed; needed only if the mark changes)                                                              |
-
-Not yet: `manifest:check`, `scripts/deploy-check.sh`.
+| Command                   | What                                                                                                                                                                                                              |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                | The app on port 3007                                                                                                                                                                                              |
+| `pnpm build`              | The production build, a standalone server                                                                                                                                                                         |
+| `pnpm typecheck`          | `next typegen && tsc --noEmit`                                                                                                                                                                                    |
+| `pnpm format:check`       | Prettier over everything (`pnpm format` writes); the documents are wrapped at 150 columns                                                                                                                         |
+| `pnpm lint`               | ESLint, strict TypeScript and jsx-a11y (`pnpm lint:fix` fixes)                                                                                                                                                    |
+| `pnpm test`               | Vitest, files one after another                                                                                                                                                                                   |
+| `pnpm seed`               | Three development accounts with shared and own households, items and a link (`-- --reset` makes them again, `-- --remove` takes them away; local databases only)                                                  |
+| `pnpm manifest:check`     | `sovereign-manifest check`: `sovereign.manifest.json` against the contract's schema (`src/sovereign-manifest.test.ts` holds it to the code)                                                                       |
+| `scripts/deploy-check.sh` | Brings each setup of `deploy/` up from nothing in Docker, as an instance would host it (`SHOPPER_IMAGE=shopper:ci`; build with `eval "docker build $(pnpm exec sovereign-manifest docker-args) -t shopper:ci ."`) |
+| `pnpm icons`              | The PNG icons, made again from `public/icons/icon.svg` (committed; needed only if the mark changes)                                                                                                               |
 
 ## Layout
 

@@ -28,6 +28,7 @@
     "boot-check": "node scripts/boot-check.mjs",
     "icons": "node scripts/icons.mjs",
     "seed": "node scripts/seed-run.mjs",
+    "manifest:check": "sovereign-manifest check",
     "e2e": "playwright test"
   },
   "dependencies": {

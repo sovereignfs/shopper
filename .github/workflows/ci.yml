@@ -98,6 +98,8 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      # Fails on a manifest an instance would refuse.
+      - run: pnpm manifest:check
       - run: pnpm build
 
       # A schema changed without its migration, or a migration was edited by hand, if generating from the committed schemas writes anything
@@ -241,6 +243,39 @@ jobs:
       # SHOPPER_TEST_* names instead, because they drop whole schemas and namespaces and must never be pointed at a real database by the
       # variables a developer might have exported (src/db/test-support.ts).
       - run: pnpm test
+
+  # The image, built as an operator builds it (the port and the label come from the manifest) and brought up in every setup of deploy/, on a runner of each
+  # architecture: the app's native modules differ by it.
+  image:
+    name: image (${{ matrix.runner }})
+    needs: changes
+    # Only when the image can be affected (`scripts/ci-changes.sh` says which changes).
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the image
+        run: eval "docker build $(pnpm exec sovereign-manifest docker-args) -t shopper:ci ."
+
+      - name: Bring it up in each setup
+        env:
+          SHOPPER_IMAGE: shopper:ci
+        run: scripts/deploy-check.sh
 
   scripts:
     name: shell scripts
