@@ -21,6 +21,10 @@ const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Shopper' }
 const rowNames = (page: Page) =>
   page.getByRole('checkbox').evaluateAll((rows) => rows.map((row) => row.textContent ?? ''));
 
+/** The first word of each row's name, in the order shown; polled by callers, since a page that has just loaded has not drawn its rows yet. */
+const firstWords = (page: Page) =>
+  rowNames(page).then((names) => names.map((text) => text.replace(/\s.*/, '')));
+
 async function signedUpWith(
   page: Page,
   baseURL: string | undefined,
@@ -186,28 +190,16 @@ test('the list can be shown in the order added, by the address, and the device r
     { name: 'Apples', category: 'produce' },
     { name: 'Rice', category: 'pantry' },
   ]);
-  expect((await rowNames(page)).map((text) => text.replace(/\s.*/, ''))).toEqual([
-    'Apples',
-    'Milk',
-    'Rice',
-  ]);
+  await expect.poll(() => firstWords(page)).toEqual(['Apples', 'Milk', 'Rice']);
   await page.getByRole('button', { name: 'List menu' }).click();
   await page.getByRole('menuitemradio', { name: 'In the order added' }).click();
   await expect(page).toHaveURL(/\?view=added$/);
-  expect((await rowNames(page)).map((text) => text.replace(/\s.*/, ''))).toEqual([
-    'Milk',
-    'Apples',
-    'Rice',
-  ]);
+  await expect.poll(() => firstWords(page)).toEqual(['Milk', 'Apples', 'Rice']);
   await expect(page.getByRole('heading', { level: 2, name: 'Produce' })).toHaveCount(0);
 
   // Another place in the app opens it the same way: this device chose it.
   await page.goto('/');
-  expect((await rowNames(page)).map((text) => text.replace(/\s.*/, ''))).toEqual([
-    'Milk',
-    'Apples',
-    'Rice',
-  ]);
+  await expect.poll(() => firstWords(page)).toEqual(['Milk', 'Apples', 'Rice']);
   await page.getByRole('button', { name: 'List menu' }).click();
   await page.getByRole('menuitemradio', { name: 'By aisle' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Produce' })).toBeVisible();
@@ -251,7 +243,7 @@ test('an item is moved within its category by the keyboard, one row is written, 
     .toEqual(['Bananas', 'Carrots', 'Apples']);
   // The category order did not change: Milk is still below.
   await page.reload();
-  expect(await produce()).toEqual(['Bananas', 'Carrots', 'Apples']);
+  await expect.poll(produce).toEqual(['Bananas', 'Carrots', 'Apples']);
 });
 
 test('an empty list offers what is bought often, and one tap puts it back', async ({
