@@ -55,7 +55,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       title={`Join ${preview.household}`}
       lead={lead}
       footer={
-        canSignUp ? undefined : (
+        // Sign-in through core makes an account whatever the sign-up setting says, so a closed instance with core has nothing to warn of.
+        canSignUp || settings?.sovereign ? undefined : (
           <>
             An account is needed first, and this Shopper is not taking new ones. Sign in if you have
             one.

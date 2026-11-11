@@ -14,4 +14,10 @@ export const PORTS = {
   app: 3899 + offset,
   /** The instance that is closed to sign-up (`e2e/auth.spec.ts`): its own file, so that its first account is its own. */
   closed: 3898 + offset,
+  /** The instance that signs in through Sovereign only, and the one that takes both ways (`e2e/sovereign.spec.ts`); both have sign-up closed. */
+  sovereign: 3897 + offset,
+  both: 3896 + offset,
+  /** The fake Sovereign: the OIDC provider, and the control port a test says who signs in next on. */
+  coreAuth: 3895 + offset,
+  coreControl: 3894 + offset,
 } as const;

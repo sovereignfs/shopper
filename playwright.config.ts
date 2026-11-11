@@ -53,6 +53,20 @@ const database = process.env.SHOPPER_DB_DIALECT
 // directory would share their accounts, and a session cookie (which a port does not separate) would sign a person in on both.
 const closedFolder = join(directory, 'closed');
 mkdirSync(closedFolder, { recursive: true });
+// Two more instances, for signing in through Sovereign: a fake one (`e2e/fake-sovereign-server.ts`, its ports in `e2e/ports.ts`) is the core. One takes only
+// Sovereign; the other both ways. Both have sign-up closed, to show that a sign-in through core is not refused by it. Each has a directory of its own.
+const CORE = {
+  SHOPPER_CORE_URL: `http://localhost:${PORTS.coreAuth}/api/auth`,
+  SHOPPER_CORE_CLIENT_ID: 'shopper-e2e-client',
+  SHOPPER_CORE_CLIENT_SECRET: 'shopper-e2e-secret',
+};
+const folder = (name: string): string => {
+  const where = join(directory, name);
+  mkdirSync(where, { recursive: true });
+  return where;
+};
+const sovereignFolder = folder('sovereign');
+const bothFolder = folder('both');
 
 export default defineConfig({
   testDir: 'e2e',
@@ -66,6 +80,13 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: [
+    // First, so that it is up when the instances that sign in through it start and discover it.
+    {
+      command: 'node e2e/fake-sovereign-server.ts',
+      url: `http://localhost:${PORTS.coreControl}/health`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+    },
     {
       command: `node scripts/serve-standalone.mjs ${PORT}`,
       url: `http://localhost:${PORT}/api/health`,
@@ -96,6 +117,39 @@ export default defineConfig({
         SHOPPER_AUTH_SECRET: SECRET,
         SHOPPER_AUTH_SIGNUP: 'closed',
         SHOPPER_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+      } as Record<string, string>,
+    },
+    {
+      command: `node scripts/serve-standalone.mjs ${PORTS.sovereign}`,
+      url: `http://localhost:${PORTS.sovereign}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        SHOPPER_DB_DIALECT: 'sqlite',
+        SHOPPER_SQLITE_URL: `file:${join(sovereignFolder, 'shopper.db')}`,
+        SHOPPER_URL: `http://localhost:${PORTS.sovereign}`,
+        SHOPPER_AUTH_SECRET: SECRET,
+        SHOPPER_AUTH_SIGNUP: 'closed',
+        SHOPPER_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+        ...CORE,
+      } as Record<string, string>,
+    },
+    {
+      command: `node scripts/serve-standalone.mjs ${PORTS.both}`,
+      url: `http://localhost:${PORTS.both}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        SHOPPER_DB_DIALECT: 'sqlite',
+        SHOPPER_SQLITE_URL: `file:${join(bothFolder, 'shopper.db')}`,
+        SHOPPER_URL: `http://localhost:${PORTS.both}`,
+        SHOPPER_AUTH_LOCAL: '1',
+        SHOPPER_AUTH_SECRET: SECRET,
+        SHOPPER_AUTH_SIGNUP: 'closed',
+        SHOPPER_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+        ...CORE,
       } as Record<string, string>,
     },
   ],

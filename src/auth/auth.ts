@@ -139,10 +139,12 @@ export function createAuth({
     databaseHooks: {
       user: {
         create: {
-          // One policy for every way an account can come to be (DESIGN.md §6.3), here and not in a route, so that it holds for all of them. That a
-          // sign-in through core always gets an account, whatever this says, is task 2.3's.
-          before: async () => {
+          // One policy for every way an account can come to be (DESIGN.md §6.3), here and not in a route, so that it holds for all of them,
+          // **except a sign-in through core, which always gets an account, whatever this says** (§15.1): core has already decided who this is, and the
+          // sign-up setting is about who may make a local account.
+          before: async (_user, context) => {
             if (settings.signUp === 'open') return;
+            if (context?.path?.includes('/callback/')) return;
             if ((await countUsers(database)) > 0) {
               // With a code, so that a refusal can be told apart from any other 403.
               throw new APIError('FORBIDDEN', {
