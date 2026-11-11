@@ -3,18 +3,20 @@
 ## What is sealed
 
 Shopper's database holds what a household buys, where and who they are, so those are **sealed**: encrypted by the server under `SHOPPER_ENCRYPTION_KEY` before they are
-written, and opened when they are read. In 0.1.0 that is: the names of households, lists, items, products and categories; notes; and people's names and email addresses.
+written, and opened when they are read. In 0.1.0 that is: the names of households, lists, items, products and categories; notes; and the name and email address
+Shopper keeps of each person on what they share (the `person` record).
 
 Each row is sealed on its own. It has a random **data key**, which is wrapped under the instance key and bound to that row, so a sealed value copied to another row will not
 open. Everything sealed in a row is one value, read and written only through one module (`src/crypto/sealed.ts`), which a test holds to the list of what is sealed.
 
-**What is not sealed:** ids, quantities, units, icons, positions, times, roles, counts and the structure that sorting, merging and counting need. Alone, without a name, they say
+**What is not sealed:** **each account's name and email address in the sign-in database** (`shopper_auth`, the `user` table), because signing in looks an account up by its address and a
+sealed value cannot be searched. Someone who copies that database learns who has an account and their addresses, though nothing about what they buy. Also ids, quantities, units, icons, positions, times, roles, counts and the structure that sorting, merging and counting need. Alone, without a name, they say
 little. **No sealed field is ever searched, sorted or indexed by the database**: suggestions and totals are worked out in memory, on the device. A product is found again in a
 household by a **name key** (a keyed hash of its normalised name, different in each household), which reveals only that two rows of one household share a name.
 
 ## What it protects against, and what it does not
 
-**It protects against** a copied database, a backup that leaves your control, a stolen disk, a volume snapshot, and someone who reads the tables.
+**It protects what a household buys and where from** a copied database, a backup that leaves your control, a stolen disk, a volume snapshot, and someone who reads the tables. **It does not hide who has an account** (see above).
 
 **It does not protect against:**
 

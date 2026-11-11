@@ -784,6 +784,8 @@ where, for how much, or who they are** is sealed; only what the database must so
   registry test lists only what exists); a household's name is sealed but empty until it can be named (3.8).
 - **A sealed row has one `sealed` column** holding its sensitive fields as one envelope, as Roam's: one data key per row, one place to read them. Code
   reads and writes rows only through `src/crypto/sealed.ts`, which a test holds to this table.
+- **The sign-in store is not sealed:** better-auth holds each account's `name` and `email` in plain text in `shopper_auth`, since it looks an account up by its address and a sealed value
+  cannot be searched. The `person` record's copy is sealed; the review of 0.1.0 (`docs/security/0.1.0.md`, finding 2) records this.
 - **Field-level merging works on the unsealed row:** the server unseals, merges the changed fields (§12.4), and seals again, in the mutation's
   transaction. Field stamps (`fseq`) are readable, so which field is newer is known without unsealing.
 - **Search, suggestions, totals and aisle order** work on unsealed rows in memory, on the device, and on the server only for a household's own rows

@@ -33,7 +33,7 @@ eval "docker build $(pnpm exec sovereign-manifest docker-args) -t shopper ."
 ```
 
 It listens on port 3007, runs as `node` (not root), applies its own migrations when it starts, and answers `GET /api/health` with `200` once its database is
-ready. It stops on SIGTERM within seconds. Put a reverse proxy with TLS in front of it and set `SHOPPER_URL` to the address people use.
+ready. It stops on SIGTERM within seconds. Put a reverse proxy with TLS in front of it and set `SHOPPER_URL` to the address people use. **The proxy must set `X-Forwarded-For` from the real connection and replace any the client sent** (Caddy does by default; nginx needs `proxy_set_header X-Forwarded-For $remote_addr;`): Shopper's limits on sign-in and on opening links count by that address, and a client that can choose it can choose to be counted as someone new every time.
 
 ### The smallest: one container, a SQLite file
 
@@ -110,11 +110,12 @@ Sovereign core is **never** refused by it: the core has decided who the person i
 
 ### What encryption at rest does
 
-Everything that says **what a household buys, where and who they are** is sealed in the database under `SHOPPER_ENCRYPTION_KEY`: the names of households, lists,
-items, products and categories, notes, and people's names and addresses. Each row has a data key of its own, wrapped under the instance key and bound to the row, so a
+Everything that says **what a household buys and where** is sealed in the database under `SHOPPER_ENCRYPTION_KEY`: the names of households, lists,
+items, products and categories, and notes, and the name and address Shopper keeps of each person on what they share. **One thing is not:** the sign-in database
+(`shopper_auth`, beside the other) holds each account's name and email address in plain text, because signing in looks an account up by its address. Each row has a data key of its own, wrapped under the instance key and bound to the row, so a
 value moved to another row will not open. Quantities, units, times, positions and the structure that sorting and merging need stay readable, and alone say little.
 
-- **It protects** against a copied database, a backup, a stolen disk, and someone reading the tables.
+- **It protects** a copied database, a backup, a stolen disk and someone reading the tables, from learning what a household buys; **not** from learning who has an account.
 - **It does not protect** against whoever controls the running server: the server has the key and reads everything to do its work. Nor the device: a signed-in
   browser holds the household's lists in plain text until the person signs out.
 - **A lost key means the sealed content cannot be read, and nothing can recover it.** Keep it with your secrets, apart from the database backups.

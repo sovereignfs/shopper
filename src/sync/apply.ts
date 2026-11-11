@@ -114,6 +114,8 @@ async function run(
     const target = await resolveAlias(database, mutation.householdId, raw.table, raw.id);
     const change: Change =
       target === raw.id ? raw : { table: raw.table, id: target, fields: raw.fields };
+    // Who did it is the sender: checked on what the device sent, and not on what the server itself writes when it folds two rows into one.
+    await checkAuthorship(deps, spec, mutation.householdId, accountId, change);
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
     if (outcome.fold) folds.push(outcome.fold);
     for (const id of outcome.written) changed.push({ table: change.table, id });
@@ -372,6 +374,33 @@ async function checkReferences(
             sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
           );
     if (!found) throw notFound();
+  }
+}
+
+/**
+ * **Who added an item and who ticked it is the person who sent the change** (DESIGN.md §5.2, §12.4): a field that names a person (`addedBy`, `boughtBy`) must name
+ * the sender's own person in this household, or the change is refused as not found. Everyone in a household may edit everything in it, but not put another's
+ * name on it: the screens show these as fact, "added by Ada", "ticked by Grace". The statement carries the account, so it cannot be answered for someone else.
+ * `checkReferences` (which runs after) still asks that the person be one of the household's.
+ */
+async function checkAuthorship(
+  deps: ApplyDeps,
+  spec: TableSpec,
+  household: string,
+  accountId: string,
+  change: Change,
+): Promise<void> {
+  const { database } = deps;
+  for (const [field, target] of Object.entries(spec.refs)) {
+    if (target !== 'person') continue;
+    const value = change.fields[field];
+    if (value === undefined || value === null) continue;
+    const own = await dbGet<{ yes: number }>(
+      database,
+      sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} m JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
+          WHERE m.household_id = ${household} AND m.person_id = ${String(value)} AND p.account_id = ${accountId}`,
+    );
+    if (!own) throw notFound();
   }
 }
 

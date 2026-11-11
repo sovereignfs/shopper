@@ -19,7 +19,7 @@ docker compose -f compose.file.yaml up -d --build                              #
 docker compose -f compose.yaml -f compose.postgres.yaml up -d --build          # PostgreSQL (Compose 2.24 or later)
 ```
 
-Only the machine itself can reach the port (`127.0.0.1:3007`): put a reverse proxy with TLS in front of it, and set `SHOPPER_URL` to the address people use.
+Only the machine itself can reach the port (`127.0.0.1:3007`): put a reverse proxy with TLS in front of it (one that sets `X-Forwarded-For` from the real connection and replaces any the client sent: Shopper's limits count by it), and set `SHOPPER_URL` to the address people use.
 Emailed links, cookies and the sign-in redirect are made from it, and the server refuses to start on an address that is not https (localhost aside).
 
 The smallest setup of all is one `docker run`, with no Compose:

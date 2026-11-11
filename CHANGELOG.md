@@ -23,3 +23,5 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Core's notices: a Sovereign core signing a person out ends their sessions here, and one telling Shopper the person deleted their account removes everything personal of them, leaving every household they shared whole. Both are checked, rate limited and cannot be replayed.
 - The image and how to run it: one Docker image, three setups (an sqld service, a SQLite file, PostgreSQL), a manifest an instance reads to host it, and a check that brings each up from nothing.
 - Documents: the README (running it in each database form, every setting, what open sign-up means, what encryption at rest does and does not protect), what needs a network, what sharing does and does not do yet, and how a release is made.
+- Fixed: a member of a household could put another member's name on what they added or ticked. The server now accepts only the sender's own name for either.
+- The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
