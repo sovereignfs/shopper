@@ -51,6 +51,7 @@ describe(`what a list screen reads (${leg})`, () => {
     expect(found.categories.map((c) => c.position)).toEqual(
       [...found.categories.map((c) => c.position)].sort(),
     );
+    expect(found.lists.map((each) => each.id)).toContain(list.id);
     expect(found.me).toBe(me.personId);
     expect(found.names[me.personId]).toBe('Ada');
     expect(found.shared).toBe(false);

@@ -198,3 +198,29 @@
   flex-direction: column;
   gap: var(--sv-space-2);
 }
+
+.edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  color: var(--sv-color-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--sv-radius-sm);
+  cursor: pointer;
+}
+
+.edit:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .edit:hover {
+    color: var(--sv-color-text-primary);
+    background: var(--sv-color-surface-sunken);
+  }
+}

@@ -1,0 +1,65 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sv-space-3);
+  align-items: end;
+}
+
+.remember {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sv-space-3);
+  cursor: pointer;
+}
+
+.remember small {
+  display: block;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.history {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  width: 100%;
+}
+
+.actions {
+  display: flex;
+  gap: var(--sv-space-2);
+}
+
+.delete {
+  padding: var(--sv-space-2);
+  color: var(--sv-color-error-text);
+  font: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--sv-radius-sm);
+  cursor: pointer;
+}
+
+.delete:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .delete:hover {
+    text-decoration: underline;
+  }
+}

@@ -228,6 +228,11 @@ export async function serverItems(
   {
     id: string;
     name: string;
+    quantity: string;
+    unit: string | null;
+    note: string | null;
+    categoryId: string | null;
+    listId: string;
     boughtAt: number | null;
     clearedAt: number | null;
     position: string;

@@ -13,6 +13,8 @@ export type ListData =
   | {
       readonly found: true;
       readonly list: ListRow;
+      /** The household's lists that are not archived, for moving an item between them (DESIGN.md §9.4). */
+      readonly lists: ListRow[];
       readonly household: HouseholdRecord;
       readonly items: ItemRow[];
       readonly categories: CategoryRow[];
@@ -32,6 +34,7 @@ export async function listViewOf(db: LocalDatabase, id: string): Promise<ListDat
   return {
     found: true,
     list,
+    lists: await listsOf(db, household.id),
     household,
     items: await itemsOf(db, id),
     categories: await categoriesOf(db, household.id),
