@@ -33,6 +33,10 @@ export async function anotherDevice(
     baseURL,
     ...(options.phone ? { viewport: PHONE } : {}),
   });
+  // An address of its own, so that the sign-up limits, which count by address, do not meet a second person made by the same run of tests.
+  await context.setExtraHTTPHeaders({
+    'x-forwarded-for': `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${1 + Math.floor(Math.random() * 250)}`,
+  });
   return { context, page: await context.newPage() };
 }
 

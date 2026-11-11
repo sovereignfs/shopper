@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from 'react';
 import { authClient } from '../client';
+import { nextQuery } from '../next';
 import { messageFor } from '../messages';
 import {
   AuthButton,
@@ -22,10 +23,13 @@ export function SignInForm({
   local,
   sovereign,
   failure: returned = null,
+  next = null,
 }: {
   local: { canSignUp: boolean; canReset: boolean } | undefined;
   sovereign: boolean;
   failure?: string | null;
+  /** Where to go once signed in: an invitation's page (`src/auth/next.ts`), kept through the round trip. */
+  next?: string | null;
 }) {
   const canSignUp = local?.canSignUp ?? false;
   const canReset = local?.canReset ?? false;
@@ -45,7 +49,7 @@ export function SignInForm({
       return;
     }
     // A full navigation, not a client-side one: `/` is a different page now that there is a session, and the server decides which.
-    window.location.assign('/');
+    window.location.assign(next ?? '/');
   }
 
   async function onSovereign(event?: FormEvent<HTMLFormElement>) {
@@ -56,7 +60,7 @@ export function SignInForm({
     // again with the reason.
     const { error: failure } = await authClient.signIn.social({
       provider: 'sovereign',
-      callbackURL: '/',
+      callbackURL: next ?? '/',
       errorCallbackURL: '/sign-in',
     });
     if (failure) {
@@ -134,7 +138,7 @@ export function SignInForm({
       ) : null}
       {canSignUp ? (
         <AuthFooter>
-          New here? <AuthLink href="/sign-up">Create account</AuthLink>
+          New here? <AuthLink href={`/sign-up${nextQuery(next)}`}>Create account</AuthLink>
         </AuthFooter>
       ) : null}
     </>

@@ -12,6 +12,7 @@ import * as sqliteAuth from '../db/schema/sqlite/auth';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { householdsOf, membersOf, readHousehold } from '../households/households';
+import { createInvitation } from '../households/invitations';
 import { personById } from '../people/people';
 import { deletePerson, previewLeaving } from './people';
 
@@ -29,6 +30,8 @@ const DECIDED_APP: Record<string, string> = {
   alias: 'a household’s, deleted with it; ids only',
   tombstone: 'a household’s, deleted with it; ids only',
   applied_mutation: 'the account’s own record of what it sent, deleted by account_id',
+  invitation:
+    'a household’s, deleted with it; the links a person made that are still waiting are revoked, and who accepted one stays as an id',
   member: 'ended (left_at), or deleted with a household nobody else is in',
   category: 'a household’s, deleted with it',
   list: 'a household’s, deleted with it',
@@ -130,6 +133,16 @@ describe(`deleting a person (${leg})`, () => {
     await join(app, ada.household, grace, 'member', Date.now() - 2000);
     await join(app, ada.household, lin, 'member', Date.now() - 1000);
     await join(app, lin.household, ada);
+    // The links Ada made that are still waiting, in a household that outlives her and in one she is only a member of.
+    for (const household of [ada.household, lin.household]) {
+      const made = await createInvitation(app, {
+        household,
+        accountId: ada.accountId,
+        personId: ada.personId,
+        now: 1_799_999_999_000,
+      });
+      expect(made.ok).toBe(true);
+    }
     await seedAuth(ada);
     await seedAuth(grace);
     await dbRun(
@@ -171,6 +184,16 @@ describe(`deleting a person (${leg})`, () => {
     expect(JSON.stringify(raw)).not.toContain('ada');
     expect(raw[0]?.core_sub).toBeNull();
     expect(await householdsOf(app, TEST_RING, ada.accountId)).toEqual([]);
+    expect(
+      await count(
+        app,
+        appTable(app, 'invitation'),
+        sql`created_by = ${ada.personId} AND revoked_at IS NULL`,
+      ),
+    ).toBe(0);
+    expect(await count(app, appTable(app, 'invitation'), sql`created_by = ${ada.personId}`)).toBe(
+      2,
+    );
 
     // Her household lives on, Grace its Admin; her name stays on the member list; the others' own households are intact; and the others' accounts are.
     expect((await readHousehold(app, TEST_RING, ada.household, grace.accountId))?.role).toBe(

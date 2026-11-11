@@ -80,7 +80,16 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     }
   }
 
-  // 2. What was kept for them: the record of the mutations they sent, and the rate counters that carry their account.
+  // 2. Their links: the ones they made and that are still waiting stop working, so that a link does not outlive the person who sent it. Who accepted one
+  // is an id on the record and nothing more.
+  if (person)
+    await dbAll(
+      database,
+      sql`UPDATE ${appTable(database, 'invitation')} SET revoked_at = ${now}
+          WHERE created_by = ${person.id} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
+    );
+
+  // 3. What was kept for them: the record of the mutations they sent, and the rate counters that carry their account.
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'applied_mutation')} WHERE account_id = ${accountId} RETURNING id`,
@@ -90,7 +99,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     sql`DELETE FROM ${appTable(database, 'rate_bucket')} WHERE "key" LIKE ${`%:${accountId}`} RETURNING "key"`,
   );
 
-  // 3. The sign-in store: the pending verifications are found by the address, so it is read before the account goes.
+  // 4. The sign-in store: the pending verifications are found by the address, so it is read before the account goes.
   const auth = authTables(authDatabase);
   const user = await dbGet<{ email: string }>(
     authDatabase,
@@ -112,7 +121,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   }
   await dbAll(authDatabase, sql`DELETE FROM ${auth.user} WHERE id = ${accountId} RETURNING id`);
 
-  // 4. The person, last: a name and nothing else.
+  // 5. The person, last: a name and nothing else.
   if (person) {
     const fields = unsealRow('person', person.id, person.sealed, deps.ring);
     const nameOnly = sealRow('person', person.id, { name: String(fields.name ?? '') }, deps.ring);

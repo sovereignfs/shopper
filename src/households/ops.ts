@@ -5,6 +5,7 @@ import { adminOf, memberOf } from '../access/membership';
 import { sql } from 'drizzle-orm';
 import { dbGet } from '../db/exec';
 import { personOfAccount } from '../people/people';
+import { createInvite, revokeInvite } from './invite-ops';
 import { deleteList } from './list-ops';
 
 /**
@@ -38,7 +39,7 @@ export interface Operation {
 }
 
 /** Every operation there is. Each task that adds one lists it here, and in `src/access/routes.ts`. */
-export const OPERATIONS: readonly Operation[] = [deleteList];
+export const OPERATIONS: readonly Operation[] = [deleteList, createInvite, revokeInvite];
 
 export interface Reply {
   readonly status: number;

@@ -73,3 +73,15 @@ export async function landingListOf(db: LocalDatabase): Promise<string | null | 
   }
   return null;
 }
+
+/**
+ * **Where someone who has just joined a household lands** (DESIGN.md §16.4): that household's first list, once the device has pulled it. `undefined` until
+ * it has the household and a list of it, so that the front address shows what it otherwise would in the meantime.
+ */
+export async function joinedLandingOf(
+  db: LocalDatabase,
+  household: string,
+): Promise<string | undefined> {
+  if (!(await householdsOf(db)).some((each) => each.id === household)) return undefined;
+  return (await listsOf(db, household))[0]?.id;
+}

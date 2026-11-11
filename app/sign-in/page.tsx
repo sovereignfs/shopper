@@ -3,6 +3,7 @@ import { AuthShell } from '@/src/auth/screens/AuthShell';
 import { SignInForm } from '@/src/auth/screens/SignInForm';
 import { oauthErrorMessage } from '@/src/auth/messages';
 import { authSettings, mailAvailable, signUpAvailable } from '@/src/auth/server';
+import { safeNext } from '@/src/auth/next';
 import { getSession } from '@/src/auth/session';
 
 // Decided per request from the settings and the visitor's cookies. Left to Next it would be prerendered at build time, with no settings, as the
@@ -13,12 +14,13 @@ export const metadata = { title: 'Sign in' };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[] }>;
+  searchParams: Promise<{ error?: string | string[]; next?: string | string[] }>;
 }) {
   const settings = authSettings();
   if (!settings) notFound();
-  if (await getSession()) redirect('/');
-  const { error } = await searchParams;
+  const { error, next: wanted } = await searchParams;
+  const next = safeNext(wanted);
+  if (await getSession()) redirect(next ?? '/');
   return (
     <AuthShell title="Sign in to Shopper">
       <SignInForm
@@ -29,6 +31,7 @@ export default async function SignInPage({
         }
         sovereign={settings.sovereign !== undefined}
         failure={oauthErrorMessage(typeof error === 'string' ? error : undefined)}
+        next={next}
       />
     </AuthShell>
   );

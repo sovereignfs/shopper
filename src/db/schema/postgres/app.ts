@@ -82,6 +82,31 @@ export const member = app.table(
 );
 
 /**
+ * An invitation to a household (DESIGN.md §7.3, §20.3): a link and nothing else in 0.1.0 (no email, `core_sub` or `sent_at`; those arrive with 3.10). The
+ * token is 32 random bytes and **only its hash is stored** (`token_hash`, unique), so a database read cannot make a link; it is compared in constant time,
+ * valid until `expires_at` (14 days), single-use (`accepted_by` and `accepted_at` are set in the statement that accepts it) and revoked by setting
+ * `revoked_at`. `created_by` is the person who made it. A live invitation is one not accepted, not revoked and not expired; a household has at most 20.
+ */
+export const invitation = app.table(
+  'invitation',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    tokenHash: ref('token_hash').notNull(),
+    createdBy: ref('created_by').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    expiresAt: epochMs('expires_at').notNull(),
+    acceptedBy: ref('accepted_by'),
+    acceptedAt: epochMs('accepted_at'),
+    revokedAt: epochMs('revoked_at'),
+  },
+  (table) => [
+    uniqueIndex('invitation_token_hash_idx').on(table.tokenHash),
+    index('invitation_household_idx').on(table.householdId),
+  ],
+);
+
+/**
  * What a household remembers about something it buys (DESIGN.md §8.2), so that adding is one tap and the item arrives right. **One product per name in a
  * household**: `name_key` is the HMAC of its normalised name (`src/crypto/name-key.ts`), unique with `household_id`, so the server finds "the same
  * product" without reading a name, and a second made for the same name is folded into the first (task 5.3). The name and the note are sealed. Its

@@ -127,4 +127,28 @@ export const ACCESS: readonly Access[] = [
     who: 'admin',
     note: 'An Admin deletes an archived list of the household for good; a Member, an outsider and an unknown list read as not found.',
   },
+  {
+    kind: 'operation',
+    address: 'invite.create',
+    who: 'member',
+    note: 'Any member makes a link for the household; its token is returned once and only its hash is stored. An outsider reads as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'invite.revoke',
+    who: 'member',
+    note: 'Whoever made a link, or an Admin, revokes it, in the statement; another Member, an outsider and a link that is gone read as not found.',
+  },
+  {
+    kind: 'page',
+    address: '/invite/[token]',
+    who: 'public',
+    note: 'An invitation: the household’s name and who invited, and nothing else; one page for every link that does not work. Opening it is rate limited.',
+  },
+  {
+    kind: 'route',
+    address: '/api/invite/accept',
+    who: 'signed-in',
+    note: 'Accepts a link as the session’s account: one transaction that claims it, checks both limits and adds a Member. Rate limited.',
+  },
 ];

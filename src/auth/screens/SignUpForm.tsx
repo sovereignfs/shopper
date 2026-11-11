@@ -6,7 +6,16 @@ import { messageFor } from '../messages';
 import { AuthButton, AuthError, AuthField, AuthForm, Input } from '@sovereignfs/ui';
 
 /** Name, email and password. Without email there is nothing to confirm, so the account is made and the person is signed in. */
-export function SignUpForm({ minLength, mail = false }: { minLength: number; mail?: boolean }) {
+export function SignUpForm({
+  minLength,
+  mail = false,
+  next = null,
+}: {
+  minLength: number;
+  mail?: boolean;
+  /** Where to go once the account is made: an invitation's page (`src/auth/next.ts`). */
+  next?: string | null;
+}) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +39,7 @@ export function SignUpForm({ minLength, mail = false }: { minLength: number; mai
       setSent(true);
       return;
     }
-    window.location.assign('/');
+    window.location.assign(next ?? '/');
   }
 
   if (sent)
