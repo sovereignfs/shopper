@@ -998,8 +998,8 @@ shop with others, press Share." A person who arrived by an invitation lands on t
 - **Header:** the list's name and its household's dot; **Shop** (primary); the menu: Shop several lists, Clear bought, view by aisle or order added,
   list settings. A banner when the person has an open trip in this household (§11.3).
 - **The add field** at the top, always (§16.6).
-- **Open items** grouped by category in aisle order, each row `CheckableListRow`: icon, name, quantity and unit, a note's first line muted, the price
-  if set, and who added it when that is not the reader (on a shared household). The whole row ticks; a pencil, or a long press on a phone, opens the
+- **Open items** grouped by category in aisle order, each row a checkbox, then icon, name, quantity and unit, a note's first line muted, the price
+  if set, and who added it when that is not the reader (on a shared household). **Only the checkbox ticks** (a tap anywhere else on the row does nothing, so that scrolling or aiming at the pencil buys nothing by mistake; shopping mode, §11.1, keeps the whole row as its target); a pencil, or a long press on a phone, opens the
   item. Dragging reorders within a category.
 - **Bought (n)**, collapsed under the open items, each with who ticked it; _Clear bought_ beside it.
 - **Empty:** "Nothing on Groceries. Add something above, or pick from Often bought," with the often-bought products as chips.
@@ -1078,7 +1078,7 @@ against what this design asks of it in the task that first uses it, and a gap go
 ### 16.12 What the plugin paid to learn
 
 - **An item's editor is a `Dialog`, not a `Sheet`:** `Sheet` has no desktop form; `Dialog` adapts to a full-screen overlay on a phone.
-- **Ticking and editing are separate targets:** the row ticks; a pencil opens the item. Sharing one target made both unreliable.
+- **Ticking and editing are separate targets:** the checkbox ticks; a pencil opens the item. Sharing one target made both unreliable.
 - **Reordering is drag-and-drop within a category,** not up and down buttons, which proved unreliable.
 - **A list name typed in a quick-add field is kept on blur,** not only on Enter.
 - **A mutation that matches no row because of its permission must read as not found,** never as a silent success: the plugin's rename and archive did,

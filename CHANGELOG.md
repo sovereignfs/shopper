@@ -25,3 +25,4 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Documents: the README (running it in each database form, every setting, what open sign-up means, what encryption at rest does and does not protect), what needs a network, what sharing does and does not do yet, and how a release is made.
 - Fixed: a member of a household could put another member's name on what they added or ticked. The server now accepts only the sender's own name for either.
 - The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
+- On a list, only the checkbox ticks an item: a tap anywhere else on its row does nothing. Shopping mode is unchanged, and still ticks from anywhere on the row.

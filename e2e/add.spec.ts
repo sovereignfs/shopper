@@ -7,7 +7,9 @@ import { offline, online, recordViolations, serverItems, signUp, test } from './
  */
 const field = (page: Page) => page.getByRole('combobox', { name: 'Add an item' });
 const names = (page: Page) =>
-  page.getByRole('checkbox').evaluateAll((rows) => rows.map((row) => row.textContent ?? ''));
+  page
+    .getByRole('checkbox')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label') ?? ''));
 
 async function typeAndEnter(page: Page, text: string) {
   await page.keyboard.type(text);

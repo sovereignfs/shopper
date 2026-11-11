@@ -19,7 +19,9 @@ import {
  */
 const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Shopper' });
 const rowNames = (page: Page) =>
-  page.getByRole('checkbox').evaluateAll((rows) => rows.map((row) => row.textContent ?? ''));
+  page
+    .getByRole('checkbox')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label') ?? ''));
 
 /** The first word of each row's name, in the order shown; polled by callers, since a page that has just loaded has not drawn its rows yet. */
 const firstWords = (page: Page) =>
@@ -59,6 +61,44 @@ test('the items are by aisle, in the household’s order, with quantity and note
   await expect(rowOf(/Apples/)).not.toContainText('second line');
   await expect(sidebar(page).getByRole('link', { name: /Groceries/ })).toContainText('4');
   expect(await violations()).toEqual([]);
+});
+
+test('only the checkbox ticks: a tap on the name, the icon or the quantity does nothing, and the keyboard ticks a focused checkbox', async ({
+  page,
+  baseURL,
+}) => {
+  await signedUpWith(page, baseURL, [
+    { name: 'Milk', category: 'dairy-eggs', quantity: '2', unit: 'L' },
+    { name: 'Bread', category: 'bakery' },
+  ]);
+  const milk = page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('checkbox', { name: /Milk/ }) });
+  // Anywhere on the row but the box: the name, the quantity, the empty space to the right of them.
+  await milk.getByText('Milk', { exact: true }).click();
+  await milk.getByText('2 L').click();
+  const row = await milk.boundingBox();
+  if (!row) throw new Error('no row');
+  await page.mouse.click(row.x + row.width * 0.6, row.y + row.height / 2);
+  await expect(page.getByRole('checkbox', { name: /Milk/ })).not.toBeChecked();
+  await expect(page.getByRole('button', { name: /Bought/ })).toHaveCount(0);
+
+  // The box ticks it.
+  await page.getByRole('checkbox', { name: /Milk/ }).click();
+  await expect(page.getByRole('button', { name: /Bought \(1\)/ })).toBeVisible();
+
+  // A focused checkbox is ticked by the keyboard, as any checkbox is.
+  await page.getByRole('checkbox', { name: /Bread/ }).focus();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: /Bought \(2\)/ })).toBeVisible();
+
+  // And a bought item is unticked the same way, by its box alone.
+  await page.getByRole('button', { name: /Bought \(2\)/ }).click();
+  const bought = page.getByRole('region', { name: 'Bought' });
+  await bought.getByText('Milk', { exact: true }).click();
+  await expect(bought.getByRole('checkbox', { name: /Milk/ })).toBeChecked();
+  await bought.getByRole('checkbox', { name: /Milk/ }).click();
+  await expect(page.getByRole('button', { name: /Bought \(1\)/ })).toBeVisible();
 });
 
 test('a tick moves the item to Bought and the count follows; Undo, an untick and a reload all agree, and the server has it', async ({

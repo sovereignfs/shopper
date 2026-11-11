@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
   Button,
-  CheckableListRow,
+  Checkbox,
   DragHandleRow,
   EmptyState,
   Icon,
@@ -304,28 +304,31 @@ function Row({
       </span>
     ) : undefined;
   const edit = useItemParam().open;
-  // On a phone a long press on the row opens the item, as the pencil does; a tap still ticks (DESIGN.md §16.11).
+  // On a phone a long press on the row opens the item, as the pencil does; the checkbox alone ticks (DESIGN.md §16.5, §16.11).
   const press = useLongPress({ onLongPress: () => edit(item.id) });
+  // On a list **only the checkbox ticks**: a tap anywhere else on the row does nothing, so that a finger that is scrolling, or aiming at the pencil, buys
+  // nothing by mistake (DESIGN.md §16.5). Shopping mode keeps the whole row as the target (`ShopScreen`), where a thumb in a trolley wants it.
   const row = (
-    <CheckableListRow
-      checked={checked}
-      onCheckedChange={onToggle}
-      label={item.name}
-      icon={<Icon name={iconOf(item, data)} aria-hidden />}
-      trailing={
-        <>
-          {trailing}
-          <button
-            type="button"
-            className={styles.edit}
-            aria-label={`Edit ${item.name}`}
-            onClick={() => edit(item.id)}
-          >
-            <Icon name="pencil" aria-hidden />
-          </button>
-        </>
-      }
-    />
+    <div className={`${styles.line} ${checked ? styles.ticked : ''}`}>
+      <Checkbox
+        id={`tick-${item.id}`}
+        label=""
+        aria-label={item.name}
+        checked={checked}
+        onChange={() => onToggle()}
+      />
+      <Icon name={iconOf(item, data)} aria-hidden />
+      <span className={styles.name}>{item.name}</span>
+      {trailing}
+      <button
+        type="button"
+        className={styles.edit}
+        aria-label={`Edit ${item.name}`}
+        onClick={() => edit(item.id)}
+      >
+        <Icon name="pencil" aria-hidden />
+      </button>
+    </div>
   );
   const pressed = <div {...press}>{row}</div>;
   return handle ? (

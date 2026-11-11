@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef } from 'react';
  * What every drag-to-reorder in the app shares (DESIGN.md §9.6), so that what each of those paid to learn is paid for once:
  *
  *  - **The sensors.** A pointer has to move a few pixels before it is a drag, so that a click on a row follows its link and ticks its box, and the
- *    keyboard picks a row up with Space, moves it with the arrows and puts it down with Space or lets it go with Escape. **Enter is left to the row**, which ticks it.
+ *    keyboard picks a row up with Space, moves it with the arrows and puts it down with Space or lets it go with Escape. **Enter is left alone**, as it is not a way to lift a row.
  *  - **Auto-scroll only up and down.** dnd-kit scrolls whatever scrolls while a row is dragged near an edge; the horizontal threshold is zero, so nothing
  *    scrolls sideways.
  *  - **The click that ends a drag is not a tick.** The row is under the pointer when it is let go, and the browser clicks it.

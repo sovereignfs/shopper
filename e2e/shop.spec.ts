@@ -58,6 +58,19 @@ test('the screen is large rows in aisle order, with progress, and the footer is 
   expect(await violations()).toEqual([]);
 });
 
+test('in shopping mode the whole row ticks, not only its box', async ({ page, baseURL }) => {
+  await inTheShop(page, baseURL, [
+    { name: 'Spinach', category: 'produce', quantity: '1', unit: 'bag' },
+  ]);
+  // A tap on the name, away from the box.
+  await page
+    .getByRole('listitem')
+    .filter({ hasText: 'Spinach' })
+    .getByText('Spinach', { exact: true })
+    .click();
+  await expect(progress(page)).toHaveText('0 to get · 1 in basket');
+});
+
 test('a tick drops the row into In basket with Undo, and the progress follows', async ({
   page,
   baseURL,

@@ -252,3 +252,23 @@
     min-height: 2.75rem;
   }
 }
+
+/* A row of a list (DESIGN.md §16.5): the checkbox, the item's icon and name, what is said of it, and the pencil. Only the checkbox ticks. */
+.line {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+  width: 100%;
+  min-height: var(--sv-touch-target-min);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ticked .name {
+  color: var(--sv-color-text-muted);
+  text-decoration: line-through;
+}
