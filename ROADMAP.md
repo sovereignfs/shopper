@@ -158,7 +158,7 @@ account-deleted notice removes everything personal.
 | 45  | [12.1](docs/epics/release.md)    | Development seed                          | P1       | 3.4, 5.5           | ✅     |
 | 46  | [1.10](docs/epics/foundation.md) | The image and deployment setups           | P2       | 1.5, 1.6           | ✅     |
 | 47  | [12.3](docs/epics/release.md)    | Documents                                 | P2       | 1.10               | ✅     |
-| 48  | [12.2](docs/epics/release.md)    | Security review                           | P2       | 2.4, 3.5, 6.3, 7.3 | ⏳     |
+| 48  | [12.2](docs/epics/release.md)    | Security review                           | P2       | 2.4, 3.5, 6.3, 7.3 | ✅     |
 | 49  | [12.4](docs/epics/release.md)    | Release 0.1.0                             | P2       | 12.2, 12.3         | 📋     |
 | 50  | [12.5](docs/epics/release.md)    | Hosting on an instance                    | P2       | 12.4               | 📋     |
 | 51  | [16.2](docs/epics/upstream.md)   | Shopper's port in the guide (`sovereign`) | P3       | —                  | 📋     |
