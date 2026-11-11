@@ -36,8 +36,8 @@ importers:
         specifier: ^0.45.4
         version: 0.45.4(@libsql/client@0.18.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
       fractional-indexing:
-        specifier: ^3.4.0
-        version: 3.4.0
+        specifier: ^4.0.0
+        version: 4.0.0
       idb:
         specifier: ^8.0.4
         version: 8.0.4
@@ -1155,8 +1155,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rolldown/pluginutils@1.1.0':
-    resolution: {integrity: sha512-K+NU2HDCEem4sClgHH4ZZXwdJeNFkJo+hRk479DIwdIviAPN2hFJH1KHHwg8CxHQXvi0M5XY4deTXINfIiSG6w==}
+  '@rolldown/pluginutils@1.0.1':
+    resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
   '@sovereignfs/config@0.1.0':
     resolution: {integrity: sha512-PEZ+pW9sMUzlmZu0K0VsUarXLhUsLnBD5TXkCrQ2gNZ52t95ddYlSB3qzZ4Moys2bDKx0a3NoSg4dYAk2ryMdg==}
@@ -1797,8 +1797,8 @@ packages:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
 
-  fractional-indexing@3.4.0:
-    resolution: {integrity: sha512-8J3glhz2rrpKG6KmI7wmJo3zH1VjeOpN+vTJSw1fOyO+Viqq3zX6/5NGh6oaZB2qIAYdOYuu5Dz9xp4faOO0Pg==}
+  fractional-indexing@4.0.0:
+    resolution: {integrity: sha512-Nr2P1Yyaj2sy1Qdt/wI3GcByxrUdbSKg5+cGvw8f18hT2SkQt6V72iOjBpk7IO3UkzBsdlGRs2a4z6dLrJprgw==}
     engines: {node: ^14.13.1 || >=16.0.0}
 
   fsevents@2.3.3:
@@ -3333,7 +3333,7 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.2.18':
     optional: true
 
-  '@rolldown/pluginutils@1.1.0': {}
+  '@rolldown/pluginutils@1.0.1': {}
 
   '@sovereignfs/config@0.1.0': {}
 
@@ -4044,7 +4044,7 @@ snapshots:
     dependencies:
       is-callable: 1.2.7
 
-  fractional-indexing@3.4.0: {}
+  fractional-indexing@4.0.0: {}
 
   fsevents@2.3.3:
     optional: true
@@ -4591,7 +4591,7 @@ snapshots:
   rolldown@1.2.18:
     dependencies:
       '@oxc-project/types': 0.156.0
-      '@rolldown/pluginutils': 1.1.0
+      '@rolldown/pluginutils': 1.0.1
     optionalDependencies:
       '@rolldown/binding-android-arm-eabi': 1.2.18
       '@rolldown/binding-android-arm64': 1.2.18
