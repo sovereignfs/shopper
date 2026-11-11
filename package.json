@@ -27,6 +27,7 @@
     "db:dev": "node scripts/dev-db.mjs",
     "boot-check": "node scripts/boot-check.mjs",
     "icons": "node scripts/icons.mjs",
+    "seed": "node scripts/seed-run.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {

@@ -16,7 +16,7 @@ and an operator read, the release, and hosting it. **12.1 to 12.5 are 0.1.0;** 1
 
 ## Tasks
 
-#### 📋 12.1 — Development seed
+#### ✅ 12.1 — Development seed
 
 **Goal:** `pnpm seed`. **Design:** §21 Testing. **Depends on:** 3.4, 5.5.
 
@@ -26,6 +26,8 @@ refused when `NODE_ENV` is production. Phase 2 extends it with what it adds (tri
 household) as part of 12.6.
 
 **Accepts when:** a fresh database seeded shows every screen populated, and a second run changes nothing.
+
+**Done as:** `pnpm seed` (`scripts/seed-run.mjs`, through `jiti`, so that it uses the app's own code) runs `scripts/seed.ts`, which makes **three accounts** (`seed@example.test`, `seed2@…`, `seed3@…`, the password `SEED_PASSWORD` in the file, for a development database and nothing else) **through the app's own paths and writes no table directly**: accounts through better-auth, their person and first household as sign-up makes them (`makeAccountRecords`), lists and items through the actions and `applyMutation` the sync endpoint uses (each item with the category and icon the add field gives it, so the list is by aisle), people into a household by the invitation a member sends and the person accepts (`createInvitation`, `acceptInvitation`), and someone leaving by `member.leave`. **What it makes:** Seed's household "My lists" with Groceries (ten open items with quantities, units and notes, one retyped as "Oat milk (barista)", two bought), a Hardware store list, a Party list whose bought items were cleared, an archived list with an item on it, **a link waiting**, **Seed Two** (a member, who added and ticked) and **Seed Three** (who added an item and left: it stays, shown "added by Seed Three (left)"); Seed Two's and Seed Three's own households with a few items; and **a product and an item two people added at once and the server folded into one**, recorded as an alias. **Idempotent:** every id is derived from a name, the clock is fixed, and the whole shared block is skipped once Seed Two is in, so a second and a third run change no table (counted over eleven tables and the user table). **Refused** when `NODE_ENV` is production, when the database is not on this machine (a file, or a service on `localhost`), and without local sign-in. **`--remove`** deletes the three accounts the way a person deleting theirs would (`deletePerson`, the last to arrive first, so the households nobody else is in go too; what stays is the persons' names only, as for anyone), `--reset` is that and then the seed. Tests: `scripts/seed.test.ts` (4, on the leg's database: every shape above is there; a second and a third run change nothing; remove takes the accounts and leaves a bystander's household, and a seed can be made again; where it may run), repeated ten times; and `pnpm seed` run by hand against a throwaway SQLite file: seeded, run again with the same row counts, refused in production, removed, reset, and the app signed into as Seed and looked at (the list by aisle, the sidebar with counts, the archived list, "added by Seed Two" and "(left)"). Left out: **PostgreSQL and sqld** were not run (the code has no dialect branch beyond the auth store's table names, which the other seeds share); **trips, prices, notices and a second household of Seed's** wait for phase 2 (12.6); no catalog of a hundred products (the design's number): the starter catalog is the catalog, and the seed uses about twenty of it.
 
 #### 📋 12.2 — Security review
 

@@ -155,7 +155,7 @@ account-deleted notice removes everything personal.
 
 | #   | ID                               | Task                                      | Priority | Depends on         | Status |
 | --- | -------------------------------- | ----------------------------------------- | -------- | ------------------ | ------ |
-| 45  | [12.1](docs/epics/release.md)    | Development seed                          | P1       | 3.4, 5.5           | 📋     |
+| 45  | [12.1](docs/epics/release.md)    | Development seed                          | P1       | 3.4, 5.5           | ✅     |
 | 46  | [1.10](docs/epics/foundation.md) | The image and deployment setups           | P2       | 1.5, 1.6           | 📋     |
 | 47  | [12.3](docs/epics/release.md)    | Documents                                 | P2       | 1.10               | 📋     |
 | 48  | [12.2](docs/epics/release.md)    | Security review                           | P2       | 2.4, 3.5, 6.3, 7.3 | 📋     |
