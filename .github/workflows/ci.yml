@@ -10,6 +10,9 @@ on:
   # So that a dependency's new release cannot quietly break the build unnoticed between commits.
   schedule:
     - cron: '0 6 * * 1'
+  # A run by hand has no base to compare with, so it runs every job (see the `changes` job): for when a push's own run did not run, or did not run
+  # what the commit needed.
+  workflow_dispatch:
 
 # A pull request that is a draft, or carries the `skip-ci` label, runs nothing: the `changes` job has the guard, and every other job needs it.
 # A push to main runs, because a rebase-and-merge makes new commits and the pull request's run does not vouch for the one that lands. The weekly
