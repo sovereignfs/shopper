@@ -1,5 +1,5 @@
 import type { LocalDatabase } from './db';
-import type { CategoryRow, HouseholdRecord, ItemRow, ListRow, ProductRow } from './rows';
+import type { CategoryRow, HouseholdRecord, ItemRow, ListRow, MemberRow, ProductRow } from './rows';
 import { categoriesOf, hasSynced, householdsOf, itemsOf, listsOf, productsOf } from './store';
 
 /**
@@ -20,6 +20,8 @@ export type ListData =
       readonly categories: CategoryRow[];
       readonly products: ProductRow[];
       readonly names: Readonly<Record<string, string>>;
+      /** The people in the household now, in the order they joined: what the sharing dialog lists. The address is there only where the reader may see it. */
+      readonly members: MemberRow[];
       /** The reader's person id in this household, or `null` before the device has the household's members. */
       readonly me: string | null;
       readonly shared: boolean;
@@ -48,6 +50,9 @@ export async function listViewOf(db: LocalDatabase, id: string): Promise<ListDat
         member.leftAt === null ? member.name : `${member.name} (left)`,
       ]),
     ),
+    members: members
+      .filter((member) => member.leftAt === null)
+      .sort((a, b) => a.joinedAt - b.joinedAt || (a.personId < b.personId ? -1 : 1)),
     me: members.find((member) => member.self)?.personId ?? null,
     shared: members.filter((member) => member.leftAt === null).length > 1,
     showPeople:

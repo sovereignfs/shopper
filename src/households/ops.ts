@@ -5,7 +5,7 @@ import { adminOf, memberOf } from '../access/membership';
 import { sql } from 'drizzle-orm';
 import { dbGet } from '../db/exec';
 import { personOfAccount } from '../people/people';
-import { createInvite, revokeInvite } from './invite-ops';
+import { createInvite, listInvites, revokeInvite } from './invite-ops';
 import { leaveHousehold, removeMember } from './member-ops';
 import { deleteList } from './list-ops';
 
@@ -44,6 +44,7 @@ export const OPERATIONS: readonly Operation[] = [
   deleteList,
   createInvite,
   revokeInvite,
+  listInvites,
   leaveHousehold,
   removeMember,
 ];

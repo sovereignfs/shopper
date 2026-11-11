@@ -9,29 +9,39 @@ import { ItemDialog } from './ItemDialog';
 type Found = Extract<ListData, { found: true }>;
 
 /**
- * The item whose dialog is open: the address's `?item=<id>` (DESIGN.md §16.7), so that a reload, Back and a link all agree. The other parameters stay.
- * The address is changed with the browser's own history, which Next follows: going through the router would ask the server for the page again, and the
- * dialog must open with no network.
+ * A dialog named in the address, `?<name>=<value>` (DESIGN.md §16.7, §16.9), so that a reload, Back and a link all agree. The other parameters stay. The
+ * address is changed with the browser's own history, which Next follows: going through the router would ask the server for the page again, and a dialog
+ * must open with no network.
  */
+export function useQueryParam(name: string): {
+  value: string | null;
+  open: (value: string) => void;
+  close: () => void;
+} {
+  const params = useSearchParams();
+  const pathname = usePathname();
+  const to = (value: string | null) => {
+    const next = new URLSearchParams(params.toString());
+    if (value === null) next.delete(name);
+    else next.set(name, value);
+    const query = next.toString();
+    return query === '' ? pathname : `${pathname}?${query}`;
+  };
+  return {
+    value: params.get(name),
+    open: (value) => window.history.pushState(null, '', to(value)),
+    close: () => window.history.replaceState(null, '', to(null)),
+  };
+}
+
+/** The item whose dialog is open: the address's `?item=<id>`. */
 export function useItemParam(): {
   id: string | null;
   open: (id: string) => void;
   close: () => void;
 } {
-  const params = useSearchParams();
-  const pathname = usePathname();
-  const to = (id: string | null) => {
-    const next = new URLSearchParams(params.toString());
-    if (id === null) next.delete('item');
-    else next.set('item', id);
-    const query = next.toString();
-    return query === '' ? pathname : `${pathname}?${query}`;
-  };
-  return {
-    id: params.get('item'),
-    open: (id) => window.history.pushState(null, '', to(id)),
-    close: () => window.history.replaceState(null, '', to(null)),
-  };
+  const { value, open, close } = useQueryParam('item');
+  return { id: value, open, close };
 }
 
 /** The dialog for the item named in the address, if it is on this list; an address naming one that is not (deleted, or another list's) closes itself. */

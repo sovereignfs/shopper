@@ -91,7 +91,7 @@ on a list; adding asks which list; "All lists" in the sidebar and on the phone's
 
 **Accepts when:** a product is renamed, merged and deleted from here; reordering categories changes every list's grouping on every device after sync.
 
-#### 📋 8.7 — Sharing: who is on your lists
+#### ✅ 8.7 — Sharing: who is on your lists
 
 **Goal:** the dialog for sharing. **Design:** §16.9 (0.1.0), §7.3. **Depends on:** 8.1, 3.4, 3.5.
 
@@ -104,6 +104,8 @@ so offline and change nothing.
 
 **Accepts when:** journey 3 of §3 passes through this dialog; a Member sees no Remove or Revoke of others'; offline, the dialog shows what it held
 and changes nothing; the sentence is there.
+
+**Done as:** **The dialog:** `ShareDialog` (`src/screens/ShareDialog.tsx`), a `Dialog` at `?share=1` (the address is changed with the browser's own history, as the item's: `useQueryParam` in `ItemEditor.tsx` now serves both), opened by **Share** in a list's header and by **Share** under each household in the sidebar (which opens that household's first list with `?share=1`). It says first "People you share with see and edit every list here." **People** are read from the device (`members` in the list view: those still in, in the order they joined): an avatar and name, "(you)", the Admin marked, and an address only where the device was given it (which the server gives to an Admin for the members, and to anyone for their own). So offline the dialog shows what the device held. **Invite** ("Make a link", `invite.create`) shows the address once in a read-only field with `CopyButton`, the note that anyone holding it can join and the day it expires, and that it is shown once. **Links waiting** (`invite.list`, new, any member's: who made each, when it expires, whether the reader may revoke it; never a link) with **Revoke** where allowed. A Member has **Leave** and the Admin **Remove** (not for themselves or an Admin), each behind a `ConfirmDialog` that says what stays; leaving starts over from the front address, removing syncs so that the list updates. **Every change is an online operation**: with no network the dialog says so in a sentence and changes nothing (`callOperation` now returns an operation's result). Tests: `invitations.test.ts` (`invite.list` as a member and as an outsider, no token in the answer) and 6 browser tests in Chromium (`e2e/share.spec.ts`: the sentence, the people with the Admin's address, a link shown once with its terms, the Admin with no Leave; a second person joining through the link and the Admin seeing them with their address; a Member seeing no Remove for another Member, no address of the Admin's and no Revoke of the Admin's link, and leaving; the Admin removing after a confirmation that can be cancelled, and the Member's device dropping the household; revoking and the link then being the page that does not work; the network cut, showing the people and refusing to make a link with a sentence; the sidebar's Share). The test that a Member is not offered Remove was seen to fail with the Admin gate removed (it first passed without it, since the only other person was the Admin, so it now has a third person). Left out: **the household's name or settings page** (3.8, 8.9); **resend**, **email** and **notices** (3.10, 9.2); **the Admin passing the role** (3.9). WebKit, PostgreSQL and sqld were not run here. In the last full run `e2e/invite.spec.ts` failed once after about 15 s, and passed five runs in a row afterwards: the same kind of intermittent 15-second wait as `e2e/offline.spec.ts` (3.5), cause not found.
 
 #### ✅ 8.8 — The phone
 

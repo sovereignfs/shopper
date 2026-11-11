@@ -39,7 +39,8 @@ import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors }
 import styles from './ListScreen.module.css';
 import { useMobileNav } from '../ui/mobile-nav';
 import { AddField } from './AddField';
-import { EditedItem, useItemParam } from './ItemEditor';
+import { EditedItem, useItemParam, useQueryParam } from './ItemEditor';
+import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
 import { useUndo } from './Undo';
 
@@ -116,6 +117,7 @@ function Loaded({ data }: { data: Found }) {
   const offerUndo = useUndo();
   const [view, setView] = useView();
   const editing = useItemParam();
+  const sharing = useQueryParam('share');
   const { list, items, categories, me } = data;
   const open = openItems(items);
   const bought = boughtItems(items);
@@ -140,6 +142,7 @@ function Loaded({ data }: { data: Found }) {
         name={list.name}
         id={list.id}
         householdId={list.householdId}
+        share={() => sharing.open('1')}
         shop={list.archivedAt === null}
         view={view}
         setView={setView}
@@ -153,6 +156,7 @@ function Loaded({ data }: { data: Found }) {
         </p>
       ) : null}
       {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
+      {sharing.value === '1' ? <ShareDialog data={data} onClose={sharing.close} /> : null}
       {editing.id !== null ? (
         <EditedItem id={editing.id} data={data} close={editing.close} change={change} />
       ) : null}
@@ -185,6 +189,7 @@ function Header({
   name,
   id,
   householdId,
+  share,
   shop,
   view,
   setView,
@@ -194,6 +199,7 @@ function Header({
   name: string;
   id: string;
   householdId: string;
+  share: () => void;
   shop: boolean;
   view: View;
   setView: (view: View) => void;
@@ -206,6 +212,9 @@ function Header({
     <header className={styles.header}>
       <ResponsiveSurface web={null} mobile={<BackToLists />} />
       <h1>{name}</h1>
+      <Button variant="secondary" size="sm" onClick={share}>
+        Share
+      </Button>
       {shop ? (
         <Button
           variant="secondary"

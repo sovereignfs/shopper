@@ -2,7 +2,7 @@
  * **The online operations, from the browser** (DESIGN.md §12.8): `POST /api/ops`, which answers at once and is not queued. Deleting a list for good is one: it
  * is an Admin's, it needs the server, and it says why it was refused in a sentence. Every way it can fail is a value, not an exception.
  */
-export type OperationResult = { ok: true } | { ok: false; message: string };
+export type OperationResult = { ok: true; result?: unknown } | { ok: false; message: string };
 
 export async function callOperation(
   body: Record<string, unknown>,
@@ -21,10 +21,12 @@ export async function callOperation(
   }
   const answer = (await reply.json().catch(() => ({}))) as {
     ok?: boolean;
+    result?: unknown;
     message?: string;
     error?: string;
   };
-  if (reply.ok && answer.ok) return { ok: true };
+  if (reply.ok && answer.ok)
+    return answer.result === undefined ? { ok: true } : { ok: true, result: answer.result };
   if (reply.status === 401)
     return { ok: false, message: 'You have been signed out. Sign in again.' };
   if (answer.message) return { ok: false, message: answer.message };

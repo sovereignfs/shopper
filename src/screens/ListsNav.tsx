@@ -63,6 +63,7 @@ function Section({
   onNavigate: (() => void) | undefined;
   widen: (() => void) | undefined;
 }) {
+  const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [archived, setArchived] = useState(false);
   const label = place.household.label;
@@ -77,6 +78,21 @@ function Section({
             <ListLink list={list} open={open} synced={synced} onNavigate={onNavigate} />
           </li>
         ))}
+        {place.lists[0] && !rail ? (
+          <li>
+            <button
+              type="button"
+              className={styles.action}
+              onClick={() => {
+                onNavigate?.();
+                router.push(`/l/${place.lists[0]?.list.id}?share=1`);
+              }}
+            >
+              <Icon name="users" aria-hidden />
+              <span>Share</span>
+            </button>
+          </li>
+        ) : null}
         {archived
           ? place.archived.map((list) => (
               <li key={list.id}>

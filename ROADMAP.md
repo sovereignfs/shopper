@@ -137,7 +137,7 @@ second makes an account, opens it, and both see and edit the same lists.
 | --- | ------------------------------- | ----------------------------- | -------- | ------------- | ------ |
 | 40  | [3.4](docs/epics/households.md) | Invitations by link           | P1       | 3.3, 2.1      | ✅     |
 | 41  | [3.5](docs/epics/households.md) | Leaving and removing          | P1       | 3.4           | ✅     |
-| 42  | [8.7](docs/epics/screens.md)    | Sharing: who is on your lists | P1       | 8.1, 3.4, 3.5 | 📋     |
+| 42  | [8.7](docs/epics/screens.md)    | Sharing: who is on your lists | P1       | 8.1, 3.4, 3.5 | ✅     |
 
 ### Milestone H — Sign-in through Sovereign
 

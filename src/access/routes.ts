@@ -163,4 +163,10 @@ export const ACCESS: readonly Access[] = [
     who: 'admin',
     note: 'An Admin removes another member, never an Admin; a Member’s attempt and an outsider’s read as not found.',
   },
+  {
+    kind: 'operation',
+    address: 'invite.list',
+    who: 'member',
+    note: 'A member reads the household’s live links (who made each, whether they may revoke it), never a link itself. An outsider reads as not found.',
+  },
 ];

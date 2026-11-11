@@ -336,4 +336,23 @@ describe(`the operations, as a second person (${leg})`, () => {
     expect(reply.status).toBe(409);
     expect((await rows(sql`id = ${made.id}`))[0]?.revoked_at).toBeNull();
   });
+
+  it('invite.list is a member’s, gives no token, and is not found for an outsider', async () => {
+    const ada = await somebody(database, 'AdaLs');
+    const grace = await somebody(database, 'GraceLs');
+    const eve = await somebody(database, 'EveLs');
+    await join(database, ada.household, grace);
+    await callAs(database, OPERATIONS, ada, { op: 'invite.create', household: ada.household });
+    const listed = await callAs(database, OPERATIONS, grace, {
+      op: 'invite.list',
+      household: ada.household,
+    });
+    expect(listed.status).toBe(200);
+    const links = listed.body.result as { by: string; canRevoke: boolean }[];
+    expect(links.map((l) => [l.by, l.canRevoke])).toEqual([['AdaLs', false]]);
+    expect(JSON.stringify(listed.body)).not.toMatch(/[A-Za-z0-9_-]{43}/);
+    expect(
+      await callAs(database, OPERATIONS, eve, { op: 'invite.list', household: ada.household }),
+    ).toEqual(NOT_FOUND);
+  });
 });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isId } from '../actions/format';
-import { createInvitation, revokeInvitation } from './invitations';
+import { createInvitation, liveInvitations, revokeInvitation } from './invitations';
 import type { Operation } from './ops';
 
 /**
@@ -41,5 +41,21 @@ export const revokeInvite: Operation = {
           ok: false as const,
           refused: 'That link is not there any more, or is not yours to revoke.',
         };
+  },
+};
+
+/**
+ * **`invite.list`**: the household's live links for the sharing dialog (DESIGN.md §16.9): who made each, when it expires, and whether the reader may revoke
+ * it. A link itself is never in the answer, since only its hash is stored: making a new one is how to share again. Any member's.
+ */
+export const listInvites: Operation = {
+  name: 'invite.list',
+  who: 'member',
+  input: z.object({}),
+  async run({ database, ring, accountId, household, now }) {
+    return {
+      ok: true as const,
+      result: await liveInvitations(database, ring, { household, accountId, now }),
+    };
   },
 };
