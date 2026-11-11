@@ -23,6 +23,8 @@ export type ListData =
       /** The reader's person id in this household, or `null` before the device has the household's members. */
       readonly me: string | null;
       readonly shared: boolean;
+      /** Whether to say who added and who ticked: the household has more than one person in it, or someone who has left is still named on what they did. */
+      readonly showPeople: boolean;
     };
 
 export async function listViewOf(db: LocalDatabase, id: string): Promise<ListData> {
@@ -39,9 +41,18 @@ export async function listViewOf(db: LocalDatabase, id: string): Promise<ListDat
     items: await itemsOf(db, id),
     categories: await categoriesOf(db, household.id),
     products: await productsOf(db, household.id),
-    names: Object.fromEntries(members.map((member) => [member.personId, member.name])),
+    // Someone who left is still named on what they added and ticked, and says so (DESIGN.md §7.5): "Sam (left)".
+    names: Object.fromEntries(
+      members.map((member) => [
+        member.personId,
+        member.leftAt === null ? member.name : `${member.name} (left)`,
+      ]),
+    ),
     me: members.find((member) => member.self)?.personId ?? null,
     shared: members.filter((member) => member.leftAt === null).length > 1,
+    showPeople:
+      members.filter((member) => member.leftAt === null).length > 1 ||
+      members.some((member) => member.leftAt !== null),
   };
 }
 

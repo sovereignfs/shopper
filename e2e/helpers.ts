@@ -250,3 +250,18 @@ export async function serverItems(
   const body = (await reply.json()) as { households: { items: never[] }[] };
   return body.households.flatMap((h) => h.items);
 }
+
+/** Makes a link to the person's own household through the operation the Share dialog will call (8.7), and returns its path and id. */
+export async function makeLink(page: Page, baseURL: string): Promise<{ path: string; id: string }> {
+  const account = await accountOf(page);
+  await expect
+    .poll(async () => (await deviceRows(page, account, 'household')).length, { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  const [household] = await deviceRows<{ id: string }>(page, account, 'household');
+  const reply = await page.request.post('/api/ops', {
+    headers: { origin: baseURL, 'content-type': 'application/json' },
+    data: { op: 'invite.create', household: household?.id },
+  });
+  expect(reply.status()).toBe(200);
+  return (await reply.json()).result as { path: string; id: string };
+}

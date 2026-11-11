@@ -88,7 +88,10 @@ describe(`what a list screen reads (${leg})`, () => {
     const after = await d.client.read((db) => listViewOf(db, list.id));
     if (!after.found) throw new Error('not found');
     expect(after.shared).toBe(false);
-    expect(after.names[guest.personId]).toBe('Gus');
+    expect(after.names[guest.personId]).toBe('Gus (left)');
+    // Not shared any more, but the adder is still named on what they added, as having left.
+    expect(after.showPeople).toBe(true);
+    expect(shared.showPeople).toBe(true);
   });
 
   it('is not found for a list that is not there, and says whether the device has synced', async () => {

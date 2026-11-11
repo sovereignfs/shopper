@@ -266,7 +266,7 @@ export function iconOf(item: ItemRow, data: Found): IconName {
 
 /** Whom an item says it was added by: nobody on a list of one person, and not the reader. */
 const addedBy = (item: ItemRow, data: Found): string | null =>
-  data.shared && item.addedBy !== data.me ? (data.names[item.addedBy] ?? null) : null;
+  data.showPeople && item.addedBy !== data.me ? (data.names[item.addedBy] ?? null) : null;
 
 function Row({
   item,

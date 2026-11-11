@@ -151,4 +151,16 @@ export const ACCESS: readonly Access[] = [
     who: 'signed-in',
     note: 'Accepts a link as the session’s account: one transaction that claims it, checks both limits and adds a Member. Rate limited.',
   },
+  {
+    kind: 'operation',
+    address: 'member.leave',
+    who: 'member',
+    note: 'A member leaves, in one transaction that steps the household’s counter; the last Admin cannot. An outsider reads as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'member.remove',
+    who: 'admin',
+    note: 'An Admin removes another member, never an Admin; a Member’s attempt and an outsider’s read as not found.',
+  },
 ];

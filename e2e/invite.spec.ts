@@ -1,6 +1,7 @@
-import { expect, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import {
   anotherDevice,
+  makeLink,
   accountOf,
   deviceRows,
   forgetSession,
@@ -19,20 +20,6 @@ import {
  * refused, someone already in is told so, and an outsider cannot make a link for a household. There is no Share dialog yet (8.7), so the link is made through
  * the operation the dialog will call.
  */
-async function makeLink(page: Page, baseURL: string): Promise<{ path: string; id: string }> {
-  const account = await accountOf(page);
-  await expect
-    .poll(async () => (await deviceRows(page, account, 'household')).length, { timeout: 15_000 })
-    .toBeGreaterThan(0);
-  const [household] = await deviceRows<{ id: string }>(page, account, 'household');
-  const reply = await page.request.post('/api/ops', {
-    headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { op: 'invite.create', household: household?.id },
-  });
-  expect(reply.status()).toBe(200);
-  return (await reply.json()).result as { path: string; id: string };
-}
-
 test('a second person opens the link, makes an account, comes back to it, joins, and both edit the same lists', async ({
   page,
   browser,
