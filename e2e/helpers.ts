@@ -47,15 +47,15 @@ let counter = 0;
 export const newEmail = (label = 'person'): string =>
   `${label}-${process.pid}-${Date.now()}-${++counter}@example.com`;
 
-/** Makes an account through the sign-up page, as a person would, and waits until they are signed in and on the front address. */
-export async function signUp(
+/**
+ * Fills the sign-up form on the page that is open. The page is server-rendered and then hydrated, and React sets a controlled field back to its state
+ * when it hydrates: a field filled in before that is emptied, and the form, with a required field empty, does not submit. WebKit on a slow runner meets
+ * it. So the fields are filled until they hold what was typed, which they do once the page is hydrated. Every test that fills this form uses it.
+ */
+export async function fillSignUp(
   page: Page,
-  { name = 'Ada', email = newEmail(), password = PASSWORD, base = '' } = {},
-): Promise<string> {
-  await page.goto(`${base}/sign-up`);
-  // The page is server-rendered and then hydrated, and React sets a controlled field back to its state when it hydrates: a field filled in before that
-  // is emptied, and the form, with a required field empty, does not submit. WebKit on a slow runner meets it. So the fields are filled until they hold
-  // what was typed, which they do once the page is hydrated.
+  { name, email, password }: { name: string; email: string; password: string },
+): Promise<void> {
   const fields = [
     [page.getByLabel('Name'), name],
     [page.getByLabel('Email'), email],
@@ -65,6 +65,15 @@ export async function signUp(
     for (const [field, value] of fields) await field.fill(value);
     for (const [field, value] of fields) await expect(field).toHaveValue(value, { timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
+}
+
+/** Makes an account through the sign-up page, as a person would, and waits until they are signed in and on the front address. */
+export async function signUp(
+  page: Page,
+  { name = 'Ada', email = newEmail(), password = PASSWORD, base = '' } = {},
+): Promise<string> {
+  await page.goto(`${base}/sign-up`);
+  await fillSignUp(page, { name, email, password });
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(`${base}/`);
   return email;

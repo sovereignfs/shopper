@@ -3,6 +3,7 @@ import {
   accountOf,
   anotherDevice,
   deviceRows,
+  fillSignUp,
   newEmail,
   offline,
   online,
@@ -49,9 +50,7 @@ async function joinThrough(
   const email = newEmail(name.toLowerCase());
   await guest.page.goto(url);
   await guest.page.getByRole('link', { name: 'create an account' }).click();
-  await guest.page.getByLabel('Name').fill(name);
-  await guest.page.getByLabel('Email').fill(email);
-  await guest.page.getByLabel('Password').fill(PASSWORD);
+  await fillSignUp(guest.page, { name, email, password: PASSWORD });
   await guest.page.getByRole('button', { name: 'Create account' }).click();
   await guest.page.getByRole('button', { name: 'Join' }).click();
   // Landed on the household just joined: its section is in the sidebar once the device has pulled it.

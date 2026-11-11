@@ -1,5 +1,13 @@
 import { expect, type Page } from '@playwright/test';
-import { PASSWORD, accountOf, anotherDevice, deviceRows, makeLink, test } from './helpers';
+import {
+  PASSWORD,
+  accountOf,
+  anotherDevice,
+  deviceRows,
+  fillSignUp,
+  makeLink,
+  test,
+} from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -302,9 +310,7 @@ test.describe('an instance that takes both ways, with sign-up closed', () => {
   async function localAccountExists(page: Page) {
     await page.goto('/sign-up');
     if (await page.getByRole('heading', { name: 'Create your account' }).isVisible()) {
-      await page.getByLabel('Name').fill(LOCAL.name);
-      await page.getByLabel('Email').fill(LOCAL.email);
-      await page.getByLabel('Password').fill(PASSWORD);
+      await fillSignUp(page, { name: LOCAL.name, email: LOCAL.email, password: PASSWORD });
       await page.getByRole('button', { name: 'Create account' }).click();
       await expect(page).toHaveURL(/\/$/);
       await signOut(page);
