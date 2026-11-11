@@ -126,7 +126,7 @@ as `DESIGN.md` §2.2 words them for 0.1.0, pass in a browser with the network of
 
 | #   | ID                         | Task          | Priority | Depends on | Status |
 | --- | -------------------------- | ------------- | -------- | ---------- | ------ |
-| 39  | [7.3](docs/epics/trips.md) | Shopping mode | P1       | 8.2        | 📋     |
+| 39  | [7.3](docs/epics/trips.md) | Shopping mode | P1       | 8.2        | ✅     |
 
 ### Milestone G — Sharing
 

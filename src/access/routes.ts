@@ -38,6 +38,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'page',
+    address: '/shop',
+    who: 'signed-in',
+    note: 'Shopping mode for a list. The page holds nothing of it: the device reads the list from its own copy, which has only the households the account is in.',
+  },
+  {
+    kind: 'page',
     address: '/home',
     who: 'signed-in',
     note: 'The signed-in area: a visitor is sent to sign in. Reached as / by someone with a session cookie; /home itself goes to /.',

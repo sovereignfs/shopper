@@ -19,6 +19,8 @@ export function PhoneFooter() {
   const pathname = usePathname();
   const nav = useMobileNav();
   const [launcher, setLauncher] = useState(false);
+  // Shopping mode has the whole screen (DESIGN.md §16.11): its own Finish shopping is where the footer would be.
+  if (pathname === '/shop') return null;
   return (
     <>
       <MobileFooter

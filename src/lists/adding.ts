@@ -161,3 +161,19 @@ export function suggestionMeta(suggestion: Suggestion): string | undefined {
   const unit = suggestion.unit !== null && isUnit(suggestion.unit) ? suggestion.unit : null;
   return quantityLabel({ quantity: suggestion.quantity ?? '1', unit }) ?? undefined;
 }
+
+/**
+ * **Straight into the basket** (DESIGN.md §11.1): the same add, with the item ticked by the person in the same mutation, for what is seen in the shop and
+ * already in the trolley. It is the add's own item change that carries the tick, so that it is one mutation, one Undo and one row written.
+ */
+export function inBasket(mutation: Mutation, by: string, at: number): Mutation {
+  let done = false;
+  return {
+    ...mutation,
+    changes: mutation.changes.map((change) => {
+      if (done || change.table !== 'item') return change;
+      done = true;
+      return { ...change, fields: { ...change.fields, boughtAt: at, boughtBy: by } };
+    }),
+  };
+}

@@ -94,6 +94,32 @@ describe('the sync loop', () => {
     expect(calls).toBe(3);
   });
 
+  it('takes a changed interval at once when it is rearmed, and not only when the timer already set runs out', async () => {
+    const env = new FakeEnvironment();
+    let calls = 0;
+    const c = await client(async () => (calls++, ok()));
+    let gap = 20_000;
+    const loop = startSyncLoop({
+      client: c,
+      lockName: 'l',
+      environment: env,
+      interval: () => gap,
+    });
+    await settleMicrotasks();
+    expect(calls).toBe(1);
+    await env.advance(3000);
+    gap = 10_000;
+    loop.rearm();
+    await env.advance(9999);
+    expect(calls).toBe(1);
+    await env.advance(1);
+    expect(calls).toBe(2);
+    loop.stop();
+    loop.rearm();
+    await env.advance(60_000);
+    expect(calls).toBe(2);
+  });
+
   it('does nothing on the interval while the page is hidden, and syncs when it is shown', async () => {
     const env = new FakeEnvironment();
     let calls = 0;

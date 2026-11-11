@@ -39,7 +39,8 @@ import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors }
 import styles from './ListScreen.module.css';
 import { useMobileNav } from '../ui/mobile-nav';
 import { AddField } from './AddField';
-import { ItemDialog } from './ItemDialog';
+import { EditedItem, useItemParam } from './ItemEditor';
+import { shopEntry } from './shop-entry';
 import { useUndo } from './Undo';
 
 /**
@@ -82,28 +83,6 @@ function useView(): [View, (view: View) => void] {
       router.replace(next === 'added' ? `${pathname}?view=added` : pathname);
     },
   ];
-}
-
-/**
- * The item whose dialog is open: the address's `?item=<id>` (DESIGN.md §16.7), so that a reload, Back and a link all agree. The other parameters stay.
- * The address is changed with the browser's own history, which Next follows: going through the router would ask the server for the page again, and the
- * dialog must open with no network.
- */
-function useItemParam(): { id: string | null; open: (id: string) => void; close: () => void } {
-  const params = useSearchParams();
-  const pathname = usePathname();
-  const to = (id: string | null) => {
-    const next = new URLSearchParams(params.toString());
-    if (id === null) next.delete('item');
-    else next.set('item', id);
-    const query = next.toString();
-    return query === '' ? pathname : `${pathname}?${query}`;
-  };
-  return {
-    id: params.get('item'),
-    open: (id) => window.history.pushState(null, '', to(id)),
-    close: () => window.history.replaceState(null, '', to(null)),
-  };
 }
 
 export function ListScreen({ id }: { id: string }) {
@@ -160,6 +139,8 @@ function Loaded({ data }: { data: Found }) {
       <Header
         name={list.name}
         id={list.id}
+        householdId={list.householdId}
+        shop={list.archivedAt === null}
         view={view}
         setView={setView}
         canClear={bought.length > 0}
@@ -203,6 +184,8 @@ function Loaded({ data }: { data: Found }) {
 function Header({
   name,
   id,
+  householdId,
+  shop,
   view,
   setView,
   canClear,
@@ -210,6 +193,8 @@ function Header({
 }: {
   name: string;
   id: string;
+  householdId: string;
+  shop: boolean;
   view: View;
   setView: (view: View) => void;
   canClear: boolean;
@@ -221,6 +206,18 @@ function Header({
     <header className={styles.header}>
       <ResponsiveSurface web={null} mobile={<BackToLists />} />
       <h1>{name}</h1>
+      {shop ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            shopEntry.setFromList(true);
+            router.push(`/shop?h=${householdId}&l=${id}`);
+          }}
+        >
+          Shop
+        </Button>
+      ) : null}
       <Menu
         open={menu}
         onClose={() => setMenu(false)}
@@ -261,7 +258,7 @@ function Header({
 }
 
 /** The icon an item shows: its own, else its category's, else the basket. Only the design system's grocery set is ever drawn. */
-function iconOf(item: ItemRow, data: Found): IconName {
+export function iconOf(item: ItemRow, data: Found): IconName {
   const category = data.categories.find((each) => each.id === item.categoryId);
   for (const key of [item.icon, category?.icon]) if (key && isGroceryIcon(key)) return key;
   return 'shopping-basket';
@@ -552,25 +549,4 @@ function Empty({
       ) : null}
     </div>
   );
-}
-
-/** The dialog for the item named in the address, if it is on this list; an address naming one that is not (deleted, or another list's) closes itself. */
-function EditedItem({
-  id,
-  data,
-  close,
-  change,
-}: {
-  id: string;
-  data: Found;
-  close: () => void;
-  change: (mutation: Mutation | null, message: string) => Promise<void>;
-}) {
-  const item = data.items.find((each) => each.id === id && each.deletedAt === null);
-  useEffect(() => {
-    if (!item) close();
-  }, [item, close]);
-  return item ? (
-    <ItemDialog key={item.id} data={data} item={item} onClose={close} change={change} />
-  ) : null;
 }

@@ -8,7 +8,7 @@ import { isGroceryIcon } from '../catalog/icons';
 import { type Suggestion, suggest } from '../catalog/suggest';
 import { type ListData, listViewOf } from '../local/listview';
 import { useLocal } from '../local/react';
-import { planAdd, suggestionMeta } from '../lists/adding';
+import { inBasket, planAdd, suggestionMeta } from '../lists/adding';
 import styles from './ListScreen.module.css';
 
 type Found = Extract<ListData, { found: true }>;
@@ -24,8 +24,11 @@ const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
 export function AddField({
   data,
   change,
+  basket = false,
 }: {
   data: Found;
+  /** Adds straight into the basket (shopping mode's "Already in basket"): the item is ticked by the person as it is added. */
+  basket?: boolean;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
   const { client } = useLocal();
@@ -75,7 +78,8 @@ export function AddField({
         return;
       }
       setRefused(null);
-      await change(planned.mutation, planned.message);
+      const mutation = basket ? inBasket(planned.mutation, me, Date.now()) : planned.mutation;
+      await change(mutation, planned.message);
     });
   }
 

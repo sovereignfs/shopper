@@ -3,7 +3,14 @@ import type { Change, Mutation } from '../actions/format';
 import { suggest } from '../catalog/suggest';
 import type { CategoryRow } from '../local/rows';
 import { HOUSEHOLD, PERSON, env, item, list, product } from '../actions/test-support';
-import { type Adding, type Planned, planAdd, productNamed, suggestionMeta } from './adding';
+import {
+  type Adding,
+  type Planned,
+  inBasket,
+  planAdd,
+  productNamed,
+  suggestionMeta,
+} from './adding';
 
 const category = (id: string, starterKey: string | null, position: string): CategoryRow => ({
   id,
@@ -144,5 +151,17 @@ describe('adding from a suggestion', () => {
       'On the list · 3',
     );
     expect(suggestionMeta(typed('x'))).toBeUndefined();
+  });
+
+  it('can put what is added straight into the basket, in the same mutation', () => {
+    const { mutation } = planned(planAdd(env(), context(), typed('Sheep cheese')));
+    const ticked = inBasket(mutation, PERSON, 1234);
+    expect(ticked.changes).toHaveLength(mutation.changes.length);
+    expect(changesOf(ticked, 'item')[0]?.fields).toMatchObject({
+      boughtAt: 1234,
+      boughtBy: PERSON,
+      name: 'Sheep cheese',
+    });
+    expect(changesOf(mutation, 'item')[0]?.fields).not.toHaveProperty('boughtAt');
   });
 });

@@ -50,6 +50,8 @@ export interface LoopOptions {
 export interface Loop {
   /** Ask for a sync soon. */
   trigger(): void;
+  /** Sets the interval timer again from the interval as it is now: for a change of the interval that should not wait for the timer already set. */
+  rearm(): void;
   /** Sync now, if this tab is the one that does it; resolves when that attempt ends. */
   syncNow(): Promise<void>;
   stop(): void;
@@ -152,6 +154,11 @@ export function startSyncLoop(options: LoopOptions): Loop {
 
   return {
     trigger,
+    rearm() {
+      if (stopped) return;
+      env.clearTimeout(timer);
+      tick();
+    },
     syncNow: run,
     stop() {
       stopped = true;

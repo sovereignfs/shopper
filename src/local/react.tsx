@@ -30,11 +30,19 @@ import { fetchTransport } from './transport';
 interface Local {
   accountId: string;
   client: SyncClient | null;
+  /**
+   * Asks for the fastest sync the design allows while a screen is open (shopping mode, DESIGN.md §11.1): every 10 seconds, or the operator's interval if
+   * that is shorter. Returns what ends the request. It syncs once at once, so that the screen opens on what others have just done.
+   */
+  holdFresh(): () => void;
   /** Signs out of this device: sends what is waiting, asks before losing what cannot be sent, ends the session, and deletes the working copy (§12.10). */
   leave(): Promise<Left>;
 }
 
 const Context = createContext<Local | null>(null);
+
+/** The freshest a screen that asks for it gets (DESIGN.md §11.1): ten seconds, unless the operator's interval is shorter. */
+export const FRESH_INTERVAL_MS = 10_000;
 
 export function LocalProvider({ accountId, children }: { accountId: string; children: ReactNode }) {
   const [client, setClient] = useState<SyncClient | null>(null);
@@ -42,6 +50,9 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
   const toast = useToast();
   const toastRef = useRef(toast);
   toastRef.current = toast;
+  const fresh = useRef(0);
+  const syncNow = useRef<() => void>(() => undefined);
+  const rearm = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     let stopped = false;
@@ -85,7 +96,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         client: made,
         lockName: `shopper-sync-${accountId}`,
         environment: browserEnvironment(),
-        interval: () => intervalMs,
+        interval: () => (fresh.current > 0 ? Math.min(intervalMs, FRESH_INTERVAL_MS) : intervalMs),
         onOutcome: () => void learn(),
         // The session ended elsewhere: show sign-in, keep the outbox for the same account (§12.10).
         onSignedOut: () => window.location.assign('/sign-in'),
@@ -101,9 +112,13 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       });
       // Where the browser has Background Sync, a write asks to be woken when the network is back, and the wake syncs through this loop.
       const unwrite = made.onWrite(registerBackgroundSync);
+      syncNow.current = () => void loop.syncNow();
+      rearm.current = () => loop.rearm();
       const unwake = onWake(() => void loop.syncNow());
       void requestPersistence().then((granted) => rememberPersistence(db, granted));
       teardown = () => {
+        syncNow.current = () => undefined;
+        rearm.current = () => undefined;
         loop.stop();
         unrefused();
         unwrite();
@@ -142,7 +157,22 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     [accountId, client],
   );
 
-  return <Context.Provider value={{ accountId, client, leave }}>{children}</Context.Provider>;
+  const holdFresh = useCallback(() => {
+    fresh.current += 1;
+    rearm.current();
+    syncNow.current();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      fresh.current -= 1;
+      rearm.current();
+    };
+  }, []);
+
+  return (
+    <Context.Provider value={{ accountId, client, leave, holdFresh }}>{children}</Context.Provider>
+  );
 }
 
 /** The working copy if there is a provider above, and `null` if there is not: the page the service worker keeps has none, since it holds nothing of a person. */
