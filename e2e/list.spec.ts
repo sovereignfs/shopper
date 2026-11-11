@@ -49,10 +49,13 @@ test('the items are by aisle, in the household’s order, with quantity and note
     { name: 'Rice', category: 'pantry' },
     { name: 'Odd thing' },
   ]);
-  const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
-  expect(
-    headings.filter((h) => ['Produce', 'Dairy & eggs', 'Pantry', 'Other'].includes(h)),
-  ).toEqual(['Produce', 'Dairy & eggs', 'Pantry', 'Other']);
+  await expect
+    .poll(async () =>
+      (await page.getByRole('heading', { level: 2 }).allTextContents()).filter((h) =>
+        ['Produce', 'Dairy & eggs', 'Pantry', 'Other'].includes(h),
+      ),
+    )
+    .toEqual(['Produce', 'Dairy & eggs', 'Pantry', 'Other']);
   // The quantity and the note are beside the row's checkbox, in the same item.
   const rowOf = (name: RegExp) =>
     page.getByRole('listitem').filter({ has: page.getByRole('checkbox', { name }) });
@@ -259,13 +262,22 @@ test('an item is moved within its category by the keyboard, one row is written, 
     rowNames(page).then((names) =>
       names.map((text) => text.replace(/\s.*/, '')).filter((name) => name !== 'Milk'),
     );
-  expect(await produce()).toEqual(['Apples', 'Bananas', 'Carrots']);
+  await expect.poll(produce).toEqual(['Apples', 'Bananas', 'Carrots']);
   const handle = page.getByRole('button', { name: 'Move Apples' });
   await handle.focus();
-  // dnd-kit reads each key on the next frame, so a pick-up, each move and the drop are given one.
+  // dnd-kit reads each key on the next frame, so a pick-up, each move and the drop are each given two frames (and a moment for what the frame draws), which is
+  // counted in frames and not in milliseconds so that a slow machine, whose frames are slow, is waited for too.
+  const frames = () =>
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
   for (const key of ['Space', 'ArrowDown', 'ArrowDown', 'Space']) {
     await page.keyboard.press(key);
-    await page.waitForTimeout(150);
+    await frames();
+    await page.waitForTimeout(100);
   }
   await expect.poll(produce).toEqual(['Bananas', 'Carrots', 'Apples']);
   const account = await accountOf(page);

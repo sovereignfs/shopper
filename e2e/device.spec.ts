@@ -31,18 +31,27 @@ const read = (page: Page, account: string, store: string) =>
       ([name, storeName]) =>
         new Promise<unknown[]>((resolve, reject) => {
           const open = indexedDB.open(name as string);
-          open.onerror = () => reject(open.error);
+          // **Never make the database**: opening one that does not exist yet creates it empty, at version 1, and the app's own open (which makes the stores when it upgrades
+          // from nothing) would then find version 1, make none of them, and wait on this very connection. The app has not opened it yet, so there is nothing to read.
+          open.onupgradeneeded = () => open.transaction?.abort();
+          open.onerror = () =>
+            open.error?.name === 'AbortError' ? resolve([]) : reject(open.error);
           open.onsuccess = () => {
             const db = open.result;
-            const request = db
-              .transaction(storeName as string)
-              .objectStore(storeName as string)
-              .getAll();
-            request.onsuccess = () => {
+            try {
+              const request = db
+                .transaction(storeName as string)
+                .objectStore(storeName as string)
+                .getAll();
+              request.onsuccess = () => {
+                db.close();
+                resolve(request.result);
+              };
+              request.onerror = () => reject(request.error);
+            } catch {
               db.close();
-              resolve(request.result);
-            };
-            request.onerror = () => reject(request.error);
+              resolve([]);
+            }
           };
         }),
       [`shopper-${account}`, store],

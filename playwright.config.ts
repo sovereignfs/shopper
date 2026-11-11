@@ -73,6 +73,9 @@ export default defineConfig({
   // One at a time: the instance shares one database, and the tests are quick.
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  // A shared CI runner is several times slower than a developer's machine, and an assertion that waits for a page (a sign-up that ends at the front address, a dialog)
+  // is given room there; locally the default stays, so that a slow page is noticed.
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
   projects: [
