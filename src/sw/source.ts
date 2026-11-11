@@ -20,6 +20,17 @@ export const CACHE_PREFIX = 'shopper-shell-';
 export const SYNC_TAG = 'shopper-sync';
 export const SYNC_MESSAGE = 'shopper-sync';
 
+/**
+ * The signed-in addresses the worker answers with the kept shell when there is no network (DESIGN.md §16.11), as regular expression sources: the front
+ * address and `/home` (the last list), a list and its settings, and shopping mode. **Settings of the account, sign-in and the API are not here**: they are
+ * read from the server, and with no network a page that needs it says so. The shell chooses the screen from the address (`OfflineApp`).
+ */
+export const SHELL_ADDRESSES: readonly string[] = [
+  '^\\/(home)?$',
+  '^\\/l\\/[0-9a-f-]{36}(\\/settings)?$',
+  '^\\/shop$',
+];
+
 export function workerSource(
   version: string,
   files: readonly string[] = [],

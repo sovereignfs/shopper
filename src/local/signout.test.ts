@@ -66,6 +66,30 @@ const accepting: Transport = async (request) => ({
 const offline: Transport = async (): Promise<TransportResult> => ({ kind: 'offline' });
 
 describe('leaving a device', () => {
+  it('forgets who is signed in on the device once it has left, and not before', async () => {
+    const d = await device(accepting);
+    const order: string[] = [];
+    await leaveDevice({
+      accountId: d.account,
+      client: d.client,
+      confirmLosing: async () => true,
+      endSession: async () => void order.push('ended'),
+      forgetIdentity: () => void order.push('forgotten'),
+    });
+    expect(order).toEqual(['ended', 'forgotten']);
+    const stayed = await device(offline);
+    await queue(stayed.client);
+    let forgotten = 0;
+    await leaveDevice({
+      accountId: stayed.account,
+      client: stayed.client,
+      confirmLosing: async () => false,
+      endSession: async () => undefined,
+      forgetIdentity: () => void forgotten++,
+    });
+    expect(forgotten).toBe(0);
+  });
+
   it('sends what it can, ends the session, and deletes the account’s database, in that order', async () => {
     const d = await device(accepting);
     await queue(d.client);

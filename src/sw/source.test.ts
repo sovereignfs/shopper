@@ -1,6 +1,13 @@
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { CACHE_PREFIX, SYNC_MESSAGE, SYNC_TAG, inertWorkerSource, workerSource } from './source';
+import {
+  CACHE_PREFIX,
+  SHELL_ADDRESSES,
+  SYNC_MESSAGE,
+  SYNC_TAG,
+  inertWorkerSource,
+  workerSource,
+} from './source';
 
 /**
  * The service worker (DESIGN.md §16.11): **what it keeps is an allow-list, and nothing else gets in.** This evaluates the very text that is served, with a
@@ -239,6 +246,28 @@ describe('the worker with no network', () => {
       'needs a connection',
     );
     expect((await (await w.fetchEvent('/api/sync'))?.text()) ?? '').toBe('');
+  });
+
+  it('answers every signed-in screen of the app with the shell with no network, and the pages that need the server with the page that says so', async () => {
+    const w = load('v1', FILES, SHELL_ADDRESSES);
+    await w.dispatch('install');
+    w.state.online = false;
+    const list = '11111111-1111-4111-8111-111111111111';
+    for (const path of ['/', '/home', `/l/${list}`, `/l/${list}/settings`, '/shop'])
+      expect(await (await w.fetchEvent(path, { mode: 'navigate' }))?.text(), path).toContain(
+        'the shell, for everyone',
+      );
+    for (const path of [
+      '/settings',
+      '/sign-in',
+      '/sign-up',
+      '/l/not-an-id',
+      `/l/${list}/other`,
+      '/shell/x',
+    ])
+      expect(await (await w.fetchEvent(path, { mode: 'navigate' }))?.text(), path).toContain(
+        'needs a connection',
+      );
   });
 
   it('is not asked about anything it does not keep: a write, another site, an API, a page request while online', async () => {

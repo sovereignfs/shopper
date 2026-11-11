@@ -1,3 +1,4 @@
+import { forgetIdentity } from '../identity';
 import { deleteLocal } from './db';
 import type { SyncClient } from './client';
 
@@ -28,6 +29,8 @@ export interface LeaveOptions {
   announce?(): void;
   /** Deletes the account's database; by default the one `openLocal` opens for it. A test names its own. */
   deleteDatabase?(): Promise<void>;
+  /** Forgets who is signed in on this device (`src/identity.ts`); a test names its own, since it has no window. */
+  forgetIdentity?(): void;
 }
 
 export type Left =
@@ -57,5 +60,7 @@ export async function leaveDevice(options: LeaveOptions): Promise<Left> {
   client?.close();
   client?.db.close();
   await (options.deleteDatabase ?? (() => deleteLocal(accountId)))();
+  // The shell offline opens for whoever is remembered here, so no one is, once they have left.
+  (options.forgetIdentity ?? forgetIdentity)();
   return { status: 'left' };
 }

@@ -81,7 +81,7 @@ and proxy buffering; the two new settings in `.env.example`; the CSP and `X-Acce
 to its interval and catches up; with `SHOPPER_SYNC_LIVE=false`, Live is not offered and `/api/live` answers 404; a second person's stream never
 carries the first's households; no row data ever appears on the stream (a test reads it).
 
-#### 📋 6.5 — Opening offline
+#### ✅ 6.5 — Opening offline
 
 **Goal:** Shopper opens with no network. **Design:** §16.11. **Depends on:** 6.2, 1.12.
 
@@ -92,6 +92,8 @@ trips).
 
 **Accepts when:** in Playwright, with the network off after a first visit, a list and shopping mode open, show their items, and accept changes that
 sync when the network returns; a page needing the server says so.
+
+**Done as:** **The shell is the app:** `/shell` (`app/shell/page.tsx`) is now `OfflineApp` (`src/screens/OfflineApp.tsx`), which holds nothing of a person: in the browser it reads who is signed in from the device (`src/identity.ts`, copied from Tusk with Shopper's key), makes the composition the server's layout makes (`LocalProvider`, `UndoProvider`, `ShellFrame` with the account menu) and **chooses the screen from the address**: the front address and `/home` are the last list, `/l/<id>` that list, `/l/<id>/settings` its settings and `/shop?l=<id>` shopping mode. With no one remembered it shows the header and "Sign in to use Shopper. This needs a connection." **The identity** is kept by every signed-in page (`RememberIdentity` in `app/(app)/layout.tsx`) and removed by `leaveDevice` after the session has ended and the copy is deleted (not when the person stays). **The worker** answers these addresses with the kept shell when there is no network (`SHELL_ADDRESSES` in `src/sw/source.ts`, passed by `app/sw.js/route.ts`); every other address, among them the account's Settings, sign-in and the APIs, still gets the page that says it needs a connection, and the cache still holds the allow-list and nothing of a person. Tests: `identity.test.ts`, `source.test.ts` (every signed-in screen answered with the shell and the others not) and `signout.test.ts` (forgotten after leaving, not when the person stays), and 4 browser tests in Chromium (`e2e/offline.spec.ts`: a list opened from its address with the network off after a first visit shows its items, takes a tick and an add, and the server has them when it is back; the front address, a list's settings and shopping mode open with the network off and a tick in shopping mode syncs; the account's Settings says it needs a connection; after signing out the shell opens for no one). The first three were seen to fail with the worker given no addresses. Left out: **the account's Settings** open offline (it reads the server: name, password, deleting the account), though the epic's wording could be read to include it; **an address opened offline is a full load of the kept shell, not a client-side move**, since the router cannot ask the server for the page; the allow-list grows with phase 2's screens (all lists, the catalog, recent trips). WebKit was not run here (its browser is not installed).
 
 #### 📋 6.6 — Keeping the history small (phase 2)
 

@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { inertWorkerSource, workerSource } from '@/src/sw/source';
+import { SHELL_ADDRESSES, inertWorkerSource, workerSource } from '@/src/sw/source';
 
 /**
  * The service worker (`src/sw/source.ts`, DESIGN.md §16.11), served at `/sw.js` from the root so that it controls the whole app. Its version is the build's,
@@ -40,11 +40,14 @@ function builtFiles(): string[] {
 export function GET() {
   const version = buildId();
   // A development server has no build to keep: its worker keeps nothing and goes.
-  return new Response(version ? workerSource(version, builtFiles()) : inertWorkerSource(), {
-    headers: {
-      'content-type': 'text/javascript; charset=utf-8',
-      'cache-control': 'no-cache, max-age=0',
-      'service-worker-allowed': '/',
+  return new Response(
+    version ? workerSource(version, builtFiles(), SHELL_ADDRESSES) : inertWorkerSource(),
+    {
+      headers: {
+        'content-type': 'text/javascript; charset=utf-8',
+        'cache-control': 'no-cache, max-age=0',
+        'service-worker-allowed': '/',
+      },
     },
-  });
+  );
 }
