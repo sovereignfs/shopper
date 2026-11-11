@@ -24,10 +24,10 @@ pnpm install --frozen-lockfile
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-Browser tests need the browsers once (`pnpm exec playwright install chromium webkit`) and a build: `pnpm build && pnpm e2e` (one at a time, about half an hour), or `pnpm build && pnpm e2e:fast`, which runs them in shards at once on the cores of the machine.
+Browser tests need the browsers once (`pnpm exec playwright install chromium webkit`) and a build: `pnpm build && pnpm e2e` (one at a time, a few minutes). `pnpm seed` makes three accounts with a shared household to look at, on a local database.
 
 [`AGENTS.md`](AGENTS.md) holds the rules of the app, which are the ones most likely to be broken by accident: read it before changing anything that
-reads or writes tasks, sign-in or the service worker.
+reads or writes lists, items, products or trips, sign-in, or the service worker.
 
 ## Branching and commits
 
@@ -71,7 +71,7 @@ document in `docs/research/`; a design that needs review before it is built gets
 
 ## Releases
 
-A release is its own pull request, and the merged commit is tagged `vX.Y.Z`. Contributors do not need to do anything for one.
+A release is its own pull request, and the merged commit is tagged `vX.Y.Z`. Contributors do not need to do anything for one; [`RELEASING.md`](RELEASING.md) says how it is made.
 
 ## Licence of contributions
 
