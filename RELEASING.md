@@ -1,7 +1,6 @@
 # Releasing
 
-A release of Shopper is cut with `scripts/release.sh`. **The script and its tests, `scripts/test-release.sh`, are added with the release that first needs them (task
-12.4 of `ROADMAP.md`); until they are, the steps below are done by hand, in this order, with the same checks.**
+A release of Shopper is cut with `scripts/release.sh`:
 
 ```bash
 scripts/release.sh check   0.1.0                 # read-only preflight
