@@ -147,7 +147,7 @@ account-deleted notice removes everything personal.
 | #   | ID                            | Task                 | Priority | Depends on | Status |
 | --- | ----------------------------- | -------------------- | -------- | ---------- | ------ |
 | 43  | [2.3](docs/epics/accounts.md) | Sign-in through core | P0       | 2.1, 3.3   | ✅     |
-| 44  | [2.4](docs/epics/accounts.md) | Core's notices       | P0       | 2.3, 2.5   | 📋     |
+| 44  | [2.4](docs/epics/accounts.md) | Core's notices       | P0       | 2.3, 2.5   | ✅     |
 
 ### Milestone I — Release 0.1.0
 

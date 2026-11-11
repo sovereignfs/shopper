@@ -169,4 +169,16 @@ export const ACCESS: readonly Access[] = [
     who: 'member',
     note: 'A member reads the household’s live links (who made each, whether they may revoke it), never a link itself. An outsider reads as not found.',
   },
+  {
+    kind: 'route',
+    address: '/api/sovereign/backchannel-logout',
+    who: 'public',
+    note: 'Core’s notice that a person’s session ended. The signed token is the whole credential (checked by the SDK, a replayed jti refused); a bounded form, rate limited; not found where core is not set.',
+  },
+  {
+    kind: 'route',
+    address: '/api/sovereign/account-deleted',
+    who: 'public',
+    note: 'Core’s notice that a person deleted their account. The signed token is the whole credential; it runs deletePerson and answers 200 only once done; not found where core is not set.',
+  },
 ];

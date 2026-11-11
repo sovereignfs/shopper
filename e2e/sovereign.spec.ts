@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { PASSWORD, anotherDevice, makeLink, test } from './helpers';
+import { PASSWORD, accountOf, anotherDevice, deviceRows, makeLink, test } from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -138,6 +138,153 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Host’s lists'),
     ).toBeVisible({ timeout: 30_000 });
     await guest.context.close();
+  });
+
+  // What Sovereign tells the app when a person's session there ends, or they delete their account (task 2.4). The fake signs the notice with the key it
+  // publishes, as Sovereign does, and the test posts it where the manifest says to.
+  type Wrong = 'signature' | 'audience' | 'expired' | 'type';
+  async function noticeFrom(
+    page: Page,
+    kind: 'logout' | 'account-deleted',
+    sub: string,
+    wrong?: Wrong,
+  ): Promise<string> {
+    const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/notice`, {
+      data: { kind, sub, sid: 'core-session-1', wrong },
+    });
+    expect(reply.ok()).toBe(true);
+    return reply.text();
+  }
+  const sendLogout = (page: Page, token: string) =>
+    page.request.post('/api/sovereign/backchannel-logout', { form: { logout_token: token } });
+  const sendDeletion = (page: Page, token: string) =>
+    page.request.post('/api/sovereign/account-deleted', { form: { account_deleted_token: token } });
+  async function signInAs(page: Page, who: { sub: string; email: string; name?: string }) {
+    await nextPersonIs(page, who);
+    await page.goto('/sign-in');
+    await throughSovereign(page);
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+  }
+
+  test('signing out at Sovereign signs the person out here, wherever they are signed in', async ({
+    page,
+    browser,
+  }) => {
+    const who = person('leaver');
+    await signInAs(page, who);
+    const other = await browser.newContext({ baseURL: SOVEREIGN });
+    const elsewhere = await other.newPage();
+    await signInAs(elsewhere, who);
+
+    const reply = await sendLogout(page, await noticeFrom(page, 'logout', who.sub));
+    expect(reply.status()).toBe(200);
+    for (const tab of [page, elsewhere]) {
+      await tab.goto('/home');
+      await expect(tab).toHaveURL(/\/sign-in/);
+    }
+    await other.close();
+    // And they can sign in again: the account is theirs still.
+    await signInAs(page, who);
+    await signOut(page);
+  });
+
+  test('a notice that is wrong, or is sent twice, is refused and ends nothing', async ({
+    page,
+  }) => {
+    const who = person('steady');
+    await signInAs(page, who);
+    for (const wrong of ['signature', 'audience', 'expired', 'type'] as const) {
+      const reply = await sendLogout(page, await noticeFrom(page, 'logout', who.sub, wrong));
+      expect(reply.status(), wrong).toBe(400);
+      expect(await reply.json()).toEqual({ error: 'invalid_request' });
+    }
+    // A deletion token is not a logout token, nor the reverse.
+    expect(
+      (await sendLogout(page, await noticeFrom(page, 'account-deleted', who.sub))).status(),
+    ).toBe(400);
+    expect((await sendDeletion(page, await noticeFrom(page, 'logout', who.sub))).status()).toBe(
+      400,
+    );
+    // Nothing at all, and not a form.
+    expect(
+      (await page.request.post('/api/sovereign/backchannel-logout', { form: {} })).status(),
+    ).toBe(400);
+    expect(
+      (
+        await page.request.post('/api/sovereign/account-deleted', {
+          data: { account_deleted_token: 'x.y.z' },
+        })
+      ).status(),
+    ).toBe(400);
+    // They are still signed in.
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+
+    // The same good notice twice: the first ends the session, the second is a replay.
+    const token = await noticeFrom(page, 'logout', who.sub);
+    expect((await sendLogout(page, token)).status()).toBe(200);
+    expect((await sendLogout(page, token)).status()).toBe(400);
+  });
+
+  test('an account-deleted notice removes the person, and a household they shared goes on without them', async ({
+    page,
+    browser,
+  }) => {
+    const host = person('hostdel');
+    const leaver = person('gone');
+    await signInAs(page, host);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+    const link = await makeLink(page, SOVEREIGN);
+    const hostAccount = await accountOf(page);
+
+    const guest = await anotherDevice(browser, SOVEREIGN);
+    await signInAs(guest.page, leaver);
+    await guest.page.goto(link.path);
+    await guest.page.getByRole('button', { name: 'Join' }).click();
+    await expect(
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Hostdel’s lists'),
+    ).toBeVisible({ timeout: 30_000 });
+
+    const deleted = await sendDeletion(page, await noticeFrom(page, 'account-deleted', leaver.sub));
+    expect(deleted.status()).toBe(200);
+    // Core sends it until it is answered, with a new token: the second is answered 200 as well.
+    expect(
+      (await sendDeletion(page, await noticeFrom(page, 'account-deleted', leaver.sub))).status(),
+    ).toBe(200);
+
+    // The deleted person's session is gone; the host is signed in, with the household whole and the leaver's name still on it as a member who left.
+    await guest.page.goto('/home');
+    await expect(guest.page).toHaveURL(/\/sign-in/);
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await deviceRows<{ leftAt: number | null }>(page, hostAccount, 'member')).filter(
+            (member) => member.leftAt !== null,
+          ).length,
+        { timeout: 30_000 },
+      )
+      .toBe(1);
+    await guest.context.close();
+  });
+
+  test('these addresses answer only a POST, and where Sovereign is not set up they are not there', async ({
+    page,
+  }) => {
+    for (const path of ['/api/sovereign/backchannel-logout', '/api/sovereign/account-deleted']) {
+      expect((await page.request.get(path)).status(), path).toBe(405);
+    }
+    // The ordinary instance has no core: the same addresses are not found.
+    for (const path of ['/api/sovereign/backchannel-logout', '/api/sovereign/account-deleted']) {
+      const reply = await page.request.post(`http://localhost:${PORTS.app}${path}`, {
+        form: { logout_token: 'x.y.z' },
+      });
+      expect(reply.status(), path).toBe(404);
+    }
   });
 
   test('a person who declines at Sovereign is told so and is not signed in', async ({ page }) => {

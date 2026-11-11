@@ -871,7 +871,7 @@ may be on when hosted**, so people not on the instance can join a household. Ema
 
 Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of the person; account deleted at `/api/sovereign/account-deleted` runs
 `People.deletePerson` (§19) and answers `200` only once done. Both checked by the SDK (`verifyLogoutToken`, `verifyAccountDeletedToken`), a replayed
-`jti` refused after a restart (`notice_seen`), a bounded form, one rate limit, 404 where core is not set. Copied from Tusk.
+`jti` refused after a restart (counted in `rate_bucket`, which every process shares: no table of its own), a bounded form, one rate limit, 404 where core is not set. Copied from Tusk.
 
 ### 15.3 The manifest
 
@@ -1177,7 +1177,7 @@ the sealed envelope where the table seals it. A currency is a three-letter code.
 Beyond better-auth's, in the auth store.
 
 **0.1.0 has** `person`, `household`, `member`, `invitation`, `category`, `product`, `list`, `item`, `alias`, `account_settings`, `applied_mutation`,
-`tombstone`, `notice_seen` and `rate_bucket`, without these columns, which arrive with the phase that needs them: `household` has no
+`tombstone` and `rate_bucket`, without these columns, which arrive with the phase that needs them: `household` has no
 `color` or `currency`, and its sealed name is empty; `invitation` has no email; `product` has no barcode, last unit price or `price_unit`; `item` has
 no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`, `notice_digest`, `notice_pref`,
 `mail_outbox` and `credential`, and those columns, by new migrations.
@@ -1204,7 +1204,6 @@ no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`,
 | `applied_mutation` | `account_id`, `id`, `household_id`, when (§12.9)                                                                                                                                                                                                                                      |
 | `tombstone`        | `table`, `id`, `household_id`, `seq`, when (§12.9)                                                                                                                                                                                                                                    |
 | `credential`       | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                      |
-| `notice_seen`      | A core notice's `jti` and when (§15.2)                                                                                                                                                                                                                                                |
 | `rate_bucket`      | As Tusk's. A job claims its work by a conditional update of the row it works on (`src/jobs/claim.ts`), not by a table                                                                                                                                                                 |
 
 Indexes follow the queries: members by person (an account's households) and by household; every synced table by `(household_id, seq)` for pull; items
