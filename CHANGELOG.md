@@ -8,6 +8,8 @@ Each release's section is also its GitHub release notes: the release workflow re
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-11
+
 ### Added
 
 - A list: items by aisle in the household's order, tick with Undo, a drag or the keyboard to reorder, Bought and Clear bought, the empty state with what is bought often, list settings (rename, archive, delete for good), and the front address opening the list used last.
@@ -27,4 +29,5 @@ Each release's section is also its GitHub release notes: the release workflow re
 - The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
 - On a list, only the checkbox ticks an item: a tap anywhere else on its row does nothing. Shopping mode is unchanged, and still ticks from anywhere on the row.
 
-[Unreleased]: https://github.com/sovereignfs/shopper/commits/main
+[Unreleased]: https://github.com/sovereignfs/shopper/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.1.0
