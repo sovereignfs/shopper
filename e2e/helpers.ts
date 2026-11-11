@@ -53,9 +53,18 @@ export async function signUp(
   { name = 'Ada', email = newEmail(), password = PASSWORD, base = '' } = {},
 ): Promise<string> {
   await page.goto(`${base}/sign-up`);
-  await page.getByLabel('Name').fill(name);
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  // The page is server-rendered and then hydrated, and React sets a controlled field back to its state when it hydrates: a field filled in before that
+  // is emptied, and the form, with a required field empty, does not submit. WebKit on a slow runner meets it. So the fields are filled until they hold
+  // what was typed, which they do once the page is hydrated.
+  const fields = [
+    [page.getByLabel('Name'), name],
+    [page.getByLabel('Email'), email],
+    [page.getByLabel('Password'), password],
+  ] as const;
+  await expect(async () => {
+    for (const [field, value] of fields) await field.fill(value);
+    for (const [field, value] of fields) await expect(field).toHaveValue(value, { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(`${base}/`);
   return email;
