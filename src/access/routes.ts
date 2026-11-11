@@ -32,6 +32,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'page',
+    address: '/l/[id]/settings',
+    who: 'signed-in',
+    note: 'A list’s settings. The page holds nothing of it; deleting for good is the Admin’s online operation, checked in its statement.',
+  },
+  {
+    kind: 'page',
     address: '/home',
     who: 'signed-in',
     note: 'The signed-in area: a visitor is sent to sign in. Reached as / by someone with a session cookie; /home itself goes to /.',

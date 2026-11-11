@@ -7,3 +7,7 @@ Each release's section is also its GitHub release notes: the release workflow re
 `## [Unreleased]` as you go; a release turns them into the version's section.
 
 ## [Unreleased]
+
+### Added
+
+- A list: items by aisle in the household's order, tick with Undo, a drag or the keyboard to reorder, Bought and Clear bought, the empty state with what is bought often, list settings (rename, archive, delete for good), and the front address opening the list used last.

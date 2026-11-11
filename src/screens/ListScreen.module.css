@@ -73,3 +73,122 @@
   outline: 2px solid var(--sv-color-focus-ring);
   outline-offset: 2px;
 }
+
+/* A list (DESIGN.md §16.5): the items by category, each a row that ticks as a whole. */
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.category {
+  margin: 0;
+  padding: var(--sv-space-2) 0 var(--sv-space-1);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dragging {
+  position: relative;
+  z-index: 2;
+  box-shadow: var(--sv-shadow-popover);
+  background: var(--sv-color-surface-raised);
+  border-radius: var(--sv-radius-md);
+}
+
+/* What a row says beside the name: the quantity, the first line of the note, and who added it. */
+.meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--sv-space-2);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.quantity {
+  color: var(--sv-color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.by {
+  font-size: var(--sv-font-size-xs);
+}
+
+.bought {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  padding-top: var(--sv-space-3);
+  border-top: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.boughtHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-1) var(--sv-space-2);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-weight: var(--sv-font-weight-medium);
+  background: transparent;
+  border: 0;
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  background: var(--sv-color-surface);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-full, 999px);
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .chip:hover {
+    background: var(--sv-color-surface-sunken);
+  }
+}

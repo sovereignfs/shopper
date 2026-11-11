@@ -105,3 +105,139 @@ export const test = base.extend<{ ip: string }>({
     await use(context);
   },
 });
+
+/** What a store of the account's database holds, as the page sees it. A page that is navigating has no answer, and a poll asks again. */
+export async function deviceRows<T = Record<string, unknown>>(
+  page: Page,
+  account: string,
+  store: string,
+): Promise<T[]> {
+  try {
+    return (await page.evaluate(
+      ([name, storeName]) =>
+        new Promise<unknown[]>((resolve, reject) => {
+          const open = indexedDB.open(name as string);
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result;
+            const request = db
+              .transaction(storeName as string)
+              .objectStore(storeName as string)
+              .getAll();
+            request.onsuccess = () => {
+              db.close();
+              resolve(request.result);
+            };
+            request.onerror = () => reject(request.error);
+          };
+        }),
+      [`shopper-${account}`, store],
+    )) as T[];
+  } catch (error) {
+    if (/context was destroyed|navigat|closed/i.test(String(error))) return [];
+    throw error;
+  }
+}
+
+/** The signed-in account's id, asked of the server as the app's own pages ask it. */
+export async function accountOf(page: Page): Promise<string> {
+  const session = (await sessionOf(page)) as { user: { id: string } } | null;
+  return session?.user.id ?? '';
+}
+
+export interface Seed {
+  name: string;
+  /** A starter category key: `produce`, `dairy-eggs`, … ; none is Other. */
+  category?: string;
+  quantity?: string;
+  unit?: string;
+  note?: string;
+}
+
+/**
+ * Puts items on the person's first list **through the server**, as another device would, and brings them to this one: the real endpoint applies them, so what
+ * a test then ticks, clears and moves is real, and the server's answer to it is too. Returns the ids of the items made, in order.
+ */
+export async function seedItems(page: Page, items: Seed[], baseURL: string): Promise<string[]> {
+  const account = await accountOf(page);
+  await expect
+    .poll(async () => (await deviceRows(page, account, 'list')).length, { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  const [household] = await deviceRows<{ id: string }>(page, account, 'household');
+  const [list] = await deviceRows<{ id: string }>(page, account, 'list');
+  const [member] = await deviceRows<{ personId: string }>(page, account, 'member');
+  const categories = await deviceRows<{ id: string; starterKey: string }>(
+    page,
+    account,
+    'category',
+  );
+  const now = Date.now();
+  const ids: string[] = [];
+  const outbox = items.map((seed, index) => {
+    const product = crypto.randomUUID();
+    const item = crypto.randomUUID();
+    ids.push(item);
+    const categoryId =
+      categories.find((c) => c.starterKey === (seed.category ?? 'other'))?.id ?? null;
+    return {
+      mutationId: crypto.randomUUID(),
+      householdId: household?.id,
+      changes: [
+        {
+          table: 'product',
+          id: product,
+          create: true,
+          fields: { name: seed.name, categoryId, createdAt: now, lastAddedAt: now },
+        },
+        {
+          table: 'item',
+          id: item,
+          create: true,
+          fields: {
+            listId: list?.id,
+            productId: product,
+            name: seed.name,
+            quantity: seed.quantity ?? '1',
+            unit: seed.unit ?? null,
+            note: seed.note ?? null,
+            categoryId,
+            position: `a${index}`,
+            addedBy: member?.personId,
+            addedAt: now + index,
+          },
+        },
+      ],
+    };
+  });
+  const reply = await page.request.post('/api/sync', {
+    headers: { origin: baseURL, 'content-type': 'application/json' },
+    data: { version: 1, outbox, cursors: {} },
+  });
+  expect(reply.status()).toBe(200);
+  const body = (await reply.json()) as { refused: unknown[] };
+  expect(body.refused).toEqual([]);
+  await page.reload();
+  return ids;
+}
+
+/** What the server holds of the person's items now, by asking it as a device with nothing would. */
+export async function serverItems(
+  page: Page,
+  baseURL: string,
+): Promise<
+  {
+    id: string;
+    name: string;
+    boughtAt: number | null;
+    clearedAt: number | null;
+    position: string;
+    deletedAt: number | null;
+  }[]
+> {
+  const reply = await page.request.post('/api/sync', {
+    headers: { origin: baseURL, 'content-type': 'application/json' },
+    data: { version: 1, outbox: [], cursors: {} },
+  });
+  const body = (await reply.json()) as { households: { items: never[] }[] };
+  return body.households.flatMap((h) => h.items);
+}
