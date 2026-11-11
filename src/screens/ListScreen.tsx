@@ -13,6 +13,8 @@ import {
   Icon,
   type IconName,
   Menu,
+  ResponsiveSurface,
+  useLongPress,
 } from '@sovereignfs/ui';
 import type { Env } from '../actions/env';
 import { clearBought, tickItem, untickItem } from '../actions/items';
@@ -35,6 +37,7 @@ import {
 } from '../lists/view';
 import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors } from '../ui/dnd';
 import styles from './ListScreen.module.css';
+import { useMobileNav } from '../ui/mobile-nav';
 import { AddField } from './AddField';
 import { ItemDialog } from './ItemDialog';
 import { useUndo } from './Undo';
@@ -216,6 +219,7 @@ function Header({
   const router = useRouter();
   return (
     <header className={styles.header}>
+      <ResponsiveSurface web={null} mobile={<BackToLists />} />
       <h1>{name}</h1>
       <Menu
         open={menu}
@@ -294,6 +298,8 @@ function Row({
       </span>
     ) : undefined;
   const edit = useItemParam().open;
+  // On a phone a long press on the row opens the item, as the pencil does; a tap still ticks (DESIGN.md §16.11).
+  const press = useLongPress({ onLongPress: () => edit(item.id) });
   const row = (
     <CheckableListRow
       checked={checked}
@@ -315,12 +321,24 @@ function Row({
       }
     />
   );
+  const pressed = <div {...press}>{row}</div>;
   return handle ? (
     <DragHandleRow handleProps={handle.props} isDragging={handle.dragging}>
-      {row}
+      {pressed}
     </DragHandleRow>
   ) : (
-    row
+    pressed
+  );
+}
+
+/** On a phone, a way back to the lists (DESIGN.md §16.11): the drawer that holds them, as the footer's Lists does. Not drawn beside the sidebar. */
+function BackToLists() {
+  const nav = useMobileNav();
+  return (
+    <button type="button" className={styles.back} onClick={() => nav.setOpen(true)}>
+      <Icon name="chevron-left" aria-hidden />
+      Lists
+    </button>
   );
 }
 

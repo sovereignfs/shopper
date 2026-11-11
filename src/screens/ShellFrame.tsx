@@ -2,12 +2,13 @@
 
 import type { ReactNode } from 'react';
 import { site } from '../site';
-import { Drawer, useIsMobile } from '@sovereignfs/ui';
+import { Drawer, ResponsiveSurface, useIsMobile } from '@sovereignfs/ui';
 import { AppShell } from '../ui/AppShell';
 import { MobileNavProvider, useMobileNav } from '../ui/mobile-nav';
 import { SidebarToggle } from '../ui/SidebarToggle';
 import { AppFrame } from './AppFrame';
 import { DrawerNavigation } from './AppSidebar';
+import { PhoneFooter } from './PhoneFooter';
 
 /**
  * The frame of a signed-in page with nothing in it yet: the header, the sidebar and the page. **It is the one composition**: the signed-in area
@@ -24,7 +25,12 @@ export function ShellFrame({
 }) {
   return (
     <MobileNavProvider>
-      <AppShell name={site.name} toolbar={<SidebarToggle />} account={account}>
+      <AppShell
+        name={site.name}
+        toolbar={<SidebarToggle />}
+        account={account}
+        footer={<ResponsiveSurface web={null} mobile={<PhoneFooter />} />}
+      >
         <AppFrame>{children}</AppFrame>
         <NavigationDrawer />
       </AppShell>

@@ -117,7 +117,7 @@ widths, offline. This is the first point at which Shopper is usable by one perso
 | 35  | [8.2](docs/epics/screens.md) | A list                   | P1       | 8.1, 5.5   | ✅     |
 | 36  | [8.3](docs/epics/screens.md) | Adding                   | P1       | 8.2, 4.4   | ✅     |
 | 37  | [8.4](docs/epics/screens.md) | An item                  | P1       | 8.2        | ✅     |
-| 38  | [8.8](docs/epics/screens.md) | The phone                | P1       | 8.3        | 📋     |
+| 38  | [8.8](docs/epics/screens.md) | The phone                | P1       | 8.3        | ✅     |
 
 ### Milestone F — Shopping mode
 

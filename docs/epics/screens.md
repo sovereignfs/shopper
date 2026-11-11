@@ -105,7 +105,7 @@ so offline and change nothing.
 **Accepts when:** journey 3 of §3 passes through this dialog; a Member sees no Remove or Revoke of others'; offline, the dialog shows what it held
 and changes nothing; the sentence is there.
 
-#### 📋 8.8 — The phone
+#### ✅ 8.8 — The phone
 
 **Goal:** the same app on a phone. **Design:** §16.11. **Depends on:** 8.3.
 
@@ -113,6 +113,8 @@ and changes nothing; the sentence is there.
 targets as the design system requires; long-press on a row to edit; the add field at the top of a list, always, since the floating Add is 8.11.
 
 **Accepts when:** every journey of §3 that 0.1.0 holds and that does not need an instance passes in Playwright at a phone's width.
+
+**Done as:** **The footer:** `PhoneFooter` (`src/screens/PhoneFooter.tsx`), the design system's `MobileFooter` in `AppShell`'s `footer` slot through `ResponsiveSurface`, so that a wide screen mounts none: **Lists** (opens the navigation drawer, the same places by the same addresses) left of the launcher and **Settings** (a link, marked when it is the page) right. The launcher is the design system's, whose name an app cannot change; here it is a plus that opens a sheet ("What to add") with one tile, _New list_, which opens the drawer where lists are made. **The list on a phone:** a **Lists** button before the title (the same drawer), the add field first on the page, a **long press on a row** opens the item as the pencil does (`useLongPress`, a tap still ticks), and the pencil is 44 px under a coarse pointer. The item's dialog is full-screen from the design system (8.4). No route, address or data depends on width (`src/ui/no-fork.test.ts` still holds, since the footer and the back button are drawn by `ResponsiveSurface` and decide nothing). Tests: `e2e/phone.spec.ts` in Chromium at 375 px (the footer's Lists, launcher and Settings with the page marked; a list used end to end, the add field above the items, a tick, a long press that opens the item, the pencil's size, the dialog the whole width, nothing scrolling sideways; and a wide screen with no footer); the long-press test was seen to fail with the long press switched off. Left out: **a guess at what the launcher should offer**, for the owner to decide: 0.1.0's design names only Lists and Settings beside it, so it carries _New list_ until _Add_ (8.11) replaces it with the floating button; **the iOS Simulator and WebKit**, which check touch that this desktop engine does not; the footer's clearance of the safe areas is the design system's and was not measured on a device.
 
 #### 📋 8.9 — Household settings (phase 2)
 
