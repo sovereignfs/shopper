@@ -15,11 +15,12 @@ import {
   Menu,
 } from '@sovereignfs/ui';
 import type { Env } from '../actions/env';
-import { addItem, clearBought, tickItem, untickItem } from '../actions/items';
+import { clearBought, tickItem, untickItem } from '../actions/items';
 import type { Mutation } from '../actions/format';
-import type { ItemRow, ProductRow } from '../actions/rows';
+import type { ItemRow } from '../actions/rows';
 import { isGroceryIcon } from '../catalog/icons';
 import { type Suggestion, suggest } from '../catalog/suggest';
+import { planAdd } from '../lists/adding';
 import { type ListData, listViewOf, rememberList } from '../local/listview';
 import { useLocal, useLocalQuery } from '../local/react';
 import {
@@ -28,13 +29,13 @@ import {
   firstLine,
   groupByAisle,
   inOrderAdded,
-  lastPositionIn,
   openItems,
   quantityLabel,
   reorderedPosition,
 } from '../lists/view';
 import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors } from '../ui/dnd';
 import styles from './ListScreen.module.css';
+import { AddField } from './AddField';
 import { useUndo } from './Undo';
 
 /**
@@ -143,6 +144,7 @@ function Loaded({ data }: { data: Found }) {
           <Link href={`/l/${list.id}/settings`}>Restore it in its settings</Link> to use it again.
         </p>
       ) : null}
+      {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
       {open.length === 0 && bought.length === 0 ? (
         <Empty data={data} change={change} />
       ) : (
@@ -457,26 +459,15 @@ function Empty({
   data: Found;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
-  const { list, products, items, me } = data;
+  const { list, products, items, categories, me } = data;
   const often = suggest({ text: '', products, items }).filter(
     (each): each is Suggestion & { productId: string } =>
       each.kind === 'product' && each.productId !== undefined,
   );
   const add = (suggestion: Suggestion & { productId: string }) => {
-    const product: ProductRow | undefined = products.find(
-      (each) => each.id === suggestion.productId,
-    );
-    if (!product || !me) return;
-    return change(
-      addItem(env(), {
-        list,
-        product,
-        name: product.name,
-        last: lastPositionIn(items, product.categoryId),
-        by: me,
-      }),
-      `Added ${product.name}`,
-    );
+    if (!me) return;
+    const planned = planAdd(env(), { list, products, items, categories, me }, suggestion);
+    if (planned && 'mutation' in planned) return change(planned.mutation, planned.message);
   };
   return (
     <div className={styles.empty}>
