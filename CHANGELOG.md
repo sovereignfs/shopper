@@ -3,10 +3,8 @@
 All notable changes to Shopper are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-Each release's section is also its GitHub release notes: the release workflow reads this file when a release is cut. Write the notes under
-`## [Unreleased]` as you go; a release turns them into the version's section.
-
-## [Unreleased]
+Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
+titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.1.0] - 2026-11-11
 
@@ -29,5 +27,4 @@ Each release's section is also its GitHub release notes: the release workflow re
 - The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
 - On a list, only the checkbox ticks an item: a tap anywhere else on its row does nothing. Shopping mode is unchanged, and still ticks from anywhere on the row.
 
-[Unreleased]: https://github.com/sovereignfs/shopper/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.1.0
