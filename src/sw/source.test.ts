@@ -1,13 +1,8 @@
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import {
-  CACHE_PREFIX,
-  SHELL_ADDRESSES,
-  SYNC_MESSAGE,
-  SYNC_TAG,
-  inertWorkerSource,
-  workerSource,
-} from './source';
+import { TAKE_OVER_MESSAGE } from '@sovereignfs/pwa';
+import { answersOffline } from './shared';
+import { CACHE_PREFIX, SYNC_MESSAGE, SYNC_TAG, inertWorkerSource, workerSource } from './source';
 
 /**
  * The service worker (DESIGN.md §16.11): **what it keeps is an allow-list, and nothing else gets in.** This evaluates the very text that is served, with a
@@ -29,17 +24,19 @@ interface Listener {
   (event: Record<string, unknown>): void;
 }
 
-function load(
-  version = 'v1',
-  files: readonly string[] = FILES,
-  shellAddresses: readonly string[] = [],
-) {
+function load(version = 'v1', files: readonly string[] = FILES) {
   const stores = new Map<string, Map<string, Response>>();
   const requested: string[] = [];
   const state = { online: true };
   /** What the network says: the shell for `/shell`, files for the build and the icons, a person's data for an API, and a page of a person for anything else. */
-  const network = async (input: Request | string): Promise<Response> => {
-    const request = typeof input === 'string' ? new Request(`${ORIGIN}${input}`) : input;
+  /** As a browser gives it: an answer of the page's own origin is `basic`, the only kind the worker keeps (Node's say `default`). */
+  const basic = (response: Response) => Object.defineProperty(response, 'type', { value: 'basic' });
+  const network = async (input: Request | string): Promise<Response> => basic(await answer(input));
+  const answer = async (input: Request | string): Promise<Response> => {
+    const request =
+      typeof input === 'string'
+        ? new Request(input.startsWith('http') ? input : `${ORIGIN}${input}`)
+        : input;
     const path = new URL(request.url).pathname;
     requested.push(path);
     if (!state.online) throw new TypeError('no network');
@@ -61,7 +58,7 @@ function load(
     let store = stores.get(name);
     if (!store) stores.set(name, (store = new Map()));
     const keyOf = (r: Request | string) =>
-      (typeof r === 'string' ? new Request(`${ORIGIN}${r}`) : r).url;
+      (typeof r === 'string' ? new Request(r.startsWith('http') ? r : `${ORIGIN}${r}`) : r).url;
     return {
       match: async (r: Request | string) => store.get(keyOf(r))?.clone(),
       put: async (r: Request | string, response: Response) => void store.set(keyOf(r), response),
@@ -80,9 +77,11 @@ function load(
       { url: `${ORIGIN}/`, postMessage: (message: unknown) => void woken.push(message) },
     ],
   };
+  const took = { over: false };
   const self = {
     location: { origin: ORIGIN },
-    clients,
+    clients: { ...clients, claim: async () => undefined },
+    skipWaiting: () => void (took.over = true),
     addEventListener: (type: string, fn: Listener) => void (listeners[type] = fn),
   };
   const context = vm.createContext({
@@ -101,8 +100,13 @@ function load(
     Promise,
     JSON,
     Math,
+    Array,
+    Object,
+    String,
+    setTimeout,
+    clearTimeout,
   });
-  vm.runInContext(workerSource(version, files, shellAddresses), context);
+  vm.runInContext(workerSource(version, files), context);
 
   /** Fires an event and settles what it asked to wait for. */
   async function dispatch(type: string, extra: Record<string, unknown> = {}) {
@@ -132,7 +136,7 @@ function load(
     [...stores.entries()].flatMap(([name, store]) =>
       [...store.keys()].map((url) => `${name} ${new URL(url).pathname}`),
     );
-  return { dispatch, fetchEvent, kept, stores, state, requested, listeners, woken };
+  return { dispatch, fetchEvent, kept, stores, state, requested, listeners, woken, took };
 }
 
 const allowed = (path: string) =>
@@ -166,6 +170,8 @@ describe('the worker’s cache', () => {
       ['/sign-in', { mode: 'navigate' }],
       ['/join/' + 'A'.repeat(43), { mode: 'navigate' }],
       ['/l/11111111-1111-4111-8111-111111111111?_rsc=abc', {}],
+      ['/l/11111111-1111-4111-8111-111111111111', {}],
+      ['/lists', {}],
       ['/api/sync', {}],
       ['/api/ops', {}],
       ['/api/auth/get-session', {}],
@@ -216,58 +222,39 @@ describe('the worker’s cache', () => {
 });
 
 describe('the worker with no network', () => {
-  it('answers a page with the one it builds itself: no script, a policy that allows none, nothing of a person, and not stored', async () => {
+  it('answers a page, before it has a shell, with the one it builds itself: no script, a policy that allows none, and not stored', async () => {
     const w = load();
-    await w.dispatch('install');
-    const before = w.kept();
     w.state.online = false;
     const page = await w.fetchEvent('/l/11111111-1111-4111-8111-111111111111', {
       mode: 'navigate',
     });
     const html = (await page?.text()) ?? '';
-    expect(page?.status).toBe(200);
+    expect(page?.status).toBe(503);
     expect(page?.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(html).toContain('needs a connection');
+    expect(html).toContain('offline');
     expect(html).not.toMatch(/<script/i);
-    expect(w.kept()).toEqual(before);
+    expect(w.kept()).toEqual([]);
   });
 
-  it('answers the addresses it is given with the kept shell, as it was sent, and every other with the page that says so', async () => {
-    const w = load('v1', FILES, ['^/$', '^/l/[0-9a-f-]{36}$']);
-    await w.dispatch('install');
-    w.state.online = false;
-    const shell = await w.fetchEvent('/l/11111111-1111-4111-8111-111111111111', {
-      mode: 'navigate',
-    });
-    expect(await shell?.text()).toContain('the shell, for everyone');
-    expect(shell?.headers.get('content-security-policy')).toBe("script-src 'nonce-ABC'");
-    expect(await (await w.fetchEvent('/', { mode: 'navigate' }))?.text()).toContain('the shell');
-    expect(await (await w.fetchEvent('/settings', { mode: 'navigate' }))?.text()).toContain(
-      'needs a connection',
-    );
-    expect((await (await w.fetchEvent('/api/sync'))?.text()) ?? '').toBe('');
-  });
-
-  it('answers every signed-in screen of the app with the shell with no network, and the pages that need the server with the page that says so', async () => {
-    const w = load('v1', FILES, SHELL_ADDRESSES);
+  it('answers every page with the kept shell, as it was sent, and nothing that is not a page', async () => {
+    const w = load();
     await w.dispatch('install');
     w.state.online = false;
     const list = '11111111-1111-4111-8111-111111111111';
-    for (const path of ['/', '/home', `/l/${list}`, `/l/${list}/settings`, '/shop'])
-      expect(await (await w.fetchEvent(path, { mode: 'navigate' }))?.text(), path).toContain(
-        'the shell, for everyone',
-      );
     for (const path of [
+      '/',
+      '/home',
+      `/l/${list}`,
+      `/l/${list}/settings`,
+      '/shop',
       '/settings',
       '/sign-in',
-      '/sign-up',
-      '/l/not-an-id',
-      `/l/${list}/other`,
-      '/shell/x',
-    ])
-      expect(await (await w.fetchEvent(path, { mode: 'navigate' }))?.text(), path).toContain(
-        'needs a connection',
-      );
+    ]) {
+      const page = await w.fetchEvent(path, { mode: 'navigate' });
+      expect(await page?.text(), path).toContain('the shell, for everyone');
+      expect(page?.headers.get('content-security-policy'), path).toBe("script-src 'nonce-ABC'");
+    }
+    expect((await (await w.fetchEvent('/api/sync'))?.text()) ?? '').toBe('');
   });
 
   it('is not asked about anything it does not keep: a write, another site, an API, a page request while online', async () => {
@@ -281,6 +268,24 @@ describe('the worker with no network', () => {
   });
 });
 
+describe('the shell with no network', () => {
+  it('has a screen for every signed-in address, and says that any other needs a connection', () => {
+    const list = '11111111-1111-4111-8111-111111111111';
+    for (const path of ['/', '/home', `/l/${list}`, `/l/${list}/settings`, '/shop'])
+      expect(answersOffline(path), path).toBe(true);
+    for (const path of [
+      '/settings',
+      '/sign-in',
+      '/sign-up',
+      '/l/not-an-id',
+      `/l/${list}/other`,
+      '/shell',
+      '/shell/x',
+    ])
+      expect(answersOffline(path), path).toBe(false);
+  });
+});
+
 describe('the worker’s wake-up and its handover', () => {
   it('tells the pages that are open to sync when the browser wakes it for Background Sync, and ignores any other tag', async () => {
     const w = load();
@@ -290,9 +295,15 @@ describe('the worker’s wake-up and its handover', () => {
     expect(w.woken).toEqual([{ type: SYNC_MESSAGE }]);
   });
 
-  it('waits for the pages using the old version to close: it never takes over by itself', () => {
-    expect(workerSource('v1', FILES)).not.toContain('skipWaiting');
-    expect(workerSource('v1', FILES)).not.toContain('clients.claim');
+  it('waits for the pages using the old version to close: it takes over only when a page asks, which Shopper’s never do', async () => {
+    const w = load();
+    await w.dispatch('install');
+    await w.dispatch('activate');
+    expect(w.took.over).toBe(false);
+    await w.dispatch('message', { data: 'something else' });
+    expect(w.took.over).toBe(false);
+    await w.dispatch('message', { data: TAKE_OVER_MESSAGE });
+    expect(w.took.over).toBe(true);
   });
 
   it('is, for a server that is not a production build, one that keeps nothing and removes itself and its caches', async () => {

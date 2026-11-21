@@ -24,6 +24,7 @@ minimumReleaseAgeExclude:
   - '@sovereignfs/sdk@2.11.0'
   - '@sovereignfs/create@0.27.1'
   - '@sovereignfs/manifest@0.4.0'
+  - '@sovereignfs/pwa@0.2.0'
   # A dependency of @sovereignfs/sdk 2.11.0, ours and exact.
   - '@sovereignfs/export@0.3.0'
 

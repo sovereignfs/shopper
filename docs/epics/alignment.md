@@ -38,7 +38,7 @@ components (0.92 to 0.95 predate its changelog); nothing Shopper uses changed, a
 passed; one earlier run had a timing failure in a test of `core_sub` that three reruns did not repeat); `pnpm build`. Left out: the browser tests
 in Chromium, which Playwright had no browser for on the machine that ran them (WebKit's ran and passed), and a look at every screen by eye.
 
-#### 📋 17.2 — The worker from `@sovereignfs/pwa`
+#### ✅ 17.2 — The worker from `@sovereignfs/pwa`
 
 **Goal:** Shopper's service worker and web manifest made by `@sovereignfs/pwa`, not copied from Tusk. **Design:** §12.10, §16.11. **Depends on:** 17.1.
 
@@ -48,6 +48,23 @@ way to, raise it in `sovereign` (16.12) and keep that handler only until it is r
 `src/sw/source.ts` is deleted once nothing of it is needed.
 
 **Accepts when:** 6.5's acceptance passes again; no response with a person's data is cached (its test, seen to fail with the allow-list widened).
+
+**Done as:** `src/sw/source.ts`'s `workerSource` is now `serviceWorkerSource` from `@sovereignfs/pwa` 0.2.0 (`cachePrefix: 'shopper-shell-'`, the build's
+files as `precache`, `/shell` as the shell), served with `serviceWorkerResponse`, plus Shopper's Background Sync listener after the package's text. The
+package has no way to add one: that is 16.12, still to raise in `sovereign`. What the pages and the worker share (`SYNC_TAG`, `SYNC_MESSAGE`, the
+shell's addresses) moved to `src/sw/shared.ts`, so a page's bundle does not carry the package. **Changes in behaviour:**
+
+- With no network, the package answers **every** navigation with the kept shell, so `OfflineApp` now decides: an address that is not a signed-in
+  screen (`answersOffline`) shows "This needs a connection", as the worker's own page said before.
+- The package's offline page (before a shell is kept) answers 503, not 200.
+- A navigation that takes more than 8 seconds is answered from the shell.
+- A new worker takes over only when a page posts `TAKE_OVER_MESSAGE`, which Shopper's never do, so it still waits for the old pages to close.
+- The development server's worker (`inertWorkerSource`) is unchanged: the package has none.
+
+`src/sw/source.test.ts` was rewritten for the package's worker. Its tour now includes a plain fetch of a list, so widening the allow-list fails it (seen:
+with `keep: ['/l/', '/lists']` it fails, without it passes). Verified: `pnpm test` (682 passed); `pnpm build`; the built server's `/sw.js`
+carries the shell, the precache and the sync listener; `/shell` answers with no cookie, which the package needs before it keeps a page. Left out:
+6.5's browser test (`e2e/offline.spec.ts`, Chromium only), not run because Playwright's Chromium is not installed on this machine.
 
 #### 📋 17.3 — Sign-in and `@sovereignfs/auth`
 

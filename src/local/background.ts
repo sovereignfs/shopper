@@ -1,4 +1,4 @@
-import { SYNC_MESSAGE, SYNC_TAG } from '../sw/source';
+import { SYNC_MESSAGE, SYNC_TAG } from '../sw/shared';
 
 /**
  * Background Sync (DESIGN.md §12.3), where the browser has it. A write made with no network asks the service worker to be woken when the connection is back

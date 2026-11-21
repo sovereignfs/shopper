@@ -181,7 +181,7 @@ person sees has changed.
 | #   | ID                              | Task                                                | Priority | Depends on | Status |
 | --- | ------------------------------- | --------------------------------------------------- | -------- | ---------- | ------ |
 | 52  | [17.1](docs/epics/alignment.md) | The packages, current                               | P0       | —          | ✅     |
-| 53  | [17.2](docs/epics/alignment.md) | The worker from `@sovereignfs/pwa`                  | P1       | 17.1       | 📋     |
+| 53  | [17.2](docs/epics/alignment.md) | The worker from `@sovereignfs/pwa`                  | P1       | 17.1       | ✅     |
 | 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                     | P2       | 17.1       | 📋     |
 | 55  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                  | P2       | —          | 📋     |
 | 56  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)     | P3       | —          | 📋     |

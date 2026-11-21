@@ -8,6 +8,7 @@ import { isId } from '../actions/format';
 import { type Identity, readIdentity } from '../identity';
 import { LocalProvider } from '../local/react';
 import { site } from '../site';
+import { answersOffline } from '../sw/shared';
 import { AppShell } from '../ui/AppShell';
 import { AccountMenu } from './AccountMenu';
 import { HomeScreen } from './HomeScreen';
@@ -22,7 +23,7 @@ import { UndoProvider } from './Undo';
  * nothing of a person and is the same for everyone; this is what that page is. It finds who is signed in on the device (`src/identity.ts`), makes the
  * composition the server's layout makes, and **chooses the screen from the address**, since the page it came in is not the page of the address: the front
  * address and `/home` are the last list, `/l/<id>` that list, `/l/<id>/settings` its settings and `/shop?l=<id>` shopping mode. The screens read the
- * device's store and write through `commit`, so they need none of the server. Anything that does need it is not answered by the shell at all.
+ * device's store and write through `commit`, so they need none of the server. Any other address says it needs a connection (`answersOffline`).
  */
 const LIST = /^\/l\/([0-9a-f-]{36})$/;
 const LIST_SETTINGS = /^\/l\/([0-9a-f-]{36})\/settings$/;
@@ -58,6 +59,8 @@ export function OfflineApp() {
 function Screen() {
   const pathname = usePathname();
   const params = useSearchParams();
+  // The worker answers every address with this page when there is no network; only the signed-in screens are here (DESIGN.md §16.11).
+  if (!answersOffline(pathname)) return <NeedsConnection />;
   const settings = LIST_SETTINGS.exec(pathname)?.[1];
   if (settings) return <ListSettings id={settings} />;
   const list = LIST.exec(pathname)?.[1];
@@ -67,6 +70,17 @@ function Screen() {
     return id && isId(id) ? <ShopScreen id={id} /> : <NotHere />;
   }
   return <HomeScreen />;
+}
+
+function NeedsConnection() {
+  return (
+    <EmptyState
+      icon="list-todo"
+      heading="This needs a connection"
+      description="Shopper could not reach the server, and this page is not kept on your device. Your lists are."
+      action={<Link href="/">Your lists</Link>}
+    />
+  );
 }
 
 function NotHere() {
