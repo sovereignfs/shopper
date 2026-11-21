@@ -19,7 +19,8 @@ lists should be encrypted. Encryption is the suite's and is **not yet audited**.
   before, until each person on them can be given its key; Settings › Encryption says which is which.
 - The server is never sent your password: your browser sends a value derived from it. A recovery kit is shown once after signing up, and opens your
   lists if you forget your password. Through a Sovereign core, core keeps your key.
-- A link to an encrypted list carries its keys, after `#`, which a browser never sends.
+- A link to one of your encrypted lists carries the key to your lists, after `#`, which a browser never sends. Until each list has keys of its own,
+  someone you share one list with holds the key to the others too, though the server never gives them those lists.
 - Notifications on a device where Shopper is not open, when its operator sets `SHOPPER_VAPID_PRIVATE_KEY` (Settings › Notifications): for now, when
   someone joins a list you share. A notification never names a list or an item.
 - A person's export from a Sovereign core now includes what Shopper holds of them.

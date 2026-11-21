@@ -9,7 +9,7 @@ import { freshDatabase, testTarget } from '../db/test-support';
 import { OPERATIONS } from '../households/ops';
 import type { EndpointDeps } from '../sync/endpoint';
 import { listViewOf } from './listview';
-import { householdsOf, itemsOf, listsOf } from './store';
+import { householdsOf, itemsOf, listsOf, productsOf } from './store';
 import { closeDevices, device } from './test-support';
 
 const { leg } = testTarget();
@@ -106,8 +106,21 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
     const hardware = made.changes[0]?.id ?? '';
     await joinList(database, ada.household, ada.list, grace);
     await joinList(database, ada.household, hardware, grace);
+    const hardwareRow = (await adas.client.read((db) => listsOf(db, ada.household))).find(
+      (l) => l.id === hardware,
+    );
+    if (!hardwareRow) throw new Error('no Hardware');
+    await adas.client.commit(
+      addItem(env(), { list: hardwareRow, name: 'Nails', last: null, by: ada.personId }),
+    );
+    await adas.client.sync();
     const graces = await device(deps, grace);
     await graces.client.sync();
+    expect(
+      (await graces.client.read((db) => productsOf(db, ada.household))).some(
+        (product) => product.listId === hardware,
+      ),
+    ).toBe(true);
     expect(
       (await graces.client.read((db) => listsOf(db, ada.household))).map((l) => l.id).sort(),
     ).toEqual([ada.list, hardware].sort());
@@ -123,6 +136,12 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
     expect((await graces.client.read((db) => listsOf(db, ada.household))).map((l) => l.id)).toEqual(
       [ada.list],
     );
+    // Its catalog went with it (21.3): nothing of Hardware is suggested to Grace.
+    expect(
+      (await graces.client.read((db) => productsOf(db, ada.household))).some(
+        (product) => product.listId === hardware,
+      ),
+    ).toBe(false);
 
     // Ada moves an item from the shared list to the one Grace is no longer on: it leaves Grace's device, and stays on Ada's.
     const groceries = await adas.client.read((db) => listsOf(db, ada.household));
@@ -144,9 +163,9 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
     await adas.client.sync();
     await graces.client.sync();
     expect(await graces.client.read((db) => itemsOf(db, ada.list))).toEqual([]);
-    expect((await adas.client.read((db) => itemsOf(db, hardware))).map((i) => i.name)).toEqual([
+    expect((await adas.client.read((db) => itemsOf(db, hardware))).map((i) => i.name)).toContain(
       'Light bulbs',
-    ]);
+    );
   });
 
   it('takes an item moved twice, to lists the person is not on, off their device (RFC 0004)', async () => {

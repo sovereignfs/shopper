@@ -70,9 +70,12 @@ device; the migration copies a product to each list that uses it.
 list never changes, and a name folds only into a product of the same list. The pull and the export hand a reader the products of their lists (and
 one an item of their lists uses). On the device (`src/lists/adding.ts`) an add finds a product only in the list's own catalog; another list's product
 with the name lends its quantity, unit, category and icon to a new product of this list, so suggestions still come from every list a person has. A
-refused add moved to another list (`remake`) takes its new product with it. `adoptProductLists` gives every product from before a list at start.
+refused add moved to another list (`remake`) takes its new product with it. `adoptProductLists` gives every product from before a list at start. A
+list's products go with it, when it is deleted and with an account's lists nobody else is on (`deleteListProducts`; one another list's item still uses
+passes to that list), and leave a device with the list; an item may name only a product its sender may see.
 **Left out:** the migration does not copy a product used by items of several lists; it stays one, on the first of them, since everyone on those lists
-already saw it as one household. The name key is still derived from the group (21.4 makes it the list's). Tests: `scope.test.ts` (an add on a
+already saw it as one household. The name key is still derived from the group, and a link to an encrypted list still carries the group's keyring,
+so someone on one list holds the key to the owner's other lists, though the server never hands them those rows (21.4 gives each list its own). Tests: `scope.test.ts` (an add on a
 shared list never folds into another list's product, seen to fail before; the adoption), `adding.test.ts` (another list's product only lends its
 defaults, seen to fail before).
 

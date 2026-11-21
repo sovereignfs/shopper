@@ -380,13 +380,14 @@ async function takeHousehold(
       await tx.objectStore('shadow').delete([gone.table, gone.id]);
       touched.delete(keyOf(gone.table, gone.id));
     }
-    // A list deleted for good took its items with it, and left a tombstone for the list alone.
+    // A list deleted for good took its items and its catalog with it, and left a tombstone for the list alone.
     if (gone.table === 'list') {
       for (const item of await tx.objectStore('item').index('byList').getAll(gone.id)) {
         await tx.objectStore('item').delete(item.id);
         await tx.objectStore('shadow').delete(['item', item.id]);
         touched.delete(keyOf('item', item.id));
       }
+      await forgetCatalog(tx, pull.household, gone.id, touched);
     }
   }
   for (const alias of pull.aliases) await repoint(tx, alias.table, alias.from, alias.to, touched);
@@ -414,8 +415,27 @@ async function forgetHidden(
     }
     for (const member of await tx.objectStore('member').index('byList').getAll(list.id))
       await tx.objectStore('member').delete([member.listId, member.personId]);
+    await forgetCatalog(tx, household, list.id, touched);
     await tx.objectStore('list').delete(list.id);
     touched.delete(keyOf('list', list.id));
+  }
+}
+
+/** A list's products leave the device with the list (21.3), so that nothing of a list the person is no longer on is suggested to them. Called after
+ * the list's items have gone. */
+async function forgetCatalog(
+  tx: Tx,
+  household: string,
+  list: string,
+  touched: Set<string>,
+): Promise<void> {
+  for (const product of await tx.objectStore('product').index('byHousehold').getAll(household)) {
+    if (product.listId !== list) continue;
+    // One an item still on the device uses (a product from before lists had catalogs) stays with it.
+    if ((await tx.objectStore('item').index('byProduct').count(product.id)) > 0) continue;
+    await tx.objectStore('product').delete(product.id);
+    await tx.objectStore('shadow').delete(['product', product.id]);
+    touched.delete(keyOf('product', product.id));
   }
 }
 

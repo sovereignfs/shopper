@@ -515,6 +515,7 @@ describe(`a device (${leg})`, () => {
       ),
     ).not.toContain(hardware);
     expect(await d.client.read((db) => itemsOf(db, hardware, { cleared: true }))).toEqual([]);
-    expect((await productsOf(d.db, ada.household)).map((p) => p.name)).toContain('Nails');
+    // Its catalog went with it (RFC 0004, 21.3): a product is a list's.
+    expect((await productsOf(d.db, ada.household)).map((p) => p.name)).not.toContain('Nails');
   });
 });

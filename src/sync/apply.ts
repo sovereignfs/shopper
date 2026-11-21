@@ -565,6 +565,17 @@ async function checkListAccess(
     if (typeof change.fields.listId === 'string') lists.add(change.fields.listId);
     for (const list of lists)
       if (!(await allowed(onList(database, list, accountId)))) throw notFound();
+    // The product it names is one the sender may see (21.3): of a list they are on, or one from before lists had catalogs that is theirs to see.
+    // Another list's product would otherwise reach everyone on this one. A product folded into another is that other.
+    if (typeof change.fields.productId === 'string') {
+      const product = await resolveAlias(database, household, 'product', change.fields.productId);
+      const visible =
+        await allowed(sql`EXISTS (SELECT 1 FROM ${appTable(database, 'product')} vp WHERE vp.id = ${product}
+        AND vp.household_id = ${household}
+        AND (${onList(database, sql`vp.list_id`, accountId)} OR (vp.list_id IS NULL AND (${ownerOf(database, household, accountId)}
+          OR EXISTS (SELECT 1 FROM ${appTable(database, 'item')} vi WHERE vi.product_id = vp.id AND ${onList(database, sql`vi.list_id`, accountId)})))))`);
+      if (!visible) throw notFound();
+    }
     // The list it was on, for the move's tombstone.
     return existing?.list_id;
   }

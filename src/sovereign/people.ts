@@ -7,6 +7,7 @@ import * as postgresAuth from '../db/schema/postgres/auth';
 import * as sqliteAuth from '../db/schema/sqlite/auth';
 import { appTable } from '../db/tables';
 import { HOUSEHOLD_TABLES } from '../households/tables';
+import { deleteListProducts } from '../lists/members';
 import { vaultOf } from '../keys/server/vault';
 import { pushStore } from '../push/store';
 
@@ -192,7 +193,7 @@ async function leaveGroup(
             ORDER BY joined_at, person_id`,
       );
       if (others.length === 0) {
-        await deleteList(tx, household, list);
+        await deleteList(tx, household, list, seq);
         outcome.deleted += 1;
         continue;
       }
@@ -240,13 +241,19 @@ async function leaveGroup(
   });
 }
 
-/** A list nobody else is on, with what is of it alone: its items, people, links, and the records about them. */
-async function deleteList(tx: Database, household: string, list: string): Promise<void> {
+/** A list nobody else is on, with what is of it alone: its items, its catalog, people, links, and the records about them. */
+async function deleteList(
+  tx: Database,
+  household: string,
+  list: string,
+  seq: number,
+): Promise<void> {
   for (const table of ['item', 'list_member', 'invitation', 'alias', 'tombstone'] as const)
     await dbAll(
       tx,
       sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND list_id = ${list} RETURNING 1 AS gone`,
     );
+  await deleteListProducts(tx, household, list, seq);
   await dbAll(
     tx,
     sql`DELETE FROM ${appTable(tx, 'list')} WHERE household_id = ${household} AND id = ${list} RETURNING id`,

@@ -169,3 +169,33 @@ export async function adoptProductLists(database: Database): Promise<number> {
   }
   return groups.length;
 }
+
+/**
+ * **A list's catalog goes with it** (RFC 0004, 21.3), in the transaction that deletes the list, after its items: each of its products goes, except one
+ * an item of another list still uses (one from before lists had catalogs), which passes to that list at `seq` so that the devices on it learn so.
+ */
+export async function deleteListProducts(
+  database: Database,
+  household: string,
+  list: string,
+  seq: number,
+): Promise<void> {
+  const kept = await dbAll<{ id: string; other: string }>(
+    database,
+    sql`SELECT p.id, (SELECT i.list_id FROM ${appTable(database, 'item')} i WHERE i.product_id = p.id AND i.household_id = ${household}
+                       AND i.list_id <> ${list} ORDER BY i.added_at, i.id LIMIT 1) AS other
+        FROM ${appTable(database, 'product')} p
+        WHERE p.household_id = ${household} AND p.list_id = ${list}
+          AND EXISTS (SELECT 1 FROM ${appTable(database, 'item')} i WHERE i.product_id = p.id AND i.household_id = ${household} AND i.list_id <> ${list})`,
+  );
+  for (const product of kept)
+    await dbAll(
+      database,
+      sql`UPDATE ${appTable(database, 'product')} SET list_id = ${product.other}, seq = ${seq}
+          WHERE id = ${product.id} AND household_id = ${household} RETURNING id`,
+    );
+  await dbAll(
+    database,
+    sql`DELETE FROM ${appTable(database, 'product')} WHERE household_id = ${household} AND list_id = ${list} RETURNING id`,
+  );
+}

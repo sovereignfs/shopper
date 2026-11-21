@@ -201,6 +201,42 @@ describe(`one list shared (${leg})`, () => {
     expect(pull?.products.some((row) => row.id === screwProduct)).toBe(false);
   });
 
+  it('refuses an item that names another list’s product, and deletes a list’s catalog with it (21.3)', async () => {
+    const { ada, grace, hardware, screwProduct } = await setUp();
+    const groceries = listRow({ id: ada.list, householdId: ada.household, name: 'Groceries' });
+    const adding = addItem(env(), {
+      list: groceries,
+      name: 'Screws',
+      last: null,
+      by: grace.personId,
+    });
+    const pointed = {
+      ...adding,
+      changes: adding.changes
+        .filter((change) => change.table === 'item')
+        .map((change) => ({ ...change, fields: { ...change.fields, productId: screwProduct } })),
+    };
+    expect((await send(grace, pointed)).status).toBe('refused');
+    const pull = await pullHousehold(database, TEST_RING, grace.accountId, ada.household, 0);
+    expect(pull?.products.some((row) => row.id === screwProduct)).toBe(false);
+
+    expect((await send(ada, archiveList(env(), hardware))).status).toBe('applied');
+    expect(
+      (
+        await callAs(database, OPERATIONS, ada, {
+          op: 'list.delete',
+          household: ada.household,
+          list: hardware.id,
+        })
+      ).status,
+    ).toBe(200);
+    const left = await dbAll<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${appTable(database, 'product')} WHERE id = ${screwProduct}`,
+    );
+    expect(left).toEqual([]);
+  });
+
   it('forgets the group for the person once they are on none of its lists', async () => {
     const { ada, grace } = await setUp();
     const left = await callAs(database, OPERATIONS, grace, {

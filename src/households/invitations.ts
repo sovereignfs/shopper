@@ -78,8 +78,8 @@ export async function createInvitation(
       ok: false,
       refused:
         state.encryption === 'encrypted'
-          ? 'This list is encrypted, and this page could not give the link its keys. Reload it and try again.'
-          : 'This list is not encrypted yet: reload the page and try again.',
+          ? 'Your lists are encrypted, and this page could not give the link their key. Reload it and try again.'
+          : 'Your lists are not encrypted yet: reload the page and try again.',
     };
   const id = crypto.randomUUID();
   const token = newToken();

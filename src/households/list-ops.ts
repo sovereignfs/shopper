@@ -6,6 +6,7 @@ import { appTable } from '../db/tables';
 import { isId } from '../actions/format';
 import { recordFold } from '../sync/fold';
 import type { Operation } from './ops';
+import { deleteListProducts } from '../lists/members';
 
 /**
  * **`list.delete`: delete a list for good** (DESIGN.md §9.1, §12.8), an Admin's online operation, and only for a list that is **archived**: a person
@@ -45,6 +46,8 @@ export const deleteList: Operation = {
         tx,
         sql`DELETE FROM ${appTable(tx, 'item')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
       );
+      // Its catalog goes with it (21.3).
+      await deleteListProducts(tx, household, listId, Number(stepped.seq));
       // Its links go with it, so that nobody joins a list that is gone (RFC 0004).
       await dbAll(
         tx,

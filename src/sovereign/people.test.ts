@@ -14,6 +14,10 @@ import { freshDatabase, testTarget } from '../db/test-support';
 import { householdsOf, membersOf, readHousehold } from '../households/households';
 import { createInvitation } from '../households/invitations';
 import { personById } from '../people/people';
+import { addItem } from '../actions/items';
+import { makeList } from '../actions/lists';
+import { list as listRow } from '../actions/test-support';
+import { applyMutation } from '../sync/apply';
 import { deletePerson, previewLeaving } from './people';
 
 const { leg } = testTarget();
@@ -39,7 +43,7 @@ const DECIDED_APP: Record<string, string> = {
   list: 'a household’s, deleted with it',
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
-    'a household’s, deleted with it; what a person added stays under their name, with no account',
+    'a list’s, deleted with it (21.3); what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',
   account_settings: 'the account’s own, deleted by account_id',
   household_key:
@@ -246,6 +250,42 @@ describe(`deleting a person (${leg})`, () => {
       await count(app, appTable(app, 'account_settings'), sql`account_id = ${grace.accountId}`),
     ).toBe(1);
     expect(await count(app, sql.raw('sv_key_accounts'), sql`user_id = ${grace.accountId}`)).toBe(1);
+  });
+
+  it('deletes a list nobody else is on with its catalog, in a group that carries on (21.3)', async () => {
+    const ada = await somebody(app, 'Ada-catalog');
+    const grace = await somebody(app, 'Grace-catalog');
+    // Grace is on Groceries, so the group carries on; Hardware is Ada's alone, with a product of its own.
+    await join(app, ada.household, grace);
+    const send = (mutation: Parameters<typeof applyMutation>[2]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+          },
+        },
+        ada.accountId,
+        mutation,
+      );
+    const env = { now: 1_800_000_000_000, newId: () => crypto.randomUUID() };
+    const made = makeList(env, { householdId: ada.household, name: 'Hardware', position: 'a1' });
+    expect((await send(made)).status).toBe('applied');
+    const hardware = listRow({ id: made.changes[0]?.id ?? '', householdId: ada.household });
+    const screws = addItem(env, { list: hardware, name: 'Screws', last: null, by: ada.personId });
+    expect((await send(screws)).status).toBe('applied');
+    const product = screws.changes.find((change) => change.table === 'product')?.id ?? '';
+    await seedAuth(ada);
+
+    await deletePerson(deps(), ada.accountId);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${hardware.id}`)).toBe(0);
+    expect(await count(app, appTable(app, 'product'), sql`id = ${product}`)).toBe(0);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${ada.list}`)).toBe(1);
   });
 
   it('deletes a household nobody else is in, with everything of it', async () => {

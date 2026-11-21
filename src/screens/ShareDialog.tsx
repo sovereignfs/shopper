@@ -77,7 +77,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
       if (!keys.ring) {
         setBusy(false);
         return setMessage(
-          'Unlock Shopper first: this list is encrypted, and its link carries its keys.',
+          'Unlock Shopper first: your lists are encrypted, and the link carries their key.',
         );
       }
       secret = newLinkSecret();
