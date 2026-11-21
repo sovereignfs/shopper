@@ -2,7 +2,7 @@
 
 ## Status
 
-⏳ In progress. Before phase 2, after workstream 0001.
+✅ Done. Before phase 2, after workstream 0001.
 
 ## Overview
 
@@ -16,7 +16,7 @@ are made clear.
 
 ## Tasks
 
-#### 📋 21.1 — The design
+#### ✅ 21.1 — The design
 
 **Goal:** `DESIGN.md` says what RFC 0004 builds. **Depends on:** nothing.
 
@@ -25,6 +25,16 @@ keys), §16 (Your lists, Shared with you), §19 (a shared list passes on), §20.
 invitation); `AGENTS.md`'s words and rules; `docs/sharing.md`.
 
 **Accepts when:** no document says a household is shared, or that sharing one list shares another.
+
+**Done as:** `DESIGN.md` rewritten for lists of their own: §7 is now "Lists and their people" (the group, a list's people and roles, invitations
+to a list, Your lists and Shared with you, lifecycle, limits), §5.2 the permission at the list, §8 a list's catalog, §13 the list keys as built (with
+§13.7 the move to device encryption), and §1–§4, §9, §10–§12, §14–§22 brought in line (sync per group naming the visible lists, account deletion
+passing shared lists on, `list_member`, `list_key` and `list_id` in §20.3, the sidebar and screens); the notes pointing to RFC 0004 are gone. The
+decision log keeps its earlier rows and adds two: lists of their own, superseding the household as the unit of sharing, and, at the owner's word
+(2026-11-22), no compatibility with 0.1.0's shared households designed for. `AGENTS.md`'s summary and rules, `README.md`, `package.json`'s
+description, `docs/sharing.md` and `docs/encryption.md` say the same. **Left out:** the conversion of 0.1.0's households at start-up stays in the code
+(`src/lists/members.ts`); the design no longer describes it. The phase-2 sections (trips, shops, notices) are worded for lists and their people,
+and are designed in their own tasks.
 
 #### ✅ 21.2 — A list's people, and the leak closed
 

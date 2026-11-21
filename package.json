@@ -9,7 +9,7 @@
   },
   "type": "module",
   "packageManager": "pnpm@11.14.0",
-  "description": "Shopper: a household's shopping lists that work in the shop with no signal, and run on their own or on a Sovereign instance.",
+  "description": "Shopper: shopping lists shared one by one, that work in the shop with no signal, and run on their own or on a Sovereign instance.",
   "engines": {
     "node": ">=24.15 <25"
   },

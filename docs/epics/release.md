@@ -99,8 +99,9 @@ every household once (18.10); the security review of 18.12; the release as 12.4;
 **Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and
 a standalone account each open their lists on it.
 
-**Where it stands (2026-11-21):**
+**Where it stands (2026-11-22):**
 
-- **Ready to release:** `develop` carries version 0.2.0 with its changelog, and the review is `docs/security/0.2.0.md`.
+- **Ready to release:** `develop` carries version 0.2.0 with its changelog, now with epic 21 (lists of their own), and the review is
+  `docs/security/0.2.0.md`, with an addendum for epic 21. The promotion pull request is open.
 - **The owner's part:** the promotion into `main` and the publishing.
 - **Not run:** hosting it on an instance.

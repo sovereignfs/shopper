@@ -252,7 +252,7 @@ take theirs, and an export imports into a second account.
 
 | #   | ID                          | Task                                 | Priority | Depends on | Status |
 | --- | --------------------------- | ------------------------------------ | -------- | ---------- | ------ |
-| 86  | [21.1](docs/epics/lists.md) | The design                           | P0       | —          | 📋     |
+| 86  | [21.1](docs/epics/lists.md) | The design                           | P0       | —          | ✅     |
 | 87  | [21.2](docs/epics/lists.md) | A list's people, and the leak closed | P0       | 21.1       | ✅     |
 | 88  | [21.3](docs/epics/lists.md) | A list's catalog                     | P0       | 21.2       | ✅     |
 | 89  | [21.4](docs/epics/lists.md) | A list's keys                        | P0       | 21.3       | ✅     |

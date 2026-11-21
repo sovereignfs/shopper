@@ -6,7 +6,7 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
-## [0.2.0] - 2026-11-21
+## [0.2.0] - 2026-11-22
 
 **Before upgrading:** take a backup. Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted. Every person who signs in with a password
 signs in once more as before, and their password then moves across, once; they are shown a recovery kit. Open Shopper once with each account whose

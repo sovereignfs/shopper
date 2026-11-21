@@ -12,8 +12,8 @@ which.
 
 ## What this is
 
-**Shopper**, an app of the Sovereign suite exactly as Tusk, Fjord, Tally and Roam are: a household's shopping lists, a catalog that learns what the
-household buys, ticking things off in the shop (into trips, from phase 2), and a shopping mode made for the aisle, all working with no network and
+**Shopper**, an app of the Sovereign suite exactly as Tusk, Fjord, Tally and Roam are: shopping lists shared one by one (each with its own
+people, catalog and keys), a catalog that learns what is bought, ticking things off in the shop (into trips, from phase 2), and a shopping mode made for the aisle, all working with no network and
 syncing in the background, with others' changes arriving as fast as each person chooses (up to live, from phase 2). A Sovereign instance can host it, and **it runs fully on its
 own, with every feature, needing no instance**: its own accounts, people, mail and notices. It replaces the legacy plugin
 `sovereignfs/sovereign-plugin-shopper`, whose behaviour is the starting point and none of whose code or interface is carried over; its export can be
@@ -138,24 +138,24 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   (`list_member`, `onList` in `src/access/membership.ts`) as a condition of the same query (`DESIGN.md` §5.2, RFC 0004), never checked first and then
   touched; a list's Admin's operation adds the role to it. Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
-- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the household's
-  key, through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
-  a `WHERE`, `ORDER BY` or index. A product's identity in a household is its **name key** (`DESIGN.md` §13.3), made in the browser, never its name.
+- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the list's
+  keys (derived from the group's, RFC 0004), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
+  a `WHERE`, `ORDER BY` or index. A product's identity on a list is its **name key** (`DESIGN.md` §13.3), made in the browser, never its name.
   What the server must hold itself (a person's name and email, an invitation's email, credentials) is sealed through `src/crypto/sealed.ts`
   (§13.4). A table that adds such a field adds it to §13.1's or §13.4's table and its registry test in the same change. **The words "not yet
   audited" go wherever Shopper describes its encryption.**
 - **Lists, items, products, categories, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
   mutation, and `src/sync/apply.ts` applies it, re-checking membership and limits, merging field by field, folding duplicates (`src/sync/fold.ts`), in
-  one short transaction that increments the household's `seq`. A replayed mutation writes nothing. The property tests pass.
+  one short transaction that increments the group's `seq`. A replayed mutation writes nothing. The property tests pass.
 - **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** (and, from phase 2, a second makes no trip line);
-  the same product twice in a household, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
+  the same product twice on a list, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
   refused change goes to Couldn't sync, never to nowhere.
 - **A list's people, roles, invitations and deleting a list are online operations** (`/api/ops`), decided by the server at once. They are not queued offline.
 - **The live stream carries signals only** (`{household, seq}`), never a row; the device pulls through `/api/sync`. The hub is in the process;
   `LISTEN/NOTIFY` is not used.
 - **Quantities are canonical decimal strings and money is integer minor units,** calculated in `src/quantity/`; no binary float touches either. One
   figure has one implementation, pure, shared by the browser, the server and the tests (suggestions, totals, unit prices, aisle order).
-- **The device's store is per account and holds only the account's households;** it is deleted at sign-out. **The service worker caches the shell
+- **The device's store is per account and holds only the lists the account is on;** it is deleted at sign-out. **The service worker caches the shell
   only,** by allow-list; no page or answer with a person's data is ever in a cache.
 - **Notices are raised in the change's transaction or by the digest job, never for the person who acted.** Mail goes
   through `mail_outbox`, in the background; no address or content is logged.
@@ -207,7 +207,7 @@ task's "Accepts when" says.
 | `pnpm format:check`       | Prettier over everything (`pnpm format` writes); the documents are wrapped at 150 columns                                                                                                                         |
 | `pnpm lint`               | ESLint, strict TypeScript and jsx-a11y (`pnpm lint:fix` fixes)                                                                                                                                                    |
 | `pnpm test`               | Vitest, files one after another                                                                                                                                                                                   |
-| `pnpm seed`               | Three development accounts with shared and own households, items and a link (`-- --reset` makes them again, `-- --remove` takes them away; local databases only)                                                  |
+| `pnpm seed`               | Three development accounts with shared and own lists, items and a link (`-- --reset` makes them again, `-- --remove` takes them away; local databases only)                                                       |
 | `pnpm manifest:check`     | `sovereign-manifest check`: `sovereign.manifest.json` against the contract's schema (`src/sovereign-manifest.test.ts` holds it to the code)                                                                       |
 | `scripts/deploy-check.sh` | Brings each setup of `deploy/` up from nothing in Docker, as an instance would host it (`SHOPPER_IMAGE=shopper:ci`; build with `eval "docker build $(pnpm exec sovereign-manifest docker-args) -t shopper:ci ."`) |
 | `pnpm icons`              | The PNG icons, made again from `public/icons/icon.svg` (committed; needed only if the mark changes)                                                                                                               |
