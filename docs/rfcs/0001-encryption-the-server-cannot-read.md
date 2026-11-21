@@ -225,3 +225,27 @@ Checked against `@sovereignfs/sdk` 2.11.0 and `@sovereignfs/auth` 0.4.0 before a
 4. **An invitation's fragment** is kept in the tab's `sessionStorage` until accepted, so it survives signing up and core's redirect; a link opened
    in one browser and verified in another asks for the link again.
 5. **Sealing a new epoch to core accounts** needs `keys.person`, so `offline_access` and the SDK's token store come with 18.8.
+
+## Amendment 2 — the move, and who it can reach (2026-11-21)
+
+Found reading `src/sync/` before leg 4, and checked against `@sovereignfs/sdk` 2.11.0 (both `appKeys().open()` and `localVault().open()` give an AES-GCM
+key that encrypts and decrypts, so each member can wrap a household's keys under their own app key in either mode):
+
+1. **Every household starts as the server seals it,** 0.1.0's and every new one alike, since the one made with an account (§7.4) is made on the server,
+   which holds no key. **The first unlock moves it**, in one household-level online operation rather than through the mutation path: the device makes
+   the household's keys, sends every row's content encrypted and every product's name key made under them, and the server writes all of it, empties
+   the sealed content and marks the household encrypted, in one transaction, only if the household's `seq` is what the device last pulled
+   (otherwise the device pulls and tries again). One mechanism is therefore both 18.5 and 18.10.
+2. **Only a household whose every member this device can give the keys to moves.** That is a household of one; with standalone accounts no other
+   member can be given them until 16.8, and through core not until 18.8 brings the SDK's token store. **A shared 0.1.0 household stays sealed by the
+   server** until then, and loses nothing. Settings says, for each household, which it is. This narrows "always, every household" until those land, and
+   is the owner's to confirm.
+3. **A stored value says what it was encrypted for:** `e1.<epoch>.<row id>.<ciphertext>`, since a fold sends one row's later changes to another row
+   (§12.4), and a value bound to the first would not open under the second's id. A device opens a value bound to the row itself or to an alias of it,
+   and nothing else.
+4. **Each member's record wraps the household's keyring** (every epoch, and the first epoch's, from which the name key's secret comes), so that
+   someone who joins later opens rows written under an earlier epoch. No new epoch is made in this workstream but a member's own household's.
+5. **The sync protocol's version goes up,** so that a page cached from 0.1.0 is told to update before it can post content in plain text.
+6. **The offline shell opens the key too:** the page's key source is kept on the device beside who is signed in (`src/identity.ts`). The sync holds a
+   household whose key this device cannot open (nothing sent, its cursor not moved), never sends plain text for a household it has seen encrypted, and
+   never moves a cursor past rows it could not open.

@@ -149,7 +149,8 @@ until 16.15), and sealed to another person with `share()` only where core gives 
 a past epoch; `People.deletePerson` deleting the person's records; export (20.1) carrying them.
 
 **Accepts when:** a new account's household has a key after its first unlock; a second person gets no record; deleting a person leaves no record of
-theirs.
+theirs. Amendment 2 of RFC 0001: keys are made by the move (18.10's operation), each member's record wraps the keyring, and a shared household is
+not moved yet.
 
 #### 📋 18.6 — Content encrypted in sync
 

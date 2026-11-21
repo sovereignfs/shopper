@@ -30,7 +30,8 @@ households, trips and notices are built encrypted from their first line.
 - [ ] A hosted account signs in through core, its key is released, and it opens its lists (18.3).
 - [ ] Two accounts share a household by a link and both read and edit it, offline and on; removing one makes a new key that it is not given (18.7,
       18.8).
-- [ ] A 0.1.0 database upgrades, and every household opened once is encrypted with nothing lost (18.10).
+- [ ] A 0.1.0 database upgrades, and every household of one member opened once is encrypted with nothing lost; a shared one stays sealed and says
+      so until its members can be given its keys (18.10, RFC 0001 amendment 2).
 - [ ] A push reaches a subscribed browser once, alone and hosted; turning it off stops it; deleting the account forgets the device (19.1, 19.2).
 - [ ] Core's export of a person includes Shopper's part; alone, a person and the operator each take their export from Settings; an export imports
       into a second account (20.1 to 20.4).
