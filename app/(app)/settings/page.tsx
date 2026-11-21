@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { sectionOf, one } from '@/src/account/query';
 import { DeleteAccountSection } from '@/src/account/DeleteAccountSection';
+import { EncryptionSection } from '@/src/account/EncryptionSection';
 import { PasswordSection } from '@/src/account/PasswordSection';
 import { ProfileSection } from '@/src/account/ProfileSection';
 import { ThisDeviceSection } from '@/src/account/ThisDeviceSection';
@@ -40,6 +41,7 @@ export default async function SettingsPage({
             vaultId={vaultId}
           />
         ),
+        encryption: <EncryptionSection />,
         data: <DeleteAccountSection email={session.user.email} vaultId={vaultId} />,
       }}
     />

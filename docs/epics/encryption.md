@@ -220,7 +220,7 @@ saying to send the link privately. Moved onto `sovereign`'s if 16.9 publishes on
 - **Tests:** server tests for the wrapped copy; the browser tests make links through the dialog, as a person does.
 - **Left out:** a link that loses its fragment (opened in one browser, verified in another) asks to be opened again; 16.9 would make the link the SDK's.
 
-#### 📋 18.8 — Leaving and removing make a new key
+#### 🚧 18.8 — Leaving and removing make a new key
 
 **Goal:** someone who leaves cannot read what is added after. **Design:** RFC 0001, "The household key", "Two kinds of account". **Depends on:** 18.7,
 3.5; its standalone form on 16.8.
@@ -231,7 +231,13 @@ that means; the words when removing.
 
 **Accepts when:** hosted, a removed member's device cannot open a row written after; standalone, the household says what RFC 0001 says it says.
 
-#### 📋 18.9 — The screens
+**Waiting (2026-11-21):**
+
+- Sealing a new epoch to the members who remain needs their public keys: 16.8 for Shopper's own accounts, and core's `keys.person` with the SDK's token store for core accounts. Neither is in place.
+- The case it would cover now is also narrow: households move only with one member (RFC 0001 amendment 2), and become shared only by a link after moving.
+- Until it is built, removing someone leaves the keys as they are, and `docs/encryption.md` says so. A removed member gets nothing more from the server either way.
+
+#### ✅ 18.9 — The screens
 
 **Goal:** a person knows what is protected and keeps what they need. **Design:** RFC 0001, "The screens". **Depends on:** 18.4, 18.5.
 
@@ -239,6 +245,21 @@ that means; the words when removing.
 waiting for its key; the words of `AGENTS.md` and "not yet audited"; a keyboard, light and dark, a phone's width.
 
 **Accepts when:** each state of RFC 0001's screens is reached in a browser test.
+
+**Done as:**
+
+- **The kit and unlocking screens** were built with 18.2 to 18.4: the recovery kit after sign-up (`/keys/kit`), unlocking with the kit after a reset, and the locked prompt above the lists.
+- **Settings › Encryption** (`src/account/EncryptionSection.tsx`) says:
+  - what is protected, and what not;
+  - for each household, whether only its people can read it, or whether it is still sealed by the server because it has others in it;
+  - how this account's key is kept;
+  - "Not yet audited".
+- **`docs/encryption.md` and the README's section** were rewritten for what is now true.
+
+**Left out:**
+
+- A household waiting for its key shows nothing rather than "Waiting for another member": no household can be in that state yet, since only households of one member move.
+- No browser test of the new section.
 
 #### ✅ 18.10 — Moving 0.1.0's households
 
@@ -261,7 +282,7 @@ interrupted move resumes.
 - **What moves:** a new account's household, and a 0.1.0 one with a single member, both move on first unlock.
 - **Left out:** a shared household stays sealed (amendment 2), until 16.8 or 18.8. An interrupted move leaves nothing half done (one transaction) and is simply asked again.
 
-#### 📋 18.11 — The server seals only what it must
+#### 🚧 18.11 — The server seals only what it must
 
 **Goal:** `src/crypto/` holds credentials and identity, and nothing else. **Design:** RFC 0001, "What is encrypted, and what is not". **Depends on:**
 18.6.
@@ -270,6 +291,10 @@ interrupted move resumes.
 re-computing deleted; the server-sealed registry and its test reduced to those fields.
 
 **Accepts when:** no content field is read or written through `src/crypto/` (a test over the registries).
+
+**Waiting (2026-11-21):** a household with more than one member stays sealed by the server (RFC 0001 amendment 2), so the server still seals content
+for those, and `src/crypto/rotate.ts` still re-wraps it. What is done: nothing of a moved household is sealed by the server (its `sealed` is emptied
+by the move), and its name keys are the device's, which the rotation does not touch. The rest follows 16.8 and 18.8.
 
 #### 📋 18.12 — The marker test and the review
 

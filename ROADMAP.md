@@ -204,14 +204,14 @@ and no file on all three databases, both kinds of account unlock and share, and 
 | 65  | [18.4](docs/epics/encryption.md)  | The key in the page                                           | P0       | 18.2, 18.3      | ✅     |
 | 66  | [18.5](docs/epics/encryption.md)  | Household keys                                                | P0       | 18.4            | ✅     |
 | 67  | [18.6](docs/epics/encryption.md)  | Content encrypted in sync                                     | P0       | 18.5            | ✅     |
-| 68  | [18.11](docs/epics/encryption.md) | The server seals only what it must                            | P1       | 18.6            | 📋     |
+| 68  | [18.11](docs/epics/encryption.md) | The server seals only what it must                            | P1       | 18.6            | 🚧     |
 | 69  | [18.7](docs/epics/encryption.md)  | Invitations carry the key                                     | P0       | 18.5, 3.4       | ✅     |
 | 70  | [16.8](docs/epics/upstream.md)    | Sharing in an app with no core (`sovereign`)                  | P1       | —               | 📋     |
 | 71  | [16.9](docs/epics/upstream.md)    | A document key by link (`sovereign`)                          | P3       | —               | 📋     |
 | 72  | [16.15](docs/epics/upstream.md)   | Wrapping a document key under one's own app key (`sovereign`) | P2       | —               | 📋     |
 | 73  | [16.16](docs/epics/upstream.md)   | Key release in the SDK's fake core (`sovereign`)              | P3       | —               | 📋     |
-| 74  | [18.8](docs/epics/encryption.md)  | Leaving and removing make a new key                           | P1       | 18.7, 3.5, 16.8 | 📋     |
-| 75  | [18.9](docs/epics/encryption.md)  | The screens                                                   | P1       | 18.4, 18.5      | 📋     |
+| 74  | [18.8](docs/epics/encryption.md)  | Leaving and removing make a new key                           | P1       | 18.7, 3.5, 16.8 | 🚧     |
+| 75  | [18.9](docs/epics/encryption.md)  | The screens                                                   | P1       | 18.4, 18.5      | ✅     |
 | 76  | [18.10](docs/epics/encryption.md) | Moving 0.1.0's households                                     | P0       | 18.6            | ✅     |
 
 ### Milestone T — Push

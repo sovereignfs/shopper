@@ -108,22 +108,14 @@ they use your server. **If your address is public, set `closed` once everyone wh
 every other sign-up, at the server and not only on the page; a person invited after that must already have an account to accept a link. A sign-in through a
 Sovereign core is **never** refused by it: the core has decided who the person is, so an account made through it is made whatever this says.
 
-### What encryption at rest does
+### Encryption
 
-> **Changing.** This page describes Shopper as 0.1.0 released it. Before phase 2, Shopper moves to encryption the server cannot read, the suite's way
-> ([RFC 0001](docs/rfcs/0001-encryption-the-server-cannot-read.md), `DESIGN.md` §13); this page is rewritten when that ships (task 18.9).
-
-Everything that says **what a household buys and where** is sealed in the database under `SHOPPER_ENCRYPTION_KEY`: the names of households, lists,
-items, products and categories, and notes, and the name and address Shopper keeps of each person on what they share. **One thing is not:** the sign-in database
-(`shopper_auth`, beside the other) holds each account's name and email address in plain text, because signing in looks an account up by its address. Each row has a data key of its own, wrapped under the instance key and bound to the row, so a
-value moved to another row will not open. Quantities, units, times, positions and the structure that sorting and merging need stay readable, and alone say little.
-
-- **It protects** a copied database, a backup, a stolen disk and someone reading the tables, from learning what a household buys; **not** from learning who has an account.
-- **It does not protect** against whoever controls the running server: the server has the key and reads everything to do its work. Nor the device: a signed-in
-  browser holds the household's lists in plain text until the person signs out.
-- **A lost key means the sealed content cannot be read, and nothing can recover it.** Keep it with your secrets, apart from the database backups.
-- **To change it**, put the new key in `SHOPPER_ENCRYPTION_KEY` and the old one in `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, start the server once (it moves what is stored to
-  the new key), and then remove the old one.
+**What people write into Shopper is encrypted on their device, with a key only their household holds** (the suite's encryption, through
+`@sovereignfs/sdk`; **not yet audited**). The server stores and syncs what it cannot read. A household with more than one person in it is still sealed by
+the server's own key until each of them can be given the household's key, and Settings says which is which. People's names and emails, and anything of a
+household not yet encrypted, are sealed at rest under `SHOPPER_ENCRYPTION_KEY`: keep it with your secrets, apart from the database backups; a lost key
+means what it seals cannot be read. A person signing in with a password is shown a recovery kit once: with neither the password nor the kit, their
+lists are gone for good. It does not protect against whoever runs the server, which sends the app the browser runs.
 
 More in [`docs/encryption.md`](docs/encryption.md).
 
