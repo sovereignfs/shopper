@@ -208,6 +208,8 @@ export const alias = sqliteTable(
     toId: ref('to_id').notNull(),
     seq: counter('seq').notNull(),
     createdAt: epochMs('created_at').notNull(),
+    // An encrypted household's second note when two items were folded (RFC 0001): joined by a device, never read here.
+    carried: text('carried'),
   },
   (table) => [
     primaryKey({ columns: [table.householdId, table.tableName, table.fromId] }),

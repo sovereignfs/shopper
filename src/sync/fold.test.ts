@@ -60,6 +60,7 @@ const edit = (id: string, fields: Record<string, string | number | null>) => ({
 });
 const ok = (r: ApplyResult) => {
   if (r.status === 'refused') throw new Error(`refused: ${r.reason}`);
+  if (r.status === 'held') throw new Error('held');
   return r;
 };
 const products = () =>

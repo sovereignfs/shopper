@@ -46,6 +46,7 @@ const lists = (household: string) =>
   );
 const ok = (r: ApplyResult) => {
   if (r.status === 'refused') throw new Error(`refused: ${r.reason}: ${r.sentence}`);
+  if (r.status === 'held') throw new Error('held');
   return r;
 };
 /** The action's mutation, with a mutation id and ids that are the household's own to make. */

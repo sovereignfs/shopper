@@ -123,6 +123,13 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
   },
 };
 
+/** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
+export const CONTENT: Record<SyncedTable, readonly string[]> = {
+  list: ['name'],
+  item: ['name', 'note'],
+  product: ['name', 'note'],
+};
+
 /** The fields a table has, for code that has to know (a merge, a pull). */
 export const fieldsOf = (table: SyncedTable): readonly string[] =>
   Object.keys(FIELDS[table].fields);

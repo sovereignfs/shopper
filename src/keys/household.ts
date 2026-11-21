@@ -14,7 +14,7 @@ import { decryptBytes, encryptBytes, importDocumentKey } from '@sovereignfs/sdk/
  *   so that folding holds whatever epoch a device is on (§13.3).
  */
 
-export type Keyring = Readonly<Record<number, Uint8Array>>;
+export type Keyring = Readonly<Record<number, Uint8Array<ArrayBuffer>>>;
 
 const KEY_BYTES = 32;
 const RECORD = 'hk1';
@@ -31,7 +31,7 @@ export function toBase64url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function fromBase64url(text: string): Uint8Array {
+export function fromBase64url(text: string): Uint8Array<ArrayBuffer> {
   if (!B64.test(text)) throw new TypeError('not base64url');
   const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
   const out = new Uint8Array(binary.length);
@@ -90,7 +90,7 @@ export async function unwrapKeyring(
       fromBase64url(sealed),
     );
     const parsed = JSON.parse(fromUtf8(new Uint8Array(plain))) as Record<string, unknown>;
-    const out: Record<number, Uint8Array> = {};
+    const out: Record<number, Uint8Array<ArrayBuffer>> = {};
     for (const [epoch, key] of Object.entries(parsed)) {
       const bytes = typeof key === 'string' ? fromBase64url(key) : undefined;
       if (!/^\d+$/.test(epoch) || bytes?.length !== KEY_BYTES) return undefined;

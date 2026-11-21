@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { Change, FieldValue, Mutation, SyncedTable } from '../actions/format';
-import { validateMutation } from '../actions/validate';
+import { type ContentMode, validateMutation } from '../actions/validate';
 import type { KeyRing } from '../crypto/keys';
 import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -32,6 +32,11 @@ export interface ApplyDeps {
   readonly limits: Limits;
   /** The tables the server applies; the real ones unless a test gives its own. */
   readonly tables?: Partial<Record<SyncedTable, TableSpec>>;
+  /**
+   * How the household's content travels (RFC 0001), set by `run` from the household it applies to: `plain`, sealed here; `encrypted`, kept as the
+   * device sent it, in the row's `encrypted` column, which the server never opens.
+   */
+  readonly mode?: ContentMode;
 }
 
 export interface Changed {
@@ -47,7 +52,15 @@ export type ApplyResult =
       /** What the server folded: a row the device made that became another (`fold.ts`), so that the device re-points what it holds. */
       readonly folds: readonly Fold[];
     }
-  | { readonly status: 'refused'; readonly reason: Refusal['reason']; readonly sentence: string };
+  | { readonly status: 'refused'; readonly reason: Refusal['reason']; readonly sentence: string }
+  /**
+   * Neither applied nor refused: sent in the form the household is no longer in (plain text for one that moved, RFC 0001). The device keeps it and
+   * sends it again, encrypted, after the next pull.
+   */
+  | { readonly status: 'held' };
+
+/** The household moved between the device's last pull and this mutation: held (`ApplyResult`). */
+class Held extends Error {}
 
 export async function applyMutation(
   deps: ApplyDeps,
@@ -55,10 +68,24 @@ export async function applyMutation(
   input: unknown,
   now: number = Date.now(),
 ): Promise<ApplyResult> {
-  const verdict = validateMutation(input);
-  if (!verdict.ok) return refused(invalid(verdict.problem));
-  const mutation = verdict.mutation;
   const { database } = deps;
+  const householdId = (input as { householdId?: unknown } | null)?.householdId;
+  const state =
+    typeof householdId === 'string'
+      ? await dbGet<{ encryption: string }>(
+          database,
+          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId}`,
+        )
+      : undefined;
+  const mode: ContentMode = state?.encryption === 'encrypted' ? 'encrypted' : 'plain';
+  const verdict = validateMutation(input, mode);
+  if (!verdict.ok) {
+    // Good in the other form: the household moved under the device, which sends it again.
+    if (validateMutation(input, mode === 'plain' ? 'encrypted' : 'plain').ok)
+      return { status: 'held' };
+    return refused(invalid(verdict.problem));
+  }
+  const mutation = verdict.mutation;
 
   // A mutation already applied is answered as it was, and writes nothing (DESIGN.md §12.2). Its authority was checked when it was applied.
   const done = await dbGet<{ seq: number | string }>(
@@ -69,9 +96,10 @@ export async function applyMutation(
 
   try {
     return await transaction(database, async (tx) =>
-      run({ ...deps, database: tx }, accountId, mutation, now),
+      run({ ...deps, database: tx, mode }, accountId, mutation, now),
     );
   } catch (error) {
+    if (error instanceof Held) return { status: 'held' };
     if (error instanceof Refusal) return refused(error);
     // Two of the same mutation at once: the other one recorded it first, and the unique key refused this one, which is a replay.
     const again = await dbGet<{ seq: number | string }>(
@@ -97,12 +125,15 @@ async function run(
 ): Promise<ApplyResult> {
   const { database } = deps;
   // The counter is stepped by the statement that says the account is in the household: the permission is in the statement (§5.2).
-  const stepped = await dbGet<{ seq: number | string }>(
+  const stepped = await dbGet<{ seq: number | string; encryption: string }>(
     database,
     sql`UPDATE ${appTable(database, 'household')} SET seq = seq + 1, updated_at = ${now}
-        WHERE id = ${mutation.householdId} AND ${memberOf(database, mutation.householdId, accountId)} RETURNING seq`,
+        WHERE id = ${mutation.householdId} AND ${memberOf(database, mutation.householdId, accountId)} RETURNING seq, encryption`,
   );
   if (!stepped) throw notFound();
+  // It moved between the check and this statement: the whole mutation waits for the device to send it again (and this transaction rolls back).
+  if ((stepped.encryption === 'encrypted' ? 'encrypted' : 'plain') !== (deps.mode ?? 'plain'))
+    throw new Held();
   const seq = Number(stepped.seq);
 
   const changed: Changed[] = [];
@@ -187,16 +218,21 @@ async function applyChange(
     if (twin) return foldItem(deps, spec, household, change, twin, seq, now);
   }
 
-  // The row as it is: plain columns by field name, and the sealed envelope opened.
+  // A product's name key, made by its device in an encrypted household, goes beside the content and is not one of the row's fields.
+  const sentNameKey = typeof change.fields.nameKey === 'string' ? change.fields.nameKey : undefined;
+  if (sentNameKey !== undefined) {
+    const { nameKey: _nameKey, ...fields } = change.fields;
+    change = { ...change, fields };
+  }
+
+  // The row as it is: plain columns by field name, and its content: the sealed envelope opened, or the device's ciphertext as it is.
   const values: Record<string, FieldValue> = {};
   const stamps: Record<string, number> = existing ? parseStamps(existing.fseq) : {};
-  let sealedNow: Record<string, FieldValue> = {};
   if (existing) {
     for (const { field, column } of spec.plain)
       values[field] = (existing[column] as FieldValue | undefined) ?? null;
-    if (typeof existing.sealed === 'string')
-      sealedNow = { ...unsealRow(spec.sql, change.id, existing.sealed, ring) };
-    for (const field of spec.sealed) values[field] = sealedNow[field] ?? null;
+    const content = contentOf(deps, spec, change.id, existing);
+    for (const field of spec.sealed) values[field] = content[field] ?? null;
   }
 
   const merged = mergeChange(values, stamps, change.fields, seq);
@@ -208,9 +244,22 @@ async function applyChange(
     const value = (existing ? merged.values[field] : change.fields[field]) ?? null;
     if (value !== null) sealedFields[field] = value;
   }
-  const sealedText = sealedChanged ? sealRow(spec.sql, change.id, sealedFields, ring) : undefined;
-  const derived =
-    sealedChanged && spec.derive ? spec.derive({ household, ring, sealed: sealedFields }) : {};
+  const encrypted = deps.mode === 'encrypted';
+  const sealedText = !sealedChanged
+    ? undefined
+    : encrypted
+      ? JSON.stringify(sealedFields)
+      : sealRow(spec.sql, change.id, sealedFields, ring);
+  // Plain: the server makes the name key from the name; encrypted: the device sent it with the name (§13.3).
+  const derived = !sealedChanged
+    ? {}
+    : encrypted
+      ? sentNameKey !== undefined
+        ? { name_key: sentNameKey }
+        : {}
+      : spec.derive
+        ? spec.derive({ household, ring, sealed: sealedFields })
+        : {};
 
   // A name already in the household is another product's: a new one is folded into it, and a rename is refused.
   if (derived.name_key !== undefined) {
@@ -244,7 +293,8 @@ async function applyChange(
     for (const { field, column } of spec.plain)
       // Only the fields the row was made with: the others take the table's defaults (a list's clearing rule), not a null.
       if (field in change.fields) columns.push([column, change.fields[field] ?? null]);
-    columns.push(['sealed', sealedText ?? null]);
+    if (encrypted) columns.push(['sealed', ''], ['encrypted', sealedText ?? null]);
+    else columns.push(['sealed', sealedText ?? null]);
     for (const [column, value] of Object.entries(derived)) columns.push([column, value]);
     columns.push(['seq', seq], ['fseq', JSON.stringify(stampsOf(change, seq))]);
     await dbAll(
@@ -268,7 +318,8 @@ async function applyChange(
     if (merged.changed.includes(field))
       sets.push(sql`${sql.raw(`"${column}"`)} = ${merged.values[field] ?? null}`);
   }
-  if (sealedText !== undefined) sets.push(sql`"sealed" = ${sealedText}`);
+  if (sealedText !== undefined)
+    sets.push(encrypted ? sql`"encrypted" = ${sealedText}` : sql`"sealed" = ${sealedText}`);
   for (const [column, value] of Object.entries(derived))
     sets.push(sql`${sql.raw(`"${column}"`)} = ${value}`);
   sets.push(sql`"seq" = ${seq}`, sql`"fseq" = ${JSON.stringify(merged.fseq)}`);
@@ -303,7 +354,7 @@ async function foldInto(
   seq: number,
   now: number,
 ): Promise<Outcome> {
-  const { database, ring } = deps;
+  const { database } = deps;
   const row = await dbGet<Row>(
     database,
     sql`SELECT * FROM ${appTable(database, spec.sql)} WHERE id = ${into} AND household_id = ${household}`,
@@ -312,8 +363,7 @@ async function foldInto(
   const have: Record<string, FieldValue> = {};
   for (const { field, column } of spec.plain)
     have[field] = (row[column] as FieldValue | undefined) ?? null;
-  if (typeof row.sealed === 'string')
-    Object.assign(have, unsealRow(spec.sql, into, row.sealed, ring));
+  Object.assign(have, contentOf(deps, spec, into, row));
   const additions = foldProductFields(have, change.fields);
   const fold: Fold = { table: change.table, from: change.id, to: into };
   await recordFold(database, household, fold, seq, now);
@@ -327,6 +377,36 @@ async function foldInto(
     now,
   );
   return { written: merged.written.length > 0 ? merged.written : [into], fold };
+}
+
+/**
+ * A row's content as this server holds it (RFC 0001): its sealed envelope opened, in a household that is still sealed; the device's ciphertext, field by
+ * field, in one that has moved, which is never opened here.
+ */
+function contentOf(
+  deps: ApplyDeps,
+  spec: TableSpec,
+  id: string,
+  row: Row,
+): Record<string, FieldValue> {
+  if (deps.mode === 'encrypted') return parseContent(row.encrypted);
+  return typeof row.sealed === 'string' && row.sealed !== ''
+    ? { ...unsealRow(spec.sql, id, row.sealed, deps.ring) }
+    : {};
+}
+
+function parseContent(raw: unknown): Record<string, FieldValue> {
+  try {
+    const parsed: unknown = JSON.parse(typeof raw === 'string' ? raw : '{}');
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 /** Every field a new row says is stamped with the counter it was made at. */
@@ -450,11 +530,8 @@ async function foldItem(
   now: number,
 ): Promise<Outcome> {
   const into = String(twin.id);
-  let note: string | null = null;
-  if (typeof twin.sealed === 'string') {
-    const opened = unsealRow('item', into, twin.sealed, deps.ring);
-    note = typeof opened.note === 'string' ? opened.note : null;
-  }
+  const opened = contentOf(deps, spec, into, twin);
+  const note = typeof opened.note === 'string' ? opened.note : null;
   const additions = foldItemFields(
     {
       quantity: String(twin.quantity),
@@ -464,8 +541,15 @@ async function foldItem(
     },
     change.fields,
   );
+  // Two notes are joined by whoever can read them (§12.4): encrypted, the server keeps the first, and carries the second on the alias for the first
+  // device that pulls it to join and write back.
+  let carried: string | undefined;
+  if (deps.mode === 'encrypted' && 'note' in additions && note !== null && note !== '') {
+    carried = typeof change.fields.note === 'string' ? change.fields.note : undefined;
+    delete additions.note;
+  }
   const fold: Fold = { table: 'item', from: change.id, to: into };
-  await recordFold(deps.database, household, fold, seq, now);
+  await recordFold(deps.database, household, fold, seq, now, carried);
   if (Object.keys(additions).length === 0) return { written: [into], fold };
   const merged = await applyChange(
     deps,

@@ -40,7 +40,8 @@ const DECIDED_APP: Record<string, string> = {
     'a household’s, deleted with it; what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',
   account_settings: 'the account’s own, deleted by account_id',
-  household_key: 'a member’s copy of a household’s keys: deleted with the person, and with a household nobody else is in',
+  household_key:
+    'a member’s copy of a household’s keys: deleted with the person, and with a household nobody else is in',
 };
 const DECIDED_AUTH: Record<string, string> = {
   user: 'deleted',
@@ -198,9 +199,9 @@ describe(`deleting a person (${leg})`, () => {
     expect(
       await count(app, appTable(app, 'account_settings'), sql`account_id = ${ada.accountId}`),
     ).toBe(0);
-    expect(
-      await count(app, appTable(app, 'household_key'), sql`person_id = ${ada.personId}`),
-    ).toBe(0);
+    expect(await count(app, appTable(app, 'household_key'), sql`person_id = ${ada.personId}`)).toBe(
+      0,
+    );
     for (const table of ['sv_key_accounts', 'sv_key_wraps'])
       expect(await count(app, sql.raw(table), sql`user_id = ${ada.accountId}`), table).toBe(0);
     const person = await personById(app, TEST_RING, ada.personId);

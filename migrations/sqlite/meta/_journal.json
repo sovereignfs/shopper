@@ -85,6 +85,13 @@
       "when": 1795279437743,
       "tag": "0011_household_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795279769260,
+      "tag": "0012_alias_carried",
+      "breakpoints": true
     }
   ]
 }

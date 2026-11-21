@@ -7,7 +7,8 @@ import { isId } from '../actions/format';
  * and one answer carrying what was applied or refused, the account's current households, and what changed since each cursor. A **version** travels with every
  * request: a device that is too old is told to update, and keeps its outbox.
  */
-export const PROTOCOL = 1;
+/** 2: content can travel encrypted (RFC 0001), so a page from before is told to update rather than send it in plain text to a household that moved. */
+export const PROTOCOL = 2;
 
 /** The most mutations one request carries, and the most the server will read of one. */
 export const MAX_OUTBOX = 200;
@@ -31,13 +32,26 @@ export interface HouseholdPull {
   readonly more: boolean;
   /** The household as the reader sees it. */
   readonly view: { label: string; own: boolean; role: 'admin' | 'member'; seq: number };
+  /** How the household's content travels (RFC 0001), its latest key epoch, and the reader's own copy of its keyring, wrapped, if they have one. */
+  readonly encryption: {
+    readonly state: 'plain' | 'encrypted';
+    readonly epoch: number;
+    readonly keyring: string | null;
+  };
   readonly lists: readonly Record<string, unknown>[];
   readonly items: readonly Record<string, unknown>[];
   readonly products: readonly Record<string, unknown>[];
   readonly categories: readonly Record<string, unknown>[];
   readonly members: readonly Record<string, unknown>[];
   readonly tombstones: readonly { table: string; id: string; seq: number }[];
-  readonly aliases: readonly { table: string; from: string; to: string; seq: number }[];
+  readonly aliases: readonly {
+    table: string;
+    from: string;
+    to: string;
+    seq: number;
+    /** An encrypted household's second note of a fold, for the device to join (RFC 0001). */
+    carried?: string;
+  }[];
 }
 
 export interface SyncAnswer {

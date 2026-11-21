@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { KeyRing } from '../crypto/keys';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
-import { dbAll } from '../db/exec';
+import { dbAll, dbGet } from '../db/exec';
 import { appTable } from '../db/tables';
 import { adminOf, memberOf } from '../access/membership';
 import { STARTER_CATEGORIES } from '../catalog/categories';
@@ -32,6 +32,14 @@ export async function pullHousehold(
 ): Promise<HouseholdPull | undefined> {
   const view = await readHousehold(database, ring, household, accountId);
   if (!view) return undefined;
+  // How its content travels, and the reader's own copy of its keys (RFC 0001): only theirs, found by their person in the same statement.
+  const state = await dbGet<{ encryption: string; epoch: number | string; record: string | null }>(
+    database,
+    sql`SELECT h.encryption, h.epoch, k.record FROM ${appTable(database, 'household')} h
+        LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id
+          AND k.person_id = (SELECT p.id FROM ${appTable(database, 'person')} p WHERE p.account_id = ${accountId})
+        WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
+  );
 
   const take = (name: string, extra: ReturnType<typeof sql> = sql``) =>
     dbAll<Raw>(
@@ -80,6 +88,11 @@ export async function pullHousehold(
     cursor: upTo,
     more: more && upTo < Number(view.seq),
     view: { label: view.label, own: view.own, role: view.role, seq: Number(view.seq) },
+    encryption: {
+      state: state?.encryption === 'encrypted' ? 'encrypted' : 'plain',
+      epoch: Number(state?.epoch ?? 0),
+      keyring: state?.record ?? null,
+    },
     lists: within(lists).map((row) => listOf(row, ring)),
     items: within(items).map((row) => itemOf(row, ring)),
     products: within(products).map((row) => productOf(row, ring)),
@@ -95,13 +108,30 @@ export async function pullHousehold(
       from: String(row.from_id),
       to: String(row.to_id),
       seq: seqOf(row),
+      ...(typeof row.carried === 'string' ? { carried: row.carried } : {}),
     })),
   };
 }
 
 const nullable = <T>(value: T | null | undefined): T | null => value ?? null;
 const opened = (table: string, row: Raw, ring: KeyRing) =>
-  typeof row.sealed === 'string' ? unsealRow(table, String(row.id), row.sealed, ring) : {};
+  typeof row.sealed === 'string' && row.sealed !== ''
+    ? unsealRow(table, String(row.id), row.sealed, ring)
+    : {};
+
+/** A moved household's row (RFC 0001): its content as the device sent it, field by field, which the device opens; the server cannot. */
+function encryptedOf(row: Raw): { encrypted?: Record<string, string> } {
+  if (typeof row.encrypted !== 'string') return {};
+  try {
+    const parsed = JSON.parse(row.encrypted) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [field, value] of Object.entries(parsed))
+      if (typeof value === 'string') out[field] = value;
+    return { encrypted: out };
+  } catch {
+    return {};
+  }
+}
 const text = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 const num = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
@@ -117,6 +147,7 @@ function listOf(row: Raw, ring: KeyRing) {
     deletedAt: num(row.deleted_at),
     createdAt: Number(row.created_at),
     seq: seqOf(row),
+    ...encryptedOf(row),
   };
 }
 
@@ -141,6 +172,7 @@ function itemOf(row: Raw, ring: KeyRing) {
     clearedAt: num(row.cleared_at),
     deletedAt: num(row.deleted_at),
     seq: seqOf(row),
+    ...encryptedOf(row),
   };
 }
 
@@ -161,13 +193,14 @@ function productOf(row: Raw, ring: KeyRing) {
     deletedAt: num(row.deleted_at),
     createdAt: Number(row.created_at),
     seq: seqOf(row),
+    ...encryptedOf(row),
   };
 }
 
 function categoryOf(row: Raw, ring: KeyRing) {
   // A starter category's name is the code's, until a person names it (task 4.7); then it is sealed.
   const named =
-    typeof row.sealed === 'string'
+    typeof row.sealed === 'string' && row.sealed !== ''
       ? text(unsealRow('category', String(row.id), row.sealed, ring).name)
       : null;
   const starter = STARTER_CATEGORIES.find((each) => each.key === row.starter_key);

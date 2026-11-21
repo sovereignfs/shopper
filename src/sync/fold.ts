@@ -26,11 +26,13 @@ export async function recordFold(
   fold: Fold,
   seq: number,
   now: number,
+  /** An encrypted household's second note, for a device to join with the first (RFC 0001). */
+  carried?: string,
 ): Promise<void> {
   await dbAll(
     database,
-    sql`INSERT INTO ${appTable(database, 'alias')} (household_id, table_name, from_id, to_id, seq, created_at)
-        VALUES (${household}, ${fold.table}, ${fold.from}, ${fold.to}, ${seq}, ${now})
+    sql`INSERT INTO ${appTable(database, 'alias')} (household_id, table_name, from_id, to_id, seq, created_at, carried)
+        VALUES (${household}, ${fold.table}, ${fold.from}, ${fold.to}, ${seq}, ${now}, ${carried ?? null})
         ON CONFLICT (household_id, table_name, from_id) DO NOTHING RETURNING from_id`,
   );
   await dbAll(

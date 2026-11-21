@@ -82,6 +82,7 @@ const count = async (table: string, where: ReturnType<typeof sql>) =>
   );
 const applied = (result: ApplyResult) => {
   if (result.status === 'refused') throw new Error(`refused: ${result.reason}: ${result.sentence}`);
+  if (result.status === 'held') throw new Error('held');
   return result;
 };
 
