@@ -28,7 +28,7 @@ const pullOf = (over: Partial<HouseholdPull>): HouseholdPull => ({
   cursor: 5,
   more: false,
   view: { label: 'x', own: true, role: 'admin', seq: 5 },
-  encryption: { state: 'encrypted', epoch: 1, keyring: null },
+  encryption: { state: 'encrypted', epoch: 1, keyring: null, person: null },
   lists: [],
   items: [],
   products: [],
@@ -76,7 +76,7 @@ describe('the transport', () => {
       return {
         kind: 'ok' as const,
         answer: answerOf([
-          pullOf({ encryption: { state: 'encrypted', epoch: 1, keyring: record } }),
+          pullOf({ encryption: { state: 'encrypted', epoch: 1, keyring: record, person: P } }),
         ]),
       };
     };

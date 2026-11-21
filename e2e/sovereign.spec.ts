@@ -141,7 +141,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await guest.page.getByRole('link', { name: 'Sign in' }).click();
     await guest.page.getByRole('button', { name: 'Sign in with Sovereign' }).click();
     // Back at the invitation, signed in.
-    await expect(guest.page).toHaveURL(link.path);
+    await expect(guest.page).toHaveURL(link.path.split('#')[0] ?? link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
       guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Host’s lists'),

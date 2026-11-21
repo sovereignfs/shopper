@@ -213,10 +213,10 @@ export interface Seed {
 }
 
 /**
- * Puts items on the person's first list **through the server**, as another device would, and brings them to this one: the real endpoint applies them, so what
+ * Puts items on the person's first list **through this device's outbox**, as the app does, so that they are encrypted as it sends them: the real endpoint applies them, so what
  * a test then ticks, clears and moves is real, and the server's answer to it is too. Returns the ids of the items made, in order.
  */
-export async function seedItems(page: Page, items: Seed[], baseURL: string): Promise<string[]> {
+export async function seedItems(page: Page, items: Seed[], _baseURL: string): Promise<string[]> {
   const account = await accountOf(page);
   await expect
     .poll(async () => (await deviceRows(page, account, 'list')).length, { timeout: 15_000 })
@@ -267,14 +267,39 @@ export async function seedItems(page: Page, items: Seed[], baseURL: string): Pro
       ],
     };
   });
-  const reply = await page.request.post('/api/sync', {
-    headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { version: 2, outbox, cursors: {} },
-  });
-  expect(reply.status()).toBe(200);
-  const body = (await reply.json()) as { refused: unknown[] };
-  expect(body.refused).toEqual([]);
+  // Into this device's outbox, as the app writes what a person adds: the app sends it, encrypted where its household has moved (RFC 0001), and the
+  // server's answer brings the rows back. A server holds plain text sent to a household that has moved, so a test cannot post it as itself.
+  await page.evaluate(
+    ([name, entries]) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open(name as string);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('outbox', 'readwrite');
+          for (const mutation of entries as unknown[])
+            tx.objectStore('outbox').add({ mutation, queuedAt: Date.now() });
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    [`shopper-${account}`, outbox] as const,
+  );
   await page.reload();
+  await expect
+    .poll(
+      async () => {
+        const have = new Set(
+          (await deviceRows<{ id: string }>(page, account, 'item')).map((row) => row.id),
+        );
+        return ids.every((id) => have.has(id));
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
   return ids;
 }
 
@@ -301,21 +326,71 @@ export async function serverItems(
     headers: { origin: baseURL, 'content-type': 'application/json' },
     data: { version: 2, outbox: [], cursors: {} },
   });
-  const body = (await reply.json()) as { households: { items: never[] }[] };
-  return body.households.flatMap((h) => h.items);
+  const body = (await reply.json()) as {
+    households: { items: { id: string; name: string; note: string | null }[] }[];
+  };
+  // A household that has moved holds only ciphertext (RFC 0001): what each row says is the server's, and its name and note are what this device opened of
+  // the same row.
+  const account = await accountOf(page);
+  const opened = new Map(
+    (
+      await deviceRows<{ id: string; name: string; note: string | null }>(page, account, 'item')
+    ).map((row) => [row.id, row]),
+  );
+  return body.households.flatMap((h) =>
+    h.items.map((item) => {
+      const mine = opened.get(item.id);
+      return { ...item, name: mine?.name ?? item.name, note: mine ? mine.note : item.note };
+    }),
+  ) as never[];
 }
 
-/** Makes a link to the person's own household through the operation the Share dialog will call (8.7), and returns its path and id. */
+/**
+ * Makes a link to the person's own household **through the Share dialog**, as a person does (8.7), and returns its path and id. An encrypted household's
+ * link carries its keys after `#` (RFC 0001), which only the page can make, so a test cannot ask the operation for one itself.
+ */
 export async function makeLink(page: Page, baseURL: string): Promise<{ path: string; id: string }> {
   const account = await accountOf(page);
   await expect
     .poll(async () => (await deviceRows(page, account, 'household')).length, { timeout: 15_000 })
     .toBeGreaterThan(0);
   const [household] = await deviceRows<{ id: string }>(page, account, 'household');
-  const reply = await page.request.post('/api/ops', {
+  const dialog = page.getByRole('dialog', { name: /^Share / });
+  if (!(await dialog.isVisible()))
+    await page.getByRole('button', { name: 'Share', exact: true }).last().click();
+  await dialog.getByRole('button', { name: 'Make a link' }).click();
+  const field = dialog.getByRole('textbox', { name: 'Link to share' });
+  await expect(field).toHaveValue(/\/invite\//);
+  const url = new URL(await field.inputValue());
+  await page.keyboard.press('Escape');
+  const listed = await page.request.post('/api/ops', {
     headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { op: 'invite.create', household: household?.id },
+    data: { op: 'invite.list', household: household?.id },
   });
-  expect(reply.status()).toBe(200);
-  return (await reply.json()).result as { path: string; id: string };
+  const links = ((await listed.json()).result ?? []) as { id: string; createdAt?: number }[];
+  const newest = [...links].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
+  return { path: `${url.pathname}${url.hash}`, id: newest?.id ?? '' };
+}
+
+/**
+ * Waits until every household of the page's account has moved to its device's encryption (RFC 0001), as each does once its device opens its key: a
+ * test that writes to it then does so after the move, and not in a race with it.
+ */
+export async function waitMoved(page: Page, baseURL: string): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const reply = await page.request.post(`${baseURL}/api/sync`, {
+          headers: { origin: baseURL, 'content-type': 'application/json' },
+          data: { version: 2, outbox: [], cursors: {} },
+        });
+        const body = (await reply.json()) as { households?: { encryption?: { state: string } }[] };
+        return (
+          (body.households ?? []).length > 0 &&
+          (body.households ?? []).every((h) => h.encryption?.state === 'encrypted')
+        );
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
 }

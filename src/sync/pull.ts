@@ -33,11 +33,16 @@ export async function pullHousehold(
   const view = await readHousehold(database, ring, household, accountId);
   if (!view) return undefined;
   // How its content travels, and the reader's own copy of its keys (RFC 0001): only theirs, found by their person in the same statement.
-  const state = await dbGet<{ encryption: string; epoch: number | string; record: string | null }>(
+  const state = await dbGet<{
+    encryption: string;
+    epoch: number | string;
+    record: string | null;
+    person: string | null;
+  }>(
     database,
-    sql`SELECT h.encryption, h.epoch, k.record FROM ${appTable(database, 'household')} h
-        LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id
-          AND k.person_id = (SELECT p.id FROM ${appTable(database, 'person')} p WHERE p.account_id = ${accountId})
+    sql`SELECT h.encryption, h.epoch, k.record, me.id AS person FROM ${appTable(database, 'household')} h
+        LEFT JOIN ${appTable(database, 'person')} me ON me.account_id = ${accountId}
+        LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id AND k.person_id = me.id
         WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
   );
 
@@ -92,6 +97,7 @@ export async function pullHousehold(
       state: state?.encryption === 'encrypted' ? 'encrypted' : 'plain',
       epoch: Number(state?.epoch ?? 0),
       keyring: state?.record ?? null,
+      person: state?.person ?? null,
     },
     lists: within(lists).map((row) => listOf(row, ring)),
     items: within(items).map((row) => itemOf(row, ring)),

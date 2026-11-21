@@ -37,6 +37,8 @@ export interface HouseholdPull {
     readonly state: 'plain' | 'encrypted';
     readonly epoch: number;
     readonly keyring: string | null;
+    /** The reader's own person, whom the keyring is wrapped for. */
+    readonly person: string | null;
   };
   readonly lists: readonly Record<string, unknown>[];
   readonly items: readonly Record<string, unknown>[];

@@ -97,7 +97,8 @@ export function encryptingTransport(
       .filter((pull) => pull.encryption.state === 'plain')
       .map((pull) => pull.household);
     if (plain.length > 0) onPlain?.(plain);
-    return { kind: 'ok', answer: await openAnswer(result.answer, memory, appKey, held) };
+    // The key as it is now: it may have opened while the request was on its way.
+    return { kind: 'ok', answer: await openAnswer(result.answer, memory, keys.appKey(), held) };
   };
 }
 
@@ -166,13 +167,13 @@ async function openAnswer(
       continue;
     }
     memory.markEncrypted(pull.household);
-    const self = pull.members.find((member) => member.self === true);
-    if (pull.encryption.keyring && typeof self?.personId === 'string')
-      memory.remember(pull.household, pull.encryption.keyring, self.personId);
+    if (pull.encryption.keyring && pull.encryption.person)
+      memory.remember(pull.household, pull.encryption.keyring, pull.encryption.person);
     const ring = await memory.keyring(pull.household, appKey);
-    if (!ring || held.has(pull.household)) continue;
+    if (!ring) continue;
     const opened = await openPull(ring, pull);
-    if (opened) households.push(opened);
+    // Held this round for want of its keys, which this answer brought: another round at once sends what was held, rather than at the next interval.
+    if (opened) households.push(held.has(pull.household) ? { ...opened, more: true } : opened);
   }
   return { ...answer, households };
 }

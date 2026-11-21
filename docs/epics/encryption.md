@@ -139,7 +139,7 @@ Unlock or the password (derived, then `afterSignIn`); offline it shows nothing. 
 `pnpm verify`; `pnpm test`; `pnpm e2e --project=chromium`. Left out: WebKit's run, whose browser is not installed here and was not asked for; core's
 Unlock end to end (16.16).
 
-#### 📋 18.5 — Household keys
+#### ✅ 18.5 — Household keys
 
 **Goal:** every household has a key every member holds. **Design:** RFC 0001, "The household key". **Depends on:** 18.4.
 
@@ -152,7 +152,18 @@ a past epoch; `People.deletePerson` deleting the person's records; export (20.1)
 theirs. Amendment 2 of RFC 0001: keys are made by the move (18.10's operation), each member's record wraps the keyring, and a shared household is
 not moved yet.
 
-#### 📋 18.6 — Content encrypted in sync
+**Done as (with 18.6, 18.7 and 18.10, RFC 0001 amendment 2):**
+
+- **Tables:** `household_key` (one row per member: the keyring wrapped under their own app key), with `encryption` and `epoch` on `household` (migration `0011`).
+- **The keyring and its fields** (`src/keys/household.ts`):
+  - a keyring of every epoch's key, wrapped with WebCrypto's AES-GCM, bound to person and household (16.15);
+  - fields through the SDK's `encryptBytes`, bound to household, table, row, field and epoch, written `e1.<epoch>.<row>.<ciphertext>`;
+  - the name key from the first epoch's key.
+- **Keys come with the move, not on their own:** a household's keys are made when it moves (18.10).
+- **Deletion:** `People.deletePerson` deletes a person's rows, and a household's go with it.
+- **Left out:** no new epoch is ever made (18.8).
+
+#### ✅ 18.6 — Content encrypted in sync
 
 **Goal:** names, notes and the rest leave the device only as ciphertext. **Design:** RFC 0001, "The fields", "The name key", "What changes on the
 server". **Depends on:** 18.5.
@@ -164,7 +175,28 @@ checking sizes; fold's note join moved to the first device that pulls the alias;
 **Accepts when:** the property tests of apply and fold pass with opaque values; two browsers, one offline, end with the same rows; the marker test
 (18.12) finds nothing for a household made after this task.
 
-#### 📋 18.7 — Invitations carry the key
+**Done as:**
+
+- **The server** (`src/sync/apply.ts`):
+  - keeps a moved household's content as the device sent it, in `encrypted` (field to ciphertext, merged by key, never opened);
+  - takes the name key from the device;
+  - refuses a name sent without its key;
+  - holds a mutation in the wrong form, after checking membership and authorship, with the rest of that household's mutations;
+  - carries a fold's second note on the alias (`alias.carried`, `0012`).
+- **The pull** answers each household's state, epoch, the reader's keyring record and their person. The protocol is now 2.
+- **The device** (`src/keys/transport.ts`):
+  - encrypts what it sends to a household it has seen move, and never sends that household plain text, even after a restart;
+  - opens what comes back, only for its row or one folded into it, and shows a carried note joined;
+  - leaves out a household whose keys it cannot open, so its cursor stays;
+  - takes another round when the keys arrived in the answer, using the key as it is when the answer comes.
+- **Tests:**
+  - `src/sync/encrypted.test.ts` and `src/keys/transport.test.ts`, with markers;
+  - `e2e/keys.spec.ts`: a typed name reaches the server only as ciphertext, and opens again after a reload.
+- **Left out:**
+  - a carried note is joined on display, not yet written back as one note;
+  - categories' names stay as the server holds them (starter names, or sealed), since renaming is phase 2.
+
+#### ✅ 18.7 — Invitations carry the key
 
 **Goal:** joining by a link gives the newcomer the household's key and nobody else. **Design:** RFC 0001, "Invitations". **Depends on:** 18.5, 3.4.
 
@@ -174,6 +206,19 @@ it survives signing up and core's redirect; where it is lost (an address verifie
 saying to send the link privately. Moved onto `sovereign`'s if 16.9 publishes one.
 
 **Accepts when:** journey 3 of §3 passes encrypted; a used, revoked or expired link opens nothing; no request, log or `Referer` carries the secret.
+
+**Done as:**
+
+- **On the server:**
+  - `invitation.wrapped_key` (`0013`) holds the keyring wrapped under the link's secret (`src/keys/link.ts`, `lk1.`). It is required for a moved household and refused for a sealed one.
+  - Accepting gives it to the joiner once and deletes it; revoking deletes it, and expired links' copies go when the next link is made.
+  - `household.key.mine` lets a member keep their own copy.
+- **In the browser:**
+  - The Share dialog wraps the keyring and puts the secret after `#`.
+  - `KeepLinkSecret` keeps the secret in the tab and takes it out of the address, so it survives signing up or in.
+  - The accept button needs the secret and an open key, then keeps the keyring under the joiner's own app key.
+- **Tests:** server tests for the wrapped copy; the browser tests make links through the dialog, as a person does.
+- **Left out:** a link that loses its fragment (opened in one browser, verified in another) asks to be opened again; 16.9 would make the link the SDK's.
 
 #### 📋 18.8 — Leaving and removing make a new key
 
@@ -195,7 +240,7 @@ waiting for its key; the words of `AGENTS.md` and "not yet audited"; a keyboard,
 
 **Accepts when:** each state of RFC 0001's screens is reached in a browser test.
 
-#### 📋 18.10 — Moving 0.1.0's households
+#### ✅ 18.10 — Moving 0.1.0's households
 
 **Goal:** a household sealed by the server becomes encrypted, with nothing lost. **Design:** RFC 0001, "Moving 0.1.0's households". **Depends on:**
 18.6.
@@ -206,6 +251,15 @@ and written in batches through the one path; the `sealed` content columns emptie
 
 **Accepts when:** a seeded 0.1.0 database on all three forms upgrades, every opened household is encrypted with every field equal to before, and an
 interrupted move resumes.
+
+**Done as:**
+
+- **The operation:** the move is one household-level operation, `src/keys/server/move.ts` behind `/api/keys/move`:
+  - `GET` opens a household's rows once more, for its only member;
+  - `POST` takes them back encrypted with the keyring and name keys, and writes them all in one transaction, only if its `seq` has not moved and every row is answered for, each value naming its own row.
+- **The device:** `src/keys/mover.ts` moves each household of one member once the key is open, and after any sync that saw one still sealed.
+- **What moves:** a new account's household, and a 0.1.0 one with a single member, both move on first unlock.
+- **Left out:** a shared household stays sealed (amendment 2), until 16.8 or 18.8. An interrupted move leaves nothing half done (one transaction) and is simply asked again.
 
 #### 📋 18.11 — The server seals only what it must
 

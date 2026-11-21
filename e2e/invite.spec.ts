@@ -46,7 +46,7 @@ test('a second person opens the link, makes an account, comes back to it, joins,
   await guest.getByRole('button', { name: 'Create account' }).click();
   await keepKit(guest);
   // The link survived the round trip.
-  await expect(guest).toHaveURL(link.path);
+  await expect(guest).toHaveURL(link.path.split('#')[0] ?? link.path);
   await guest.getByRole('button', { name: 'Join' }).click();
 
   // Grace lands on Ada's lists, with Ada's Milk, and ticks it.
@@ -156,7 +156,7 @@ test('someone who has an account signs in through the link and comes back to it'
   await other.page.getByLabel('Email').fill(email);
   await other.page.getByLabel('Password').fill(PASSWORD);
   await other.page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(other.page).toHaveURL(link.path);
+  await expect(other.page).toHaveURL(link.path.split('#')[0] ?? link.path);
   await expect(other.page.getByRole('button', { name: 'Join' })).toBeVisible();
   await other.context.close();
 });

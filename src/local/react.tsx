@@ -22,6 +22,9 @@ import { rememberPersistence } from './store';
 import { fetchTransport } from './transport';
 import { EncryptionMemory, encryptingTransport } from '../keys/transport';
 import { useKeys } from '../keys/keys';
+import type { Keyring } from '../keys/household';
+import { Mover } from '../keys/mover';
+import { householdsOf } from './store';
 
 /**
  * The working copy in React (DESIGN.md §12.1): `LocalProvider` opens this account's database once the page is in the browser, makes the client and starts
@@ -39,6 +42,11 @@ interface Local {
   holdFresh(): () => void;
   /** Signs out of this device: sends what is waiting, asks before losing what cannot be sent, ends the session, and deletes the working copy (§12.10). */
   leave(): Promise<Left>;
+  /**
+   * A household's keys on this device (RFC 0001): whether it has moved, and its keyring while the app key is open, for what needs it beside the sync
+   * (an invitation link carries it, `ShareDialog`).
+   */
+  keysOf(household: string): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
 }
 
 const Context = createContext<Local | null>(null);
@@ -59,10 +67,20 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
   const keys = useKeys();
   const appKeyRef = useRef<CryptoKey | undefined>(undefined);
   appKeyRef.current = keys.current.state === 'open' ? keys.current.key : undefined;
-  // Unlocked, sync at once: what the device held back goes now.
+  const memoryRef = useRef<EncryptionMemory | null>(null);
+  const moverRef = useRef<{ mover: Mover; db: LocalDatabase } | null>(null);
+  // Unlocked, sync at once (what the device held back goes now), and move each household that can move (RFC 0001), then sync it encrypted.
   useEffect(() => {
-    if (keys.current.state === 'open') syncNow.current();
-  }, [keys.current.state]);
+    if (keys.current.state !== 'open') return;
+    const key = keys.current.key;
+    syncNow.current();
+    void (async () => {
+      const held = moverRef.current;
+      if (!held) return;
+      const households = (await householdsOf(held.db)).map((each) => each.id);
+      if (await held.mover.run(households, key)) syncNow.current();
+    })();
+  }, [keys.current]);
 
   useEffect(() => {
     let stopped = false;
@@ -86,15 +104,20 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         if ((event.data as { type?: string } | null)?.type === 'left') window.location.assign('/');
       };
       channel?.addEventListener('message', onLeft);
-      // Which households have moved, and their keys while open (RFC 0001). The move itself (`src/keys/mover.ts`) runs from 18.7, once a link
-      // carries a moved household's keys to whoever joins.
+      // Which households have moved, and their keys while open (RFC 0001): one for the transport, the move and the share dialog alike.
       const memory = new EncryptionMemory(storage(), `shopper.encrypted.${accountId}`);
+      memoryRef.current = memory;
+      moverRef.current = { mover: new Mover(memory), db };
       const made = new SyncClient({
         db,
         transport: encryptingTransport(
           fetchTransport(),
           { appKey: () => appKeyRef.current },
           memory,
+          (households) =>
+            void moverRef.current?.mover
+              .run(households, appKeyRef.current)
+              .then((moved) => moved && syncNow.current()),
         ),
         channel: channel ?? undefined,
       });
@@ -187,8 +210,19 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     };
   }, []);
 
+  const keysOf = useCallback(async (household: string) => {
+    const memory = memoryRef.current;
+    if (!memory) return { encrypted: false, ring: undefined };
+    return {
+      encrypted: memory.isEncrypted(household),
+      ring: await memory.keyring(household, appKeyRef.current),
+    };
+  }, []);
+
   return (
-    <Context.Provider value={{ accountId, client, leave, holdFresh }}>{children}</Context.Provider>
+    <Context.Provider value={{ accountId, client, leave, holdFresh, keysOf }}>
+      {children}
+    </Context.Provider>
   );
 }
 

@@ -8,6 +8,7 @@ import { personOfAccount } from '../people/people';
 import { createInvite, listInvites, revokeInvite } from './invite-ops';
 import { leaveHousehold, removeMember } from './member-ops';
 import { deleteList } from './list-ops';
+import { keepOwnKeys } from '../keys/server/key-ops';
 
 /**
  * **The online operations** (DESIGN.md §12.8): households, membership, roles, invitations and moving a list are decided by the server at once, never queued
@@ -47,6 +48,7 @@ export const OPERATIONS: readonly Operation[] = [
   listInvites,
   leaveHousehold,
   removeMember,
+  keepOwnKeys,
 ];
 
 export interface Reply {

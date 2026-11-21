@@ -1,0 +1,1 @@
+ALTER TABLE `invitation` ADD `wrapped_key` text;

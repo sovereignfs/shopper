@@ -805,9 +805,9 @@ audited, and every place Shopper describes the feature says so.
   `localVault` from `/local-vault`) keeps the keys, unlocked at sign-in from the password, which never reaches the server (the browser sends the value
   it derives), and the recovery kit is shown by Shopper once after sign-up. Never decided by the instance or the viewport. `src/keys/` is one
   interface over both.
-- **A household has a key:** an SDK document key, with the household's id as the document, made in the browser of whoever makes the household (the
-  one made with every account, §7.4, on its first unlock). It is sealed to each member with `share()` and kept in `household_key`, and a device
-  opens its own record with `openShared`.
+- **A household has a keyring** (every epoch's key, 32 random bytes each), made in the browser of its only member when it **moves** (§13.7). Each
+  member keeps it **wrapped under their own app key** in `household_key` (WebCrypto's AES-GCM, `src/keys/household.ts`, until the SDK has a call,
+  16.15), which only their browser opens. Sealing it to another person with `share()` is for what core's keys allow (a new epoch, the directory).
 - **A key epoch:** when someone leaves or is removed, the next write by a remaining member's device makes a new key, sealed only to those who remain.
   Rows keep the epoch they were written under; the server refuses a write under an epoch the household has moved past. What a removed member already
   read cannot be taken back, and the household's screen says so.
@@ -830,8 +830,9 @@ those only. `docs/encryption.md` says plainly that the server can read these.
 ### 13.5 Sharing and encryption
 
 - **By a link:** the link carries a secret of 32 random bytes in its fragment (`/invite/<token>#<secret>`), which never reaches the server. The
-  inviter's browser stores the household's current key wrapped under it, beside the token's hash; the invitation page reads the fragment and removes
-  it first; accepting seals the key to the newcomer with `share()`, in the same operation, and deletes the wrapped copy. A used, revoked or expired
+  inviter's browser stores the household's keyring wrapped under it (`lk1.`, `src/keys/link.ts`), beside the token's hash; the invitation page keeps
+  the fragment in the tab and removes it from the address first; accepting gives the newcomer the wrapped copy once and deletes it, and their browser
+  keeps the keyring under their own app key (`household.key.mine`). A used, revoked or expired
   link opens nothing. Whoever holds the link can accept it, as before (§7.3).
 - **By email or from the directory** (phase 2), the link carries no fragment, since the server sends it: the newcomer joins and waits until a member's
   device seals the key to them.
@@ -847,9 +848,11 @@ those only. `docs/encryption.md` says plainly that the server can read these.
 
 ### 13.7 Moving from 0.1.0
 
-0.1.0 sealed content with the server's key. A household's first unlock by its Admin (or a member, with no Admin left) after the upgrade makes its key,
-pulls its rows (which the server opens one last time, for that household's members), encrypts them, and writes them through the one path; the server
-empties the old sealed content with the last batch. A household never opened stays sealed by the server until it is.
+**Every household starts as the server seals it** (0.1.0's, and the one made with each new account), and **moves** once its device has the key (RFC 0001,
+amendment 2): `GET /api/keys/move` opens its rows one last time for its **only** member, the device makes the keyring and encrypts every row for
+itself, and `POST` writes them all, empties the sealed content, keeps the keyring and marks the household encrypted, in one transaction, only if its
+`seq` has not moved. **A household with more than one member is not moved yet** (its other members could not be given its keys until 16.8, or core's
+token store, 18.8): it stays sealed by the server, and loses nothing. A household never opened stays sealed until it is.
 
 ## 14. Notices (phase 2)
 

@@ -104,6 +104,12 @@ export const ACCESS: readonly Access[] = [
     note: 'Before sign-in: a 0.1.0 password moved once to a hash of its derived value, if the password opens the stored hash. Same origin only, rate limited by address, always 204.',
   },
   {
+    kind: 'operation',
+    address: 'household.key.mine',
+    who: 'member',
+    note: 'A member keeps their own copy of a moved household’s keys, wrapped under their own app key; only their own row, only an encrypted household.',
+  },
+  {
     kind: 'route',
     address: '/api/keys/move',
     who: 'signed-in',

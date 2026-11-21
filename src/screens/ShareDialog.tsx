@@ -7,6 +7,7 @@ import { useLocal } from '../local/react';
 import { callOperation } from '../local/ops';
 import type { MemberRow } from '../local/rows';
 import styles from './ShareDialog.module.css';
+import { newLinkSecret, wrapForLink } from '../keys/link';
 
 type Found = Extract<ListData, { found: true }>;
 
@@ -30,7 +31,7 @@ const day = (at: number): string =>
  * says so when there is no network, changing nothing.
  */
 export function ShareDialog({ data, onClose }: { data: Found; onClose: () => void }) {
-  const { client } = useLocal();
+  const { client, keysOf } = useLocal();
   const { household, members, me } = data;
   const admin = household.role === 'admin';
   const [links, setLinks] = useState<Link[] | null>(null);
@@ -63,11 +64,32 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
   async function invite() {
     setBusy(true);
     setMessage(null);
-    const answer = await callOperation({ op: 'invite.create', household: household.id });
+    // An encrypted household's link carries its keys (RFC 0001): wrapped under a secret that goes in the link after `#`, which no browser sends.
+    const keys = await keysOf(household.id);
+    let secret: string | undefined;
+    let wrappedKey: string | undefined;
+    if (keys.encrypted) {
+      if (!keys.ring) {
+        setBusy(false);
+        return setMessage(
+          'Unlock Shopper first: this household is encrypted, and its link carries its keys.',
+        );
+      }
+      secret = newLinkSecret();
+      wrappedKey = await wrapForLink(keys.ring, secret, household.id);
+    }
+    const answer = await callOperation({
+      op: 'invite.create',
+      household: household.id,
+      ...(wrappedKey ? { wrappedKey } : {}),
+    });
     setBusy(false);
     if (!answer.ok) return setMessage(answer.message);
     const made = answer.result as { path: string; expiresAt: number };
-    setFresh({ url: `${window.location.origin}${made.path}`, expiresAt: made.expiresAt });
+    setFresh({
+      url: `${window.location.origin}${made.path}${secret ? `#${secret}` : ''}`,
+      expiresAt: made.expiresAt,
+    });
     void load();
   }
 

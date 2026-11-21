@@ -102,6 +102,9 @@ export const invitation = sqliteTable(
     id: id('id'),
     householdId: ref('household_id').notNull(),
     tokenHash: ref('token_hash').notNull(),
+    // A moved household's keyring, wrapped under the secret in the link's fragment, which the server never sees (RFC 0001). Gone on accept or
+    // revoke.
+    wrappedKey: text('wrapped_key'),
     createdBy: ref('created_by').notNull(),
     createdAt: epochMs('created_at').notNull(),
     expiresAt: epochMs('expires_at').notNull(),

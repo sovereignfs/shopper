@@ -49,17 +49,43 @@ export type Made =
  */
 export async function createInvitation(
   database: Database,
-  input: { household: string; accountId: string; personId: string; now: number },
+  input: {
+    household: string;
+    accountId: string;
+    personId: string;
+    now: number;
+    /** A moved household's keyring, wrapped by the inviter's browser under the link's secret (RFC 0001); none for a household still sealed. */
+    wrappedKey?: string | undefined;
+  },
 ): Promise<Made> {
-  const { household, accountId, personId, now } = input;
+  const { household, accountId, personId, now, wrappedKey } = input;
+  // What expired links held of a household's keys goes, so that nothing waits on the server for a link nobody can use.
+  await dbAll(
+    database,
+    sql`UPDATE ${appTable(database, 'invitation')} SET wrapped_key = NULL
+        WHERE household_id = ${household} AND wrapped_key IS NOT NULL AND expires_at <= ${now} RETURNING id`,
+  );
+  // A moved household's link carries its keys, or whoever joins could open none of it; a sealed one's carries none.
+  const state = await dbGet<{ encryption: string }>(
+    database,
+    sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${household} AND ${memberOf(database, household, accountId)}`,
+  );
+  if (state && (state.encryption === 'encrypted') !== (wrappedKey !== undefined))
+    return {
+      ok: false,
+      refused:
+        state.encryption === 'encrypted'
+          ? 'This household is encrypted, and this page could not give the link its keys. Reload it and try again.'
+          : 'This household is not encrypted yet: reload the page and try again.',
+    };
   const id = crypto.randomUUID();
   const token = newToken();
   const expiresAt = now + INVITATION_TTL_MS;
   const table = appTable(database, 'invitation');
   const made = await dbAll<{ id: string }>(
     database,
-    sql`INSERT INTO ${table} (id, household_id, token_hash, created_by, created_at, expires_at)
-        SELECT ${id}, ${household}, ${hashToken(token)}, ${personId}, CAST(${now} AS BIGINT), CAST(${expiresAt} AS BIGINT)
+    sql`INSERT INTO ${table} (id, household_id, token_hash, created_by, created_at, expires_at, wrapped_key)
+        SELECT ${id}, ${household}, ${hashToken(token)}, ${personId}, CAST(${now} AS BIGINT), CAST(${expiresAt} AS BIGINT), ${wrappedKey ?? null}
         WHERE ${memberOf(database, household, accountId)}
           AND (SELECT COUNT(*) FROM ${table} WHERE household_id = ${household} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}) < ${MAX_LIVE_INVITATIONS}
         RETURNING id`,
@@ -87,7 +113,7 @@ export async function revokeInvitation(
   const table = appTable(database, 'invitation');
   const done = await dbAll<{ id: string }>(
     database,
-    sql`UPDATE ${table} SET revoked_at = ${now}
+    sql`UPDATE ${table} SET revoked_at = ${now}, wrapped_key = NULL
         WHERE id = ${invitation} AND household_id = ${household}
           AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
           AND ${memberOf(database, household, accountId)}
@@ -150,6 +176,8 @@ export interface Preview {
   /** The household as it is called to someone outside it: "Kasun's lists" (DESIGN.md §7.4). */
   readonly household: string;
   readonly invitedBy: string;
+  /** Whether the household has moved (RFC 0001): then joining needs the link whole, its secret after `#` included. */
+  readonly encrypted: boolean;
 }
 
 /**
@@ -171,9 +199,10 @@ export async function previewInvitation(
     household_id: string;
     own_of: string | null;
     sealed: string | null;
+    encryption: string;
   }>(
     database,
-    sql`SELECT i.token_hash, i.created_by, i.household_id, h.own_of, h.sealed
+    sql`SELECT i.token_hash, i.created_by, i.household_id, h.own_of, h.sealed, h.encryption
         FROM ${table} i JOIN ${appTable(database, 'household')} h ON h.id = i.household_id
         WHERE i.token_hash = ${hash} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}`,
   );
@@ -187,11 +216,18 @@ export async function previewInvitation(
   return {
     household: householdLabel({ name, viewerIsOwner: false, ownerName: owner?.name ?? null }),
     invitedBy: inviter?.name ?? '',
+    encrypted: row.encryption === 'encrypted',
   };
 }
 
 export type Accepted =
-  | { readonly status: 'joined'; readonly household: string }
+  | {
+      readonly status: 'joined';
+      readonly household: string;
+      /** The person who joined, and a moved household's keyring as the link wrapped it, given once and then gone (RFC 0001). */
+      readonly person: string;
+      readonly wrappedKey: string | null;
+    }
   /** The person is already in the household: nothing changed, and the link is still unused. */
   | { readonly status: 'already'; readonly household: string }
   /** Unknown, expired, used or revoked: one answer. */
@@ -225,9 +261,15 @@ export async function acceptInvitation(
       if (!person) throw new Invalid();
       const invitation = appTable(tx, 'invitation');
       const member = appTable(tx, 'member');
+      // What the link carries of the household's keys is read before the claim empties it: given to the one who joins, and to nobody after.
+      const carried = await dbGet<{ wrapped_key: string | null }>(
+        tx,
+        sql`SELECT wrapped_key FROM ${invitation}
+            WHERE token_hash = ${hash} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}`,
+      );
       const claimed = await dbGet<{ household_id: string; token_hash: string }>(
         tx,
-        sql`UPDATE ${invitation} SET accepted_by = ${person.id}, accepted_at = ${now}
+        sql`UPDATE ${invitation} SET accepted_by = ${person.id}, accepted_at = ${now}, wrapped_key = NULL
             WHERE token_hash = ${hash} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
             RETURNING household_id, token_hash`,
       );
@@ -268,7 +310,12 @@ export async function acceptInvitation(
             : limitSentence('accountHouseholds', limits.accountHouseholds),
         );
       }
-      return { status: 'joined' as const, household };
+      return {
+        status: 'joined' as const,
+        household,
+        person: person.id,
+        wrappedKey: carried?.wrapped_key ?? null,
+      };
     });
   } catch (error) {
     if (error instanceof Invalid) return { status: 'invalid' };

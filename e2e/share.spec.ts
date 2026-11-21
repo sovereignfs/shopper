@@ -36,7 +36,7 @@ async function linkFrom(page: Page): Promise<string> {
   await openShare(page);
   await dialog(page).getByRole('button', { name: 'Make a link' }).click();
   const url = await dialog(page).getByRole('textbox', { name: 'Link to share' }).inputValue();
-  expect(url).toMatch(/\/invite\/[A-Za-z0-9_-]{43}$/);
+  expect(url).toMatch(/\/invite\/[A-Za-z0-9_-]{43}(#[A-Za-z0-9_-]{43})?$/);
   return url;
 }
 

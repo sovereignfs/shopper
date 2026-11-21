@@ -7,6 +7,9 @@ import { getDatabase } from '@/src/db/boot';
 import { previewInvitation } from '@/src/households/invitations';
 import { RateLimiter } from '@/src/limits/rate';
 import { AcceptInvite } from '@/src/screens/AcceptInvite';
+import { KeepLinkSecret } from '@/src/keys/KeepLinkSecret';
+import { KeysProvider, type PageKeySource } from '@/src/keys/keys';
+import { keySourceOf } from '@/src/keys/server/source';
 import { AuthLink } from '@sovereignfs/ui';
 
 export const dynamic = 'force-dynamic';
@@ -40,12 +43,24 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     );
 
   const lead = `${preview.invitedBy ? `${preview.invitedBy} invited you` : 'You are invited'} to shop together. You will see and edit every list in ${preview.household}.`;
-  if (await getSession())
+  const session = await getSession();
+  if (session) {
+    const found = await keySourceOf(session.user.id);
+    const source: PageKeySource | undefined =
+      found?.kind === 'vault'
+        ? { kind: 'vault', vaultId: found.vaultId, email: session.user.email }
+        : found?.kind === 'core'
+          ? { kind: 'core', core: found.core, clientId: found.clientId, returnTo: found.returnTo }
+          : undefined;
     return (
       <AuthShell title={`Join ${preview.household}`} lead={lead}>
-        <AcceptInvite token={token} />
+        <KeepLinkSecret token={token} />
+        <KeysProvider source={source}>
+          <AcceptInvite token={token} encrypted={preview.encrypted} />
+        </KeysProvider>
       </AuthShell>
     );
+  }
 
   const next = encodeURIComponent(`/invite/${token}`);
   const settings = authSettings();
@@ -64,6 +79,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         )
       }
     >
+      <KeepLinkSecret token={token} />
       {settings ? (
         <p>
           <AuthLink href={`/sign-in?next=${next}`}>Sign in</AuthLink>

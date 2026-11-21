@@ -74,16 +74,20 @@ export async function applyMutation(
     typeof householdId === 'string'
       ? await dbGet<{ encryption: string }>(
           database,
-          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId}`,
+          // Only a member learns how a household's content travels: for anyone else it is plain, and the mutation reads as not found (§5.2).
+          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId} AND ${memberOf(database, householdId, accountId)}`,
         )
       : undefined;
   const mode: ContentMode = state?.encryption === 'encrypted' ? 'encrypted' : 'plain';
-  const verdict = validateMutation(input, mode);
+  let verdict = validateMutation(input, mode);
+  // Good in the other form: the household moved under the device. What it says is still checked as the sender's (`run`), and then it is held.
+  let sent = mode;
   if (!verdict.ok) {
-    // Good in the other form: the household moved under the device, which sends it again.
-    if (validateMutation(input, mode === 'plain' ? 'encrypted' : 'plain').ok)
-      return { status: 'held' };
-    return refused(invalid(verdict.problem));
+    const other: ContentMode = mode === 'plain' ? 'encrypted' : 'plain';
+    const again = validateMutation(input, other);
+    if (!again.ok) return refused(invalid(verdict.problem));
+    verdict = again;
+    sent = other;
   }
   const mutation = verdict.mutation;
 
@@ -96,7 +100,7 @@ export async function applyMutation(
 
   try {
     return await transaction(database, async (tx) =>
-      run({ ...deps, database: tx, mode }, accountId, mutation, now),
+      run({ ...deps, database: tx, mode: sent }, accountId, mutation, now),
     );
   } catch (error) {
     if (error instanceof Held) return { status: 'held' };
@@ -131,9 +135,10 @@ async function run(
         WHERE id = ${mutation.householdId} AND ${memberOf(database, mutation.householdId, accountId)} RETURNING seq, encryption`,
   );
   if (!stepped) throw notFound();
-  // It moved between the check and this statement: the whole mutation waits for the device to send it again (and this transaction rolls back).
-  if ((stepped.encryption === 'encrypted' ? 'encrypted' : 'plain') !== (deps.mode ?? 'plain'))
-    throw new Held();
+  // It moved between the check and this statement, or was sent in the other form: the whole mutation waits for the device to send it again (and this
+  // transaction rolls back), once what it says is the sender's to say.
+  const moved =
+    (stepped.encryption === 'encrypted' ? 'encrypted' : 'plain') !== (deps.mode ?? 'plain');
   const seq = Number(stepped.seq);
 
   const changed: Changed[] = [];
@@ -147,6 +152,7 @@ async function run(
       target === raw.id ? raw : { table: raw.table, id: target, fields: raw.fields };
     // Who did it is the sender: checked on what the device sent, and not on what the server itself writes when it folds two rows into one.
     await checkAuthorship(deps, spec, mutation.householdId, accountId, change);
+    if (moved) throw new Held();
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
     if (outcome.fold) folds.push(outcome.fold);
     for (const id of outcome.written) changed.push({ table: change.table, id });

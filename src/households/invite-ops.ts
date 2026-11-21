@@ -11,9 +11,22 @@ import type { Operation } from './ops';
 export const createInvite: Operation = {
   name: 'invite.create',
   who: 'member',
-  input: z.object({}),
-  async run({ database, accountId, personId, household, now }) {
-    const made = await createInvitation(database, { household, accountId, personId, now });
+  input: z.object({
+    // A moved household's keyring, wrapped under the link's secret by the inviter's browser (RFC 0001).
+    wrappedKey: z
+      .string()
+      .regex(/^lk1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+      .max(8192)
+      .optional(),
+  }),
+  async run({ database, accountId, personId, household, now }, input) {
+    const made = await createInvitation(database, {
+      household,
+      accountId,
+      personId,
+      now,
+      wrappedKey: typeof input.wrappedKey === 'string' ? input.wrappedKey : undefined,
+    });
     if (!made.ok) return { ok: false as const, refused: made.refused };
     return {
       ok: true as const,

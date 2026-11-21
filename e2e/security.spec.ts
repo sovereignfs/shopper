@@ -53,7 +53,12 @@ const mutation = (
       table: 'product',
       id: ids.product,
       create: true,
-      fields: { name: `Probe ${ids.item.slice(0, 4)}`, createdAt: 1, lastAddedAt: 1 },
+      fields: {
+        name: sealedShape(ids.product),
+        nameKey: `n2.${ids.product.replace(/-/g, '').padEnd(43, 'A').slice(0, 43)}`,
+        createdAt: 1,
+        lastAddedAt: 1,
+      },
     },
     {
       table: 'item',
@@ -62,7 +67,7 @@ const mutation = (
       fields: {
         listId: list,
         productId: ids.product,
-        name: 'Probe',
+        name: sealedShape(ids.item),
         quantity: '1',
         unit: null,
         note: null,
@@ -81,10 +86,31 @@ const sync = async (page: Page, base: string, outbox: unknown[]) =>
     refused: { reason: string }[];
   };
 
+/**
+ * A value of the shape a device sends for an encrypted field of `row` (RFC 0001). These tests are of who may write what, which the server decides
+ * without opening anything: it checks the shape, and the probes are never read by a page.
+ */
+const sealedShape = (row: string) => `e1.1.${row}.${'A'.repeat(24)}`;
+
+/** Every household of the page's account has moved, as each does once its device has opened its key: the probes are written for a moved household. */
+async function moved(page: Page, base: string) {
+  await expect
+    .poll(
+      async () =>
+        (await pull(page, base)).households.every(
+          (h) => (h as { encryption?: { state: string } }).encryption?.state === 'encrypted',
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+}
+
 async function twoPeople(page: Page, browser: Parameters<typeof anotherDevice>[0], base: string) {
   await signUp(page, { name: 'Ada' });
   const eve = await anotherDevice(browser, base);
   await signUp(eve.page, { name: 'Eve' });
+  await moved(page, base);
+  await moved(eve.page, base);
   const ada = (await pull(page, base)).households[0]!;
   const eves = (await pull(eve.page, base)).households[0]!;
   return {
@@ -148,7 +174,7 @@ test('a member cannot put another member’s name on what they add or tick', asy
   ]);
   const link = await makeLink(page, base);
   const accepted = await post(eve.page, base, '/api/invite/accept', {
-    token: link.path.split('/').pop(),
+    token: link.path.split('#')[0]?.split('/').pop(),
   });
   expect((await accepted.json()).status).toBe('joined');
 

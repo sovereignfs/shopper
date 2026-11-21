@@ -1,0 +1,1 @@
+ALTER TABLE "shopper"."invitation" ADD COLUMN "wrapped_key" text;

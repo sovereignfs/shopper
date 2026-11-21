@@ -10,7 +10,7 @@ import {
   type Someone,
 } from '../access/test-support';
 import type { Database } from '../db/client';
-import { dbAll } from '../db/exec';
+import { dbAll, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
@@ -88,7 +88,12 @@ describe(`invitations by link (${leg})`, () => {
     const grace = await somebody(database, 'Grace2');
     const lin = await somebody(database, 'Lin2');
     const { token } = await make(ada);
-    expect(await accept(grace, token)).toEqual({ status: 'joined', household: ada.household });
+    expect(await accept(grace, token)).toEqual({
+      status: 'joined',
+      household: ada.household,
+      person: grace.personId,
+      wrappedKey: null,
+    });
     const members = await membersOf(database, TEST_RING, ada.household, ada.accountId);
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Ada2', 'admin'],
@@ -109,6 +114,7 @@ describe(`invitations by link (${leg})`, () => {
     expect(await previewInvitation(database, TEST_RING, live.token, NOW + 1)).toEqual({
       household: 'Ada3’s lists',
       invitedBy: 'Ada3',
+      encrypted: false,
     });
     const expired = await make(ada, ada.household, NOW - INVITATION_TTL_MS - 1);
     const revoked = await make(ada);
@@ -354,5 +360,70 @@ describe(`the operations, as a second person (${leg})`, () => {
     expect(
       await callAs(database, OPERATIONS, eve, { op: 'invite.list', household: ada.household }),
     ).toEqual(NOT_FOUND);
+  });
+});
+
+describe(`a link to an encrypted household (${testTarget().leg})`, () => {
+  const WRAPPED = 'lk1.AAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBB';
+  const encrypt = (who: Someone) =>
+    dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${who.household}`,
+    );
+
+  it('must carry the household’s keys, wrapped, and a sealed household’s must not', async () => {
+    const ada = await somebody(database, 'Ada');
+    const sealedLink = await createInvitation(database, {
+      household: ada.household,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+      wrappedKey: WRAPPED,
+    });
+    expect(sealedLink.ok).toBe(false);
+    await encrypt(ada);
+    const bare = await createInvitation(database, {
+      household: ada.household,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+    });
+    expect(bare.ok).toBe(false);
+  });
+
+  it('gives the wrapped keys to the one who joins, once, and keeps none of them after; a revoked link keeps none either', async () => {
+    const ada = await somebody(database, 'Ada');
+    const grace = await somebody(database, 'Grace');
+    await encrypt(ada);
+    const made = await createInvitation(database, {
+      household: ada.household,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+      wrappedKey: WRAPPED,
+    });
+    if (!made.ok) throw new Error(made.refused);
+    expect(await accept(grace, made.token)).toMatchObject({
+      status: 'joined',
+      wrappedKey: WRAPPED,
+    });
+    expect((await rows(sql`id = ${made.id}`))[0]?.wrapped_key).toBeNull();
+
+    const other = await createInvitation(database, {
+      household: ada.household,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+      wrappedKey: WRAPPED,
+    });
+    if (!other.ok) throw new Error(other.refused);
+    await revokeInvitation(database, {
+      household: ada.household,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      invitation: other.id,
+      now: NOW + 1,
+    });
+    expect((await rows(sql`id = ${other.id}`))[0]?.wrapped_key).toBeNull();
   });
 });
