@@ -9,3 +9,4 @@ built, `DESIGN.md` says what Shopper does, and an RFC records why.
 | [0001](0001-encryption-the-server-cannot-read.md) | Encryption the server cannot read, the suite's way | Accepted on 2026-11-21; being built |
 | [0002](0002-web-push.md)                          | Web Push, the suite's way                          | Accepted on 2026-11-21; being built |
 | [0003](0003-exports-and-backups.md)               | Exports and backups, the suite's way               | Accepted on 2026-11-21; being built |
+| [0004](0004-lists-of-their-own.md)                | Lists of their own                                 | Accepted on 2026-11-21; being built |
