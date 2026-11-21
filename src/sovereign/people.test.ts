@@ -227,7 +227,8 @@ describe(`deleting a person (${leg})`, () => {
       app,
       sql`SELECT * FROM ${appTable(app, 'person')} WHERE id = ${ada.personId}`,
     );
-    expect(JSON.stringify(raw)).not.toContain('ada');
+    // Not the address, in plain text (a word like `ada` alone can be in a random id).
+    expect(JSON.stringify(raw).toLowerCase()).not.toContain(ada.email.toLowerCase());
     expect(raw[0]?.core_sub).toBeNull();
     expect(await householdsOf(app, TEST_RING, ada.accountId)).toEqual([]);
     expect(
