@@ -6,13 +6,24 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
-## [0.2.0] - 2026-11-18
+## [0.2.0] - 2026-11-21
 
 ### Added
 
 - Opened from Sovereign's launcher, or from any link to it, an installed Shopper now opens as itself on desktop Chrome and Edge and on Android Chrome, on the page the link names, rather than in a browser view. On an iPhone, an iPad and in Safari the link opens a browser view, as before.
 - Added to an iPhone's Home Screen from Safari, it opens as an app without Safari's bars, under its own name.
 - The bar around an installed Shopper takes the page's own colour in light and in dark, as the suite's other apps do.
+
+### Changed
+
+- Shopper's service worker is now the one every app of the suite runs (`@sovereignfs/pwa`). With no connection, a page that is not kept on the device
+  says it needs one from inside Shopper, and a page that takes more than eight seconds to load opens from what is kept. What is kept is unchanged:
+  never anything of a person.
+- Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted, and declares manifest 5.
+
+### For developers
+
+- `pnpm dev` no longer writes into `AGENTS.md`, and the README says how to make a `.env` that starts the app on a SQLite file.
 
 ## [0.1.0] - 2026-11-11
 
@@ -35,4 +46,5 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 - The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
 - On a list, only the checkbox ticks an item: a tap anywhere else on its row does nothing. Shopping mode is unchanged, and still ticks from anywhere on the row.
 
+[0.2.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.1.0

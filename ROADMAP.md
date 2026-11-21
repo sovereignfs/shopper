@@ -164,7 +164,7 @@ account-deleted notice removes everything personal.
 | 46  | [1.10](docs/epics/foundation.md) | The image and deployment setups           | P2       | 1.5, 1.6           | ✅     |
 | 47  | [12.3](docs/epics/release.md)    | Documents                                 | P2       | 1.10               | ✅     |
 | 48  | [12.2](docs/epics/release.md)    | Security review                           | P2       | 2.4, 3.5, 6.3, 7.3 | ✅     |
-| 49  | [12.4](docs/epics/release.md)    | Release 0.1.0                             | P2       | 12.2, 12.3         | 📋     |
+| 49  | [12.4](docs/epics/release.md)    | Release 0.1.0                             | P2       | 12.2, 12.3         | ✅     |
 | 50  | [12.5](docs/epics/release.md)    | Hosting on an instance                    | P2       | 12.4               | 📋     |
 | 51  | [16.2](docs/epics/upstream.md)   | Shopper's port in the guide (`sovereign`) | P3       | —                  | 📋     |
 
@@ -185,7 +185,7 @@ person sees has changed.
 | 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                                  | P2       | 17.1       | ⏳     |
 | 55  | [17.5](docs/epics/alignment.md) | Sign-in on `@sovereignfs/auth`                                   | P0       | 17.3, 17.1 | 📋     |
 | 56  | [16.13](docs/epics/upstream.md) | A SQLite and sqld database for `@sovereignfs/auth` (`sovereign`) | P3       | —          | 📋     |
-| 57  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                               | P2       | —          | 📋     |
+| 57  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                               | P2       | —          | ✅     |
 | 58  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)                  | P3       | —          | 📋     |
 | 59  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`)              | P2       | —          | 📋     |
 
@@ -242,7 +242,7 @@ take theirs, and an export imports into a second account.
 | 81  | [18.12](docs/epics/encryption.md) | The marker test and the review | P0       | 18.6–18.11, 19.2, 20.4   | 📋     |
 | 82  | [12.7](docs/epics/release.md)     | The release of workstream 0001 | P2       | Milestones R to U, 18.12 | 📋     |
 
-## Phase 2 — households, trips and the rest (0.2.0)
+## Phase 2 — households, trips and the rest
 
 What `DESIGN.md` §2.2 leaves out of 0.1.0, built after workstream 0001 (12.7). The milestones are in the order that gets the most to people first; the order within a milestone is
 recommended, and a milestone can start when its dependencies are met. Detailed at the start of phase 2, after 0.1.0.
@@ -325,19 +325,19 @@ directory, and a plugin export imports (a person's households round-trip through
 | 119 | [11.2](docs/epics/portability.md) | Import (superseded by 20.4)       | P2       | 11.1       | ➖     |
 | 120 | [11.3](docs/epics/portability.md) | Import from the plugin            | P2       | 20.4, 4.8  | 📋     |
 
-### Milestone O — Release 0.2.0
+### Milestone O — The release of phase 2
 
-**Done when** 0.2.0 is published and hosted.
+**Done when** phase 2's release is published and hosted.
 
-| #   | ID                            | Task          | Priority | Depends on              | Status |
-| --- | ----------------------------- | ------------- | -------- | ----------------------- | ------ |
-| 121 | [12.6](docs/epics/release.md) | Release 0.2.0 | P2       | 12.7, Milestones J to N | 📋     |
+| #   | ID                            | Task              | Priority | Depends on              | Status |
+| --- | ----------------------------- | ----------------- | -------- | ----------------------- | ------ |
+| 121 | [12.6](docs/epics/release.md) | Phase 2's release | P2       | 12.7, Milestones J to N | 📋     |
 
-## Phase 3 — the pantry and routines (0.3.0)
+## Phase 3 — the pantry and routines
 
 ### Milestone P — Pantry, routines, shops and insights
 
-`DESIGN.md` §22.2. **Done when** 0.3.0 is published: a household keeps a pantry with low points, staples, repeating items and templates; shops have
+`DESIGN.md` §22.2. **Done when** phase 3's release is published: a household keeps a pantry with low points, staples, repeating items and templates; shops have
 their own learned aisle order; insights have charts.
 
 | #   | ID                             | Task                                       | Priority | Depends on | Status |
@@ -351,13 +351,13 @@ their own learned aisle order; insights have charts.
 | 128 | [16.6](docs/epics/upstream.md) | Charts (`sovereign`)                       | P1       | —          | 📋     |
 | 129 | [13.7](docs/epics/pantry.md)   | Insights                                   | P1       | 13.6, 16.6 | 📋     |
 | 130 | [13.8](docs/epics/pantry.md)   | Push notifications (superseded by epic 19) | P2       | 12.6       | ➖     |
-| 131 | [13.9](docs/epics/pantry.md)   | Release 0.3.0                              | P2       | 13.1–13.7  | 📋     |
+| 131 | [13.9](docs/epics/pantry.md)   | Phase 3's release                          | P2       | 13.1–13.7  | 📋     |
 
-## Phase 4 — capture (0.4.0)
+## Phase 4 — capture
 
 ### Milestone Q — Barcodes, photos and receipts
 
-`DESIGN.md` §22.3. **Done when** 0.4.0 is published: scanning a barcode in a shop finds or makes a product with no network needed for a known one, and
+`DESIGN.md` §22.3. **Done when** phase 4's release is published: scanning a barcode in a shop finds or makes a product with no network needed for a known one, and
 photos and receipts are stored sealed by Shopper itself.
 
 | #   | ID                            | Task                         | Priority | Depends on | Status |
@@ -367,7 +367,7 @@ photos and receipts are stored sealed by Shopper itself.
 | 134 | [14.3](docs/epics/capture.md) | The media store              | P1       | 13.9       | 📋     |
 | 135 | [14.4](docs/epics/capture.md) | Photos on products and items | P2       | 14.3       | 📋     |
 | 136 | [14.5](docs/epics/capture.md) | Receipts on trips            | P1       | 14.3       | 📋     |
-| 137 | [14.6](docs/epics/capture.md) | Release 0.4.0                | P2       | 14.1–14.5  | 📋     |
+| 137 | [14.6](docs/epics/capture.md) | Phase 4's release            | P2       | 14.1–14.5  | 📋     |
 
 ## Later — candidates
 

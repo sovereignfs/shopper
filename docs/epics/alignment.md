@@ -81,7 +81,7 @@ text). An ADR in `docs/adrs/` records the choice; moving, if chosen, is its own 
 18.2, wrapping its own database in the package's `Database` shape until `sovereign` publishes one for SQLite and sqld (16.13), and keeping the key
 secret with its session until 16.10. Workstream 0001 follows it; the task is done when the owner accepts the ADR or replaces it.
 
-#### 📋 17.4 — Stale lines and the settings table
+#### ✅ 17.4 — Stale lines and the settings table
 
 **Goal:** the documents true again, and §20.3's `account_settings` table built. **Design:** §20.3. **Depends on:** nothing.
 
@@ -90,6 +90,14 @@ secret with its session until 16.10. Workstream 0001 follows it; the task is don
 dialects, handled by `People.deletePerson`, with its test.
 
 **Accepts when:** no document contradicts another on these points, and the table round-trips on all three databases.
+
+**Done as:** the owner's question about `0.2.0` was settled by the suite's rule, synced in 17.1, that the version follows the change: **phases carry no
+version** (§2, §22, the roadmap, the epics, `docs/sharing.md`; a §26 row), and `0.2.0`, not yet released, is what `develop` holds, with leg 1's
+changes added to its section and its link line. `DESIGN.md`'s status line says what is built; 12.4 is marked done (v0.1.0 was released on
+2026-11-11). 12.5 is left planned: whether Shopper is hosted on the live instance is not known from here. §26's push rows were already covered by its
+own note on 2026-11-09's phase numbers, and four rows for 2026-11-21 are added. `account_settings` is on both dialects (migration
+`0010_account_settings`), deleted by `People.deletePerson` and in its every-table test, which was seen to fail before the deletion was added.
+Nothing writes or reads it yet, and §16.3 says so. Verified: `pnpm test src/sovereign/people.test.ts`; `pnpm verify`.
 
 #### 📋 17.5 — Sign-in on `@sovereignfs/auth`
 

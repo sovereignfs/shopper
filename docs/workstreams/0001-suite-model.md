@@ -1,6 +1,6 @@
 # Workstream 0001 — Shopper on the suite's encryption, push and exports
 
-**Status:** 📋 Planned\
+**Status:** ⏳ In Progress (leg 1 done, but for the owner's acceptance of ADR 0001)\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\

@@ -89,7 +89,11 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
           WHERE created_by = ${person.id} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
     );
 
-  // 3. What was kept for them: the record of the mutations they sent, and the rate counters that carry their account.
+  // 3. What was kept for them: their settings, the record of the mutations they sent, and the rate counters that carry their account.
+  await dbAll(
+    database,
+    sql`DELETE FROM ${appTable(database, 'account_settings')} WHERE account_id = ${accountId} RETURNING account_id`,
+  );
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'applied_mutation')} WHERE account_id = ${accountId} RETURNING id`,

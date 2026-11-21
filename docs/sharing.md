@@ -6,7 +6,7 @@
 made with it and shown to you as _My lists_ (and to the people in it as "Ada's lists"). You share by inviting people into it.
 
 To keep a list private beside shared ones you would make a second household and move the list into it. **0.1.0 cannot do that yet** (several households, naming them and
-moving a list between them arrive in 0.2.0).
+moving a list between them arrive in phase 2).
 
 ## Inviting
 
@@ -23,7 +23,7 @@ _Share_, on a list and under a household in the sidebar, opens the sharing dialo
 
 - The person whose household it is, and who made it, is its **Admin**. Everyone who joins is a **Member**. There is no read-only role.
 - **Members and the Admin** can do everything to do with shopping: make, rename, reorder, archive and restore lists; add, edit, tick and delete items; invite; leave.
-- **Only the Admin** can remove a member, revoke someone else's link, and delete a list for good. **The Admin cannot leave** their household: nobody could take it over (passing the role arrives with 0.2.0).
+- **Only the Admin** can remove a member, revoke someone else's link, and delete a list for good. **The Admin cannot leave** their household: nobody could take it over (passing the role arrives in phase 2).
 - **What a person added stays when they leave or are removed**, under their name, shown as "added by Sam (left)". It is never deleted with them.
 - **Deleting your account** removes everything personal of yours: your sign-in, your email, your sessions. A household you were the only person in is deleted; one with others in it goes on, with the Admin role passed to
   whoever had been in longest. Your name stays on what you added.

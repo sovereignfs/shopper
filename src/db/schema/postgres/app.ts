@@ -279,3 +279,16 @@ export const item = app.table(
     index('item_list_idx').on(table.listId),
   ],
 );
+
+/**
+ * What an account keeps for itself on the server (DESIGN.md §20.3), one row an account: the last list it used, so that a new device can start there
+ * (§16.3), and when it last looked at its notices (phase 2). `account_id` is better-auth's user id, by value. Deleted with the person
+ * (`People.deletePerson`).
+ */
+export const accountSettings = app.table('account_settings', {
+  accountId: id('account_id'),
+  lastListId: ref('last_list_id'),
+  inboxSeenAt: epochMs('inbox_seen_at'),
+  createdAt: epochMs('created_at').notNull(),
+  updatedAt: epochMs('updated_at').notNull(),
+});

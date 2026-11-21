@@ -39,6 +39,7 @@ const DECIDED_APP: Record<string, string> = {
   product:
     'a household’s, deleted with it; what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',
+  account_settings: 'the account’s own, deleted by account_id',
 };
 const DECIDED_AUTH: Record<string, string> = {
   user: 'deleted',
@@ -100,6 +101,10 @@ async function seedAuth(person: Someone) {
   await dbRun(
     app,
     sql`INSERT INTO ${appTable(app, 'rate_bucket')} ("key", window_start, "count") VALUES (${`delete-account:${person.accountId}`}, ${now}, 1)`,
+  );
+  await dbRun(
+    app,
+    sql`INSERT INTO ${appTable(app, 'account_settings')} (account_id, last_list_id, created_at, updated_at) VALUES (${person.accountId}, ${'l-' + person.accountId}, ${now}, ${now})`,
   );
 }
 
@@ -175,6 +180,9 @@ describe(`deleting a person (${leg})`, () => {
     expect(
       await count(app, appTable(app, 'rate_bucket'), sql`"key" LIKE ${`%:${ada.accountId}`}`),
     ).toBe(0);
+    expect(
+      await count(app, appTable(app, 'account_settings'), sql`account_id = ${ada.accountId}`),
+    ).toBe(0);
     const person = await personById(app, TEST_RING, ada.personId);
     expect(person).toMatchObject({ name: 'Ada', email: null, accountId: null, deleted: true });
     const raw = await dbAll<Record<string, unknown>>(
@@ -210,6 +218,9 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count(auth, authTable('session'), sql`user_id = ${grace.accountId}`)).toBe(1);
     expect(
       await count(app, appTable(app, 'rate_bucket'), sql`"key" LIKE ${`%:${grace.accountId}`}`),
+    ).toBe(1);
+    expect(
+      await count(app, appTable(app, 'account_settings'), sql`account_id = ${grace.accountId}`),
     ).toBe(1);
   });
 
