@@ -73,7 +73,7 @@ export async function keysInUse(
   for (const { table } of tables) {
     const rows = await dbAll<{ fp: string }>(
       database,
-      sql`SELECT DISTINCT SUBSTR(sealed, 4, 16) AS fp FROM ${appTable(database, table)} WHERE sealed IS NOT NULL`,
+      sql`SELECT DISTINCT SUBSTR(sealed, 4, 16) AS fp FROM ${appTable(database, table)} WHERE sealed IS NOT NULL AND sealed <> ''`,
     );
     for (const row of rows) found.add(row.fp);
   }

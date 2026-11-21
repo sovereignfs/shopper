@@ -282,6 +282,16 @@ describe('sealed rows in the database', async () => {
     await expect(assertKeys(database, ring(3), [spec])).rejects.not.toThrow(/PLANTED/);
   });
 
+  it('counts no key for a row its device encrypts, whose sealed column is empty (RFC 0001)', async () => {
+    await put('a', 'h1', 'x', ring(2));
+    await dbRun(
+      database,
+      sql`INSERT INTO ${table()} (id, household_id, name_key, sealed) VALUES ('moved', 'h2', 'nk', '')`,
+    );
+    expect(await keysInUse(database, [spec])).toEqual(new Set([ring(2).current.fingerprint]));
+    await expect(assertKeys(database, ring(2), [spec])).resolves.toBeUndefined();
+  });
+
   it('rotates: re-wraps every row and recomputes every name key, and twice is safe', async () => {
     CURRENT = ring(2, 1);
     await put('a', 'h1', 'oat milk', ring(1));
