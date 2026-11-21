@@ -3,10 +3,16 @@
 All notable changes to Shopper are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-Each release's section is also its GitHub release notes: the release workflow reads this file when a release is cut. Write the notes under
-`## [Unreleased]` as you go; a release turns them into the version's section.
+Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
+titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-18
+
+### Added
+
+- Opened from Sovereign's launcher, or from any link to it, an installed Shopper now opens as itself on desktop Chrome and Edge and on Android Chrome, on the page the link names, rather than in a browser view. On an iPhone, an iPad and in Safari the link opens a browser view, as before.
+- Added to an iPhone's Home Screen from Safari, it opens as an app without Safari's bars, under its own name.
+- The bar around an installed Shopper takes the page's own colour in light and in dark, as the suite's other apps do.
 
 ## [0.1.0] - 2026-11-11
 
@@ -29,5 +35,4 @@ Each release's section is also its GitHub release notes: the release workflow re
 - The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
 - On a list, only the checkbox ticks an item: a tap anywhere else on its row does nothing. Shopping mode is unchanged, and still ticks from anywhere on the row.
 
-[Unreleased]: https://github.com/sovereignfs/shopper/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.1.0

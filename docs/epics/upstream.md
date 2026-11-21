@@ -83,3 +83,53 @@ dark, each with an accessible table of the same data, no chart library loaded fr
 decimals, switched when it lands. Not started for Shopper alone.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published, or Shopper decides it is not needed.
+
+#### 📋 16.8 — Sharing in an app with no core
+
+**Goal:** a person of an app with no core can seal a document key to another person of it. **Design:** RFC 0001, "Two kinds of account".
+**Depends on:** nothing here. **Needed by:** 18.8's standalone form, and joining by email with standalone accounts (3.10, phase 2).
+
+**What Shopper needs:** sdk §9.5's "an app with no core shares nothing yet" lifted: `AppVault` serving a person's public keys for the app, signed by
+their account key, in the form `keys.person` gives, so that `checkPerson` and `share()` work over them; and, on an instance with both ways in, one
+way for a page to check a core account and a local one alike. The same need as any app of the suite that runs alone and shares.
+
+**Accepts when:** a `@sovereignfs/sdk` release carrying it is published.
+
+#### 📋 16.9 — A document key by link
+
+**Goal:** sharing a document key through a link's fragment, as the suite's and not one app's. **Design:** RFC 0001, "Invitations". **Depends on:**
+nothing here. **Needed by:** nothing; 18.7 is built on the SDK's primitives and moves onto this if it is published.
+
+**What Shopper needs:** a pair of SDK calls that wrap a document key under a fresh secret for a link and open it from the fragment, removing the
+fragment first, with RFC 0005's words for what a leaked link gives. Tally's and Tusk's invitations would use the same.
+
+**Accepts when:** a `@sovereignfs/sdk` release carrying it is published, or `sovereign` decides it is the app's.
+
+#### 📋 16.10 — The key secret over an app's own session
+
+**Goal:** `auth.keySecret` and `/auth/key-secret` usable by an app whose sessions are its own better-auth's, not the SDK's `nextAuth`. **Design:**
+RFC 0001, open question 1. **Depends on:** nothing here. **Needed by:** 18.3.
+
+**What Shopper needs:** either the SDK's helper taking a session from the app, or `@sovereignfs/auth` (17.3) serving it; documented in sdk §9.3.
+
+**Accepts when:** the guide says how, in a published release, or 17.3 moves Shopper onto `@sovereignfs/auth` and it serves it.
+
+#### 📋 16.11 — The environment contract and the guide, true
+
+**Goal:** `contracts/env.md` and `docs/building-an-app.md` say what apps use. **Design:** RFC 0001, RFC 0002. **Depends on:** nothing here.
+
+**What Shopper needs:** `<PREFIX>_VAPID_PRIVATE_KEY` and `_VAPID_SUBJECT` in `contracts/env.md`; `<PREFIX>_FIELD_ENCRYPTION_KEYS` there reconciled
+with the `<PREFIX>_ENCRYPTION_KEY` and `_PREVIOUS` every app uses; `contracts/app-manifest.md`'s heading naming manifest 5; the guide's package
+table listing `auth` and `export`, and its line that 16.14 is not built corrected.
+
+**Accepts when:** `sovereign`'s `main` carries the corrections.
+
+#### 📋 16.12 — Background Sync in `@sovereignfs/pwa`
+
+**Goal:** the shared worker answers Background Sync, or lets an app add a handler, as it lets an app add push kinds. **Design:** §12.3. **Depends on:**
+nothing here. **Needed by:** 17.2, if the package has no way today.
+
+**What Shopper needs:** the worker posting a `sync` event to the app's open pages, or a hook for the app's own handler, so that a device sends its
+outbox when the connection returns with no tab in front.
+
+**Accepts when:** a `@sovereignfs/pwa` release carrying it is published, or 17.2 finds the package already does.
