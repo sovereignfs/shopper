@@ -1,4 +1,6 @@
 import { sql } from 'drizzle-orm';
+import type { KeyRing } from '../crypto/keys';
+import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
@@ -198,4 +200,85 @@ export async function deleteListProducts(
     database,
     sql`DELETE FROM ${appTable(database, 'product')} WHERE household_id = ${household} AND list_id = ${list} RETURNING id`,
   );
+}
+
+/**
+ * **An item's product is on the item's list** (RFC 0004, tasks 21.3 and 21.4), at every start, safe to run again: a product from before lists had
+ * catalogs that items of another list use is copied to that list (a new id, sealed again for it, the same name key), and those items point at the
+ * copy, or at the product of that name the list has already, at a new `seq` of the group so that devices learn it. A group whose devices encrypt its content cannot be copied by the server: it is left as it
+ * is (no released version encrypted anything; a development database is made again).
+ */
+export async function splitSharedProducts(database: Database, ring: KeyRing): Promise<number> {
+  const pairs = await dbAll<{ household_id: string; product_id: string; list_id: string }>(
+    database,
+    sql`SELECT DISTINCT i.household_id, i.product_id, i.list_id FROM ${appTable(database, 'item')} i
+        JOIN ${appTable(database, 'product')} p ON p.id = i.product_id AND p.household_id = i.household_id
+        JOIN ${appTable(database, 'household')} h ON h.id = i.household_id AND h.encryption = 'sealed'
+        WHERE p.list_id IS NOT NULL AND p.list_id <> i.list_id
+        ORDER BY i.household_id, i.product_id, i.list_id`,
+  );
+  const groups = new Map<string, { product: string; list: string }[]>();
+  for (const pair of pairs)
+    groups.set(pair.household_id, [
+      ...(groups.get(pair.household_id) ?? []),
+      { product: pair.product_id, list: pair.list_id },
+    ]);
+  for (const [household, split] of groups)
+    await transaction(database, async (tx) => {
+      const stepped = await dbGet<{ seq: number | string }>(
+        tx,
+        sql`UPDATE ${appTable(tx, 'household')} SET seq = seq + 1 WHERE id = ${household} AND encryption = 'sealed' RETURNING seq`,
+      );
+      if (!stepped) return;
+      const seq = Number(stepped.seq);
+      for (const { product, list } of split) {
+        const row = await dbGet<Record<string, unknown>>(
+          tx,
+          sql`SELECT * FROM ${appTable(tx, 'product')} WHERE id = ${product} AND household_id = ${household}`,
+        );
+        if (!row) continue;
+        // The list has a product of that name already: its items take that one.
+        const same = await dbGet<{ id: string }>(
+          tx,
+          sql`SELECT id FROM ${appTable(tx, 'product')} WHERE household_id = ${household} AND list_id = ${list} AND name_key = ${String(row.name_key)}`,
+        );
+        if (same) {
+          await dbAll(
+            tx,
+            sql`UPDATE ${appTable(tx, 'item')} SET product_id = ${same.id}, seq = ${seq}
+                WHERE household_id = ${household} AND product_id = ${product} AND list_id = ${list} RETURNING id`,
+          );
+          continue;
+        }
+        const id = crypto.randomUUID();
+        const opened =
+          typeof row.sealed === 'string' && row.sealed !== ''
+            ? unsealRow('product', product, row.sealed, ring)
+            : {};
+        const copy: Record<string, unknown> = {
+          ...row,
+          id,
+          list_id: list,
+          sealed: sealRow('product', id, opened, ring),
+          seq,
+        };
+        const columns = Object.keys(copy);
+        await dbAll(
+          tx,
+          sql`INSERT INTO ${appTable(tx, 'product')} (${sql.join(
+            columns.map((column) => sql.raw(`"${column.replace(/[^a-z_]/g, '')}"`)),
+            sql`, `,
+          )}) VALUES (${sql.join(
+            columns.map((column) => sql`${copy[column] ?? null}`),
+            sql`, `,
+          )}) RETURNING id`,
+        );
+        await dbAll(
+          tx,
+          sql`UPDATE ${appTable(tx, 'item')} SET product_id = ${id}, seq = ${seq}
+              WHERE household_id = ${household} AND product_id = ${product} AND list_id = ${list} RETURNING id`,
+        );
+      }
+    });
+  return groups.size;
 }

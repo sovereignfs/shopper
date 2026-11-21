@@ -81,7 +81,10 @@ export function ItemDialog({
       note: trimmed === '' ? null : trimmed,
       listId,
     };
-    const mutation = editItem(env(), item, edit, remember && product ? { product } : undefined);
+    const mutation = editItem(env(), item, edit, remember && product ? { product } : undefined, {
+      product,
+      products: data.products,
+    });
     onClose();
     void change(mutation, `Saved ${name.trim()}`);
   }

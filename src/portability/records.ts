@@ -47,7 +47,7 @@ export async function personRecords(
         WHERE ${memberOf(database, sql.raw('h.id'), accountId)} ORDER BY h.id`,
   );
   const plain: Record<string, Record<string, unknown>[]> = { household: [], member: [] };
-  const encrypted: Record<string, Record<string, unknown>[]> = { household_key: [] };
+  const encrypted: Record<string, Record<string, unknown>[]> = { household_key: [], list_key: [] };
   for (const table of CONTENT_TABLES) {
     plain[table] = [];
     encrypted[table] = [];
@@ -59,9 +59,7 @@ export async function personRecords(
       : table === 'item'
         ? onList(database, sql`r.list_id`, accountId)
         : table === 'product'
-          ? sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${ownerOf(database, sql`r.household_id`, accountId)})
-                 OR EXISTS (SELECT 1 FROM ${appTable(database, 'item')} vi
-                 WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`
+          ? sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${ownerOf(database, sql`r.household_id`, accountId)}))`
           : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
@@ -124,6 +122,20 @@ export async function personRecords(
           epoch: Number(key.epoch),
           record: key.record,
         });
+      // Their own copies of the keys of lists shared with them (RFC 0004), of lists they are on now.
+      const listKeys = await dbAll<{ list_id: string; epoch: number; record: string }>(
+        database,
+        sql`SELECT k.list_id, k.epoch, k.record FROM ${appTable(database, 'list_key')} k
+            WHERE k.household_id = ${household.id} AND k.person_id = ${person.id} AND ${onList(database, sql`k.list_id`, accountId)}
+            ORDER BY k.list_id`,
+      );
+      for (const each of listKeys)
+        encrypted.list_key?.push({
+          household: household.id,
+          list: each.list_id,
+          epoch: Number(each.epoch),
+          record: each.record,
+        });
     }
   }
   for (const [kind, records] of Object.entries(plain))
@@ -131,7 +143,7 @@ export async function personRecords(
   for (const [kind, records] of Object.entries(encrypted))
     if (records.length > 0)
       out.push({
-        kind: kind === 'household_key' ? kind : `${kind}_encrypted`,
+        kind: kind === 'household_key' || kind === 'list_key' ? kind : `${kind}_encrypted`,
         records,
         endToEnd: true,
       });

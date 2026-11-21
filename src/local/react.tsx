@@ -24,6 +24,8 @@ import { EncryptionMemory, encryptingTransport } from '../keys/transport';
 import { useKeys } from '../keys/keys';
 import type { Keyring } from '../keys/household';
 import { Mover } from '../keys/mover';
+import { keepPending } from '../keys/pending';
+import { callOperation } from './ops';
 import { householdsOf } from './store';
 
 /**
@@ -46,7 +48,11 @@ interface Local {
    * A household's keys on this device (RFC 0001): whether it has moved, and its keyring while the app key is open, for what needs it beside the sync
    * (an invitation link carries it, `ShareDialog`).
    */
-  keysOf(household: string): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
+  /** A group's encryption, and its keyring (its own account's only), or a list's keyring when `list` is given (RFC 0004). */
+  keysOf(
+    household: string,
+    list?: string,
+  ): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
 }
 
 const Context = createContext<Local | null>(null);
@@ -74,6 +80,16 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     if (keys.current.state !== 'open') return;
     const key = keys.current.key;
     syncNow.current();
+    // Copies of lists' keys from a link that the server has not taken yet (RFC 0004): sent again now.
+    void keepPending(storage(), async (entry) => {
+      const answer = await callOperation({
+        op: 'list.key.mine',
+        household: entry.household,
+        list: entry.list,
+        record: entry.record,
+      });
+      return answer.ok;
+    });
     void (async () => {
       const held = moverRef.current;
       if (!held) return;
@@ -114,6 +130,16 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
           fetchTransport(),
           { appKey: () => appKeyRef.current },
           memory,
+          // Where a row is, for its list's keys (RFC 0004): an item's or a product's list, as this device holds it.
+          async (table, id) => {
+            const row =
+              table === 'item'
+                ? await db.get('item', id)
+                : table === 'product'
+                  ? await db.get('product', id)
+                  : undefined;
+            return row?.listId ?? undefined;
+          },
           (households) =>
             void moverRef.current?.mover
               .run(households, appKeyRef.current)
@@ -210,12 +236,14 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     };
   }, []);
 
-  const keysOf = useCallback(async (household: string) => {
+  const keysOf = useCallback(async (household: string, list?: string) => {
     const memory = memoryRef.current;
     if (!memory) return { encrypted: false, ring: undefined };
     return {
       encrypted: memory.isEncrypted(household),
-      ring: await memory.keyring(household, appKeyRef.current),
+      ring: list
+        ? await memory.listKeyring(household, list, appKeyRef.current)
+        : await memory.keyring(household, appKeyRef.current),
     };
   }, []);
 

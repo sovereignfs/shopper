@@ -320,8 +320,9 @@ export const accountSettings = sqliteTable('account_settings', {
 });
 
 /**
- * A member's keys for a household (RFC 0001, amendment 2): the household's keyring (every epoch's key) wrapped under that member's own app key, which
- * only their browser opens. One row a member; replaced when the keyring grows. Deleted with the person (`People.deletePerson`) and the household.
+ * The group's keys (RFC 0001, amendment 2; RFC 0004): its keyring (every epoch's key) wrapped under its own account's app key, which only that account's
+ * browser opens, and from which its lists' keys are derived. One row, the account's; replaced when the keyring grows. Deleted with the person
+ * (`People.deletePerson`) and the group.
  */
 export const householdKey = sqliteTable(
   'household_key',
@@ -333,6 +334,27 @@ export const householdKey = sqliteTable(
     createdAt: epochMs('created_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.householdId, table.personId] })],
+);
+
+/**
+ * A list's keys, for someone on it (RFC 0004, task 21.4): the list's keyring wrapped under their own app key, kept after joining by a link that carried
+ * it. The list's maker has none: their devices derive it from the group's. One row a person a list; deleted when they leave it or are removed, with the
+ * list, and with the person.
+ */
+export const listKey = sqliteTable(
+  'list_key',
+  {
+    listId: ref('list_id').notNull(),
+    personId: ref('person_id').notNull(),
+    householdId: ref('household_id').notNull(),
+    epoch: counter('epoch').notNull(),
+    record: text('record').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.listId, table.personId] }),
+    index('list_key_person_idx').on(table.personId),
+  ],
 );
 
 /**

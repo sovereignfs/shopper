@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { AuthButton, AuthError } from '@sovereignfs/ui';
-import { wrapKeyring } from '../keys/household';
+import { wrapListKeyring } from '../keys/household';
+import { addPending } from '../keys/pending';
 import { KeyPrompt } from '../keys/KeyPrompt';
 import { forgetLinkSecret, readLinkSecret } from '../keys/KeepLinkSecret';
 import { useKeys } from '../keys/keys';
@@ -58,6 +59,7 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
     const body = (await answer.json().catch(() => ({}))) as {
       status?: string;
       household?: string;
+      list?: string;
       message?: string;
       person?: string;
       wrappedKey?: string | null;
@@ -67,14 +69,28 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
         setBusy(false);
         return setAlready(true);
       }
-      if (body.wrappedKey && secret && body.person && keys.current.state === 'open') {
-        const ring = await openFromLink(body.wrappedKey, secret, body.household);
+      // The list's keys, from the link, kept under this person's own key (RFC 0004). The link gives them once: if keeping them does not get through, the
+      // copy waits in this browser and is sent again (`pending.ts`), and the device uses it meanwhile.
+      if (body.wrappedKey && secret && body.person && body.list && keys.current.state === 'open') {
+        const ring = await openFromLink(body.wrappedKey, secret, body.list);
         if (ring) {
-          const record = await wrapKeyring(keys.current.key, ring, {
+          const record = await wrapListKeyring(keys.current.key, ring, {
             person: body.person,
-            household: body.household,
+            list: body.list,
           });
-          await callOperation({ op: 'household.key.mine', household: body.household, record });
+          const entry = {
+            household: body.household,
+            list: body.list,
+            person: body.person,
+            record,
+          };
+          const kept = await callOperation({
+            op: 'list.key.mine',
+            household: entry.household,
+            list: entry.list,
+            record,
+          }).catch(() => ({ ok: false }));
+          if (!kept.ok) addPending(window.localStorage, entry);
         }
       }
       forgetLinkSecret(token);

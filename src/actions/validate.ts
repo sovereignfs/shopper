@@ -1,6 +1,6 @@
 import '../zod-jitless';
 import { z } from 'zod';
-import { FIELD_VALUE, NAME_KEY_V2 } from '../keys/household';
+import { FIELD_VALUE, NAME_KEY } from '../keys/household';
 import { CONTENT, FIELDS, MAX_CHANGES, SYNCED_TABLES, isId, type Mutation } from './format';
 
 /**
@@ -38,7 +38,7 @@ const change = z.object({
 export type ContentMode = 'plain' | 'encrypted';
 
 const cipher = z.string().regex(FIELD_VALUE, 'not an encrypted value');
-const nameKey = z.string().regex(NAME_KEY_V2, 'not a name key');
+const nameKey = z.string().regex(NAME_KEY, 'not a name key');
 
 export function validateMutation(input: unknown, mode: ContentMode = 'plain'): Verdict {
   const head = envelope.safeParse(input);

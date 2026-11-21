@@ -32,7 +32,8 @@ export async function pullHousehold(
 ): Promise<HouseholdPull | undefined> {
   const view = await readHousehold(database, ring, household, accountId);
   if (!view) return undefined;
-  // How its content travels, and the reader's own copy of its keys (RFC 0001): only theirs, found by their person in the same statement.
+  // How its content travels, and the reader's own copy of the group's keys (RFC 0001), which only the group's own account has (RFC 0004): only theirs,
+  // found by their person in the same statement.
   const state = await dbGet<{
     encryption: string;
     epoch: number | string;
@@ -42,8 +43,16 @@ export async function pullHousehold(
     database,
     sql`SELECT h.encryption, h.epoch, k.record, me.id AS person FROM ${appTable(database, 'household')} h
         LEFT JOIN ${appTable(database, 'person')} me ON me.account_id = ${accountId}
-        LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id AND k.person_id = me.id
+        LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id AND k.person_id = me.id AND h.own_of = ${accountId}
         WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
+  );
+  // The reader's own copies of the keys of lists they are on and did not make (RFC 0004): only theirs, only of lists they are on now.
+  const listKeys = await dbAll<{ list_id: string; record: string }>(
+    database,
+    sql`SELECT k.list_id, k.record FROM ${appTable(database, 'list_key')} k
+        JOIN ${appTable(database, 'person')} me ON me.id = k.person_id AND me.account_id = ${accountId}
+        WHERE k.household_id = ${household} AND ${onList(database, sql`k.list_id`, accountId)}
+        ORDER BY k.list_id`,
   );
 
   // **Only the reader's lists** (RFC 0004): a list, its items and their tombstones and aliases only if the reader is on that list; a product only if an
@@ -63,9 +72,8 @@ export async function pullHousehold(
       take('item', onList(database, sql`r.list_id`, accountId)),
       take(
         'product',
-        // A list's catalog (21.3), or one an item of the reader's lists uses (an item moved, or a product from before lists had catalogs).
-        sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own})
-            OR EXISTS (SELECT 1 FROM ${t('item')} vi WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`,
+        // A list's catalog (21.3): an item's product is always on the item's list, so this is every product the reader's items use.
+        sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own}))`,
       ),
       take('category', sql`1 = 1`),
       dbAll<Raw>(
@@ -118,6 +126,7 @@ export async function pullHousehold(
       state: state?.encryption === 'encrypted' ? 'encrypted' : 'plain',
       epoch: Number(state?.epoch ?? 0),
       keyring: state?.record ?? null,
+      lists: Object.fromEntries(listKeys.map((row) => [row.list_id, row.record])),
       person: state?.person ?? null,
     },
     lists: within(lists).map((row) => listOf(row, ring)),

@@ -1,7 +1,14 @@
 import { canonicalName } from '../catalog/canonical';
 import type { SyncedTable } from '../actions/format';
 import type { EncryptionMemory } from './transport';
-import { householdNameKey, newKeyring, sealField, wrapKeyring } from './household';
+import {
+  type Keyring,
+  deriveListKeyring,
+  listNameKey,
+  newKeyring,
+  sealField,
+  wrapKeyring,
+} from './household';
 
 /**
  * The device's side of moving a household (RFC 0001, amendment 2; `src/keys/server/move.ts`): once the app key is open, each household this device has
@@ -13,6 +20,8 @@ type Fetch = typeof fetch;
 
 interface ManifestRow {
   id: string;
+  /** Its list (a list's own id): whose keys, derived from the group's, its values are encrypted under (RFC 0004). */
+  list: string;
   fields: Record<string, string | null>;
 }
 
@@ -60,6 +69,14 @@ export class Mover {
       return 'later';
     }
     const ring = newKeyring();
+    const lists = new Map<string, Keyring>();
+    const listRing = async (list: string) => {
+      const known = lists.get(list);
+      if (known) return known;
+      const made = await deriveListKeyring(ring, list);
+      lists.set(list, made);
+      return made;
+    };
     const rows: Record<
       string,
       { id: string; fields: Record<string, string | null>; nameKey?: string }[]
@@ -67,22 +84,21 @@ export class Mover {
     for (const table of ['list', 'item', 'product'] as const) {
       rows[table] = [];
       for (const row of manifest.rows[table] ?? []) {
+        // A product from before lists had catalogs has no list, and its group cannot move until the server gives it one.
+        if (!row.list) return 'cannot';
+        const keys = await listRing(row.list);
         const fields: Record<string, string | null> = {};
         for (const [field, value] of Object.entries(row.fields))
           fields[field] =
             value === null
               ? null
-              : await sealField(ring, { household, table, row: row.id, field }, value);
+              : await sealField(keys, { list: row.list, table, row: row.id, field }, value);
         rows[table].push({
           id: row.id,
           fields,
           ...(table === 'product'
             ? {
-                nameKey: await householdNameKey(
-                  ring,
-                  household,
-                  canonicalName(row.fields.name ?? ''),
-                ),
+                nameKey: await listNameKey(keys, row.list, canonicalName(row.fields.name ?? '')),
               }
             : {}),
         });

@@ -53,16 +53,29 @@ A person's own lists and the lists shared with them arrive as today, by group; t
 
 ## Encryption (replacing RFC 0001's household keys)
 
-- **Each list has a keyring** (`list_key`: list, person, epoch, record, wrapped under each person's own app key), and `list.encryption` and
-  `list.epoch` say how its content travels.
-- **A value is bound to its list**, not its group: `shopper/<list>/<table>/<row>/<field>`, so that a list passing to another person's group keeps its
-  ciphertext, and an item moved to another list is encrypted again under that list's keys by the device that moves it.
-- **The name key** comes from the list's first key, and is unique per list: an add on one list never folds into, or learns of, a product of another.
-- **The move is per list,** for a list whose only person is the account moving it; **a link to a list carries that list's keyring**, so a list shared
-  by a link after it moved is encrypted for everyone on it. A list from 0.1.0 shared with others stays sealed by the server until each of them can be
-  given its keys (16.8, 18.8), as amendment 2 said of households.
-- Nothing is migrated from household keyrings: no released version encrypted anything (0.1.0 did not; 0.2.0 is not released). A development database
-  made by `develop` before this is made again (`pnpm seed -- --reset`).
+_As built in task 21.4; the first draft of this section, a stored keyring per list for everyone, a per-list encryption state and a per-list move, was
+changed as below._
+
+- **Each list has a keyring of its own, derived from its group's:** each epoch's key through HKDF (`shopper:list-key:v1`) with the list's id. The
+  group's keyring stays the account's own, wrapped under its app key (`household_key`, handed only to the group's own account), so its devices hold
+  every list's keys with nothing more stored, and **one list's keyring opens nothing of another list's, nor gives back the group's**.
+- **Someone given a list by a link keeps their own copy of its keyring** (`list_key`: list, person, epoch, record, wrapped under their own app key),
+  kept by `list.key.mine` (which replaces `household.key.mine`), handed back to them in each pull of a list they are on, and deleted when they leave or
+  are removed, with the list and with the person. Until the server has it, the copy waits in the browser and is used meanwhile.
+- **A value is bound to its list**, not its group, and says so: `e2.<epoch>.<list>.<row>.<ciphertext>`, encrypted for
+  `shopper/<list>/<table>/<row>/<field>`. The server refuses a value whose list is not its row's (a row moved on another device in between), and an
+  item that changes list must bring its name and note encrypted again for the new one.
+- **An item's product is always on the item's list** (21.3), so nobody is handed a product whose keys they do not hold: a move takes the product of
+  its name on the other list, or makes one there; products from before that items of several lists used are copied, one per list, at start.
+- **The name key** comes from the list's first key, with the list in it (`n3.`), and is unique per list.
+- **The move stays per group,** for an account nobody else is on any list of, as amendment 2 said of households; its values are each encrypted under
+  their list's keys. **A link to a list carries that list's keyring, and no other.** A list from 0.1.0 shared with others stays sealed by the server
+  until each of them can be given its keys (16.8, 18.8).
+- **On the device,** a change for a list whose keys it holds is encrypted; a group whose keys are not open yet is held, in order; a change for a list
+  it will not get keys for (taken off it while offline) goes to Couldn't sync rather than holding everything after it.
+- **Not yet:** a list's keys are not changed when someone leaves it (no epoch is added, as none was for a household); they stop receiving it at once.
+- Nothing is migrated from household-bound values: no released version encrypted anything (0.1.0 did not; 0.2.0 is not released). A development
+  database made by `develop` before this is made again (`pnpm seed -- --reset`).
 
 ## Existing data
 

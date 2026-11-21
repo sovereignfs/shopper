@@ -787,6 +787,10 @@ and keeps the outbox for the same account.
 
 ## 13. Encryption
 
+> **Since [RFC 0004](docs/rfcs/0004-lists-of-their-own.md) (task 21.4) keys are a list's:** each list's keyring is derived from its group's, values are
+> bound to their list (`e2.`), the name key is the list's, and a link carries one list's keys. Where this section says a household's keys, read a
+> list's; the group's keyring is its own account's alone. Task 21.1 rewrites it.
+
 **What people write into Shopper is encrypted in the browser, under a key only their household holds, always** (RFC 0001, the owner's decision of
 2026-11-21, §26). It is the suite's encryption (`sovereign`'s RFC 0005, through `@sovereignfs/sdk`), not Shopper's own: Shopper calls the SDK and
 holds no cipher. There is no setting and no opt-in. **Not yet audited:** the SDK's design and code have not been reviewed by a cryptographer or

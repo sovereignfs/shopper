@@ -7,7 +7,8 @@ import { dbAll, dbGet, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
-import { householdNameKey, newKeyring, openField, sealField } from '../keys/household';
+import { listNameKey, newKeyring, openField, sealField } from '../keys/household';
+import { makeList } from '../actions/lists';
 import type { Limits } from '../limits/config';
 import { applyMutation } from './apply';
 import { handleSync } from './endpoint';
@@ -37,9 +38,10 @@ const mutation = (household: string, changes: Mutation['changes'][number][]): Mu
   householdId: household,
   changes,
 });
-const field = (table: string, row: string, name: string, text: string) =>
-  sealField(ring, { household: ada.household, table, row, field: name }, text);
-const nameKey = (name: string) => householdNameKey(ring, ada.household, name);
+/** Values for Ada's first list's keys (RFC 0004); the test stands in for its device, holding that list's keyring. */
+const field = (table: string, row: string, name: string, text: string, list = ada.list) =>
+  sealField(ring, { list, table, row, field: name }, text);
+const nameKey = (name: string) => listNameKey(ring, ada.list, name);
 
 beforeAll(async () => {
   ({ database } = await freshDatabase('app'));
@@ -57,6 +59,7 @@ const product = async (id: string, name: string) => ({
   id,
   create: true as const,
   fields: {
+    listId: ada.list,
     name: await field('product', id, 'name', name),
     nameKey: await nameKey(name),
     createdAt: 1,
@@ -83,7 +86,7 @@ describe(`a household whose content is encrypted (${leg})`, () => {
     expect(
       await openField(
         ring,
-        { household: ada.household, table: 'product', row: id, field: 'name' },
+        { list: ada.list, table: 'product', row: id, field: 'name' },
         stored.name,
       ),
     ).toBe(`oat milk ${MARKER}`);
@@ -113,7 +116,7 @@ describe(`a household whose content is encrypted (${leg})`, () => {
         table: 'product',
         id: crypto.randomUUID(),
         create: true,
-        fields: { name: `rice ${MARKER}`, createdAt: 1 },
+        fields: { listId: ada.list, name: `rice ${MARKER}`, createdAt: 1 },
       },
     ]);
     expect((await applyMutation(deps(), ada.accountId, plain)).status).toBe('held');
@@ -145,7 +148,7 @@ describe(`a household whose content is encrypted (${leg})`, () => {
           table: 'product',
           id,
           create: true,
-          fields: { name: await field('product', id, 'name', 'x'), createdAt: 1 },
+          fields: { listId: ada.list, name: await field('product', id, 'name', 'x'), createdAt: 1 },
         },
       ]),
     );
@@ -196,7 +199,7 @@ describe(`a household whose content is encrypted (${leg})`, () => {
     const pulled = await pullHousehold(database, TEST_RING, ada.accountId, ada.household, 0);
     expect(pulled?.encryption.state).toBe('encrypted');
     const alias = pulled?.aliases.find((each) => each.from === second);
-    const target = { household: ada.household, table: 'item', row: first, field: 'note' };
+    const target = { list: ada.list, table: 'item', row: first, field: 'note' };
     expect(await openField(ring, target, alias?.carried ?? '', [second])).toBe('red');
     const kept = pulled?.items.find((each) => each.id === first) as
       { encrypted?: { note: string } } | undefined;
@@ -212,16 +215,150 @@ describe(`a household whose content is encrypted (${leg})`, () => {
         id,
         create: true,
         fields: {
+          listId: other.list,
           name: await sealField(
             ring,
-            { household: other.household, table: 'product', row: id, field: 'name' },
+            { list: other.list, table: 'product', row: id, field: 'name' },
             'x',
           ),
-          nameKey: await householdNameKey(ring, other.household, 'x'),
+          nameKey: await listNameKey(ring, other.list, 'x'),
           createdAt: 1,
         },
       },
     ]);
     expect((await applyMutation(deps(), other.accountId, sealedOne)).status).toBe('held');
+  });
+
+  it('refuses a value encrypted for another list than its row’s (RFC 0004)', async () => {
+    const id = crypto.randomUUID();
+    const elsewhere = crypto.randomUUID();
+    const result = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        {
+          table: 'product',
+          id,
+          create: true,
+          fields: {
+            listId: ada.list,
+            name: await field('product', id, 'name', 'pears', elsewhere),
+            nameKey: await nameKey('pears'),
+            createdAt: 1,
+          },
+        },
+      ]),
+    );
+    expect(result.status).toBe('refused');
+  });
+
+  it('moves an item to another list only with its name and note encrypted again for that list, and its product there', async () => {
+    const made = makeList(
+      { now: 1, newId: () => crypto.randomUUID() },
+      { householdId: ada.household, name: 'x', position: 'a9' },
+    );
+    const other = made.changes[0]?.id ?? '';
+    const listName = await field('list', other, 'name', 'Hardware', other);
+    expect(
+      (
+        await applyMutation(
+          deps(),
+          ada.accountId,
+          mutation(ada.household, [
+            { ...made.changes[0], fields: { ...made.changes[0]?.fields, name: listName } } as never,
+          ]),
+        )
+      ).status,
+    ).toBe('applied');
+    const productId = crypto.randomUUID();
+    const itemId = crypto.randomUUID();
+    await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [await product(productId, 'nails')]),
+    );
+    expect(
+      (
+        await applyMutation(
+          deps(),
+          ada.accountId,
+          mutation(ada.household, [
+            {
+              table: 'item',
+              id: itemId,
+              create: true,
+              fields: {
+                listId: ada.list,
+                productId,
+                name: await field('item', itemId, 'name', 'nails'),
+                note: await field('item', itemId, 'note', 'small'),
+                quantity: '1',
+                position: 'a0',
+                addedBy: ada.personId,
+                addedAt: 1,
+              },
+            },
+          ]),
+        )
+      ).status,
+    ).toBe('applied');
+    const there = crypto.randomUUID();
+    const productThere = {
+      table: 'product' as const,
+      id: there,
+      create: true as const,
+      fields: {
+        listId: other,
+        name: await field('product', there, 'name', 'nails', other),
+        nameKey: await listNameKey(ring, other, 'nails'),
+        createdAt: 1,
+      },
+    };
+    // The list alone: the old list's values would stay on it.
+    const bare = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        productThere,
+        { table: 'item', id: itemId, fields: { listId: other, productId: there } },
+      ]),
+    );
+    expect(bare.status).toBe('refused');
+    // With the product left on the old list: refused too (an item's product is on its list).
+    const oldProduct = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        {
+          table: 'item',
+          id: itemId,
+          fields: {
+            listId: other,
+            name: await field('item', itemId, 'name', 'nails', other),
+            note: await field('item', itemId, 'note', 'small', other),
+          },
+        },
+      ]),
+    );
+    expect(oldProduct.status).toBe('refused');
+    // Name and note for the other list, and its product there: applied.
+    const moved = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        productThere,
+        {
+          table: 'item',
+          id: itemId,
+          fields: {
+            listId: other,
+            productId: there,
+            name: await field('item', itemId, 'name', 'nails', other),
+            note: await field('item', itemId, 'note', 'small', other),
+          },
+        },
+      ]),
+    );
+    expect(moved.status).toBe('applied');
   });
 });

@@ -14,10 +14,10 @@ export const createInvite: Operation = {
   scope: 'list',
   input: z.object({
     list: z.string().refine(isId, 'not an id'),
-    // A moved household's keyring, wrapped under the link's secret by the inviter's browser (RFC 0001).
+    // The list's keyring, and no other, wrapped under the link's secret by the inviter's browser (RFC 0001, RFC 0004).
     wrappedKey: z
       .string()
-      .regex(/^lk1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+      .regex(/^lk2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
       .max(8192)
       .optional(),
   }),

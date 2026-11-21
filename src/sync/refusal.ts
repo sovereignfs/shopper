@@ -32,6 +32,16 @@ export const limited = (kind: LimitKind, limit: number, name?: string) =>
 export const duplicate = () =>
   new Refusal('duplicate', 'The catalog already has one with that name.');
 
+/**
+ * A value encrypted for another list than its row's (RFC 0004): the row moved to another list on another device in between. Its people could not open it,
+ * so it is refused; the device keeps it, and the change is made again where the row is now.
+ */
+export const otherList = () =>
+  new Refusal(
+    'not_found',
+    'That moved to another list in the meantime. Make the change again there.',
+  );
+
 /** The mutation names a kind of row the server does not apply yet. */
 export const unsupported = (table: string) =>
   new Refusal('unsupported', `Changes to ${table} are not accepted by this server yet.`);

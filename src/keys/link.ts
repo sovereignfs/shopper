@@ -1,9 +1,15 @@
-import { type Keyring, fromBase64url, toBase64url, unwrapKeyring, wrapKeyring } from './household';
+import {
+  type Keyring,
+  fromBase64url,
+  toBase64url,
+  unwrapListKeyring,
+  wrapListKeyring,
+} from './household';
 
 /**
- * **A household's keys in an invitation link** (RFC 0001, §13.5): a secret of 32 random bytes goes in the link's fragment, which a browser never sends,
- * and the keyring is wrapped under it (`lk1.`), so that the server keeps only what it cannot open, and only until the link is used or revoked. The SDK
- * has no call for a key by link yet (16.9); this is the same AES-GCM wrap as a member's own copy, bound to the household.
+ * **A list's keys in an invitation link** (RFC 0001, §13.5; RFC 0004): a secret of 32 random bytes goes in the link's fragment, which a browser never
+ * sends, and **the list's keyring, and no other**, is wrapped under it (`lk2.`), so that the server keeps only what it cannot open, and only until the
+ * link is used or revoked. The SDK has no call for a key by link yet (16.9); this is the same AES-GCM wrap as a person's own copy, bound to the list.
  */
 const LINK_PERSON = 'link';
 
@@ -15,32 +21,25 @@ export function newLinkSecret(): string {
   return toBase64url(crypto.getRandomValues(new Uint8Array(32)));
 }
 
-export async function wrapForLink(
-  ring: Keyring,
-  secret: string,
-  household: string,
-): Promise<string> {
-  const wrapped = await wrapKeyring(await linkKey(fromBase64url(secret)), ring, {
+export async function wrapForLink(ring: Keyring, secret: string, list: string): Promise<string> {
+  const wrapped = await wrapListKeyring(await linkKey(fromBase64url(secret)), ring, {
     person: LINK_PERSON,
-    household,
+    list,
   });
-  return `lk1.${wrapped.slice('hk1.'.length)}`;
+  return `lk2.${wrapped.slice('lr1.'.length)}`;
 }
 
 export async function openFromLink(
   wrapped: string,
   secret: string,
-  household: string,
+  list: string,
 ): Promise<Keyring | undefined> {
-  if (!wrapped.startsWith('lk1.')) return undefined;
+  if (!wrapped.startsWith('lk2.')) return undefined;
   try {
-    return await unwrapKeyring(
+    return await unwrapListKeyring(
       await linkKey(fromBase64url(secret)),
-      `hk1.${wrapped.slice('lk1.'.length)}`,
-      {
-        person: LINK_PERSON,
-        household,
-      },
+      `lr1.${wrapped.slice('lk2.'.length)}`,
+      { person: LINK_PERSON, list },
     );
   } catch {
     return undefined;

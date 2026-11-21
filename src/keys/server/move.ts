@@ -7,7 +7,7 @@ import { unsealRow } from '../../crypto/sealed';
 import type { Database } from '../../db/client';
 import { dbAll, dbGet, dbRun, transaction } from '../../db/exec';
 import { appTable } from '../../db/tables';
-import { FIELD_VALUE, NAME_KEY_V2 } from '../household';
+import { FIELD_VALUE, NAME_KEY, boundTo } from '../household';
 
 /**
  * **Moving a household** (RFC 0001, amendment 2; DESIGN.md §13.7): from content the server seals to content its device encrypts. One household-level
@@ -31,10 +31,18 @@ export interface MoveDeps {
 export interface Manifest {
   readonly seq: number;
   readonly person: string;
+  /** Each row with its list (a list's own id, an item's or a product's list), whose keys its values are encrypted under (RFC 0004). */
   readonly rows: Readonly<
-    Record<SyncedTable, readonly { id: string; fields: Record<string, string | null> }[]>
+    Record<
+      SyncedTable,
+      readonly { id: string; list: string; fields: Record<string, string | null> }[]
+    >
   >;
 }
+
+/** The list a row's values are bound to: a list's own id, else its `list_id` (empty for a product from before lists had catalogs, which cannot move). */
+const listOfRow = (table: SyncedTable, row: { id: string; list_id?: string | null }): string =>
+  table === 'list' ? row.id : (row.list_id ?? '');
 
 /**
  * The group, if it is this account's own, nobody else is on any of its lists (RFC 0004), and it is still sealed: its `seq` and the account's person.
@@ -70,11 +78,16 @@ export async function moveManifest(
   const { database, ring } = deps;
   const here = await movable(database, household, accountId);
   if (!here) return undefined;
-  const rows = {} as Record<SyncedTable, { id: string; fields: Record<string, string | null> }[]>;
+  const rows = {} as Record<
+    SyncedTable,
+    { id: string; list: string; fields: Record<string, string | null> }[]
+  >;
   for (const table of MOVED) {
-    const found = await dbAll<{ id: string; sealed: string | null }>(
+    const found = await dbAll<{ id: string; sealed: string | null; list_id?: string | null }>(
       database,
-      sql`SELECT id, sealed FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`,
+      table === 'list'
+        ? sql`SELECT id, sealed FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
+        : sql`SELECT id, sealed, list_id FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`,
     );
     rows[table] = found.map((row) => {
       const opened = row.sealed ? unsealRow(table, row.id, row.sealed, ring) : {};
@@ -83,7 +96,7 @@ export async function moveManifest(
         const value = opened[field];
         fields[field] = typeof value === 'string' ? value : null;
       }
-      return { id: row.id, fields };
+      return { id: row.id, list: listOfRow(table, row), fields };
     });
   }
   return { seq: here.seq, person: here.person, rows };
@@ -92,7 +105,7 @@ export async function moveManifest(
 const movedRow = z.object({
   id: z.string().uuid(),
   fields: z.record(z.string(), z.union([z.string().regex(FIELD_VALUE), z.null()])),
-  nameKey: z.string().regex(NAME_KEY_V2).optional(),
+  nameKey: z.string().regex(NAME_KEY).optional(),
 });
 
 export const moveInput = z.object({
@@ -129,12 +142,14 @@ export async function moveHousehold(
     const seq = Number(stepped.seq);
 
     for (const table of MOVED) {
-      const ids = (
-        await dbAll<{ id: string }>(
-          tx,
-          sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
-        )
-      ).map((row) => row.id);
+      const found = await dbAll<{ id: string; list_id?: string | null }>(
+        tx,
+        table === 'list'
+          ? sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`
+          : sql`SELECT id, list_id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
+      );
+      const ids = found.map((row) => row.id);
+      const listOf = new Map(found.map((row) => [row.id, listOfRow(table, row)]));
       const sent = input.rows[table];
       // Every row once, each value made for its own row, and nothing of another table's content.
       if (sent.length !== ids.length || new Set(sent.map((row) => row.id)).size !== sent.length)
@@ -144,7 +159,10 @@ export async function moveHousehold(
         if (!known.has(row.id)) throw new Incomplete();
         for (const [field, value] of Object.entries(row.fields)) {
           if (!CONTENT[table].includes(field)) throw new Incomplete();
-          if (value !== null && value.split('.')[2] !== row.id) throw new Incomplete();
+          // Each value for its own row and its own list's keys (RFC 0004).
+          const bound = value === null ? undefined : boundTo(value);
+          if (value !== null && (bound?.row !== row.id || bound.list !== listOf.get(row.id)))
+            throw new Incomplete();
         }
         if (table === 'product' && !row.nameKey) throw new Incomplete();
         const content = Object.fromEntries(

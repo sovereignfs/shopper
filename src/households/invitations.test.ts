@@ -93,6 +93,7 @@ describe(`invitations by link (${leg})`, () => {
     expect(await accept(grace, token)).toEqual({
       status: 'joined',
       household: ada.household,
+      list: ada.list,
       person: grace.personId,
       wrappedKey: null,
     });
@@ -143,7 +144,11 @@ describe(`invitations by link (${leg})`, () => {
     const grace = await somebody(database, 'Grace4');
     await join(database, ada.household, grace);
     const { token } = await make(ada);
-    expect(await accept(grace, token)).toEqual({ status: 'already', household: ada.household });
+    expect(await accept(grace, token)).toEqual({
+      status: 'already',
+      household: ada.household,
+      list: ada.list,
+    });
     expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(2);
     expect(await previewInvitation(database, TEST_RING, token, NOW + 1)).not.toBeNull();
     // The link is still good for someone else.

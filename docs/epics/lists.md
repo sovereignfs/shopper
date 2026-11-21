@@ -79,7 +79,7 @@ so someone on one list holds the key to the owner's other lists, though the serv
 shared list never folds into another list's product, seen to fail before; the adoption), `adding.test.ts` (another list's product only lends its
 defaults, seen to fail before).
 
-#### 📋 21.4 — A list's keys
+#### ✅ 21.4 — A list's keys
 
 **Goal:** encryption per list. **Depends on:** 21.3.
 
@@ -87,6 +87,23 @@ defaults, seen to fail before).
 links carrying a list's keyring; an item moved between lists encrypted again; household keys and the household move removed.
 
 **Accepts when:** the marker test passes per list, and a list shared by a link opens for its new person and for no one on another list.
+
+**Done as:** RFC 0004's encryption section, amended to what was built. A list's keyring is derived from its group's (`deriveListKeyring` in
+`src/keys/household.ts`); values are `e2.<epoch>.<list>.<row>.…`, bound to their list; the name key is the list's (`n3.`). `list_key` (migration
+`0017_list_keys`) keeps the copy a link gave someone, through `list.key.mine` (replacing `household.key.mine`); the pull hands each reader their own
+copies and the group's keyring only to its own account; leaving, removal, deleting a list, deleting the person, the group's deletion and the export
+handle it. A link wraps only its list's keyring (`lk2.`, `src/keys/link.ts`); accepting keeps the person's copy, and if that call fails the copy waits
+in the browser (`src/keys/pending.ts`) and is sent again. The device (`src/keys/transport.ts`) encrypts each change under its list's keys, holds a
+group it cannot open yet, and puts a change for a list it will not get keys for into Couldn't sync. Apply refuses a value bound to another list than
+its row's and a list change without the name and note again; a move between lists takes a product of the other list (`editItem`), apply holds an
+item's product to its list, and `splitSharedProducts` copies old cross-list products at start, so the item-use clauses left the pull and the export.
+The household move encrypts each row under its list's keys and refuses a value for another list. **Left out:** a list's keys are not changed when
+someone leaves it, as a household's were not; the move stays per group (only for an account nobody else is on any list of); a list from 0.1.0 shared
+with others stays sealed; encrypted products from before that items of several lists used are not split (the server cannot re-encrypt; no released
+version encrypted anything). Tests: `household.test.ts` and `link.test.ts` (a Groceries link opens no Hardware value), `transport.test.ts` (a change
+for a list without keys goes to Couldn't sync and what came after is sent, held until the group is heard of after a restart; a waiting copy is used),
+`move.test.ts` (the marker in no table, per list; a value for another list refused), `encrypted.test.ts` (a value for another list and a bare move
+refused, each seen to fail without the check), `scope.test.ts` (`list.key.mine` as a second person; the split).
 
 #### ✅ 21.5 — Screens without households
 

@@ -109,6 +109,12 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       database,
       sql`DELETE FROM ${appTable(database, 'household_key')} WHERE person_id = ${person.id} RETURNING person_id`,
     );
+  // Their copies of lists' keys (RFC 0004).
+  if (person)
+    await dbAll(
+      database,
+      sql`DELETE FROM ${appTable(database, 'list_key')} WHERE person_id = ${person.id} RETURNING person_id`,
+    );
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'account_settings')} WHERE account_id = ${accountId} RETURNING account_id`,
@@ -248,7 +254,14 @@ async function deleteList(
   list: string,
   seq: number,
 ): Promise<void> {
-  for (const table of ['item', 'list_member', 'invitation', 'alias', 'tombstone'] as const)
+  for (const table of [
+    'item',
+    'list_member',
+    'list_key',
+    'invitation',
+    'alias',
+    'tombstone',
+  ] as const)
     await dbAll(
       tx,
       sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND list_id = ${list} RETURNING 1 AS gone`,

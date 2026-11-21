@@ -1,39 +1,65 @@
 import { CONTENT, type Mutation, type SyncedTable } from '../actions/format';
 import { canonicalName } from '../catalog/canonical';
 import type { Transport } from '../local/transport';
+import { readPending } from './pending';
 import type { HouseholdPull, SyncAnswer, SyncRequest } from '../sync/protocol';
-import { type Keyring, householdNameKey, openField, sealField, unwrapKeyring } from './household';
+import {
+  type Keyring,
+  deriveListKeyring,
+  listNameKey,
+  openField,
+  sealField,
+  unwrapKeyring,
+  unwrapListKeyring,
+} from './household';
 
 /**
- * **Encryption at the sync** (RFC 0001, amendment 2; DESIGN.md §13): the device's store keeps what it has opened, and this, between the sync loop and the
- * network, encrypts what goes to a household that has moved and opens what comes back from it. Its rules:
+ * **Encryption at the sync** (RFC 0001, amendment 2; RFC 0004; DESIGN.md §13): the device's store keeps what it has opened, and this, between the sync
+ * loop and the network, encrypts what goes to a group that has moved and opens what comes back from it, **each value under its own list's keys**. Its
+ * rules:
  *
- * - **A household this device has seen encrypted is never sent plain text**, even from the offline shell after a restart: which households have moved
- *   is kept on the device (`EncryptionMemory`).
- * - **A household whose keys this device cannot open is held:** none of its mutations are sent (they stay in the outbox, in order), and it is left out
- *   of the answer, so its cursor does not move past rows the device could not open.
- * - **A value is opened only for the row it was encrypted for, or one folded into it** (the pull's aliases).
+ * - **A group this device has seen encrypted is never sent plain text**, even from the offline shell after a restart: which groups have moved is kept on
+ *   the device (`EncryptionMemory`).
+ * - **A group whose keys this device cannot open yet is held:** none of its mutations are sent (they stay in the outbox, in order), and it is left out of
+ *   the answer, so its cursor does not move past rows the device could not open. That is a locked app key, or a group not heard of since the page opened.
+ * - **A change for a list whose keys this device will not get is refused here,** into Couldn't sync, rather than holding everything after it: a list the
+ *   person was removed from while the change waited offline. The server would refuse it anyway.
+ * - **A value is opened only for its list and the row it was encrypted for, or one folded into it** (the pull's aliases).
  */
 export interface KeySide {
   /** The app key, while this browser holds it (`useKeys`); undefined while locked. */
   appKey(): CryptoKey | undefined;
 }
 
-/** What the device remembers of each household's encryption: its state, kept across restarts, and its keyring, in memory only. */
+/** Where a row of the device's store is: its list, or `undefined` for one the device does not hold. */
+export type ListOf = (table: SyncedTable, id: string) => Promise<string | undefined>;
+
+/** What the device remembers of each group's encryption: its state, kept across restarts, and the keys, in memory only. */
 export class EncryptionMemory {
   private readonly encrypted: Set<string>;
   private readonly rings = new Map<string, Keyring>();
+  private readonly listRings = new Map<string, Keyring>();
   private readonly records = new Map<string, { record: string; person: string }>();
+  private readonly listRecords = new Map<string, { record: string; person: string }>();
+  /** Groups a pull has said this session how to open: a list of one still without keys is one this device will not get keys for. */
+  private readonly heard = new Set<string>();
 
   constructor(
     private readonly storage: Pick<Storage, 'getItem' | 'setItem'> | undefined,
     private readonly key: string,
   ) {
     this.encrypted = new Set(readList(storage, key));
+    // Copies of lists' keys from a link that the server has not taken yet (`pending.ts`): used meanwhile.
+    for (const each of readPending(storage))
+      this.listRecords.set(each.list, { record: each.record, person: each.person });
   }
 
   isEncrypted(household: string): boolean {
     return this.encrypted.has(household);
+  }
+
+  hasHeard(household: string): boolean {
+    return this.heard.has(household);
   }
 
   markEncrypted(household: string): void {
@@ -42,7 +68,26 @@ export class EncryptionMemory {
     try {
       this.storage?.setItem(this.key, JSON.stringify([...this.encrypted]));
     } catch {
-      // Storage that is full or blocked: this tab still knows, and the server holds plain text sent to a moved household anyway.
+      // Storage that is full or blocked: this tab still knows, and the server holds plain text sent to a moved group anyway.
+    }
+  }
+
+  /** What a pull said of a group's keys: the group's keyring (its own account's only) and the reader's copies of lists' keys. */
+  hear(
+    household: string,
+    keys: {
+      keyring: string | null;
+      lists?: Readonly<Record<string, string>>;
+      person: string | null;
+    },
+  ): void {
+    this.heard.add(household);
+    if (!keys.person) return;
+    if (keys.keyring) this.remember(household, keys.keyring, keys.person);
+    for (const [list, record] of Object.entries(keys.lists ?? {})) {
+      if (this.listRecords.get(list)?.record === record) continue;
+      this.listRecords.set(list, { record, person: keys.person });
+      this.listRings.delete(list);
     }
   }
 
@@ -53,7 +98,7 @@ export class EncryptionMemory {
     this.rings.delete(household);
   }
 
-  /** The household's keyring, opened with the app key the first time it is asked for. */
+  /** The group's keyring, opened with the app key the first time it is asked for: its own account's only. */
   async keyring(household: string, appKey: CryptoKey | undefined): Promise<Keyring | undefined> {
     const open = this.rings.get(household);
     if (open) return open;
@@ -64,9 +109,38 @@ export class EncryptionMemory {
     return ring;
   }
 
-  /** Sets a household's keyring this device just made (the move), so that it is used at once. */
+  /**
+   * **A list's keyring** (RFC 0004): the reader's own copy of it if they have one, given by a link, else derived from the group's keyring, which only the
+   * group's own account holds. `undefined` if neither is here (or the app key is locked).
+   */
+  async listKeyring(
+    household: string,
+    list: string,
+    appKey: CryptoKey | undefined,
+  ): Promise<Keyring | undefined> {
+    const open = this.listRings.get(list);
+    if (open) return open;
+    const known = this.listRecords.get(list);
+    let ring: Keyring | undefined;
+    if (known && appKey)
+      ring = await unwrapListKeyring(appKey, known.record, { person: known.person, list });
+    if (!ring) {
+      const group = await this.keyring(household, appKey);
+      if (group) ring = await deriveListKeyring(group, list);
+    }
+    if (ring) this.listRings.set(list, ring);
+    return ring;
+  }
+
+  /** Sets a group's keyring this device just made (the move), so that it is used at once. */
   setKeyring(household: string, ring: Keyring): void {
     this.rings.set(household, ring);
+    this.heard.add(household);
+  }
+
+  /** Sets a list's keyring this device was just given by a link, so that it is used at once. */
+  setListKeyring(list: string, ring: Keyring): void {
+    this.listRings.set(list, ring);
   }
 }
 
@@ -85,12 +159,13 @@ export function encryptingTransport(
   inner: Transport,
   keys: KeySide,
   memory: EncryptionMemory,
-  /** Told of the households that came back still sealed by the server, so that they can be moved (`Mover`). */
+  listOf: ListOf,
+  /** Told of the groups that came back still sealed by the server, so that they can be moved (`Mover`). */
   onPlain?: (households: readonly string[]) => void,
 ): Transport {
   return async (request) => {
     const appKey = keys.appKey();
-    const { outbox, held } = await encryptOutbox(request, memory, appKey);
+    const { outbox, held, refused } = await encryptOutbox(request, memory, appKey, listOf);
     const result = await inner({ ...request, outbox });
     if (result.kind !== 'ok') return result;
     const plain = result.answer.households
@@ -98,18 +173,34 @@ export function encryptingTransport(
       .map((pull) => pull.household);
     if (plain.length > 0) onPlain?.(plain);
     // The key as it is now: it may have opened while the request was on its way.
-    return { kind: 'ok', answer: await openAnswer(result.answer, memory, keys.appKey(), held) };
+    const answer = await openAnswer(result.answer, memory, keys.appKey(), held);
+    return {
+      kind: 'ok',
+      answer: refused.length > 0 ? { ...answer, refused: [...answer.refused, ...refused] } : answer,
+    };
   };
 }
 
-/** The outbox as it goes: a moved household's mutations encrypted, and a household whose keys are locked held back, with everything after it. */
+const NO_KEYS =
+  'That list is not shared with you any more, so this change could not be sent. It is kept here.';
+
+/**
+ * The outbox as it goes: a moved group's mutations encrypted, a group whose keys cannot be opened yet held back with everything after it, and a change
+ * for a list whose keys this device will not get refused here.
+ */
 async function encryptOutbox(
   request: SyncRequest,
   memory: EncryptionMemory,
   appKey: CryptoKey | undefined,
-): Promise<{ outbox: unknown[]; held: Set<string> }> {
+  listOf: ListOf,
+): Promise<{
+  outbox: unknown[];
+  held: Set<string>;
+  refused: { mutationId: string; reason: string; sentence: string }[];
+}> {
   const held = new Set<string>();
   const outbox: unknown[] = [];
+  const refused: { mutationId: string; reason: string; sentence: string }[] = [];
   for (const raw of request.outbox) {
     const mutation = raw as Mutation;
     const household = mutation.householdId;
@@ -118,42 +209,65 @@ async function encryptOutbox(
       outbox.push(mutation);
       continue;
     }
-    const ring = await memory.keyring(household, appKey);
-    if (!ring) {
+    if (!appKey || !memory.hasHeard(household)) {
       held.add(household);
       continue;
     }
-    outbox.push(await encryptMutation(ring, mutation));
+    const encrypted = await encryptMutation(
+      mutation,
+      (list) => memory.listKeyring(household, list, appKey),
+      listOf,
+    );
+    if (encrypted) outbox.push(encrypted);
+    else refused.push({ mutationId: mutation.mutationId, reason: 'not_found', sentence: NO_KEYS });
   }
-  return { outbox, held };
+  return { outbox, held, refused };
 }
 
-/** One mutation, its content encrypted field by field for its row, and a product's name key made beside its name. */
-export async function encryptMutation(ring: Keyring, mutation: Mutation): Promise<Mutation> {
+/** The list a change's values are encrypted for: a list's own id, else the list it is on after the change. */
+async function listOfChange(
+  change: Mutation['changes'][number],
+  listOf: ListOf,
+): Promise<string | undefined> {
+  if (change.table === 'list') return change.id;
+  const sent = change.fields.listId;
+  if (typeof sent === 'string') return sent;
+  return listOf(change.table, change.id);
+}
+
+/**
+ * One mutation, its content encrypted field by field for its list and row, and a product's name key made beside its name. `undefined` if a list it
+ * touches has no keys here.
+ */
+export async function encryptMutation(
+  mutation: Mutation,
+  ringOf: (list: string) => Promise<Keyring | undefined>,
+  listOf: ListOf,
+): Promise<Mutation | undefined> {
   const changes = [];
   for (const change of mutation.changes) {
     const fields: Record<string, string | number | null> = { ...change.fields };
-    for (const field of CONTENT[change.table]) {
-      const value = fields[field];
-      if (typeof value !== 'string') continue;
-      fields[field] = await sealField(
-        ring,
-        { household: mutation.householdId, table: change.table, row: change.id, field },
-        value,
-      );
+    const content = CONTENT[change.table].filter((field) => typeof fields[field] === 'string');
+    const naming = change.table === 'product' && typeof change.fields.name === 'string';
+    if (content.length > 0 || naming) {
+      const list = await listOfChange(change, listOf);
+      const ring = list ? await ringOf(list) : undefined;
+      if (!list || !ring) return undefined;
+      for (const field of content)
+        fields[field] = await sealField(
+          ring,
+          { list, table: change.table, row: change.id, field },
+          String(fields[field]),
+        );
+      if (naming)
+        fields.nameKey = await listNameKey(ring, list, canonicalName(String(change.fields.name)));
     }
-    if (change.table === 'product' && typeof change.fields.name === 'string')
-      fields.nameKey = await householdNameKey(
-        ring,
-        mutation.householdId,
-        canonicalName(change.fields.name),
-      );
     changes.push({ ...change, fields });
   }
   return { ...mutation, changes };
 }
 
-/** The answer as the device takes it: a moved household's rows opened, and a household it cannot open left out, so that its cursor stays. */
+/** The answer as the device takes it: a moved group's rows opened, and a group it cannot open left out, so that its cursor stays. */
 async function openAnswer(
   answer: SyncAnswer,
   memory: EncryptionMemory,
@@ -167,11 +281,9 @@ async function openAnswer(
       continue;
     }
     memory.markEncrypted(pull.household);
-    if (pull.encryption.keyring && pull.encryption.person)
-      memory.remember(pull.household, pull.encryption.keyring, pull.encryption.person);
-    const ring = await memory.keyring(pull.household, appKey);
-    if (!ring) continue;
-    const opened = await openPull(ring, pull);
+    memory.hear(pull.household, pull.encryption);
+    if (!appKey) continue;
+    const opened = await openPull((list) => memory.listKeyring(pull.household, list, appKey), pull);
     // Held this round for want of its keys, which this answer brought: another round at once sends what was held, rather than at the next interval.
     if (opened) households.push(held.has(pull.household) ? { ...opened, more: true } : opened);
   }
@@ -184,9 +296,9 @@ const TABLE_OF: Record<'lists' | 'items' | 'products', SyncedTable> = {
   products: 'product',
 };
 
-/** Every row of a moved household's pull, its content opened; `undefined` if a value does not open, so that none of the page is taken. */
+/** Every row of a moved group's pull, its content opened under its list's keys; `undefined` if a value does not open, so that none of the page is taken. */
 export async function openPull(
-  ring: Keyring,
+  ringOf: (list: string) => Promise<Keyring | undefined>,
   pull: HouseholdPull,
 ): Promise<HouseholdPull | undefined> {
   const aliasesOf = (table: SyncedTable, row: string) =>
@@ -203,6 +315,7 @@ export async function openPull(
         encrypted?: Record<string, string>;
       };
       const id = String(row.id);
+      const list = table === 'list' ? id : typeof row.listId === 'string' ? row.listId : undefined;
       const fields: Record<string, unknown> = { ...rest };
       for (const field of CONTENT[table]) {
         const value = encrypted?.[field];
@@ -210,12 +323,11 @@ export async function openPull(
           if (field !== 'name') fields[field] = null;
           continue;
         }
-        const text = await openField(
-          ring,
-          { household: pull.household, table, row: id, field },
-          value,
-          aliasesOf(table, id),
-        );
+        const ring = list ? await ringOf(list) : undefined;
+        const text =
+          ring && list
+            ? await openField(ring, { list, table, row: id, field }, value, aliasesOf(table, id))
+            : undefined;
         if (text === undefined) return undefined;
         fields[field] = text;
       }
@@ -225,10 +337,13 @@ export async function openPull(
   // A folded item's second note, carried for a device to join (§12.4): shown joined with the first on every device alike.
   for (const alias of pull.aliases) {
     if (!alias.carried || alias.table !== 'item') continue;
-    const target = { household: pull.household, table: 'item', row: alias.to, field: 'note' };
-    const text = await openField(ring, target, alias.carried, [alias.from]);
     const item = out.items.find((each) => each.id === alias.to);
-    if (text === undefined || !item) continue;
+    const list = typeof item?.listId === 'string' ? item.listId : undefined;
+    const ring = list ? await ringOf(list) : undefined;
+    if (!item || !list || !ring) continue;
+    const target = { list, table: 'item', row: alias.to, field: 'note' };
+    const text = await openField(ring, target, alias.carried, [alias.from]);
+    if (text === undefined) continue;
     const first = typeof item.note === 'string' && item.note !== '' ? item.note : null;
     if (first !== text) item.note = first === null ? text : `${first}\n${text}`;
   }

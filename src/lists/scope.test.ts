@@ -18,7 +18,7 @@ import type { Limits } from '../limits/config';
 import { applyMutation } from '../sync/apply';
 import { pullHousehold } from '../sync/pull';
 import { personRecords } from '../portability/records';
-import { adoptListMembers, adoptProductLists } from './members';
+import { adoptListMembers, adoptProductLists, splitSharedProducts } from './members';
 
 /**
  * **Sharing one list shows that list and nothing more** (RFC 0004): the bug this fixes was that a person invited to one list saw every list of the
@@ -348,5 +348,106 @@ describe(`products from before lists had catalogs (${leg})`, () => {
       sql`SELECT household_id FROM ${appTable(database, 'product')} WHERE list_id IS NULL AND household_id = ${ada.household}`,
     );
     expect(again).toEqual([]);
+  });
+});
+
+describe(`a list’s keys (${leg})`, () => {
+  it('are kept only by someone on the list, only in a group that has moved, handed back only to them, and go when they leave (21.4)', async () => {
+    const { ada, grace, hardware } = await setUp();
+    const keep = (who: Someone, list: string) =>
+      callAs(database, OPERATIONS, who, {
+        op: 'list.key.mine',
+        household: ada.household,
+        list,
+        record: `lr1.${'a'.repeat(16)}.${'b'.repeat(32)}`,
+      });
+    // Still sealed by the server: nothing to keep.
+    expect((await keep(grace, ada.list)).status).not.toBe(200);
+    await dbAll(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household} RETURNING id`,
+    );
+    // Not on Hardware: as if it were not there.
+    expect(await keep(grace, hardware.id)).toEqual(NOT_FOUND);
+    expect((await keep(grace, ada.list)).status).toBe(200);
+    const graces = await pullHousehold(database, TEST_RING, grace.accountId, ada.household, 0);
+    expect(Object.keys(graces?.encryption.lists ?? {})).toEqual([ada.list]);
+    // The group's keyring is its own account's alone.
+    await dbAll(
+      database,
+      sql`INSERT INTO ${appTable(database, 'household_key')} (household_id, person_id, epoch, record, created_at)
+          VALUES (${ada.household}, ${grace.personId}, 1, 'hk1.x.y', 1) RETURNING person_id`,
+    );
+    expect(
+      (await pullHousehold(database, TEST_RING, grace.accountId, ada.household, 0))?.encryption
+        .keyring,
+    ).toBeNull();
+    const adas = await pullHousehold(database, TEST_RING, ada.accountId, ada.household, 0);
+    expect(adas?.encryption.lists).toEqual({});
+    // Leaving the list takes their copy with it.
+    expect(
+      (
+        await callAs(database, OPERATIONS, grace, {
+          op: 'member.leave',
+          household: ada.household,
+          list: ada.list,
+        })
+      ).status,
+    ).toBe(200);
+    const left = await dbAll<{ list_id: string }>(
+      database,
+      sql`SELECT list_id FROM ${appTable(database, 'list_key')} WHERE person_id = ${grace.personId}`,
+    );
+    expect(left).toEqual([]);
+  });
+});
+
+describe(`a product items of two lists use, from before (${leg})`, () => {
+  it('is copied to the other list, sealed again for its new id, and the items there point at the copy (21.4)', async () => {
+    const { ada, hardware, screwProduct } = await setUp();
+    const onList = async (list: ReturnType<typeof listRow>, name: string) => {
+      const adding = addItem(env(), { list, name, last: null, by: ada.personId });
+      expect((await send(ada, adding)).status).toBe('applied');
+      const item = adding.changes.find((change) => change.table === 'item')?.id ?? '';
+      // As before 21.3: the item points at the Hardware product.
+      await dbAll(
+        database,
+        sql`UPDATE ${appTable(database, 'item')} SET product_id = ${screwProduct} WHERE id = ${item} RETURNING id`,
+      );
+      return { item, own: adding.changes.find((change) => change.table === 'product')?.id };
+    };
+    const made = makeList(env(), { householdId: ada.household, name: 'Party', position: 'a2' });
+    expect((await send(ada, made)).status).toBe('applied');
+    const party = listRow({ id: made.changes[0]?.id ?? '', householdId: ada.household });
+    const groceries = listRow({ id: ada.list, householdId: ada.household, name: 'Groceries' });
+    // Groceries has a Screws of its own; Party has none of that name.
+    const g = await onList(groceries, 'Screws');
+    const p = await onList(party, 'Balloons');
+
+    expect(await splitSharedProducts(database, TEST_RING)).toBeGreaterThan(0);
+    const productOf = async (item: string) =>
+      (
+        await dbGet<{ product_id: string }>(
+          database,
+          sql`SELECT product_id FROM ${appTable(database, 'item')} WHERE id = ${item}`,
+        )
+      )?.product_id ?? '';
+    expect(await productOf(g.item)).toBe(g.own);
+    const copied = await productOf(p.item);
+    expect(copied).not.toBe(screwProduct);
+    const copy = await dbGet<{ list_id: string; sealed: string }>(
+      database,
+      sql`SELECT list_id, sealed FROM ${appTable(database, 'product')} WHERE id = ${copied}`,
+    );
+    expect(copy?.list_id).toBe(party.id);
+    const { unsealRow } = await import('../crypto/sealed');
+    expect(unsealRow('product', copied, copy?.sealed ?? '', TEST_RING).name).toBe('Screws');
+    const hardwareItems = await dbAll<{ product_id: string }>(
+      database,
+      sql`SELECT product_id FROM ${appTable(database, 'item')} WHERE list_id = ${hardware.id}`,
+    );
+    expect(hardwareItems.map((row) => row.product_id)).toEqual([screwProduct]);
+    // Once is enough.
+    expect(await splitSharedProducts(database, TEST_RING)).toBe(0);
   });
 });

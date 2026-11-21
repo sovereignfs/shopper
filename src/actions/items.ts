@@ -1,5 +1,6 @@
 import { addQuantity, isQuantity } from '../quantity/decimal';
 import { stepFor, type Unit } from '../quantity/units';
+import { canonicalName } from '../catalog/canonical';
 import { type Env, changed } from './env';
 import type { Change, Mutation } from './format';
 import { after } from './position';
@@ -118,12 +119,48 @@ export function editItem(
   item: ItemRow,
   edit: ItemEdit,
   remember?: { product: ProductRow },
+  /** What a move to another list needs: the item's product, and the products the device holds, to find the one of the name on the other list. */
+  catalog?: { product: ProductRow | undefined; products: readonly ProductRow[] },
 ): Mutation | null {
   if (edit.quantity !== undefined && !isQuantity(edit.quantity)) return null;
   const fields = changed(item, edit);
   const changes: Change[] = [];
+  const moving = edit.listId !== undefined && edit.listId !== item.listId;
+  if (moving && edit.listId) {
+    // **An item's product is on the item's list** (RFC 0004, 21.3): moved, it takes the product of its name on the other list, or one made there with
+    // what this one remembers. Its name and note go again, so that they are encrypted for the other list's keys (21.4).
+    const product = catalog?.product;
+    const wanted = canonicalName(product?.name ?? item.name);
+    const there = catalog?.products.find(
+      (each) =>
+        each.listId === edit.listId &&
+        each.deletedAt === null &&
+        canonicalName(each.name) === wanted,
+    );
+    const productId = there?.id ?? env.newId();
+    if (!there)
+      changes.push({
+        table: 'product',
+        id: productId,
+        create: true,
+        fields: {
+          listId: edit.listId,
+          name: product?.name ?? item.name,
+          note: null,
+          categoryId: product?.categoryId ?? item.categoryId,
+          icon: product?.icon ?? item.icon,
+          defaultQuantity: product?.defaultQuantity ?? item.quantity,
+          defaultUnit: product?.defaultUnit ?? item.unit,
+          lastAddedAt: env.now,
+          createdAt: env.now,
+        },
+      });
+    fields.productId = productId;
+    fields.name = edit.name ?? item.name;
+    fields.note = edit.note === undefined ? item.note : edit.note;
+  }
   if (Object.keys(fields).length > 0) changes.push({ table: 'item', id: item.id, fields });
-  if (remember) {
+  if (remember && !moving) {
     const learned = changed(remember.product, {
       categoryId: edit.categoryId,
       icon: edit.icon,
@@ -161,16 +198,9 @@ export function restoreItem(env: Env, item: ItemRow): Mutation | null {
   return item.deletedAt !== null ? one(env, item, { deletedAt: null }) : null;
 }
 
-/** Moves an item to a position within its list, and optionally to another list of the household. */
-export function moveItem(
-  env: Env,
-  item: ItemRow,
-  to: { position: string; listId?: string },
-): Mutation | null {
-  return one(env, item, {
-    position: to.position,
-    ...(to.listId !== undefined ? { listId: to.listId } : {}),
-  });
+/** Moves an item to a position within its list. To another list is `editItem`'s, which takes the product of the other list with it (RFC 0004). */
+export function moveItem(env: Env, item: ItemRow, to: { position: string }): Mutation | null {
+  return one(env, item, { position: to.position });
 }
 
 /**

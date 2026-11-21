@@ -105,9 +105,9 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'operation',
-    address: 'household.key.mine',
+    address: 'list.key.mine',
     who: 'member',
-    note: 'A member keeps their own copy of a moved household’s keys, wrapped under their own app key; only their own row, only an encrypted household.',
+    note: 'Someone on a list keeps their own copy of its keys (RFC 0004), wrapped under their own app key; only their own row, only a list they are on, only in a group that has moved.',
   },
   {
     kind: 'route',

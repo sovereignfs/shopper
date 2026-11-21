@@ -32,11 +32,15 @@ export interface HouseholdPull {
   readonly more: boolean;
   /** The household as the reader sees it. */
   readonly view: { label: string; own: boolean; role: 'admin' | 'member'; seq: number };
-  /** How the household's content travels (RFC 0001), its latest key epoch, and the reader's own copy of its keyring, wrapped, if they have one. */
+  /**
+   * How the group's content travels (RFC 0001), its latest key epoch, the group's keyring wrapped for its own account (and nobody else), and the reader's
+   * own copies of the keys of lists they were given by a link, by list (RFC 0004).
+   */
   readonly encryption: {
     readonly state: 'plain' | 'encrypted';
     readonly epoch: number;
     readonly keyring: string | null;
+    readonly lists?: Readonly<Record<string, string>>;
     /** The reader's own person, whom the keyring is wrapped for. */
     readonly person: string | null;
   };

@@ -14,13 +14,14 @@ lists should be encrypted. Encryption is the suite's and is **not yet audited**.
 
 ### Added
 
-- **What you write is encrypted on your device,** with a key only you hold: a new account's lists from their first item, and an account's own lists
-  from 0.1.0 the first time they are opened. The server stores what it cannot read. Lists shared with others stay sealed by the server's key, as
-  before, until each person on them can be given its key; Settings › Encryption says which is which.
+- **What you write is encrypted on your device,** with keys only the people on each list hold: a new account's lists from their first item, and an
+  account's own lists from 0.1.0 the first time they are opened. The server stores what it cannot read. Lists that were already shared in 0.1.0 stay
+  sealed by the server's key, as before, until each person on them can be given its key; Settings › Encryption says which is which.
 - The server is never sent your password: your browser sends a value derived from it. A recovery kit is shown once after signing up, and opens your
   lists if you forget your password. Through a Sovereign core, core keeps your key.
-- A link to one of your encrypted lists carries the key to your lists, after `#`, which a browser never sends. Until each list has keys of its own,
-  someone you share one list with holds the key to the others too, though the server never gives them those lists.
+- **Each list has keys of its own.** A link to an encrypted list carries that list's key and no other, after `#`, which a browser never sends:
+  someone you share one list with cannot open your other lists, even from a copy of the database. An item moved to another list is encrypted again for
+  it.
 - Notifications on a device where Shopper is not open, when its operator sets `SHOPPER_VAPID_PRIVATE_KEY` (Settings › Notifications): for now, when
   someone joins a list you share. A notification never names a list or an item.
 - A person's export from a Sovereign core now includes what Shopper holds of them.

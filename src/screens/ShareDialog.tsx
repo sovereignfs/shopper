@@ -69,19 +69,20 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
   async function invite() {
     setBusy(true);
     setMessage(null);
-    // An encrypted household's link carries its keys (RFC 0001): wrapped under a secret that goes in the link after `#`, which no browser sends.
-    const keys = await keysOf(household.id);
+    // An encrypted list's link carries its keys and no other list's (RFC 0001, RFC 0004): wrapped under a secret that goes in the link after `#`, which no
+    // browser sends.
+    const keys = await keysOf(household.id, list.id);
     let secret: string | undefined;
     let wrappedKey: string | undefined;
     if (keys.encrypted) {
       if (!keys.ring) {
         setBusy(false);
         return setMessage(
-          'Unlock Shopper first: your lists are encrypted, and the link carries their key.',
+          'Unlock Shopper first: this list is encrypted, and its link carries its key.',
         );
       }
       secret = newLinkSecret();
-      wrappedKey = await wrapForLink(keys.ring, secret, household.id);
+      wrappedKey = await wrapForLink(keys.ring, secret, list.id);
     }
     const answer = await callOperation({
       op: 'invite.create',

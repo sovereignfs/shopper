@@ -12,7 +12,8 @@ import type { Limits } from '../limits/config';
 import { type Fold, foldProductFields, recordFold, resolveAlias } from './fold';
 import { foldItemFields, withoutSecondTick } from './items';
 import { mergeChange } from './merge';
-import { Refusal, duplicate, invalid, limited, notFound, unsupported } from './refusal';
+import { Refusal, duplicate, invalid, limited, notFound, otherList, unsupported } from './refusal';
+import { boundTo } from '../keys/household';
 import { OPEN_ITEM } from './open';
 import { TABLES, type TableSpec } from './tables';
 
@@ -253,6 +254,7 @@ async function applyChange(
   }
 
   await checkReferences(deps, spec, household, change);
+  if (deps.mode === 'encrypted') checkBoundToList(spec, change, existing);
 
   // An item made for a product that is already open on the list, in the same unit, is folded into it, unless it was made with "add another anyway".
   if (spec.table === 'item' && !existing && !change.separate) {
@@ -556,32 +558,36 @@ async function checkListAccess(
     return;
   }
   if (spec.table === 'item') {
-    const existing = await dbGet<{ list_id: string }>(
+    const existing = await dbGet<{ list_id: string; product_id: string }>(
       database,
-      sql`SELECT list_id FROM ${appTable(database, 'item')} WHERE id = ${change.id} AND household_id = ${household}`,
+      sql`SELECT list_id, product_id FROM ${appTable(database, 'item')} WHERE id = ${change.id} AND household_id = ${household}`,
     );
     const lists = new Set<string>();
     if (existing) lists.add(existing.list_id);
     if (typeof change.fields.listId === 'string') lists.add(change.fields.listId);
     for (const list of lists)
       if (!(await allowed(onList(database, list, accountId)))) throw notFound();
-    // The product it names is one the sender may see (21.3): of a list they are on, or one from before lists had catalogs that is theirs to see.
-    // Another list's product would otherwise reach everyone on this one. A product folded into another is that other.
-    if (typeof change.fields.productId === 'string') {
-      const product = await resolveAlias(database, household, 'product', change.fields.productId);
-      const visible =
-        await allowed(sql`EXISTS (SELECT 1 FROM ${appTable(database, 'product')} vp WHERE vp.id = ${product}
-        AND vp.household_id = ${household}
-        AND (${onList(database, sql`vp.list_id`, accountId)} OR (vp.list_id IS NULL AND (${ownerOf(database, household, accountId)}
-          OR EXISTS (SELECT 1 FROM ${appTable(database, 'item')} vi WHERE vi.product_id = vp.id AND ${onList(database, sql`vi.list_id`, accountId)})))))`);
-      if (!visible) throw notFound();
+    // **An item's product is on the item's list** (21.3): one that sets either is held to it, so that nobody on a list is handed a product of another,
+    // whose keys they would not hold (21.4). A product folded into another is that other.
+    if (typeof change.fields.productId === 'string' || typeof change.fields.listId === 'string') {
+      const list =
+        typeof change.fields.listId === 'string' ? change.fields.listId : existing?.list_id;
+      const named =
+        typeof change.fields.productId === 'string'
+          ? change.fields.productId
+          : existing?.product_id;
+      const product = named ? await resolveAlias(database, household, 'product', named) : undefined;
+      const same =
+        await allowed(sql`EXISTS (SELECT 1 FROM ${appTable(database, 'product')} vp WHERE vp.id = ${product ?? ''}
+        AND vp.household_id = ${household} AND vp.list_id = ${list ?? ''})`);
+      if (!same) throw notFound();
     }
     // The list it was on, for the move's tombstone.
     return existing?.list_id;
   }
   if (spec.table === 'product') {
-    // A list's catalog (task 21.3): written by those on the list; one from before lists had catalogs, by the group's own account or anyone whose list
-    // uses it. Its list is set when it is made and never changed.
+    // A list's catalog (task 21.3): written by those on the list; one from before lists had catalogs, by the group's own account. Its list is set when it
+    // is made and never changed.
     const existing = await dbGet<{ list_id: string | null }>(
       database,
       sql`SELECT list_id FROM ${appTable(database, 'product')} WHERE id = ${change.id} AND household_id = ${household}`,
@@ -589,11 +595,9 @@ async function checkListAccess(
     const sent = change.fields.listId;
     if (existing) {
       if (sent !== undefined && sent !== existing.list_id) throw notFound();
-      const usedOnMine = sql`EXISTS (SELECT 1 FROM ${appTable(database, 'item')} ui WHERE ui.product_id = ${change.id}
-        AND ui.household_id = ${household} AND ${onList(database, sql`ui.list_id`, accountId)})`;
       const ok = existing.list_id
-        ? await allowed(sql`(${onList(database, existing.list_id, accountId)} OR ${usedOnMine})`)
-        : await allowed(sql`(${ownerOf(database, household, accountId)} OR ${usedOnMine})`);
+        ? await allowed(onList(database, existing.list_id, accountId))
+        : await allowed(ownerOf(database, household, accountId));
       if (!ok) throw notFound();
     } else if (typeof sent === 'string') {
       if (!(await allowed(onList(database, sent, accountId)))) throw notFound();
@@ -777,5 +781,28 @@ async function afterItemWritten(
         : sql`UPDATE ${appTable(database, 'product')} SET times_bought = CASE WHEN times_bought > 0 THEN times_bought - 1 ELSE 0 END, seq = ${seq}
               WHERE id = ${String(row.product_id)} AND household_id = ${household} RETURNING id`,
     );
+  }
+}
+
+/**
+ * **In a group that has moved, a value is for its row's list** (RFC 0004, task 21.4): each list has its own keys, so a value encrypted for another list
+ * could be opened by nobody on the row's. The row's list is a list's own id, else the list it is on after this change. An item that changes list comes
+ * with its name and note encrypted again for the new one, or the old list's values would stay on it.
+ */
+function checkBoundToList(spec: TableSpec, change: Change, existing: Row | undefined): void {
+  const was = existing ? (existing.list_id as string | null | undefined) : undefined;
+  const sent = change.fields.listId;
+  const list =
+    spec.table === 'list'
+      ? change.id
+      : typeof sent === 'string' && spec.table === 'item'
+        ? sent
+        : (was ?? (typeof sent === 'string' ? sent : undefined));
+  if (spec.table === 'item' && existing && typeof sent === 'string' && sent !== was)
+    for (const field of spec.sealed) if (!(field in change.fields)) throw otherList();
+  for (const field of spec.sealed) {
+    const value = change.fields[field];
+    if (typeof value !== 'string') continue;
+    if (boundTo(value)?.list !== list) throw otherList();
   }
 }

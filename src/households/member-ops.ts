@@ -70,6 +70,11 @@ async function end(
             : NOT_THERE,
         );
       }
+      // Their copy of the list's keys goes (RFC 0004). What they hold on a device is not taken back: a list's keys are not changed yet when someone goes.
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'list_key')} WHERE list_id = ${list} AND person_id = ${target} RETURNING list_id`,
+      );
       await dbAll(
         tx,
         sql`UPDATE ${appTable(tx, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL

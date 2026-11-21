@@ -78,8 +78,8 @@ export async function createInvitation(
       ok: false,
       refused:
         state.encryption === 'encrypted'
-          ? 'Your lists are encrypted, and this page could not give the link their key. Reload it and try again.'
-          : 'Your lists are not encrypted yet: reload the page and try again.',
+          ? 'This list is encrypted, and this page could not give the link its key. Reload it and try again.'
+          : 'This list is not encrypted yet: reload the page and try again.',
     };
   const id = crypto.randomUUID();
   const token = newToken();
@@ -220,19 +220,24 @@ export type Accepted =
   | {
       readonly status: 'joined';
       readonly household: string;
-      /** The person who joined, and a moved household's keyring as the link wrapped it, given once and then gone (RFC 0001). */
+      /** The list joined (RFC 0004): what the link's keyring is bound to. */
+      readonly list: string;
+      /** The person who joined, and the list's keyring as the link wrapped it, given once and then gone (RFC 0001). */
       readonly person: string;
       readonly wrappedKey: string | null;
     }
-  /** The person is already in the household: nothing changed, and the link is still unused. */
-  | { readonly status: 'already'; readonly household: string }
+  /** The person is already on the list: nothing changed, and the link is still unused. */
+  | { readonly status: 'already'; readonly household: string; readonly list: string }
   /** Unknown, expired, used or revoked: one answer. */
   | { readonly status: 'invalid' }
   | { readonly status: 'refused'; readonly message: string };
 
 class Invalid extends Error {}
 class Already extends Error {
-  constructor(readonly household: string) {
+  constructor(
+    readonly household: string,
+    readonly list: string,
+  ) {
     super('already a member');
   }
 }
@@ -282,7 +287,7 @@ export async function acceptInvitation(
         tx,
         sql`SELECT id FROM ${member} WHERE list_id = ${list} AND person_id = ${person.id} AND left_at IS NULL`,
       );
-      if (already) throw new Already(household);
+      if (already) throw new Already(household, list);
 
       const stepped = await dbGet<{ seq: number | string }>(
         tx,
@@ -342,13 +347,15 @@ export async function acceptInvitation(
       return {
         status: 'joined' as const,
         household,
+        list,
         person: person.id,
         wrappedKey: carried?.wrapped_key ?? null,
       };
     });
   } catch (error) {
     if (error instanceof Invalid) return { status: 'invalid' };
-    if (error instanceof Already) return { status: 'already', household: error.household };
+    if (error instanceof Already)
+      return { status: 'already', household: error.household, list: error.list };
     if (error instanceof Refused) return { status: 'refused', message: error.message };
     throw error;
   }

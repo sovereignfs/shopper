@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, callAs, join, joinList, somebody } from '../access/test-support';
 import type { Env } from '../actions/env';
-import { addItem, moveItem } from '../actions/items';
+import { addItem, editItem } from '../actions/items';
 import { makeList } from '../actions/lists';
 import type { Database } from '../db/client';
 import { runMigrations } from '../db/migrate';
@@ -157,7 +157,11 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
     ]);
     const bulbs = (await adas.client.read((db) => itemsOf(db, ada.list)))[0];
     if (!bulbs) throw new Error('no item');
-    const move = moveItem(env(), bulbs, { position: 'a0', listId: hardware });
+    const products = await adas.client.read((db) => productsOf(db, ada.household));
+    const move = editItem(env(), bulbs, { listId: hardware }, undefined, {
+      product: products.find((each) => each.id === bulbs.productId),
+      products,
+    });
     if (!move) throw new Error('nothing to move');
     await adas.client.commit(move);
     await adas.client.sync();
@@ -206,7 +210,11 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
         ])
       )[0];
       if (!item) throw new Error('no item');
-      const move = moveItem(env(), item, { position: 'a0', listId: to });
+      const products = await adas.client.read((db) => productsOf(db, ada.household));
+      const move = editItem(env(), item, { listId: to }, undefined, {
+        product: products.find((each) => each.id === item.productId),
+        products,
+      });
       if (!move) throw new Error('nothing to move');
       await adas.client.commit(move);
       await adas.client.sync();
