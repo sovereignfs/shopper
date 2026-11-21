@@ -130,20 +130,24 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
           fetchTransport(),
           { appKey: () => appKeyRef.current },
           memory,
-          // Where a row is, for its list's keys (RFC 0004): an item's or a product's list, as this device holds it.
+          // Where a row is, for its list's keys (RFC 0004): an item's or a product's list as the server has it (its shadow, while changes to it wait),
+          // which the transport follows through the outbox in order.
           async (table, id) => {
-            const row =
-              table === 'item'
-                ? await db.get('item', id)
-                : table === 'product'
-                  ? await db.get('product', id)
-                  : undefined;
-            return row?.listId ?? undefined;
+            if (table !== 'item' && table !== 'product') return undefined;
+            const shadow = await db.get('shadow', [table, id]);
+            const row = shadow ? shadow.row : await db.get(table, id);
+            const list = (row as { listId?: string | null } | null | undefined)?.listId;
+            return typeof list === 'string' ? list : undefined;
           },
           (households) =>
             void moverRef.current?.mover
               .run(households, appKeyRef.current)
               .then((moved) => moved && syncNow.current()),
+          // An item's name and note as this device holds it, for a change of list that does not carry them.
+          async (id) => {
+            const item = await db.get('item', id);
+            return item ? { name: item.name, note: item.note } : undefined;
+          },
         ),
         channel: channel ?? undefined,
       });

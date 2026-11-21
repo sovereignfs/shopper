@@ -31,8 +31,14 @@ export interface KeySide {
   appKey(): CryptoKey | undefined;
 }
 
-/** Where a row of the device's store is: its list, or `undefined` for one the device does not hold. */
+/**
+ * Where a row of the device's store is, **as the server has it** (its shadow, when it has changes not sent yet), or `undefined` for one the device does
+ * not holds: the outbox's changes are then followed in order from there.
+ */
 export type ListOf = (table: SyncedTable, id: string) => Promise<string | undefined>;
+
+/** An item's name and note as the device holds it: what goes again, encrypted for the new list, with a change of list that does not carry them. */
+export type ContentOf = (id: string) => Promise<{ name: string; note: string | null } | undefined>;
 
 /** What the device remembers of each group's encryption: its state, kept across restarts, and the keys, in memory only. */
 export class EncryptionMemory {
@@ -162,10 +168,17 @@ export function encryptingTransport(
   listOf: ListOf,
   /** Told of the groups that came back still sealed by the server, so that they can be moved (`Mover`). */
   onPlain?: (households: readonly string[]) => void,
+  contentOf: ContentOf = async () => undefined,
 ): Transport {
   return async (request) => {
     const appKey = keys.appKey();
-    const { outbox, held, refused } = await encryptOutbox(request, memory, appKey, listOf);
+    const { outbox, held, refused } = await encryptOutbox(
+      request,
+      memory,
+      appKey,
+      listOf,
+      contentOf,
+    );
     const result = await inner({ ...request, outbox });
     if (result.kind !== 'ok') return result;
     const plain = result.answer.households
@@ -193,6 +206,7 @@ async function encryptOutbox(
   memory: EncryptionMemory,
   appKey: CryptoKey | undefined,
   listOf: ListOf,
+  contentOf: ContentOf,
 ): Promise<{
   outbox: unknown[];
   held: Set<string>;
@@ -201,6 +215,10 @@ async function encryptOutbox(
   const held = new Set<string>();
   const outbox: unknown[] = [];
   const refused: { mutationId: string; reason: string; sentence: string }[] = [];
+  // Where each item is as the outbox goes, in order, from where the server has it: an edit sent before a move is for the list it was on then.
+  const moved = new Map<string, string>();
+  const listAt: ListOf = async (table, id) =>
+    (table === 'item' ? moved.get(id) : undefined) ?? listOf(table, id);
   for (const raw of request.outbox) {
     const mutation = raw as Mutation;
     const household = mutation.householdId;
@@ -214,14 +232,59 @@ async function encryptOutbox(
       continue;
     }
     const encrypted = await encryptMutation(
-      mutation,
+      await withContent(mutation, listAt, contentOf),
       (list) => memory.listKeyring(household, list, appKey),
-      listOf,
+      listAt,
     );
-    if (encrypted) outbox.push(encrypted);
-    else refused.push({ mutationId: mutation.mutationId, reason: 'not_found', sentence: NO_KEYS });
+    if (!encrypted) {
+      refused.push({ mutationId: mutation.mutationId, reason: 'not_found', sentence: NO_KEYS });
+      continue;
+    }
+    outbox.push(encrypted);
+    for (const change of mutation.changes)
+      if (change.table === 'item' && typeof change.fields.listId === 'string')
+        moved.set(change.id, change.fields.listId);
   }
   return { outbox, held, refused };
+}
+
+/**
+ * **A change of list carries the item's name and note** (RFC 0004): the server keeps them for one list's keys only, so an item that changes list (an
+ * Undo of a move, a refused change moved to another list) sends them again, from the device, to be encrypted for the new one.
+ */
+async function withContent(
+  mutation: Mutation,
+  listAt: ListOf,
+  contentOf: ContentOf,
+): Promise<Mutation> {
+  const changes = [];
+  for (const change of mutation.changes) {
+    const to = change.fields.listId;
+    if (
+      change.table !== 'item' ||
+      change.create === true ||
+      typeof to !== 'string' ||
+      ('name' in change.fields && 'note' in change.fields) ||
+      (await listAt('item', change.id)) === to
+    ) {
+      changes.push(change);
+      continue;
+    }
+    const content = await contentOf(change.id);
+    changes.push(
+      content
+        ? {
+            ...change,
+            fields: {
+              name: content.name,
+              note: content.note,
+              ...change.fields,
+            },
+          }
+        : change,
+    );
+  }
+  return { ...mutation, changes };
 }
 
 /** The list a change's values are encrypted for: a list's own id, else the list it is on after the change. */

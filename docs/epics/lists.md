@@ -103,7 +103,11 @@ with others stays sealed; encrypted products from before that items of several l
 version encrypted anything). Tests: `household.test.ts` and `link.test.ts` (a Groceries link opens no Hardware value), `transport.test.ts` (a change
 for a list without keys goes to Couldn't sync and what came after is sent, held until the group is heard of after a restart; a waiting copy is used),
 `move.test.ts` (the marker in no table, per list; a value for another list refused), `encrypted.test.ts` (a value for another list and a bare move
-refused, each seen to fail without the check), `scope.test.ts` (`list.key.mine` as a second person; the split).
+refused, each seen to fail without the check), `scope.test.ts` (`list.key.mine` as a second person; the split), `records.test.ts` (the export holds
+the person's own list keys only), and `lists.device.test.ts`, the device's own transport against the server for a moved group: a move between lists
+and its Undo (the device sends the name and note again for a change of list that lacks them), and an edit and a move waiting together (each
+encrypted for the list the item is on at that point, followed from the server's version through the outbox in order), each seen to fail without its
+fix; and a change waiting for a list the person was taken off, after a reload, going to Couldn't sync.
 
 #### ✅ 21.5 — Screens without households
 
