@@ -93,6 +93,12 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   // 3. What was kept for them: their keys in Shopper's vault (RFC 0001; with them gone, nothing encrypted for them opens for them, backups
   // included), their settings, the record of the mutations they sent, and the rate counters that carry their account.
   await vaultOf(database).deleteAccount(accountId);
+  // Their copies of households' keys (RFC 0001): in a household that carries on, the others keep theirs.
+  if (person)
+    await dbAll(
+      database,
+      sql`DELETE FROM ${appTable(database, 'household_key')} WHERE person_id = ${person.id} RETURNING person_id`,
+    );
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'account_settings')} WHERE account_id = ${accountId} RETURNING account_id`,

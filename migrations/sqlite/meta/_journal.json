@@ -78,6 +78,13 @@
       "when": 1795263584152,
       "tag": "0010_account_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1795279437743,
+      "tag": "0011_household_keys",
+      "breakpoints": true
     }
   ]
 }

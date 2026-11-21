@@ -52,7 +52,11 @@ export const household = app.table(
     id: id('id'),
     ownOf: ref('own_of'),
     sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
     seq: counter('seq').notNull().default(0),
+    // RFC 0001: `sealed` (the server seals its content), or `encrypted` (each member's device does); and the latest key epoch.
+    encryption: text('encryption').notNull().default('sealed'),
+    epoch: counter('epoch').notNull().default(0),
     createdBy: ref('created_by').notNull(),
     createdAt: epochMs('created_at').notNull(),
     updatedAt: epochMs('updated_at').notNull(),
@@ -121,6 +125,7 @@ export const product = app.table(
     householdId: ref('household_id').notNull(),
     nameKey: ref('name_key').notNull(),
     sealed: sealed('sealed').notNull(),
+    encrypted: sealed('encrypted'),
     categoryId: ref('category_id'),
     icon: text('icon'),
     defaultQuantity: decimal('default_quantity'),
@@ -152,6 +157,7 @@ export const category = app.table(
     householdId: ref('household_id').notNull(),
     starterKey: text('starter_key'),
     sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
     icon: text('icon'),
     position: position('position').notNull(),
     hidden: bool('hidden').notNull().default(false),
@@ -235,6 +241,7 @@ export const list = app.table(
     id: id('id'),
     householdId: ref('household_id').notNull(),
     sealed: sealed('sealed').notNull(),
+    encrypted: sealed('encrypted'),
     position: position('position').notNull(),
     clearing: text('clearing').notNull().default('manual'),
     archivedAt: epochMs('archived_at'),
@@ -260,6 +267,7 @@ export const item = app.table(
     listId: ref('list_id').notNull(),
     productId: ref('product_id').notNull(),
     sealed: sealed('sealed').notNull(),
+    encrypted: sealed('encrypted'),
     quantity: decimal('quantity').notNull(),
     unit: text('unit'),
     categoryId: ref('category_id'),
@@ -292,3 +300,19 @@ export const accountSettings = app.table('account_settings', {
   createdAt: epochMs('created_at').notNull(),
   updatedAt: epochMs('updated_at').notNull(),
 });
+
+/**
+ * A member's keys for a household (RFC 0001, amendment 2): the household's keyring (every epoch's key) wrapped under that member's own app key, which
+ * only their browser opens. One row a member; replaced when the keyring grows. Deleted with the person (`People.deletePerson`) and the household.
+ */
+export const householdKey = app.table(
+  'household_key',
+  {
+    householdId: ref('household_id').notNull(),
+    personId: ref('person_id').notNull(),
+    epoch: counter('epoch').notNull(),
+    record: text('record').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.householdId, table.personId] })],
+);

@@ -12,4 +12,5 @@ export const HOUSEHOLD_TABLES: readonly string[] = [
   'product',
   'alias',
   'tombstone',
+  'household_key',
 ];

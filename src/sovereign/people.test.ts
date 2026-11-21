@@ -40,6 +40,7 @@ const DECIDED_APP: Record<string, string> = {
     'a household’s, deleted with it; what a person added stays under their name, with no account',
   rate_bucket: 'deleted where its key carries the account id',
   account_settings: 'the account’s own, deleted by account_id',
+  household_key: 'a member’s copy of a household’s keys: deleted with the person, and with a household nobody else is in',
 };
 const DECIDED_AUTH: Record<string, string> = {
   user: 'deleted',
@@ -105,6 +106,11 @@ async function seedAuth(person: Someone) {
   await dbRun(
     app,
     sql`INSERT INTO ${appTable(app, 'account_settings')} (account_id, last_list_id, created_at, updated_at) VALUES (${person.accountId}, ${'l-' + person.accountId}, ${now}, ${now})`,
+  );
+  // Their copy of their household's keys (RFC 0001).
+  await dbRun(
+    app,
+    sql`INSERT INTO ${appTable(app, 'household_key')} (household_id, person_id, epoch, record, created_at) VALUES (${person.household}, ${person.personId}, 1, 'hk1', ${now})`,
   );
   // Their keys in Shopper's vault (RFC 0001), as the SDK's tables hold them.
   await dbRun(
@@ -191,6 +197,9 @@ describe(`deleting a person (${leg})`, () => {
     ).toBe(0);
     expect(
       await count(app, appTable(app, 'account_settings'), sql`account_id = ${ada.accountId}`),
+    ).toBe(0);
+    expect(
+      await count(app, appTable(app, 'household_key'), sql`person_id = ${ada.personId}`),
     ).toBe(0);
     for (const table of ['sv_key_accounts', 'sv_key_wraps'])
       expect(await count(app, sql.raw(table), sql`user_id = ${ada.accountId}`), table).toBe(0);
