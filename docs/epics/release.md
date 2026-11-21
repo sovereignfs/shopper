@@ -87,7 +87,7 @@ policy (2.7) and the manifest's scopes grow (10.2); the release as 12.4; hosting
 
 **Accepts when:** the image of the version it sets is published and hosted, and a 0.1.0 database upgrades in place with every household intact.
 
-#### 📋 12.7 — The release of workstream 0001
+#### ⏳ 12.7 — The release of workstream 0001
 
 **Goal:** Shopper encrypted as the suite is, with push and exports, published before phase 2. **Depends on:** epics 17 and 20, 18.1 to 18.12, 19.1,
 19.2.
@@ -98,3 +98,9 @@ every household once (18.10); the security review of 18.12; the release as 12.4;
 
 **Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and
 a standalone account each open their lists on it.
+
+**Where it stands (2026-11-21):**
+
+- **Ready to release:** `develop` carries version 0.2.0 with its changelog, and the review is `docs/security/0.2.0.md`.
+- **The owner's part:** the promotion into `main` and the publishing.
+- **Not run:** hosting it on an instance.

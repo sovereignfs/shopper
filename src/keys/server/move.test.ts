@@ -193,6 +193,31 @@ describe(`moving a household (${leg})`, () => {
         item?.encrypted?.note ?? '',
       ),
     ).toBe(`barista ${MARKER}`);
+    // The marker is in no row of any table, as text, base64 or hex (18.12).
+    const tables = await dbAll<{ name: string }>(
+      database,
+      database.dialect === 'postgres'
+        ? sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema IN ('shopper', 'public')`
+        : sql`SELECT name FROM sqlite_master WHERE type = 'table'`,
+    );
+    const forms = [
+      MARKER,
+      Buffer.from(MARKER).toString('base64'),
+      Buffer.from(MARKER).toString('hex'),
+    ];
+    for (const { name } of tables) {
+      if (name === 'household' || name.startsWith('sqlite_') || name.startsWith('__')) continue;
+      const qualified =
+        database.dialect === 'postgres'
+          ? sql.raw(`"${name.startsWith('sv_') ? 'public' : 'shopper'}"."${name}"`)
+          : sql.raw(`"${name}"`);
+      const rows = await dbAll<Record<string, unknown>>(
+        database,
+        sql`SELECT * FROM ${qualified}`,
+      ).catch(() => []);
+      const text = JSON.stringify(rows);
+      for (const form of forms) expect(text, `${name} holds the marker`).not.toContain(form);
+    }
     // Moved once: not again.
     expect(await moveManifest(deps(), ada.household, ada.accountId)).toBeUndefined();
   });

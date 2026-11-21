@@ -1,6 +1,6 @@
 # Workstream 0001 — Shopper on the suite's encryption, push and exports
 
-**Status:** ⏳ In Progress (leg 1 done, but for the owner's acceptance of ADR 0001)\
+**Status:** ⏳ In Progress: legs 1 to 9 run on 2026-11-21, ready to release; what waits is listed in "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -20,17 +20,17 @@ households, trips and notices are built encrypted from their first line.
 
 ## Definition of done
 
-- [ ] `@sovereignfs/sdk`, `ui` and `manifest` are at their current releases, the manifest is manifest 5, and the worker is `@sovereignfs/pwa`'s (17.1,
+- [x] `@sovereignfs/sdk`, `ui` and `manifest` are at their current releases, the manifest is manifest 5, and the worker is `@sovereignfs/pwa`'s (17.1,
       17.2).
-- [ ] `DESIGN.md` describes RFC 0001 to 0003 as built, and no document says Shopper is "not end to end" or that the server reads every field (18.1).
-- [ ] A random marker written as a list, item, product, category and household name, and as a note, appears in no row of any table and no stored
+- [x] `DESIGN.md` describes RFC 0001 to 0003 as built, and no document says Shopper is "not end to end" or that the server reads every field (18.1).
+- [x] A random marker written as a list, item, product, category and household name, and as a note, appears in no row of any table and no stored
       file, in plain text, base64 or hex, on sqld, a `file:` database and PostgreSQL (18.12).
-- [ ] A standalone account signs up, keeps its kit, signs out, signs in and opens its lists; a forgotten password and the kit open them again (18.2,
+- [x] A standalone account signs up, keeps its kit, signs out, signs in and opens its lists; a forgotten password and the kit open them again (18.2,
       18.9).
 - [ ] A hosted account signs in through core, its key is released, and it opens its lists (18.3).
 - [ ] Two accounts share a household by a link and both read and edit it, offline and on; removing one makes a new key that it is not given (18.7,
       18.8).
-- [ ] A 0.1.0 database upgrades, and every household of one member opened once is encrypted with nothing lost; a shared one stays sealed and says
+- [x] A 0.1.0 database upgrades, and every household of one member opened once is encrypted with nothing lost; a shared one stays sealed and says
       so until its members can be given its keys (18.10, RFC 0001 amendment 2).
 - [ ] A push reaches a subscribed browser once, alone and hosted; turning it off stops it; deleting the account forgets the device (19.1, 19.2).
 - [ ] Core's export of a person includes Shopper's part; alone, a person and the operator each take their export from Settings; an export imports
@@ -182,3 +182,18 @@ packages), leg 7 (push) and leg 8 (exports, written as plain records instead of 
 | Version | Date       | Change        |
 | ------- | ---------- | ------------- |
 | 0.1     | 2026-11-21 | Initial draft |
+
+## Where it stands (2026-11-21)
+
+Legs 1 to 9 ran on 2026-11-21, committed on `develop`. What the definition of done still waits on, and why:
+
+- **Hosted key release end to end** (18.3): built, but untested end to end, because the SDK's fake core has no release (16.16).
+- **A new key when someone leaves** (18.8), and the server sealing only what it must (18.11): both need members to be given keys. That needs 16.8, or
+  core's token store, so a shared household stays sealed by the server (RFC 0001 amendment 2).
+- **A push received in a real browser** (19.1, 19.2): built and tested to the outbox; Playwright cannot subscribe to a push service.
+- **Exports and import with no core** (20.2 to 20.4): not built; core's export of a person (20.1) is.
+- **The owner's decisions:**
+  - ADR 0001 as it now reads (17.3);
+  - leg 2's review of the design;
+  - amendment 2's narrowing of "every household";
+  - the promotion and publishing of 0.2.0 (12.7).

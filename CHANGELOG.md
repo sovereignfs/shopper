@@ -8,7 +8,21 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.2.0] - 2026-11-21
 
+**Before upgrading:** take a backup. Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted. Every person who signs in with a password
+signs in once more as before, and their password then moves across, once; they are shown a recovery kit. Open Shopper once with each account whose
+lists should be encrypted. Encryption is the suite's and is **not yet audited**.
+
 ### Added
+
+- **What you write is encrypted on your device,** with a key only your household holds: a new account's lists from their first item, and an account's own
+  household from 0.1.0 the first time it is opened. The server stores what it cannot read. A household with more than one person in it stays sealed by
+  the server's key, as before, until each of them can be given its key; Settings › Encryption says which is which.
+- The server is never sent your password: your browser sends a value derived from it. A recovery kit is shown once after signing up, and opens your
+  lists if you forget your password. Through a Sovereign core, core keeps your key.
+- A link to an encrypted household carries its keys, after `#`, which a browser never sends.
+- Notifications on a device where Shopper is not open, when its operator sets `SHOPPER_VAPID_PRIVATE_KEY` (Settings › Notifications): for now, when
+  someone joins your household. A notification never names a list or an item.
+- A person's export from a Sovereign core now includes what Shopper holds of them.
 
 - Opened from Sovereign's launcher, or from any link to it, an installed Shopper now opens as itself on desktop Chrome and Edge and on Android Chrome, on the page the link names, rather than in a browser view. On an iPhone, an iPad and in Safari the link opens a browser view, as before.
 - Added to an iPhone's Home Screen from Safari, it opens as an app without Safari's bars, under its own name.
@@ -19,7 +33,10 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 - Shopper's service worker is now the one every app of the suite runs (`@sovereignfs/pwa`). With no connection, a page that is not kept on the device
   says it needs one from inside Shopper, and a page that takes more than eight seconds to load opens from what is kept. What is kept is unchanged:
   never anything of a person.
-- Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted, and declares manifest 5.
+- Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted, and declares manifest 5, with `encryption` (core releases its key) and
+  `signIn.export`.
+- The referrer the browser sends from Shopper is its origin alone, so that core releases its key without asking each time.
+- An account signed in through a page from before this version is asked to update it.
 
 ### For developers
 

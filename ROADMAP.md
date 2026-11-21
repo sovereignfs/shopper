@@ -242,8 +242,8 @@ take theirs, and an export imports into a second account.
 
 | #   | ID                                | Task                           | Priority | Depends on               | Status |
 | --- | --------------------------------- | ------------------------------ | -------- | ------------------------ | ------ |
-| 84  | [18.12](docs/epics/encryption.md) | The marker test and the review | P0       | 18.6–18.11, 19.2, 20.4   | 📋     |
-| 85  | [12.7](docs/epics/release.md)     | The release of workstream 0001 | P2       | Milestones R to U, 18.12 | 📋     |
+| 84  | [18.12](docs/epics/encryption.md) | The marker test and the review | P0       | 18.6–18.11, 19.2, 20.4   | ✅     |
+| 85  | [12.7](docs/epics/release.md)     | The release of workstream 0001 | P2       | Milestones R to U, 18.12 | ⏳     |
 
 ## Phase 2 — households, trips and the rest
 

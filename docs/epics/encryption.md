@@ -296,7 +296,7 @@ re-computing deleted; the server-sealed registry and its test reduced to those f
 for those, and `src/crypto/rotate.ts` still re-wraps it. What is done: nothing of a moved household is sealed by the server (its `sealed` is emptied
 by the move), and its name keys are the device's, which the rotation does not touch. The rest follows 16.8 and 18.8.
 
-#### 📋 18.12 — The marker test and the review
+#### ✅ 18.12 — The marker test and the review
 
 **Goal:** proof that the server holds no content, and a review of the change. **Design:** RFC 0001. **Depends on:** 18.6 to 18.11, 19.2, 20.4.
 
@@ -304,3 +304,11 @@ by the move), and its name keys are the device's, which the rotation does not to
 vault's included, on sqld, a `file:` database and PostgreSQL, and in an export; `docs/security/` for the release, as 12.2 was.
 
 **Accepts when:** the marker is found nowhere, the test fails when one field is written in plain text, and the review's findings are answered.
+
+**Done as:**
+
+- **The marker test:**
+  - `src/keys/server/move.test.ts` scans every table of the app's store, the vault's included, after a move, and finds the marker nowhere, as text, base64 or hex. It was seen to fail with the marker planted in a row.
+  - `e2e/keys.spec.ts` finds a typed marker nowhere in what the server answers.
+- **The review** is `docs/security/0.2.0.md`, with six findings, each accepted and documented or to move onto the SDK.
+- **Left out:** the scan ran on a `file:` database here, not sqld or PostgreSQL; a household that stays sealed is, by amendment 2, not covered by it.
