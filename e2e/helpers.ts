@@ -269,7 +269,7 @@ export async function seedItems(page: Page, items: Seed[], baseURL: string): Pro
   });
   const reply = await page.request.post('/api/sync', {
     headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { version: 1, outbox, cursors: {} },
+    data: { version: 2, outbox, cursors: {} },
   });
   expect(reply.status()).toBe(200);
   const body = (await reply.json()) as { refused: unknown[] };
@@ -299,7 +299,7 @@ export async function serverItems(
 > {
   const reply = await page.request.post('/api/sync', {
     headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { version: 1, outbox: [], cursors: {} },
+    data: { version: 2, outbox: [], cursors: {} },
   });
   const body = (await reply.json()) as { households: { items: never[] }[] };
   return body.households.flatMap((h) => h.items);

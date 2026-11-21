@@ -85,12 +85,18 @@ export function encryptingTransport(
   inner: Transport,
   keys: KeySide,
   memory: EncryptionMemory,
+  /** Told of the households that came back still sealed by the server, so that they can be moved (`Mover`). */
+  onPlain?: (households: readonly string[]) => void,
 ): Transport {
   return async (request) => {
     const appKey = keys.appKey();
     const { outbox, held } = await encryptOutbox(request, memory, appKey);
     const result = await inner({ ...request, outbox });
     if (result.kind !== 'ok') return result;
+    const plain = result.answer.households
+      .filter((pull) => pull.encryption.state === 'plain')
+      .map((pull) => pull.household);
+    if (plain.length > 0) onPlain?.(plain);
     return { kind: 'ok', answer: await openAnswer(result.answer, memory, appKey, held) };
   };
 }

@@ -37,7 +37,7 @@ interface Pull {
   gone: string[];
 }
 const pull = async (page: Page, base: string, cursors: Json = {}): Promise<Pull> =>
-  (await (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors })).json()) as Pull;
+  (await (await post(page, base, '/api/sync', { version: 2, outbox: [], cursors })).json()) as Pull;
 
 const mutation = (
   household: string,
@@ -76,7 +76,7 @@ const mutation = (
   ],
 });
 const sync = async (page: Page, base: string, outbox: unknown[]) =>
-  (await (await post(page, base, '/api/sync', { version: 1, outbox, cursors: {} })).json()) as {
+  (await (await post(page, base, '/api/sync', { version: 2, outbox, cursors: {} })).json()) as {
     applied: unknown[];
     refused: { reason: string }[];
   };
@@ -198,7 +198,7 @@ test('every route that changes something refuses a request from nowhere, from an
   const base = baseURL ?? '';
   await signUp(page, { name: 'Ada' });
   const routes: [string, Json][] = [
-    ['/api/sync', { version: 1, outbox: [], cursors: {} }],
+    ['/api/sync', { version: 2, outbox: [], cursors: {} }],
     ['/api/ops', { op: 'invite.list', household: crypto.randomUUID() }],
     ['/api/invite/accept', { token: 'x'.repeat(43) }],
     ['/api/account/profile', { name: 'X' }],
@@ -241,7 +241,7 @@ test('what is a person’s is not cacheable, every page carries a nonce policy, 
     expect(reply.headers()['referrer-policy'], path).toBe('strict-origin');
   }
   expect(
-    (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).headers()[
+    (await post(page, base, '/api/sync', { version: 2, outbox: [], cursors: {} })).headers()[
       'cache-control'
     ],
   ).toMatch(/no-store/);
@@ -276,12 +276,12 @@ test('a request is bounded: too many mutations, too many bytes', async ({ page, 
     mutation(ada.household, ada.lists[0]!.id, ada.members[0]!.personId),
   );
   expect(
-    (await post(page, base, '/api/sync', { version: 1, outbox: many, cursors: {} })).status(),
+    (await post(page, base, '/api/sync', { version: 2, outbox: many, cursors: {} })).status(),
   ).toBe(400);
   expect(
     (
       await post(page, base, '/api/sync', {
-        version: 1,
+        version: 2,
         outbox: [],
         cursors: {},
         pad: 'a'.repeat(3_000_000),
@@ -306,7 +306,7 @@ test('the session cookie is HttpOnly and SameSite=Lax, and the device’s copy o
   await deleteInSettings(page, PASSWORD);
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
   expect(
-    (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).status(),
+    (await post(page, base, '/api/sync', { version: 2, outbox: [], cursors: {} })).status(),
   ).toBe(401);
 });
 

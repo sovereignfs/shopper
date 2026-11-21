@@ -86,12 +86,15 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         if ((event.data as { type?: string } | null)?.type === 'left') window.location.assign('/');
       };
       channel?.addEventListener('message', onLeft);
+      // Which households have moved, and their keys while open (RFC 0001). The move itself (`src/keys/mover.ts`) runs from 18.7, once a link
+      // carries a moved household's keys to whoever joins.
+      const memory = new EncryptionMemory(storage(), `shopper.encrypted.${accountId}`);
       const made = new SyncClient({
         db,
         transport: encryptingTransport(
           fetchTransport(),
           { appKey: () => appKeyRef.current },
-          new EncryptionMemory(storage(), `shopper.encrypted.${accountId}`),
+          memory,
         ),
         channel: channel ?? undefined,
       });

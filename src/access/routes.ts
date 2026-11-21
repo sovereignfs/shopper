@@ -105,6 +105,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/keys/move',
+    who: 'signed-in',
+    note: 'Moving a household to content its device encrypts (RFC 0001): only its only member, only while it is sealed; anyone else reads as not found.',
+  },
+  {
+    kind: 'route',
     address: '/api/keys/vault',
     who: 'signed-in',
     note: "The session's own account's wrapped keys in Shopper's vault (RFC 0001), read and changed; the account is the session's, never the request's.",
