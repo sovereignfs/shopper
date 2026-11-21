@@ -4,8 +4,8 @@ Proposals that need a design, motivation, alternatives and tradeoffs reviewed as
 Files are named `NNNN-short-slug.md`, numbered in order; a withdrawn number is not reused. Each carries a `Status:` kept in step with this table. Once
 built, `DESIGN.md` says what Shopper does, and an RFC records why.
 
-| RFC                                               | Title                                              | Status                            |
-| ------------------------------------------------- | -------------------------------------------------- | --------------------------------- |
-| [0001](0001-encryption-the-server-cannot-read.md) | Encryption the server cannot read, the suite's way | Accepted on 2026-11-21; not built |
-| [0002](0002-web-push.md)                          | Web Push, the suite's way                          | Accepted on 2026-11-21; not built |
-| [0003](0003-exports-and-backups.md)               | Exports and backups, the suite's way               | Accepted on 2026-11-21; not built |
+| RFC                                               | Title                                              | Status                              |
+| ------------------------------------------------- | -------------------------------------------------- | ----------------------------------- |
+| [0001](0001-encryption-the-server-cannot-read.md) | Encryption the server cannot read, the suite's way | Accepted on 2026-11-21; being built |
+| [0002](0002-web-push.md)                          | Web Push, the suite's way                          | Accepted on 2026-11-21; being built |
+| [0003](0003-exports-and-backups.md)               | Exports and backups, the suite's way               | Accepted on 2026-11-21; being built |

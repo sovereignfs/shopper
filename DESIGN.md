@@ -172,8 +172,10 @@ trip is "shopping at Lidl".
  │ actions: pure, shared with the server  │              │ /api/ops: households, members, invitations,       │
  │ suggestions, totals, aisle order: pure │  /api/ops    │   moving lists (online)                           │
  │ service worker: the shell, Background  │ ◀──────────▶ │ /api/live: "household X moved" (SSE, §12.6)       │
- │   Sync                                 │  /api/live   │ sealing: envelope encryption at rest (§13)        │
+ │   Sync                                 │  /api/live   │ stores what it cannot read (§13)                  │
  │ live listener: pulls when told         │ ◀─────────── │ notices, digests, mail outbox; jobs               │
+ │ keys: the household's; encrypts and    │              │                                                  │
+ │   opens every field people write (§13) │              │                                                  │
  └────────────────────────────────────────┘              └───┬──────────────────┬───────────────────┬───────┘
                                                              │                  │                   │
                                                       SQLite (sqld or      SMTP (Shopper's      a Sovereign core,
@@ -185,8 +187,8 @@ trip is "shopping at Lidl".
   and synced (§12), as Tusk's Desk and Tally's expenses are. Households, membership, roles, invitations and moving a list between households are
   changes the server must decide at once, so they are online operations (`/api/ops`), as Tally's groups are (§12.8).
 - **The server is the referee:** it checks every change against membership and the limits, merges it field by field, orders it, and hands it to the
-  other members' devices. It reads every field, which is why Shopper is encrypted at rest and not end to end (§13): it merges fields, folds duplicate
-  items together and words notices.
+  other members' devices. **It reads no name, note or price** (§13): what people write is encrypted in the browser under the household's key, the
+  server merges by field stamps and folds by name key, and the device words what it shows.
 - **What can be pure is pure:** building a mutation from an action, merging fields, suggestion ranking, the aisle order, a trip's total, a unit price,
   normalising a name, describing a notice in words. They take rows and the time as arguments, and the same module runs in the browser and on the
   server, so a figure has one implementation.
@@ -206,7 +208,8 @@ As Tusk's: `app/` for routes, `src/` for everything else, tests beside the code.
 | `src/db/`                 | Configuration, clients, schemas per dialect, migrations at start-up (§20) — **copied from Tusk**                                                                   |
 | `src/auth/`               | better-auth, its settings, the sign-up policy, the screens, the fake Sovereign for tests (§15) — **copied from Tusk**                                              |
 | `src/access/`             | Every page, route and operation with who may use it; the membership conditions; input parsers (§5.2)                                                               |
-| `src/crypto/`             | The instance key, envelope encryption, sealed rows, the name key (§13) — envelope **copied from Tusk**, sealing **from Roam**                                      |
+| `src/crypto/`             | The instance key and envelope encryption, for what the server must hold: credentials and identity (§13.4) — envelope **copied from Tusk**                          |
+| `src/keys/`               | The keys in the browser: the account's (core's or Shopper's vault), the household's, the fields and the name key (§13), on `@sovereignfs/sdk`                      |
 | `src/people/`             | Persons (§6.1)                                                                                                                                                     |
 | `src/households/`         | Households, members, roles, invitations, lifecycle, moving lists, the operations (§7)                                                                              |
 | `src/catalog/`            | Normalising names, the starter catalog and its icons, categories, units, suggestion ranking (§8) — pure                                                            |
@@ -330,7 +333,8 @@ directory search and no notice: the person who shared sees the new person appear
 - **`/invite/<token>`** shows the household's owner's name (§7.4) and who invited, and nothing else. It offers to sign in, or to create an account (which
   the sign-up policy allows, §6.3; under `closed` it says an account is needed first), and through core when core is set. **Whoever holds the link can
   accept it,** as in Tally, whatever address it was sent to; the inviter is told who joined (§14.1, phase 2; in 0.1.0 they see it in the list).
-- **Accepting** adds the person as a Member, in one transaction, and the household's rows start arriving on their devices at the next sync.
+- **Accepting** adds the person as a Member, in one transaction, and the household's rows start arriving on their devices at the next sync. **A link
+  carries the household's key in its fragment**, which the server never sees, and accepting seals it to the newcomer (§13.5).
 - **Resend** (phase 2) sends the same invitation again, at most once an hour.
 
 ### 7.4 Your own household
@@ -434,9 +438,9 @@ reviewed in its own task (4.3) and can grow in any release; other languages are 
 
 - **Normalising** (`src/catalog/name.ts`, pure): trim, collapse spaces, Unicode NFKC, lower case in the root locale, strip a trailing plural "s" only
   where the starter catalog says so. _Oat Milk_ and _oat milk_ are one product.
-- **The name key** is an HMAC of the normalised name under a key derived from `SHOPPER_ENCRYPTION_KEY` and the household's id (§13.2). It is how the
-  server finds "the same product" in a household without reading names in a query, and it is unique per household. It reveals only that two rows of
-  one household share a name.
+- **The name key** is an HMAC of the normalised name and the household's id under a key derived from the household's first key, made **in the
+  browser** (§13.3). It is how the server finds "the same product" in a household without reading a name, and it is unique per household. It reveals
+  only that two rows of one household share a name.
 
 ## 9. Lists and items
 
@@ -625,7 +629,8 @@ Tally's counter per group, here per household.
   the last 180 days with their lines, in IndexedDB through `idb`, one database per account (`shopper-<account id>`). Screens read from it, and
   suggestions, totals and aisle order are computed from it, so everything is readable and writable offline. Older trips are fetched online when the
   history is scrolled to them.
-- **The device holds plain text,** as the screens need. It is deleted at sign-out (§12.10). Encryption at rest is the server's (§13).
+- **The device holds what it has opened,** as the screens need, and the keys that open it, until sign-out deletes both (§12.10). What it sends and
+  receives is ciphertext (§13).
 - **A recorded action is written to the device at once** and, in the same IndexedDB transaction, to the outbox. The sync loop sends it.
 
 ### 12.2 Mutations
@@ -699,7 +704,9 @@ Resolved by rule, in the background, with nothing asked. Fields merge independen
 | Two trips finish the same item's clearing (phase 2)                  | Cleared once                                                                                                                                                                                |
 
 Folding (`src/sync/fold.ts`) is applied by the server in the mutation's transaction and recorded in `alias` (§20.3), which pull hands to devices so
-they re-point what they hold. It is the only change the server makes that a device did not send.
+they re-point what they hold. It is the only change the server makes that a device did not send. **Joining two notes needs their text,** which the
+server cannot read (§13): it keeps the later item's note, still encrypted, on the alias, and the first device that pulls the alias joins the two
+(earlier first) and writes the result through the one path, the same on every device.
 
 ### 12.5 What the server refuses, and what the person sees
 
@@ -770,46 +777,79 @@ trips; later loads paint from the device with no spinner, on any network; signin
 and warns if it cannot; a session that ended elsewhere (a password reset, core's logout) is found at the next sync, which shows sign-in and no data,
 and keeps the outbox for the same account.
 
-## 13. Encryption at rest
+## 13. Encryption
 
-### 13.1 What is sealed
+**What people write into Shopper is encrypted in the browser, under a key only their household holds, always** (RFC 0001, the owner's decision of
+2026-11-21, §26). It is the suite's encryption (`sovereign`'s RFC 0005, through `@sovereignfs/sdk`), not Shopper's own: Shopper calls the SDK and
+holds no cipher. There is no setting and no opt-in. **Not yet audited:** the SDK's design and code have not been reviewed by a cryptographer or
+audited, and every place Shopper describes the feature says so.
 
-**Server-side envelope encryption at rest** (the owner's decision, §26), under `SHOPPER_ENCRYPTION_KEY`: Tusk's envelope (a random data key per row,
-wrapped under the instance key, bound to the row's id and purpose), copied, with Roam's sealed rows. Everything that says **what a household buys,
-where, for how much, or who they are** is sealed; only what the database must sort, join, count or merge stays readable:
+### 13.1 What is encrypted
 
-| Sealed                                                                                                                                                                                                                                                                        | Readable                                                                                                                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Household: name; list: name; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); shop: name; trip: receipt total; trip line: name, list name, price; person: name, email; invitation: email | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, icons, positions, times, roles, counts, `seq`, the field stamps, name keys, the currency code |
+| Encrypted in the browser, under the household's key                                                                                                                                                                                   | Readable by the server                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Household: name; list: name; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, icons, positions, times, ticks, roles, counts, `seq`, the field stamps, name keys, the key epoch, the currency code, sizes |
 
-- **0.1.0 has no prices, shops, trips, barcodes or invitation emails,** so those fields and tables arrive, sealed, with the phase that adds them (the
-  registry test lists only what exists); a household's name is sealed but empty until it can be named (3.8).
-- **A sealed row has one `sealed` column** holding its sensitive fields as one envelope, as Roam's: one data key per row, one place to read them. Code
-  reads and writes rows only through `src/crypto/sealed.ts`, which a test holds to this table.
-- **The sign-in store is not sealed:** better-auth holds each account's `name` and `email` in plain text in `shopper_auth`, since it looks an account up by its address and a sealed value
-  cannot be searched. The `person` record's copy is sealed; the review of 0.1.0 (`docs/security/0.1.0.md`, finding 2) records this.
-- **Field-level merging works on the unsealed row:** the server unseals, merges the changed fields (§12.4), and seals again, in the mutation's
-  transaction. Field stamps (`fseq`) are readable, so which field is newer is known without unsealing.
-- **Search, suggestions, totals and aisle order** work on unsealed rows in memory, on the device, and on the server only for a household's own rows
-  (notices, folding, import). No sealed field is ever in a `WHERE`, `ORDER BY` or index.
-- **Quantities, units and times stay readable**: they are merged and ordered, and alone, without a name, say little (§26).
-- **Rotation:** a new key with the old as `SHOPPER_ENCRYPTION_KEY_PREVIOUS`; a job re-wraps every data key and recomputes the name keys (§13.2), then
-  the old key can go.
-- **What it protects against:** a copied database, a backup, a disk, an operator reading tables. **What it does not:** someone in control of the
-  running server, which holds the key and reads everything to do its work; or the device, which holds plain text until sign-out. The README says so,
-  plainly.
+- **Each field is its own ciphertext** (`encryptBytes` under the household's content key, `importDocumentKey`), bound to household, table, row,
+  field and epoch, so a value moved to another row or field does not open. A mutation (§12.2) carries the ciphertext where it carried the text; the
+  validators check sizes. One registry (`src/keys/fields.ts`) lists the fields, and a test holds it to this table.
+- **0.1.0 has no prices, shops, trips or barcodes,** so those fields arrive, encrypted, with the phase that adds them.
+- **Field merging is unchanged** (§12.4): field stamps say which write is later, and the value is opaque. **Search, suggestions, totals, unit prices,
+  aisle order and the plugin's import** run on the device, over what it has opened; the server has no copy of any of them.
+- **The server never shows, logs or decrypts** a value, and a screen that cannot open one shows `LockedState`, never ciphertext.
 
-### 13.2 The name key
+### 13.2 Keys
 
-A product's **name key** (§8.7) is `HMAC-SHA-256(K_name, household_id ‖ normalised name)`, with `K_name` derived from `SHOPPER_ENCRYPTION_KEY` by HKDF
-with its own label. It lets the server fold duplicates and enforce one product per name without reading names. It reveals, to someone with the
-database and not the key, only that two products of one household have the same name, which the unique index already implies. On rotation, the job
-recomputes every name key under the new key.
+- **An account's key comes from how it signs in.** Through core: core releases the app key (`appKeys` from `@sovereignfs/sdk/keys`), and its
+  passkeys, recovery kit and escrow are core's. With a password: Shopper's own vault (`AppVault` and `vaultRoute` from `@sovereignfs/sdk/vault`,
+  `localVault` from `/local-vault`) keeps the keys, unlocked at sign-in from the password, which never reaches the server (the browser sends the value
+  it derives), and the recovery kit is shown by Shopper once after sign-up. Never decided by the instance or the viewport. `src/keys/` is one
+  interface over both.
+- **A household has a key:** an SDK document key, with the household's id as the document, made in the browser of whoever makes the household (the
+  one made with every account, §7.4, on its first unlock). It is sealed to each member with `share()` and kept in `household_key`, and a device
+  opens its own record with `openShared`.
+- **A key epoch:** when someone leaves or is removed, the next write by a remaining member's device makes a new key, sealed only to those who remain.
+  Rows keep the epoch they were written under; the server refuses a write under an epoch the household has moved past. What a removed member already
+  read cannot be taken back, and the household's screen says so.
+- **Signing out** forgets the keys this browser holds and deletes the device's store (§12.10).
 
-### 13.3 Sharing and encryption
+### 13.3 The name key
 
-The server unseals for whoever may read a row (§5.2), so joining a household needs no key exchange, and a member leaving or an account being deleted
-changes no other row. **End-to-end encryption is not in any phase** (§26): folding, merging and notices need the server to read.
+`HMAC-SHA-256(K_name, household_id ‖ normalised name)`, with `K_name` derived by HKDF (`shopper:name-key:v2`) from the household's **first** key, made
+in the browser and sent with the product. The server folds products whose name keys are equal and keeps one per name, without reading a name. It does
+not change with the epoch, so folding holds across devices; the cost is that a removed member who also had a copy of the database could test a name
+they guess.
+
+### 13.4 What the server still holds
+
+The server seals at rest, under `SHOPPER_ENCRYPTION_KEY` (Tusk's envelope, `src/crypto/`), only what it must read itself: a **person's name and
+email** (mail, the invitation page and the people of a household need them before a reader has any key, and core and better-auth hold them in plain),
+an **invitation's email**, **core's refresh token**, and a **push device's keys** (RFC 0002). Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping
+those only. `docs/encryption.md` says plainly that the server can read these.
+
+### 13.5 Sharing and encryption
+
+- **By a link:** the link carries a secret of 32 random bytes in its fragment (`/invite/<token>#<secret>`), which never reaches the server. The
+  inviter's browser stores the household's current key wrapped under it, beside the token's hash; the invitation page reads the fragment and removes
+  it first; accepting seals the key to the newcomer with `share()`, in the same operation, and deletes the wrapped copy. A used, revoked or expired
+  link opens nothing. Whoever holds the link can accept it, as before (§7.3).
+- **By email or from the directory** (phase 2), the link carries no fragment, since the server sends it: the newcomer joins and waits until a member's
+  device seals the key to them.
+- **Until `sovereign` lets an app with no core share between its own people** (16.8), a household of password accounts takes members by a link, but
+  removing one cannot make a new epoch, and the household's settings say what that means.
+
+### 13.6 What it protects, and what it does not
+
+- **It protects against someone who reads the server:** a copy of the database, a backup or a disk holds ciphertext, sealed keys and public keys.
+- **It does not protect against whoever runs the server,** which sends the app's code. Shopper never says the operator "cannot" read anything.
+- **The server still sees** who is in which household, how many lists and items there are, quantities and units, when things are ticked, and sizes.
+- **A forgotten password and a lost kit lose a password account's households for good,** unless another member still has the key.
+
+### 13.7 Moving from 0.1.0
+
+0.1.0 sealed content with the server's key. A household's first unlock by its Admin (or a member, with no Admin left) after the upgrade makes its key,
+pulls its rows (which the server opens one last time, for that household's members), encrypts them, and writes them through the one path; the server
+empties the old sealed content with the last batch. A household never opened stays sealed by the server until it is.
 
 ## 14. Notices (phase 2)
 
@@ -831,6 +871,8 @@ themselves.**
 | `trip_finished`     | The household's other members: "Thulana finished shopping at Lidl · 14 items"                          | On      |
 | `items_added`       | The household's other members: "Sam added 3 items to Groceries", one per list and adder per 30 minutes | **Off** |
 
+- **Words:** a notice in Shopper's own bell carries what it names encrypted, and the device words it ("Sam added Oat milk"). One that leaves the app,
+  through core's bell, mail or a push, says only what happened and who did it: "Sam added 3 items to a list" (§13).
 - **`items_added` is a digest:** each item added writes a count into `notice_digest`, keyed by recipient, list, adder and window; the digest job turns
   a window into one notice once it has been quiet for 30 minutes or is 30 minutes old. An item added and removed in the window is not counted.
 - **The bell,** left of the avatar, as Tally's: the unread count up to "99+", `NotificationsPanel` with the latest, each opening where it points;
@@ -849,7 +891,7 @@ the table's.
 | **Shopper's bell** | Always                            | Always                                                   | Every kind that is on                                                |
 | **Email**          | Shopper's mail (`SHOPPER_SMTP_*`) | Core's email (`email:send`), or Shopper's if not granted | Invitations (always by email when an address is given) and `invited` |
 | **Core's bell**    | —                                 | `notifications:send`, a link back to the notice's place  | Every kind that is on                                                |
-| **Push** (phase 3) | Web Push (§22.2)                  | Web Push                                                 | Designed now: a channel in the same table                            |
+| **Push**           | Web Push (RFC 0002)               | Web Push                                                 | A channel in the same table (19.3)                                   |
 
 - **Mail is sent in the background** through `mail_outbox`: a row written in the change's transaction, claimed by the mail job, retried with backoff,
   never logged with its address or content. Invitations go the same way.
@@ -893,13 +935,18 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
     "redirect": ["/api/auth/callback/sovereign"],
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
-    "scopes": ["openid", "profile", "email", "offline_access", "directory"]
+    "export": "/api/sovereign/export",
+    "scopes": ["openid", "profile", "email", "keys", "offline_access", "directory"]
   },
+  "encryption": { "return": "/keys/return" },
   "database": true,
-  "generate": ["SHOPPER_AUTH_SECRET", { "name": "SHOPPER_ENCRYPTION_KEY", "bytes": 32 }],
+  "generate": ["SHOPPER_AUTH_SECRET", { "name": "SHOPPER_ENCRYPTION_KEY", "bytes": 32 }, { "name": "SHOPPER_VAPID_PRIVATE_KEY", "bytes": 32 }],
   "core": ">=0.126.0 <1.0.0"
 }
 ```
+
+- **What workstream 0001 adds** (each with the task that uses it): `keys` and `encryption` (18.3), core's key release to `/keys/return` (§13.2);
+  `signIn.export` (20.1), core's ask for a person's part of their export (§18.1); `SHOPPER_VAPID_PRIVATE_KEY` (19.1), the push key (RFC 0002).
 
 - **`directory` and `offline_access`** (phase 2: **0.1.0 asks for `openid`, `profile` and `email` only**, and the manifest above is what phase 2 ships)
   are for finding people to invite in core's directory, which the SDK does as the person (`sv.as({ sub })`) with
@@ -1098,35 +1145,41 @@ linking core, export and import are phase 2.
 - **Profile:** name (the person's name everywhere, §6.1) and email.
 - **This device:** **Updates from others** (§12.6); when it last synced; whether persistent storage was granted; **Couldn't sync** (§12.5); "Reset
   this device" (sends the outbox, then reloads every household).
-- **Notifications:** each kind (§14.1) by channel, with what is not available said plainly.
+- **Encryption:** "Only the people in your households can read your lists. Not yet audited." With a password, the recovery kit (§13.2); through
+  core, a line that the kit and passkeys that unlock are core's.
+- **Notifications:** notifications on this device (`PushControl`, RFC 0002); each kind (§14.1) by channel, with what is not available said plainly.
 - **Sign-in:** the account sections Tusk has: password, passkeys, two-factor, linking core.
-- **Data:** export, import, import from the old Shopper plugin (§18), delete account (§19).
+- **Your data:** the person's export, import, import from the old Shopper plugin (§18), delete account (§19); and, alone, for the first account, the
+  app's export (**Data**).
 
-## 18. Export and import (phase 2)
+## 18. Export and import
 
-**Everything in this section is phase 2.** 0.1.0 can delete an account (§19) but cannot export; the README says so.
+The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), RFC 0003. Built before phase 2 (epic 20); 0.1.0 has neither.
 
 ### 18.1 Export
 
-One JSON file of what is the person's to take: their profile and settings, and **every household they are in, whole** (its name, currency, categories
-with the aisle order, shops, members by name only, catalog, lists with items, trips with lines), since a household's record is what they share. Other
-people's emails are never in it. A `format` (`"shopper"`) and `version` at the top; ids kept; sealed fields in plain text, since the file is the
-person's. Downloaded from Settings > Data, and noted on core's activity page when hosted. The file is plain text, and Settings says so before
-downloading.
+- **Hosted:** core asks Shopper for its part of a person's export (`signIn.export`, the SDK's `onExport`): the person, **every household they are in,
+  whole** (members by name only), its lists, items, catalog and categories, and what phase 2 adds, under `apps/shopper/records/`. Shopper offers no
+  file of its own.
+- **Alone:** a person takes the same on **Settings > Your data** (`ExportPanel`, `ExportJobs`, downloaded once), and the first account, Shopper's
+  operator, takes the app's export on **Data**, encrypted with age to recipients they save.
+- **Encrypted fields are exported as their ciphertext,** marked as envelopes, with the person's sealed household keys beside them, so that their keys
+  open it and nothing is in plain text on the way. Other people's emails, passwords, sessions and tokens are never in it.
+- **Backups are not exports:** hosted, `sv backup`; alone, the operator's backup of the database and `SHOPPER_ENCRYPTION_KEY` (`deploy/README.md`).
 
 ### 18.2 Import
 
-Import makes **new households** from a file, with the importer as Admin; every other member named in it becomes an **imported person** (a name with no
-account, shown "Sam (imported)") so that trips still say who bought what, and nobody else is joined without asking. A household in the file that was
-the exporter's own is merged into the importer's own household: its lists added, its products folded by name key, its categories matched by name, its
-trips added. Validated whole before anything is written, written in one transaction per household with new ids mapped consistently, within the limits
-(§7.6). A file from a newer version is refused with a sentence that says so. **A round trip is a test:** export, import into a second account, export
-again; the households match but for ids, times and the members' kind.
+Import reads a person's export (`readExport`), opens it in the browser with the person's keys, and makes **new households**, with new keys, with the
+importer as Admin; every other member named in it becomes an **imported person** (a name with no account, shown "Sam (imported)") so that trips still
+say who bought what, and nobody else is joined without asking. A household in the file that was the exporter's own is merged into the importer's own:
+its lists added, its products folded by name key, its categories matched by name, its trips added. Everything is written through the one path,
+within the limits (§7.6); a malformed file, or one from a newer version, writes nothing and says so. **A round trip is a test:** export, import into a
+second account, export again; the households match but for ids, times, keys and the members' kind.
 
 ### 18.3 From the plugin
 
 The legacy plugin's export section (`fs.sovereign.shopper`, export schema version 1, inside the platform's export file, or as the section on its own)
-is read by `src/portability/plugin.ts` and imported into the person's **own household**:
+is read **in the browser** by `src/portability/plugin.ts` and imported into the person's **own household**, encrypted as it is written:
 
 | Plugin                                                  | Here                                                                                                                                                                                                                                                                    |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1151,8 +1204,8 @@ shared record. One routine, safe to run again; the `sub` link goes last.
   **that includes their own household when it was shared,** which is then shown as "Shared lists" (§7.4); **a household with no other member left,**
   their own when it was never shared, is deleted, with everything of it. Their open trips are finished (phase 2).
 - **Removed** (the rows that exist, phase by phase): notices for them, digests for and about them, their notice preferences, invitations they made (revoked) and to them, their device
-  subscriptions (phase 3), their stored core token, their settings, rate counters, mail queued to them, and better-auth's rows: passkeys, two-factor,
-  sessions, sign-ins, and the account.
+  subscriptions, their sealed household keys, their vault (`vault.deleteAccount`), their export jobs, their stored core token, their settings, rate
+  counters, mail queued to them, and better-auth's rows: passkeys, two-factor, sessions, sign-ins, and the account.
 
 A test seeds one row of every table, for the person and for a second person sharing a household with them, and finds nothing personal of the first
 after (the name aside), the second's household intact. A new table that holds something of a person fails it until it is decided.
@@ -1176,8 +1229,9 @@ household's. Tests run on all three and read `SHOPPER_TEST_*` only.
 As Tusk's column vocabulary: ids are UUIDs, **made by the device for synced rows** (checked as UUIDs by the server, and refused if the id already
 belongs to another household's row) and by the server otherwise; times `epochMs`; booleans the vocabulary's word. **Quantities are canonical decimal
 strings** (§9.3). **Money is a 64-bit integer of minor units** (`bigint` on PostgreSQL, read as a `number` and checked to be a safe integer), inside
-the sealed envelope where the table seals it. A currency is a three-letter code. `sealed` is the envelope (§13.1); `fseq` is a JSON object of field to
-`seq`, the stamp of each field's last change (§12.4).
+the encrypted fields where the table has them. A currency is a three-letter code. **`encrypted` is a JSON object of field to its ciphertext**, written
+by the device (§13.1), which the server merges by key without opening; `sealed` is the server's envelope, for what it holds itself (§13.4); `fseq` is
+a JSON object of field to `seq`, the stamp of each field's last change (§12.4).
 
 ### 20.3 Tables
 
@@ -1187,31 +1241,35 @@ Beyond better-auth's, in the auth store.
 `tombstone` and `rate_bucket`, without these columns, which arrive with the phase that needs them: `household` has no
 `color` or `currency`, and its sealed name is empty; `invitation` has no email; `product` has no barcode, last unit price or `price_unit`; `item` has
 no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`, `notice_digest`, `notice_pref`,
-`mail_outbox` and `credential`, and those columns, by new migrations.
+`mail_outbox` and `credential`, and those columns, by new migrations. **Workstream 0001 adds** `household_key`, `push_subscription`, the SDK's vault
+tables and the export package's jobs (their own migrations, recorded apart), `encrypted` on every table of §13.1 (the old `sealed` content emptied
+by the move, §13.7), `epoch` and `encryption` (`sealed`, `moving`, `encrypted`) on `household`, and `wrapped_key` on `invitation`.
 
-| Table              | Columns                                                                                                                                                                                                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `person`           | `id`, `account_id` (unique, may be null), `core_sub` (unique, may be null), `kind` (`account`, `imported`), `sealed` (name, email), `deleted_at`, `created_at`, `updated_at`                                                                                                          |
-| `household`        | `id`, `own_of` (an account's own household: its `account_id`, unique; else null), `sealed` (name), `color`, `currency`, `seq`, `created_by`, `created_at`, `updated_at`                                                                                                               |
-| `member`           | `id`, `household_id`, `person_id`, `role` (`admin`, `member`), `joined_at`, `left_at`, `seq`                                                                                                                                                                                          |
-| `invitation`       | `id`, `household_id`, `token_hash` (unique), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                                                                                          |
-| `category`         | `id`, `household_id`, `starter_key`, `sealed` (name, when renamed or added), `icon`, `position`, `hidden`, `deleted_at`, `seq`, `fseq`                                                                                                                                                |
-| `product`          | `id`, `household_id`, `name_key` (unique with `household_id`), `sealed` (name, note, barcode, last unit price), `category_id`, `icon`, `default_quantity`, `default_unit`, `price_unit`, `times_bought`, `last_bought_at`, `last_added_at`, `deleted_at`, `seq`, `fseq`, `created_at` |
-| `list`             | `id`, `household_id`, `sealed` (name), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                          |
-| `item`             | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                            |
-| `shop`             | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                    |
-| `trip`             | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                      |
-| `trip_line`        | `id`, `household_id`, `trip_id`, `item_id`, `product_id`, `list_id`, `sealed` (name, list name, price), `quantity`, `unit`, `category_id`, `bought_by`, `bought_at`, `deleted_at`, `seq`, `fseq`                                                                                      |
-| `alias`            | `household_id`, `table`, `from_id` (the key with `table`), `to_id`, `seq`, `created_at` (§12.4)                                                                                                                                                                                       |
-| `notice`           | `id`, `account_id`, `kind`, `actor_person_id`, `household_id`, `subject_id`, `details` (JSON, sealed where it names something), `read_at`, `created_at`                                                                                                                               |
-| `notice_digest`    | `account_id`, `list_id`, `actor_person_id`, `window_start` (the key), `household_id`, `count`, `updated_at`                                                                                                                                                                           |
-| `notice_pref`      | `account_id`, `kind`, `channel` (the key), `on`                                                                                                                                                                                                                                       |
-| `account_settings` | `account_id` (the key), `last_list_id`, `inbox_seen_at`, `created_at`, `updated_at`                                                                                                                                                                                                   |
-| `mail_outbox`      | `id`, `account_id` or `sealed` (address), `template`, `data` (sealed JSON), `attempts`, `next_attempt_at`, `sent_at`, `failure_kind`, `created_at`                                                                                                                                    |
-| `applied_mutation` | `account_id`, `id`, `household_id`, when (§12.9)                                                                                                                                                                                                                                      |
-| `tombstone`        | `table`, `id`, `household_id`, `seq`, when (§12.9)                                                                                                                                                                                                                                    |
-| `credential`       | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                      |
-| `rate_bucket`      | As Tusk's. A job claims its work by a conditional update of the row it works on (`src/jobs/claim.ts`), not by a table                                                                                                                                                                 |
+| Table               | Columns                                                                                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `person`            | `id`, `account_id` (unique, may be null), `core_sub` (unique, may be null), `kind` (`account`, `imported`), `sealed` (name, email), `deleted_at`, `created_at`, `updated_at`                                                                                                          |
+| `household`         | `id`, `own_of` (an account's own household: its `account_id`, unique; else null), `sealed` (name), `color`, `currency`, `seq`, `created_by`, `created_at`, `updated_at`                                                                                                               |
+| `member`            | `id`, `household_id`, `person_id`, `role` (`admin`, `member`), `joined_at`, `left_at`, `seq`                                                                                                                                                                                          |
+| `invitation`        | `id`, `household_id`, `token_hash` (unique), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                                                                                          |
+| `category`          | `id`, `household_id`, `starter_key`, `sealed` (name, when renamed or added), `icon`, `position`, `hidden`, `deleted_at`, `seq`, `fseq`                                                                                                                                                |
+| `product`           | `id`, `household_id`, `name_key` (unique with `household_id`), `sealed` (name, note, barcode, last unit price), `category_id`, `icon`, `default_quantity`, `default_unit`, `price_unit`, `times_bought`, `last_bought_at`, `last_added_at`, `deleted_at`, `seq`, `fseq`, `created_at` |
+| `list`              | `id`, `household_id`, `sealed` (name), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                          |
+| `item`              | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                            |
+| `shop`              | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                    |
+| `trip`              | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                      |
+| `trip_line`         | `id`, `household_id`, `trip_id`, `item_id`, `product_id`, `list_id`, `sealed` (name, list name, price), `quantity`, `unit`, `category_id`, `bought_by`, `bought_at`, `deleted_at`, `seq`, `fseq`                                                                                      |
+| `alias`             | `household_id`, `table`, `from_id` (the key with `table`), `to_id`, `seq`, `created_at` (§12.4)                                                                                                                                                                                       |
+| `notice`            | `id`, `account_id`, `kind`, `actor_person_id`, `household_id`, `subject_id`, `details` (JSON, sealed where it names something), `read_at`, `created_at`                                                                                                                               |
+| `notice_digest`     | `account_id`, `list_id`, `actor_person_id`, `window_start` (the key), `household_id`, `count`, `updated_at`                                                                                                                                                                           |
+| `notice_pref`       | `account_id`, `kind`, `channel` (the key), `on`                                                                                                                                                                                                                                       |
+| `account_settings`  | `account_id` (the key), `last_list_id`, `inbox_seen_at`, `created_at`, `updated_at`                                                                                                                                                                                                   |
+| `mail_outbox`       | `id`, `account_id` or `sealed` (address), `template`, `data` (sealed JSON), `attempts`, `next_attempt_at`, `sent_at`, `failure_kind`, `created_at`                                                                                                                                    |
+| `applied_mutation`  | `account_id`, `id`, `household_id`, when (§12.9)                                                                                                                                                                                                                                      |
+| `tombstone`         | `table`, `id`, `household_id`, `seq`, when (§12.9)                                                                                                                                                                                                                                    |
+| `credential`        | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                      |
+| `household_key`     | `household_id`, `epoch`, `person_id` (the key), `record` (the household key sealed to that person, `share()`), `created_at` (§13.2)                                                                                                                                                   |
+| `push_subscription` | As `@sovereignfs/push`'s README: an account's device (at most ten), its endpoint, its keys sealed (§13.4), when it was made and last used (RFC 0002)                                                                                                                                  |
+| `rate_bucket`       | As Tusk's. A job claims its work by a conditional update of the row it works on (`src/jobs/claim.ts`), not by a table                                                                                                                                                                 |
 
 Indexes follow the queries: members by person (an account's households) and by household; every synced table by `(household_id, seq)` for pull; items
 by list; trip lines by trip and by `(household_id, bought_at)` for suggestions; trips by `(household_id, started_at)` and open trips by person;
@@ -1267,8 +1325,8 @@ docker run -v shopper:/data -e SHOPPER_DB_DIALECT=sqlite -e SHOPPER_SQLITE_URL=f
 - **Sync:** two devices folding the same product and the same item; two ticks of one item; a tick against a delete; an edit against a clear; a
   mutation sent twice; a lost answer; a refusal for a removed member and for a deleted list (landing in Couldn't sync); a stale cursor; a household
   left between syncs; the live stream telling a second device, and a device falling back to its interval when the stream drops.
-- **Sealing:** every table's sealed fields are not readable in the database file; rotation re-wraps every row and recomputes every name key; a test
-  holds `sealed.ts` to §13.1's table.
+- **Encryption:** a random marker written as every encrypted field is found in no row of any table and no file, in plain text, base64 or hex, on all
+  three databases (18.12); a test holds `src/keys/fields.ts` to §13.1's table and `sealed.ts` to §13.4's; rotation re-wraps what the server seals.
 - **Access:** every route, operation, mutation and the live stream called as a second person, expecting not found (§5.2).
 - **The data layer** on sqld, a `file:` database and PostgreSQL; **jobs** run twice and from two processes, acting once.
 - **Sign-in** against the fake Sovereign, **notices** against `createFakeCore` from `@sovereignfs/sdk/testing`, **mail** against a fake SMTP server.
@@ -1314,8 +1372,7 @@ Everything the first design put in phase 1 that 0.1.0 leaves out (§2.2). Each i
   there, and correctable by dragging. Prices remembered per shop, and the product's price over time.
 - **Insights:** per household, from trips: spending by month and by category, the most bought products, who shopped how often, prices over time for a
   product; charts from `@sovereignfs/ui` (Tally's 14.1), each with a table beside it.
-- **Push notifications:** Web Push, as Tally's §21.4: keys generated once (`generate`: `SHOPPER_VAPID_PRIVATE_KEY`), a subscription per device, the
-  channel already in `notice_pref`. On iPhone, only once Shopper is added to the home screen.
+- **Push notifications:** moved before phase 2 (RFC 0002, epic 19), on `@sovereignfs/push`.
 
 ### 22.3 Phase 4: capture
 

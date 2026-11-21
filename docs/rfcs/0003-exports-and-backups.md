@@ -2,7 +2,7 @@
 
 |               |                                                                                                                                                           |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**    | Accepted on 2026-11-21; not built                                                                                                                         |
+| **Status**    | Accepted on 2026-11-21; being built                                                                                                                       |
 | **Date**      | November 2026                                                                                                                                             |
 | **Author**    | Claude Code (design discussion with `kasunben`)                                                                                                           |
 | **Scope**     | `DESIGN.md` §18, §19, §21; `src/portability/`, Settings, the manifest, `deploy/README.md`                                                                 |

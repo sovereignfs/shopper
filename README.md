@@ -110,6 +110,9 @@ Sovereign core is **never** refused by it: the core has decided who the person i
 
 ### What encryption at rest does
 
+> **Changing.** This page describes Shopper as 0.1.0 released it. Before phase 2, Shopper moves to encryption the server cannot read, the suite's way
+> ([RFC 0001](docs/rfcs/0001-encryption-the-server-cannot-read.md), `DESIGN.md` §13); this page is rewritten when that ships (task 18.9).
+
 Everything that says **what a household buys and where** is sealed in the database under `SHOPPER_ENCRYPTION_KEY`: the names of households, lists,
 items, products and categories, and notes, and the name and address Shopper keeps of each person on what they share. **One thing is not:** the sign-in database
 (`shopper_auth`, beside the other) holds each account's name and email address in plain text, because signing in looks an account up by its address. Each row has a data key of its own, wrapped under the instance key and bound to the row, so a

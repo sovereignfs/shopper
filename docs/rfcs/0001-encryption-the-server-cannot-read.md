@@ -2,7 +2,7 @@
 
 |               |                                                                                                                                            |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Status**    | Accepted on 2026-11-21; not built                                                                                                          |
+| **Status**    | Accepted on 2026-11-21; being built                                                                                                        |
 | **Date**      | November 2026                                                                                                                              |
 | **Author**    | Claude Code (design discussion with `kasunben`)                                                                                            |
 | **Scope**     | `DESIGN.md` §5, §7.3, §8.7, §12.4, §13, §14, §15, §18, §19, §20, §26; `src/crypto/`, `src/sync/`, `src/auth/`, a new `src/keys/`           |

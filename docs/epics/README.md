@@ -17,8 +17,8 @@ the task is corrected.
   `CHANGELOG.md`.
 - **Every task holds these without saying so:** a data-layer test passes on sqld, a `file:` database and PostgreSQL; a new route, operation or
   mutation is in `src/access/routes.ts` with a test calling it as a second person (once 3.2 is in); a new table is handled by `People.deletePerson`
-  (once 2.5 is in) and by export and import (once 11.2 is in); a table holding a name, note, price or address seals it through `src/crypto/sealed.ts`
-  and is added to `DESIGN.md` §13.1's table and its test (once 1.11 is in); a write goes through the one path (once 5.2 is in); a screen works with a
+  (once 2.5 is in) and by export and import (once 11.2 is in); a table holding a name, note or price encrypts it in the browser (`src/keys/`, once 18.6 is in;
+  before, it seals it through `src/crypto/sealed.ts`) and adds it to `DESIGN.md` §13.1's table and its test; a write goes through the one path (once 5.2 is in); a screen works with a
   keyboard, in light and dark, at a phone's width, and offline where `DESIGN.md` §12 says it does; no name, note, price or address reaches a log; a
   safeguard's test was seen to fail with it switched off.
 - **Epic 16 is done in `sovereign`,** following that repository's conventions; its tasks here record what Shopper needs and are marked done when the

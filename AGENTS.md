@@ -24,7 +24,8 @@ both, from one image.
 §5.1).
 
 **Phase 1 (0.1.0) is a minimum viable product,** built to be used as soon as it can be: sign-in by password or through a core, lists and items offline,
-ticking and a light shopping mode, sharing by a link, everything sealed at rest. `DESIGN.md` §2.2 says exactly what it holds and what waits. **A task
+ticking and a light shopping mode, sharing by a link, everything sealed at rest. **Before phase 2, workstream 0001**
+(`docs/workstreams/0001-suite-model.md`) moves it onto the suite's encryption, push and exports. `DESIGN.md` §2.2 says exactly what it holds and what waits. **A task
 of phase 2 or later is not started before 0.1.0 is released** unless the owner decides it, and a phase 1 task builds the design's data model
 and rules as written, leaving out only the screens and features §2.2 lists, so that phase 2 adds to it and moves nothing.
 
@@ -135,9 +136,12 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   the same query (`DESIGN.md` §5.2), never checked first and then touched; an Admin's operation adds the role to it. Anything a change points at must
   be the same household's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
-- **Names, notes, prices, shops, emails and barcodes are sealed at rest** through `src/crypto/sealed.ts`, never written in plain text, never in a
-  `WHERE`, `ORDER BY` or index. A product's identity in a household is its **name key** (`DESIGN.md` §13.2), never its name. A table that adds a
-  sealed field adds it to `DESIGN.md` §13.1's table and the registry test in the same change.
+- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the household's
+  key, through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
+  a `WHERE`, `ORDER BY` or index. A product's identity in a household is its **name key** (`DESIGN.md` §13.3), made in the browser, never its name.
+  What the server must hold itself (a person's name and email, an invitation's email, credentials) is sealed through `src/crypto/sealed.ts`
+  (§13.4). A table that adds such a field adds it to §13.1's or §13.4's table and its registry test in the same change. **The words "not yet
+  audited" go wherever Shopper describes its encryption.**
 - **Lists, items, products, categories, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
   mutation, and `src/sync/apply.ts` applies it, re-checking membership and limits, merging field by field, folding duplicates (`src/sync/fold.ts`), in
   one short transaction that increments the household's `seq`. A replayed mutation writes nothing. The property tests pass.

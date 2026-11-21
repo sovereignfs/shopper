@@ -2,7 +2,7 @@
 
 |               |                                                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Status**    | Accepted on 2026-11-21; not built                                                                                           |
+| **Status**    | Accepted on 2026-11-21; being built                                                                                         |
 | **Date**      | November 2026                                                                                                               |
 | **Author**    | Claude Code (design discussion with `kasunben`)                                                                             |
 | **Scope**     | `DESIGN.md` §14.3, §19, §20.3, §22.2; `src/push/`, `src/sw/`, Settings; the manifest, `.env.example`, `Dockerfile`, Compose |

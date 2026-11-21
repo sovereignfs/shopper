@@ -18,15 +18,30 @@ replaces §13's encryption at rest (1.11) for content and §13.2's name key (4.1
 
 ## Tasks
 
-#### 📋 18.1 — The design
+#### ✅ 18.1 — The design
 
 **Goal:** `DESIGN.md` says what RFC 0001 to 0003 build. **Design:** RFC 0001's scope. **Depends on:** 17.1.
 
 **Technical:** §5, §7.3, §8.7, §12.4, §13 (rewritten), §14, §15.3, §18, §19, §20.3, §22.2, §26 (the decision, superseding the rows that ruled end to
-end out); `docs/encryption.md` rewritten in a person's words with "not yet audited"; `docs/sharing.md`; `AGENTS.md`'s rules of an app (sealing, the
+end out); `docs/encryption.md` and the README marked as changing, and rewritten in a person's words with "not yet audited" by 18.9, when it ships; `docs/sharing.md`; `AGENTS.md`'s rules of an app (sealing, the
 name key, what the server may read); `docs/epics/README.md`'s "every task holds". The RFCs' status lines move to "Accepted; being built".
 
 **Accepts when:** the owner has reviewed it, and no document says Shopper is not end to end or that the server reads every field.
+
+**Done as:** `DESIGN.md` §13 rewritten whole as "Encryption" (§13.1 what is encrypted, §13.2 keys, §13.3 the name key, §13.4 what the server
+still holds, §13.5 sharing, §13.6 what it protects, §13.7 moving from 0.1.0). Also changed:
+
+- §5's picture and the referee's bullet; §5.1's `src/crypto/` and a new `src/keys/`; §7.3 and §8.7.
+- §12.4: notes joined on the device after a fold. §12.1: the device's copy.
+- §14: notices' words, and push as a channel. §15.3: the manifest the workstream ends with. §17: Settings' Encryption and Your data.
+- §18, rewritten for the suite's export. §19: the vault, keys, subscriptions and export jobs deleted.
+- §20.2 (`encrypted` beside `sealed`) and §20.3 (the tables and columns the workstream adds), §21's tests, §22.2's push.
+- `AGENTS.md`'s rule on what is encrypted, and `docs/epics/README.md`'s "every task holds".
+
+The §26 rows for 2026-11-21 were added by 17.4. `docs/encryption.md` and the README describe the running app, so they say they are changing and are
+rewritten by 18.9, when it ships. The 2026-11-09 decision row that ruled end to end out is kept, as the log is never rewritten, and is superseded by
+2026-11-21's. **The owner's review (the leg's gate) has not happened:** the owner asked for the workstream to run through without stopping, so it
+continues on this text and the review stays open.
 
 #### 📋 18.2 — Shopper's own vault
 
@@ -110,7 +125,7 @@ that means; the words when removing.
 
 **Goal:** a person knows what is protected and keeps what they need. **Design:** RFC 0001, "The screens". **Depends on:** 18.4, 18.5.
 
-**Technical:** Settings › Encryption; `RecoveryKit` once after a standalone sign-up and again from Settings; unlocking with the kit; a household
+**Technical:** `docs/encryption.md` and the README's section rewritten for what is now true; Settings › Encryption; `RecoveryKit` once after a standalone sign-up and again from Settings; unlocking with the kit; a household
 waiting for its key; the words of `AGENTS.md` and "not yet audited"; a keyboard, light and dark, a phone's width.
 
 **Accepts when:** each state of RFC 0001's screens is reached in a browser test.

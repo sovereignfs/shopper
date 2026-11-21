@@ -1,5 +1,8 @@
 # Encryption at rest
 
+> **Changing.** This page describes Shopper as 0.1.0 released it. Before phase 2, Shopper moves to encryption the server cannot read, the suite's way
+> ([RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), `DESIGN.md` §13); this page is rewritten when that ships (task 18.9).
+
 ## What is sealed
 
 Shopper's database holds what a household buys, where and who they are, so those are **sealed**: encrypted by the server under `SHOPPER_ENCRYPTION_KEY` before they are
