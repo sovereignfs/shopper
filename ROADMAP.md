@@ -178,14 +178,16 @@ exports from the suite's packages; before phase 2.
 Shopper on the current releases of what `sovereign` publishes. **Done when** `pnpm verify` and `pnpm manifest:check` pass on them and nothing a
 person sees has changed.
 
-| #   | ID                              | Task                                                | Priority | Depends on | Status |
-| --- | ------------------------------- | --------------------------------------------------- | -------- | ---------- | ------ |
-| 52  | [17.1](docs/epics/alignment.md) | The packages, current                               | P0       | —          | ✅     |
-| 53  | [17.2](docs/epics/alignment.md) | The worker from `@sovereignfs/pwa`                  | P1       | 17.1       | ✅     |
-| 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                     | P2       | 17.1       | 📋     |
-| 55  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                  | P2       | —          | 📋     |
-| 56  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)     | P3       | —          | 📋     |
-| 57  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`) | P2       | —          | 📋     |
+| #   | ID                              | Task                                                             | Priority | Depends on | Status |
+| --- | ------------------------------- | ---------------------------------------------------------------- | -------- | ---------- | ------ |
+| 52  | [17.1](docs/epics/alignment.md) | The packages, current                                            | P0       | —          | ✅     |
+| 53  | [17.2](docs/epics/alignment.md) | The worker from `@sovereignfs/pwa`                               | P1       | 17.1       | ✅     |
+| 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                                  | P2       | 17.1       | ⏳     |
+| 55  | [17.5](docs/epics/alignment.md) | Sign-in on `@sovereignfs/auth`                                   | P0       | 17.3, 17.1 | 📋     |
+| 56  | [16.13](docs/epics/upstream.md) | A SQLite and sqld database for `@sovereignfs/auth` (`sovereign`) | P3       | —          | 📋     |
+| 57  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                               | P2       | —          | 📋     |
+| 58  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)                  | P3       | —          | 📋     |
+| 59  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`)              | P2       | —          | 📋     |
 
 ### Milestone S — Encryption the server cannot read
 
@@ -194,20 +196,20 @@ and no file on all three databases, both kinds of account unlock and share, and 
 
 | #   | ID                                | Task                                                   | Priority | Depends on      | Status |
 | --- | --------------------------------- | ------------------------------------------------------ | -------- | --------------- | ------ |
-| 58  | [18.1](docs/epics/encryption.md)  | The design                                             | P0       | 17.1            | 📋     |
-| 59  | [18.2](docs/epics/encryption.md)  | Shopper's own vault                                    | P0       | 18.1            | 📋     |
-| 60  | [16.10](docs/epics/upstream.md)   | The key secret over an app's own session (`sovereign`) | P0       | —               | 📋     |
-| 61  | [18.3](docs/epics/encryption.md)  | Key release through core                               | P0       | 18.1, 16.10     | 📋     |
-| 62  | [18.4](docs/epics/encryption.md)  | The key in the page                                    | P0       | 18.2, 18.3      | 📋     |
-| 63  | [18.5](docs/epics/encryption.md)  | Household keys                                         | P0       | 18.4            | 📋     |
-| 64  | [18.6](docs/epics/encryption.md)  | Content encrypted in sync                              | P0       | 18.5            | 📋     |
-| 65  | [18.11](docs/epics/encryption.md) | The server seals only what it must                     | P1       | 18.6            | 📋     |
-| 66  | [18.7](docs/epics/encryption.md)  | Invitations carry the key                              | P0       | 18.5, 3.4       | 📋     |
-| 67  | [16.8](docs/epics/upstream.md)    | Sharing in an app with no core (`sovereign`)           | P1       | —               | 📋     |
-| 68  | [16.9](docs/epics/upstream.md)    | A document key by link (`sovereign`)                   | P3       | —               | 📋     |
-| 69  | [18.8](docs/epics/encryption.md)  | Leaving and removing make a new key                    | P1       | 18.7, 3.5, 16.8 | 📋     |
-| 70  | [18.9](docs/epics/encryption.md)  | The screens                                            | P1       | 18.4, 18.5      | 📋     |
-| 71  | [18.10](docs/epics/encryption.md) | Moving 0.1.0's households                              | P0       | 18.6            | 📋     |
+| 60  | [18.1](docs/epics/encryption.md)  | The design                                             | P0       | 17.1            | 📋     |
+| 61  | [18.2](docs/epics/encryption.md)  | Shopper's own vault                                    | P0       | 18.1, 17.5      | 📋     |
+| 62  | [16.10](docs/epics/upstream.md)   | The key secret over an app's own session (`sovereign`) | P0       | —               | 📋     |
+| 63  | [18.3](docs/epics/encryption.md)  | Key release through core                               | P0       | 18.1, 16.10     | 📋     |
+| 64  | [18.4](docs/epics/encryption.md)  | The key in the page                                    | P0       | 18.2, 18.3      | 📋     |
+| 65  | [18.5](docs/epics/encryption.md)  | Household keys                                         | P0       | 18.4            | 📋     |
+| 66  | [18.6](docs/epics/encryption.md)  | Content encrypted in sync                              | P0       | 18.5            | 📋     |
+| 67  | [18.11](docs/epics/encryption.md) | The server seals only what it must                     | P1       | 18.6            | 📋     |
+| 68  | [18.7](docs/epics/encryption.md)  | Invitations carry the key                              | P0       | 18.5, 3.4       | 📋     |
+| 69  | [16.8](docs/epics/upstream.md)    | Sharing in an app with no core (`sovereign`)           | P1       | —               | 📋     |
+| 70  | [16.9](docs/epics/upstream.md)    | A document key by link (`sovereign`)                   | P3       | —               | 📋     |
+| 71  | [18.8](docs/epics/encryption.md)  | Leaving and removing make a new key                    | P1       | 18.7, 3.5, 16.8 | 📋     |
+| 72  | [18.9](docs/epics/encryption.md)  | The screens                                            | P1       | 18.4, 18.5      | 📋     |
+| 73  | [18.10](docs/epics/encryption.md) | Moving 0.1.0's households                              | P0       | 18.6            | 📋     |
 
 ### Milestone T — Push
 
@@ -215,8 +217,8 @@ and no file on all three databases, both kinds of account unlock and share, and 
 
 | #   | ID                         | Task                                    | Priority | Depends on  | Status |
 | --- | -------------------------- | --------------------------------------- | -------- | ----------- | ------ |
-| 72  | [19.1](docs/epics/push.md) | Push on the server                      | P1       | 17.1, 18.11 | 📋     |
-| 73  | [19.2](docs/epics/push.md) | The worker, the page and the first kind | P1       | 19.1, 17.2  | 📋     |
+| 74  | [19.1](docs/epics/push.md) | Push on the server                      | P1       | 17.1, 18.11 | 📋     |
+| 75  | [19.2](docs/epics/push.md) | The worker, the page and the first kind | P1       | 19.1, 17.2  | 📋     |
 
 ### Milestone U — Exports and backups
 
@@ -225,11 +227,11 @@ take theirs, and an export imports into a second account.
 
 | #   | ID                            | Task                              | Priority | Depends on | Status |
 | --- | ----------------------------- | --------------------------------- | -------- | ---------- | ------ |
-| 74  | [20.1](docs/epics/exports.md) | Core's export of a person         | P1       | 17.1, 18.6 | 📋     |
-| 75  | [20.2](docs/epics/exports.md) | A person's export with no core    | P1       | 20.1       | 📋     |
-| 76  | [20.3](docs/epics/exports.md) | The app's export for its operator | P2       | 20.2       | 📋     |
-| 77  | [20.4](docs/epics/exports.md) | Import                            | P2       | 20.2       | 📋     |
-| 78  | [20.5](docs/epics/exports.md) | Backups, written down             | P2       | 18.2       | 📋     |
+| 76  | [20.1](docs/epics/exports.md) | Core's export of a person         | P1       | 17.1, 18.6 | 📋     |
+| 77  | [20.2](docs/epics/exports.md) | A person's export with no core    | P1       | 20.1       | 📋     |
+| 78  | [20.3](docs/epics/exports.md) | The app's export for its operator | P2       | 20.2       | 📋     |
+| 79  | [20.4](docs/epics/exports.md) | Import                            | P2       | 20.2       | 📋     |
+| 80  | [20.5](docs/epics/exports.md) | Backups, written down             | P2       | 18.2       | 📋     |
 
 ### Milestone V — The release of workstream 0001
 
@@ -237,8 +239,8 @@ take theirs, and an export imports into a second account.
 
 | #   | ID                                | Task                           | Priority | Depends on               | Status |
 | --- | --------------------------------- | ------------------------------ | -------- | ------------------------ | ------ |
-| 79  | [18.12](docs/epics/encryption.md) | The marker test and the review | P0       | 18.6–18.11, 19.2, 20.4   | 📋     |
-| 80  | [12.7](docs/epics/release.md)     | The release of workstream 0001 | P2       | Milestones R to U, 18.12 | 📋     |
+| 81  | [18.12](docs/epics/encryption.md) | The marker test and the review | P0       | 18.6–18.11, 19.2, 20.4   | 📋     |
+| 82  | [12.7](docs/epics/release.md)     | The release of workstream 0001 | P2       | Milestones R to U, 18.12 | 📋     |
 
 ## Phase 2 — households, trips and the rest (0.2.0)
 
@@ -252,15 +254,15 @@ it, invites others, changes their roles, and edits categories and products.
 
 | #   | ID                              | Task                                   | Priority | Depends on          | Status |
 | --- | ------------------------------- | -------------------------------------- | -------- | ------------------- | ------ |
-| 81  | [16.3](docs/epics/upstream.md)  | `AvatarStack` (`sovereign`)            | P1       | —                   | 📋     |
-| 82  | [3.8](docs/epics/households.md) | Making households                      | P1       | 3.2, 8.1            | 📋     |
-| 83  | [3.9](docs/epics/households.md) | Roles, and deleting a household        | P1       | 3.5                 | 📋     |
-| 84  | [4.7](docs/epics/catalog.md)    | Editing categories and the aisle order | P1       | 4.2, 5.2            | 📋     |
-| 85  | [5.6](docs/epics/items.md)      | Products: editing and merging          | P1       | 5.3                 | 📋     |
-| 86  | [8.6](docs/epics/screens.md)    | The catalog                            | P1       | 8.1, 5.6, 4.7       | 📋     |
-| 87  | [8.5](docs/epics/screens.md)    | All lists                              | P1       | 8.2                 | 📋     |
-| 88  | [3.6](docs/epics/households.md) | Moving a list between households       | P1       | 3.8, 3.9, 5.6       | 📋     |
-| 89  | [8.9](docs/epics/screens.md)    | Household settings                     | P1       | 8.7, 3.8, 3.9, 16.3 | 📋     |
+| 83  | [16.3](docs/epics/upstream.md)  | `AvatarStack` (`sovereign`)            | P1       | —                   | 📋     |
+| 84  | [3.8](docs/epics/households.md) | Making households                      | P1       | 3.2, 8.1            | 📋     |
+| 85  | [3.9](docs/epics/households.md) | Roles, and deleting a household        | P1       | 3.5                 | 📋     |
+| 86  | [4.7](docs/epics/catalog.md)    | Editing categories and the aisle order | P1       | 4.2, 5.2            | 📋     |
+| 87  | [5.6](docs/epics/items.md)      | Products: editing and merging          | P1       | 5.3                 | 📋     |
+| 88  | [8.6](docs/epics/screens.md)    | The catalog                            | P1       | 8.1, 5.6, 4.7       | 📋     |
+| 89  | [8.5](docs/epics/screens.md)    | All lists                              | P1       | 8.2                 | 📋     |
+| 90  | [3.6](docs/epics/households.md) | Moving a list between households       | P1       | 3.8, 3.9, 5.6       | 📋     |
+| 91  | [8.9](docs/epics/screens.md)    | Household settings                     | P1       | 8.7, 3.8, 3.9, 16.3 | 📋     |
 
 ### Milestone K — Trips and prices
 
@@ -269,13 +271,13 @@ shopping mode.
 
 | #   | ID                            | Task                             | Priority | Depends on     | Status |
 | --- | ----------------------------- | -------------------------------- | -------- | -------------- | ------ |
-| 90  | [4.9](docs/epics/catalog.md)  | Money and unit prices            | P1       | 4.6            | 📋     |
-| 91  | [7.1](docs/epics/trips.md)    | Trips and trip lines             | P1       | 5.5, 4.9, 3.8  | 📋     |
-| 92  | [7.2](docs/epics/trips.md)    | Finishing trips and clearing     | P1       | 7.1, 1.6       | 📋     |
-| 93  | [8.10](docs/epics/screens.md) | Prices in the item and the lists | P1       | 7.1, 8.4       | 📋     |
-| 94  | [7.6](docs/epics/trips.md)    | Shopping mode, with trips        | P1       | 7.3, 7.2, 8.10 | 📋     |
-| 95  | [7.4](docs/epics/trips.md)    | Shopping several lists           | P2       | 7.6            | 📋     |
-| 96  | [7.5](docs/epics/trips.md)    | The trips history                | P1       | 7.1, 8.1       | 📋     |
+| 92  | [4.9](docs/epics/catalog.md)  | Money and unit prices            | P1       | 4.6            | 📋     |
+| 93  | [7.1](docs/epics/trips.md)    | Trips and trip lines             | P1       | 5.5, 4.9, 3.8  | 📋     |
+| 94  | [7.2](docs/epics/trips.md)    | Finishing trips and clearing     | P1       | 7.1, 1.6       | 📋     |
+| 95  | [8.10](docs/epics/screens.md) | Prices in the item and the lists | P1       | 7.1, 8.4       | 📋     |
+| 96  | [7.6](docs/epics/trips.md)    | Shopping mode, with trips        | P1       | 7.3, 7.2, 8.10 | 📋     |
+| 97  | [7.4](docs/epics/trips.md)    | Shopping several lists           | P2       | 7.6            | 📋     |
+| 98  | [7.5](docs/epics/trips.md)    | The trips history                | P1       | 7.1, 8.1       | 📋     |
 
 ### Milestone L — Mail, notices and invitations by email
 
@@ -284,14 +286,14 @@ email, never the person who acted, a burst of adds becomes one digest, and journ
 
 | #   | ID                               | Task                                      | Priority | Depends on     | Status |
 | --- | -------------------------------- | ----------------------------------------- | -------- | -------------- | ------ |
-| 97  | [9.1](docs/epics/notices.md)     | The mail outbox                           | P1       | 1.6            | 📋     |
-| 98  | [3.10](docs/epics/households.md) | Inviting by email                         | P1       | 3.4, 9.1       | 📋     |
-| 99  | [16.1](docs/epics/upstream.md)   | `AUTH_SIGNUP` by invitation (`sovereign`) | P1       | —              | 📋     |
-| 100 | [2.7](docs/epics/accounts.md)    | The sign-up policy                        | P1       | 2.1, 16.1      | 📋     |
-| 101 | [9.2](docs/epics/notices.md)     | Notices and the bell                      | P1       | 5.2, 8.1, 3.5  | 📋     |
-| 102 | [9.3](docs/epics/notices.md)     | The items-added digest                    | P2       | 9.2, 1.6       | 📋     |
-| 103 | [9.4](docs/epics/notices.md)     | Preferences and delivery                  | P1       | 9.2, 9.1       | 📋     |
-| 104 | [19.3](docs/epics/push.md)       | Push as a channel of notices              | P2       | 19.2, 9.2, 9.4 | 📋     |
+| 99  | [9.1](docs/epics/notices.md)     | The mail outbox                           | P1       | 1.6            | 📋     |
+| 100 | [3.10](docs/epics/households.md) | Inviting by email                         | P1       | 3.4, 9.1       | 📋     |
+| 101 | [16.1](docs/epics/upstream.md)   | `AUTH_SIGNUP` by invitation (`sovereign`) | P1       | —              | 📋     |
+| 102 | [2.7](docs/epics/accounts.md)    | The sign-up policy                        | P1       | 2.1, 16.1      | 📋     |
+| 103 | [9.2](docs/epics/notices.md)     | Notices and the bell                      | P1       | 5.2, 8.1, 3.5  | 📋     |
+| 104 | [9.3](docs/epics/notices.md)     | The items-added digest                    | P2       | 9.2, 1.6       | 📋     |
+| 105 | [9.4](docs/epics/notices.md)     | Preferences and delivery                  | P1       | 9.2, 9.1       | 📋     |
+| 106 | [19.3](docs/epics/push.md)       | Push as a channel of notices              | P2       | 19.2, 9.2, 9.4 | 📋     |
 
 ### Milestone M — Fresher, and further
 
@@ -300,15 +302,15 @@ device shows on another within two seconds, and the rest of this milestone's tas
 
 | #   | ID                             | Task                                   | Priority | Depends on | Status |
 | --- | ------------------------------ | -------------------------------------- | -------- | ---------- | ------ |
-| 105 | [6.4](docs/epics/sync.md)      | Live updates and the freshness setting | P1       | 6.2        | 📋     |
-| 106 | [6.6](docs/epics/sync.md)      | Keeping the history small              | P2       | 6.1, 1.6   | 📋     |
-| 107 | [16.5](docs/epics/upstream.md) | A floating action button (`sovereign`) | P1       | —          | 📋     |
-| 108 | [8.11](docs/epics/screens.md)  | The phone's Add button                 | P1       | 8.8, 16.5  | 📋     |
-| 109 | [2.8](docs/epics/accounts.md)  | Passkeys and the authenticator app     | P2       | 2.1        | 📋     |
-| 110 | [2.9](docs/epics/accounts.md)  | Linking core and a local account       | P2       | 2.3        | 📋     |
-| 111 | [4.5](docs/epics/catalog.md)   | Reading what is typed                  | P2       | 4.6, 4.3   | 📋     |
-| 112 | [16.4](docs/epics/upstream.md) | Grocery icons (`sovereign`)            | P1       | —          | 📋     |
-| 113 | [4.8](docs/epics/catalog.md)   | Growing the starter catalog            | P2       | 4.3, 16.4  | 📋     |
+| 107 | [6.4](docs/epics/sync.md)      | Live updates and the freshness setting | P1       | 6.2        | 📋     |
+| 108 | [6.6](docs/epics/sync.md)      | Keeping the history small              | P2       | 6.1, 1.6   | 📋     |
+| 109 | [16.5](docs/epics/upstream.md) | A floating action button (`sovereign`) | P1       | —          | 📋     |
+| 110 | [8.11](docs/epics/screens.md)  | The phone's Add button                 | P1       | 8.8, 16.5  | 📋     |
+| 111 | [2.8](docs/epics/accounts.md)  | Passkeys and the authenticator app     | P2       | 2.1        | 📋     |
+| 112 | [2.9](docs/epics/accounts.md)  | Linking core and a local account       | P2       | 2.3        | 📋     |
+| 113 | [4.5](docs/epics/catalog.md)   | Reading what is typed                  | P2       | 4.6, 4.3   | 📋     |
+| 114 | [16.4](docs/epics/upstream.md) | Grocery icons (`sovereign`)            | P1       | —          | 📋     |
+| 115 | [4.8](docs/epics/catalog.md)   | Growing the starter catalog            | P2       | 4.3, 16.4  | 📋     |
 
 ### Milestone N — The suite, and the person's data
 
@@ -317,11 +319,11 @@ directory, and a plugin export imports (a person's households round-trip through
 
 | #   | ID                                | Task                              | Priority | Depends on | Status |
 | --- | --------------------------------- | --------------------------------- | -------- | ---------- | ------ |
-| 114 | [10.1](docs/epics/suite.md)       | Core's bell, email, activity      | P2       | 2.3, 9.4   | 📋     |
-| 115 | [10.2](docs/epics/suite.md)       | Inviting from the directory       | P2       | 2.3, 3.4   | 📋     |
-| 116 | [11.1](docs/epics/portability.md) | Export (superseded by 20.1, 20.2) | P2       | 7.1, 3.9   | ➖     |
-| 117 | [11.2](docs/epics/portability.md) | Import (superseded by 20.4)       | P2       | 11.1       | ➖     |
-| 118 | [11.3](docs/epics/portability.md) | Import from the plugin            | P2       | 20.4, 4.8  | 📋     |
+| 116 | [10.1](docs/epics/suite.md)       | Core's bell, email, activity      | P2       | 2.3, 9.4   | 📋     |
+| 117 | [10.2](docs/epics/suite.md)       | Inviting from the directory       | P2       | 2.3, 3.4   | 📋     |
+| 118 | [11.1](docs/epics/portability.md) | Export (superseded by 20.1, 20.2) | P2       | 7.1, 3.9   | ➖     |
+| 119 | [11.2](docs/epics/portability.md) | Import (superseded by 20.4)       | P2       | 11.1       | ➖     |
+| 120 | [11.3](docs/epics/portability.md) | Import from the plugin            | P2       | 20.4, 4.8  | 📋     |
 
 ### Milestone O — Release 0.2.0
 
@@ -329,7 +331,7 @@ directory, and a plugin export imports (a person's households round-trip through
 
 | #   | ID                            | Task          | Priority | Depends on              | Status |
 | --- | ----------------------------- | ------------- | -------- | ----------------------- | ------ |
-| 119 | [12.6](docs/epics/release.md) | Release 0.2.0 | P2       | 12.7, Milestones J to N | 📋     |
+| 121 | [12.6](docs/epics/release.md) | Release 0.2.0 | P2       | 12.7, Milestones J to N | 📋     |
 
 ## Phase 3 — the pantry and routines (0.3.0)
 
@@ -340,16 +342,16 @@ their own learned aisle order; insights have charts.
 
 | #   | ID                             | Task                                       | Priority | Depends on | Status |
 | --- | ------------------------------ | ------------------------------------------ | -------- | ---------- | ------ |
-| 120 | [13.1](docs/epics/pantry.md)   | The pantry and low points                  | P1       | 12.6       | 📋     |
-| 121 | [13.2](docs/epics/pantry.md)   | Staples                                    | P1       | 12.6       | 📋     |
-| 122 | [13.3](docs/epics/pantry.md)   | Repeating items                            | P1       | 12.6       | 📋     |
-| 123 | [13.4](docs/epics/pantry.md)   | Templates                                  | P2       | 12.6       | 📋     |
-| 124 | [13.5](docs/epics/pantry.md)   | Shops with their own aisle order           | P1       | 12.6       | 📋     |
-| 125 | [13.6](docs/epics/pantry.md)   | Prices per shop and over time              | P2       | 13.5       | 📋     |
-| 126 | [16.6](docs/epics/upstream.md) | Charts (`sovereign`)                       | P1       | —          | 📋     |
-| 127 | [13.7](docs/epics/pantry.md)   | Insights                                   | P1       | 13.6, 16.6 | 📋     |
-| 128 | [13.8](docs/epics/pantry.md)   | Push notifications (superseded by epic 19) | P2       | 12.6       | ➖     |
-| 129 | [13.9](docs/epics/pantry.md)   | Release 0.3.0                              | P2       | 13.1–13.7  | 📋     |
+| 122 | [13.1](docs/epics/pantry.md)   | The pantry and low points                  | P1       | 12.6       | 📋     |
+| 123 | [13.2](docs/epics/pantry.md)   | Staples                                    | P1       | 12.6       | 📋     |
+| 124 | [13.3](docs/epics/pantry.md)   | Repeating items                            | P1       | 12.6       | 📋     |
+| 125 | [13.4](docs/epics/pantry.md)   | Templates                                  | P2       | 12.6       | 📋     |
+| 126 | [13.5](docs/epics/pantry.md)   | Shops with their own aisle order           | P1       | 12.6       | 📋     |
+| 127 | [13.6](docs/epics/pantry.md)   | Prices per shop and over time              | P2       | 13.5       | 📋     |
+| 128 | [16.6](docs/epics/upstream.md) | Charts (`sovereign`)                       | P1       | —          | 📋     |
+| 129 | [13.7](docs/epics/pantry.md)   | Insights                                   | P1       | 13.6, 16.6 | 📋     |
+| 130 | [13.8](docs/epics/pantry.md)   | Push notifications (superseded by epic 19) | P2       | 12.6       | ➖     |
+| 131 | [13.9](docs/epics/pantry.md)   | Release 0.3.0                              | P2       | 13.1–13.7  | 📋     |
 
 ## Phase 4 — capture (0.4.0)
 
@@ -360,12 +362,12 @@ photos and receipts are stored sealed by Shopper itself.
 
 | #   | ID                            | Task                         | Priority | Depends on | Status |
 | --- | ----------------------------- | ---------------------------- | -------- | ---------- | ------ |
-| 130 | [14.1](docs/epics/capture.md) | Barcode scanning             | P1       | 13.9       | 📋     |
-| 131 | [14.2](docs/epics/capture.md) | Lookup by barcode            | P2       | 14.1       | 📋     |
-| 132 | [14.3](docs/epics/capture.md) | The media store              | P1       | 13.9       | 📋     |
-| 133 | [14.4](docs/epics/capture.md) | Photos on products and items | P2       | 14.3       | 📋     |
-| 134 | [14.5](docs/epics/capture.md) | Receipts on trips            | P1       | 14.3       | 📋     |
-| 135 | [14.6](docs/epics/capture.md) | Release 0.4.0                | P2       | 14.1–14.5  | 📋     |
+| 132 | [14.1](docs/epics/capture.md) | Barcode scanning             | P1       | 13.9       | 📋     |
+| 133 | [14.2](docs/epics/capture.md) | Lookup by barcode            | P2       | 14.1       | 📋     |
+| 134 | [14.3](docs/epics/capture.md) | The media store              | P1       | 13.9       | 📋     |
+| 135 | [14.4](docs/epics/capture.md) | Photos on products and items | P2       | 14.3       | 📋     |
+| 136 | [14.5](docs/epics/capture.md) | Receipts on trips            | P1       | 14.3       | 📋     |
+| 137 | [14.6](docs/epics/capture.md) | Release 0.4.0                | P2       | 14.1–14.5  | 📋     |
 
 ## Later — candidates
 
@@ -373,16 +375,16 @@ None committed (`DESIGN.md` §22.4). Each waits on a decision before it is plann
 
 | #   | ID                          | Task                               | Priority | Depends on | Status |
 | --- | --------------------------- | ---------------------------------- | -------- | ---------- | ------ |
-| 136 | [15.1](docs/epics/later.md) | Encrypted backup to Git            | P3       | 20.3       | 🚧     |
-| 137 | [15.2](docs/epics/later.md) | Sending a trip to Ledger or Tally  | P3       | 7.5        | 🚧     |
-| 138 | [15.3](docs/epics/later.md) | AI through the instance's provider | P3       | —          | 🚧     |
-| 139 | [15.4](docs/epics/later.md) | Other languages                    | P3       | 4.3, 4.5   | 🚧     |
+| 138 | [15.1](docs/epics/later.md) | Encrypted backup to Git            | P3       | 20.3       | 🚧     |
+| 139 | [15.2](docs/epics/later.md) | Sending a trip to Ledger or Tally  | P3       | 7.5        | 🚧     |
+| 140 | [15.3](docs/epics/later.md) | AI through the instance's provider | P3       | —          | 🚧     |
+| 141 | [15.4](docs/epics/later.md) | Other languages                    | P3       | 4.3, 4.5   | 🚧     |
 
 ## Upstream, not placed above
 
 | #   | ID                             | Task                                         | Priority | Depends on | Status |
 | --- | ------------------------------ | -------------------------------------------- | -------- | ---------- | ------ |
-| 140 | [16.7](docs/epics/upstream.md) | `MoneyInput` (`sovereign`), if Tally's lands | P3       | —          | 📋     |
+| 142 | [16.7](docs/epics/upstream.md) | `MoneyInput` (`sovereign`), if Tally's lands | P3       | —          | 📋     |
 
-16.4 (grocery icons, row 112) is needed by 4.8 and is started during phase 1, so that it is released by then. 16.1, 16.3 and 16.5 are started in the same
+16.4 (grocery icons, row 114) is needed by 4.8 and is started during phase 1, so that it is released by then. 16.1, 16.3 and 16.5 are started in the same
 way, a milestone ahead of the task that waits on them.

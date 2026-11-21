@@ -66,7 +66,7 @@ with `keep: ['/l/', '/lists']` it fails, without it passes). Verified: `pnpm tes
 carries the shell, the precache and the sync listener; `/shell` answers with no cookie, which the package needs before it keeps a page. Left out:
 6.5's browser test (`e2e/offline.spec.ts`, Chromium only), not run because Playwright's Chromium is not installed on this machine.
 
-#### 📋 17.3 — Sign-in and `@sovereignfs/auth`
+#### ⏳ 17.3 — Sign-in and `@sovereignfs/auth`
 
 **Goal:** a decision, recorded, on whether Shopper's sign-in (`src/auth/`, better-auth with a password and through core) moves onto
 `@sovereignfs/auth` 0.4.0. **Design:** §15.1. **Depends on:** 17.1.
@@ -77,6 +77,10 @@ text). An ADR in `docs/adrs/` records the choice; moving, if chosen, is its own 
 
 **Accepts when:** the ADR is accepted by the owner.
 
+**Done as (waiting on the owner):** [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md): Shopper moves onto `@sovereignfs/auth` as 17.5, before
+18.2, wrapping its own database in the package's `Database` shape until `sovereign` publishes one for SQLite and sqld (16.13), and keeping the key
+secret with its session until 16.10. Workstream 0001 follows it; the task is done when the owner accepts the ADR or replaces it.
+
 #### 📋 17.4 — Stale lines and the settings table
 
 **Goal:** the documents true again, and §20.3's `account_settings` table built. **Design:** §20.3. **Depends on:** nothing.
@@ -86,3 +90,18 @@ text). An ADR in `docs/adrs/` records the choice; moving, if chosen, is its own 
 dialects, handled by `People.deletePerson`, with its test.
 
 **Accepts when:** no document contradicts another on these points, and the table round-trips on all three databases.
+
+#### 📋 17.5 — Sign-in on `@sovereignfs/auth`
+
+**Goal:** Shopper's sign-in is the suite's package, not better-auth configured by hand. **Design:** §15.1, [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md).
+**Depends on:** 17.3, 17.1.
+
+**Technical:** `createAuthPreset` with Shopper's settings (`resolveAuthSettings` with the prefix `SHOPPER`), `signUpPolicy` for `SHOPPER_AUTH_SIGNUP`,
+the user-create hook making the person and household (`onAccountCreated`), and `./core` for core in place of `genericOAuth`; `src/auth/database.ts`
+wrapping Shopper's connection in the package's `Database` shape (until 16.13); `accountMigrations` under `ACCOUNT_MIGRATIONS_TABLE`, and one migration
+of Shopper's that checks better-auth's existing tables and records them, changing no data; the sign-in and sign-up pages on `SignInForm` and
+`SignUpForm` with the package's flows; `src/auth/auth.ts` deleted; the seed, `People.deletePerson` and the tests moved; better-auth exactly at the
+package's version. Not yet the vault: 18.2 gives the package its key-store hooks.
+
+**Accepts when:** every test of `src/auth/` and the sign-in browser tests pass on the package, against all three databases; a 0.1.0 database's
+accounts still sign in; nothing of a password reaches the server in the clear once 18.2 is in.

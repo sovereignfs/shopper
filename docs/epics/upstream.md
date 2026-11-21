@@ -133,3 +133,14 @@ nothing here. **Needed by:** 17.2, if the package has no way today.
 outbox when the connection returns with no tab in front.
 
 **Accepts when:** a `@sovereignfs/pwa` release carrying it is published, or 17.2 finds the package already does.
+
+#### 📋 16.13 — A SQLite and sqld database for `@sovereignfs/auth`
+
+**Goal:** an app on a SQLite file or sqld gives `@sovereignfs/auth` its database through a published entry, as `./postgres` does for PostgreSQL.
+**Design:** [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md). **Depends on:** nothing here. **Needed by:** nothing; 17.5 wraps Shopper's own
+connection until it lands, and drops the wrapper then.
+
+**What Shopper needs:** `@sovereignfs/auth/sqlite` (or the database package published), taking a libsql client for a file or sqld, so that the
+`Database` type an app gives is the package's own.
+
+**Accepts when:** a `@sovereignfs/auth` release carrying it is published.

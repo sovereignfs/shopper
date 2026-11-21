@@ -66,7 +66,7 @@ households, trips and notices are built encrypted from their first line.
 | --- | -------------------- | ---------------------------- | ------------------ | -------------------------------------------------------------------------- |
 | 1   | Suite alignment      | 17.1, 17.2, 17.3, 17.4       | —                  | `pnpm verify` and `pnpm manifest:check` pass on the new packages           |
 | 2   | The design           | 18.1                         | **Owner reviews**  | `DESIGN.md` says what RFC 0001 to 0003 build                               |
-| 3   | Keys                 | 18.2, 18.3, 18.4             | —                  | Both kinds of account unlock, with nothing yet encrypted                   |
+| 3   | Keys                 | 17.5, 18.2, 18.3, 18.4       | —                  | Both kinds of account unlock, with nothing yet encrypted                   |
 | 4   | Content encrypted    | 18.5, 18.6, 18.11            | **Owner reviews**  | The marker test passes for new households; property tests hold             |
 | 5   | Sharing              | 18.7, 18.8                   | —                  | Two accounts share by a link; removal makes a new epoch                    |
 | 6   | Screens and the move | 18.9, 18.10                  | —                  | A 0.1.0 database upgrades; every screen of RFC 0001 is there               |
@@ -104,9 +104,10 @@ key) and `docs/epics/README.md`'s "every task holds" change with it.
 
 ### Leg 3 — Keys
 
-**Epic tasks:** 18.2, 18.3, 18.4
+**Epic tasks:** 17.5, 18.2, 18.3, 18.4
 
-**Why here:** nothing can be encrypted before an account has a key.
+**Why here:** nothing can be encrypted before an account has a key, and [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md) puts the
+sign-in on `@sovereignfs/auth` first, so that the key store's hooks are the package's.
 
 **Technical notes:** a standalone sign-in now sends the `svp1.…` value where it sent the password: existing 0.1.0 password accounts move on their
 next sign-in (better-auth checks the old password once, then stores the derived value). `/auth/key-secret` over better-auth's session is 16.10's

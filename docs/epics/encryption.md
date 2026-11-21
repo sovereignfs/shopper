@@ -30,12 +30,12 @@ name key, what the server may read); `docs/epics/README.md`'s "every task holds"
 
 #### 📋 18.2 — Shopper's own vault
 
-**Goal:** a password account has keys, kept in Shopper's database and unlocked at sign-in. **Design:** RFC 0001, "Keys". **Depends on:** 18.1.
+**Goal:** a password account has keys, kept in Shopper's database and unlocked at sign-in. **Design:** RFC 0001, "Keys". **Depends on:** 18.1, 17.5.
 
 **Technical:** `AppVault`, `vaultMigrations` (sqlite for a file and sqld, postgres), applied apart from Shopper's migrations under
 `VAULT_MIGRATIONS_TABLE`, and `vaultRoute(vault, { origin: SHOPPER_URL })` at `/auth/vault`, in `src/access/routes.ts`; the session's secret
-(`newSessionSecret`) kept with better-auth's session and served at `/auth/key-secret`; sign-up, sign-in, reset and change sending `derive()`'s value
-where they sent the password, with existing 0.1.0 accounts moved on their next sign-in; `'wasm-unsafe-eval'` in `script-src` on the pages that
+(`newSessionSecret`) kept with better-auth's session and served at `/auth/key-secret`; the package's key-store hooks (`@sovereignfs/auth`, auth.md §7.2) given `AppVault` and `localVault`, so that sign-up, sign-in, reset and change send
+the derived value where they sent the password, with existing 0.1.0 accounts moved on their next sign-in; `'wasm-unsafe-eval'` in `script-src` on the pages that
 derive, and nowhere else; `vault.deleteAccount` in `People.deletePerson`'s transaction, with its test.
 
 **Accepts when:** sign-up makes a vault, sign-out and sign-in open it, the old password of a 0.1.0 account still works once and then only the new
