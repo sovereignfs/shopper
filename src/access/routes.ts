@@ -117,6 +117,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'page',
+    address: '/keys/return',
+    who: 'signed-in',
+    note: 'Core’s key release comes back here (the manifest’s encryption.return); the answer is in the fragment, read and kept by the page, never sent.',
+  },
+  {
+    kind: 'page',
     address: '/keys/kit',
     who: 'signed-in',
     note: "The recovery kit, shown once after a password account's keys are made; through core it sends the person on.",

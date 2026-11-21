@@ -94,16 +94,30 @@ value is stored, deleting a person deletes their vault rows; a second person can
 - No browser test of a 0.1.0 account moving, or of the kit after a reset (both need a database made by 0.1.0, or mail; the move is unit-tested).
 - WebKit's run waits for the leg's end.
 
-#### 📋 18.3 — Key release through core
+#### ✅ 18.3 — Key release through core
 
 **Goal:** an account that signs in through core gets its app key from core. **Design:** RFC 0001, "Keys". **Depends on:** 18.1, 16.10.
 
-**Technical:** `encryption: { "return": "/keys/return" }` in the manifest; `keys` in `SOVEREIGN_SCOPES` and the manifest's scopes; `/keys/return`
+**Technical:** `encryption: { "return": "/keys/return" }` in the manifest (which gives the app the `keys` scope once the operator allows it); `/keys/return`
 calling `receive()`; `/auth/key-secret` as 18.2; the referrer policy keeping the origin; `createFakeCore` from `@sovereignfs/sdk/testing` for the
 tests.
 
 **Accepts when:** against the fake core, an account signs in, its key is released and opened, a refused or tampered answer opens nothing, and a
 back-channel logout leaves nothing that opens.
+
+**Done as:**
+
+- **The manifest** declares `encryption: { "return": "/keys/return" }`. The `keys` scope is not in `signIn.scopes`, where manifest 5 refuses it: allowing `encryption` gives it, so the epic's and the RFC's words were corrected.
+- **The key source** is decided per account, server-side (`src/keys/server/source.ts`): a password account's is the vault, one that came through core alone is core's. The page is given core's address, the client id and the absolute return address for each request.
+- **`/api/keys/secret`** answers with the `sub` the keys are bound to: the account in the vault, `core_sub` for a released key (`receive()` refuses an answer for another person).
+- **`/keys/return`** calls `receive()` and goes back, or says it could not unlock and offers to ask again. `coreKeys` (`src/keys/core-client.ts`) is `appKeys` with Shopper's secret route.
+- **The referrer policy** is now `strict-origin`, not `no-referrer`, so that core releases without asking each time. It sends the origin alone, never a path or a token.
+- **Tests:** a browser test calls both key routes as a second person, as a visitor and from another site. The manifest test holds `encryption` to a page that exists.
+
+**Left out:**
+
+- **A release from core, end to end**, and its refusals. The SDK's fake core (`@sovereignfs/sdk/testing`) has no key release to answer one, so the round trip is the SDK's own tested code and not run here; raised as 16.16.
+- **A unit test of `keySourceOf` for a core account** (it reads the server's own settings); a browser test of it needs the same fake.
 
 #### 📋 18.4 — The key in the page
 

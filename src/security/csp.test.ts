@@ -82,10 +82,10 @@ describe('a nonce', () => {
 describe('the headers every response has', () => {
   const headers = Object.fromEntries(SECURITY_HEADERS.map((h) => [h.key, h.value]));
 
-  it('forbids sniffing, framing and a referrer, and the device', () => {
+  it('forbids sniffing and framing, sends the origin alone as a referrer, and forbids the device', () => {
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
     expect(headers['X-Frame-Options']).toBe('DENY');
-    expect(headers['Referrer-Policy']).toBe('no-referrer');
+    expect(headers['Referrer-Policy']).toBe('strict-origin');
     expect(headers['Permissions-Policy']).toContain('camera=()');
     expect(headers['Cross-Origin-Opener-Policy']).toBe('same-origin');
   });

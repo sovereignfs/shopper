@@ -936,7 +936,7 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
     "export": "/api/sovereign/export",
-    "scopes": ["openid", "profile", "email", "keys", "offline_access", "directory"]
+    "scopes": ["openid", "profile", "email", "offline_access", "directory"]
   },
   "encryption": { "return": "/keys/return" },
   "database": true,
@@ -945,7 +945,8 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
 }
 ```
 
-- **What workstream 0001 adds** (each with the task that uses it): `keys` and `encryption` (18.3), core's key release to `/keys/return` (§13.2);
+- **What workstream 0001 adds** (each with the task that uses it): `encryption` (18.3), core's key release to `/keys/return` (§13.2), which gives
+  the app the `keys` scope once the operator allows it (not a scope the sign-in asks for);
   `signIn.export` (20.1), core's ask for a person's part of their export (§18.1); `SHOPPER_VAPID_PRIVATE_KEY` (19.1), the push key (RFC 0002).
 
 - **`directory` and `offline_access`** (phase 2: **0.1.0 asks for `openid`, `profile` and `email` only**, and the manifest above is what phase 2 ships)

@@ -67,7 +67,9 @@ export const SECURITY_HEADERS: { key: string; value: string }[] = [
   // Old browsers do not know `frame-ancestors`.
   { key: 'X-Frame-Options', value: 'DENY' },
   // A link followed from a page does not tell the other site where it came from.
-  { key: 'Referrer-Policy', value: 'no-referrer' },
+  // The origin alone, and only from https to https, never a path or a token: core's key release (RFC 0001, sdk §9.3) releases silently only when
+  // the browser names the app's origin, and asks the person each time otherwise.
+  { key: 'Referrer-Policy', value: 'strict-origin' },
   // Nothing here needs the device; a page cannot be made to ask for it.
   {
     key: 'Permissions-Policy',

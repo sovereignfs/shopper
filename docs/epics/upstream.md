@@ -167,3 +167,14 @@ the app and the document, that only that app key opens; usable from both `appKey
 member in Shopper, in both modes.
 
 **Accepts when:** a `@sovereignfs/sdk` release carrying it is published.
+
+#### 📋 16.16 — Key release in the SDK's fake core
+
+**Goal:** an app's tests can run core's key release end to end, as they run its sign-in against `createFakeCore`. **Design:** RFC 0001. **Depends on:**
+nothing here. **Needed by:** nothing; 18.3's round trip is untested in Shopper until it lands.
+
+**What Shopper needs:** `@sovereignfs/sdk/testing`'s fake core answering `/keys/release` as core does (the referrer check, the sealed and signed
+answer in the fragment, a refusal when told to), with a way to make an answer wrong in one way, so that an app can test `receive()` on its own
+return page.
+
+**Accepts when:** a `@sovereignfs/sdk` release carrying it is published.

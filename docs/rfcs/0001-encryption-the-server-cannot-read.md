@@ -70,7 +70,7 @@ The key source is decided **per account**, by how it signs in, never by the inst
 - **An account that signs in through core** gets the app key from core with `appKeys({ core, clientId, returnTo: '/keys/return' })` (sdk §9.3).
   `open()` gives the key or `{ state: 'locked' }`; locked, the page shows `LockedState` and `unlock()` sends the person to core's `/keys/release`
   and back to `/keys/return`, where `receive()` reads the answer. The manifest gains `encryption: { "return": "/keys/return" }` (manifest 4 and
-  later), and `SOVEREIGN_SCOPES` (`src/auth/config.ts`) gains `keys`. Shopper's server serves the session's key secret at `/auth/key-secret`.
+  later), which gives the app the `keys` scope once the operator allows it. Shopper's server serves the session's key secret at `/auth/key-secret`.
 - **An account that signs in with a password** keeps its keys in Shopper's own vault (sdk §9.5): `new AppVault(database)`, its tables from
   `vaultMigrations(family)` on both dialects, applied apart from Shopper's own migrations, and `vaultRoute(vault, { origin: SHOPPER_URL })` at
   `/auth/vault`. In the page, `localVault({ clientId: 'SHOPPER', vaultId })`: `derive(password, address)` gives the sign-in value (`svp1.…`) that

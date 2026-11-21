@@ -238,7 +238,7 @@ test('what is a person’s is not cacheable, every page carries a nonce policy, 
     expect(csp, path).not.toMatch(/script-src[^;]*'unsafe-(inline|eval)'/);
     expect(csp, path).toContain("frame-ancestors 'none'");
     expect(reply.headers()['x-content-type-options'], path).toBe('nosniff');
-    expect(reply.headers()['referrer-policy'], path).toBe('no-referrer');
+    expect(reply.headers()['referrer-policy'], path).toBe('strict-origin');
   }
   expect(
     (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).headers()[
@@ -308,4 +308,52 @@ test('the session cookie is HttpOnly and SameSite=Lax, and the device’s copy o
   expect(
     (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).status(),
   ).toBe(401);
+});
+
+test('the vault and the key secret are the session’s own: another person gets theirs, a visitor nothing, and another site cannot write', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const base = baseURL ?? '';
+  await signUp(page, { name: 'Ada' });
+  const ada = await accountOf(page);
+  const adaSecret = await page.request.get(`${base}/api/keys/secret`);
+  expect(adaSecret.status()).toBe(200);
+  const adaBody = (await adaSecret.json()) as { sub: string; secret: string };
+  expect(adaBody.sub).toBe(ada);
+  expect(adaBody.secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  expect(adaSecret.headers()['cache-control']).toContain('no-store');
+  // Signing up made her keys: the vault holds them, wrapped.
+  const adaVault = (await (await page.request.get(`${base}/api/keys/vault`)).json()) as {
+    value?: { sub: string; account?: unknown };
+  };
+  expect(adaVault.value?.sub).toBe(ada);
+  expect(adaVault.value?.account).toBeTruthy();
+
+  const other = await anotherDevice(browser, base);
+  await signUp(other.page, { name: 'Grace' });
+  const grace = await accountOf(other.page);
+  const graceBody = (await (await other.page.request.get(`${base}/api/keys/secret`)).json()) as {
+    sub: string;
+    secret: string;
+  };
+  expect(graceBody.sub).toBe(grace);
+  expect(graceBody.secret).not.toBe(adaBody.secret);
+  const graceVault = (await (await other.page.request.get(`${base}/api/keys/vault`)).json()) as {
+    value?: { sub: string };
+  };
+  expect(graceVault.value?.sub).toBe(grace);
+  // A change from another site is refused, whoever is signed in.
+  const foreign = await other.page.request.post(`${base}/api/keys/vault`, {
+    headers: { origin: 'https://elsewhere.test' },
+    data: { op: 'confirm-kit', record: '{}' },
+  });
+  expect(foreign.status()).toBe(403);
+  await other.context.close();
+
+  const visitor = await anotherDevice(browser, base);
+  expect((await visitor.page.request.get(`${base}/api/keys/secret`)).status()).toBe(401);
+  expect((await visitor.page.request.get(`${base}/api/keys/vault`)).status()).toBe(401);
+  await visitor.context.close();
 });

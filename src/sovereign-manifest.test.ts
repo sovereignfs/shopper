@@ -22,6 +22,7 @@ const manifest = JSON.parse(read('sovereign.manifest.json')) as {
   launch: string;
   icon: string;
   signIn: { redirect: string[]; scopes: string[]; backChannel: string; accountDeleted: string };
+  encryption?: { return: string };
   database: unknown;
   generate: (string | { name: string; bytes?: number })[];
 };
@@ -61,6 +62,11 @@ describe('sovereign.manifest.json', () => {
   it('asks core for what the sign-in asks for, and is sent back where the sign-in is sent', () => {
     expect(manifest.signIn.scopes).toEqual(SOVEREIGN_SCOPES);
     expect(manifest.signIn.redirect).toEqual([`/api/auth/callback/${SOVEREIGN_PROVIDER_ID}`]);
+  });
+
+  it('has core release its key to a page that exists (RFC 0001)', () => {
+    expect(manifest.encryption).toEqual({ return: '/keys/return' });
+    expect(existsSync(join(root, 'app', 'keys', 'return', 'page.tsx'))).toBe(true);
   });
 
   it('names a health route and a launch address that exist', () => {
