@@ -26,7 +26,7 @@ invitation); `AGENTS.md`'s words and rules; `docs/sharing.md`.
 
 **Accepts when:** no document says a household is shared, or that sharing one list shares another.
 
-#### 📋 21.2 — A list's people, and the leak closed
+#### ✅ 21.2 — A list's people, and the leak closed
 
 **Goal:** someone on one list sees that list and nothing else of its group. **Depends on:** 21.1.
 
@@ -37,6 +37,22 @@ was seen to fail before.
 
 **Accepts when:** Grace, invited to Ada's "Groceries", sees "Groceries" and its items, and not Ada's "Hardware store", its items, products or people,
 on her device or from the server; removed, the list leaves her device.
+
+**Done as:** `list_member` on both dialects (migration `0015_list_members`, which also adds `list_id` to `invitation`, `tombstone` and `alias`), written
+in `src/lists/members.ts`. `src/access/membership.ts` gains `onList`, `listAdminOf` and `ownerOf`; `memberOf` now means "on any list of the group" and
+reads nothing of a list by itself. Every list-scoped operation (`invite.*`, `member.leave`, `member.remove`, `list.delete`) carries `list` and is
+allowed by `dispatch` only for someone on that list of that group (its Admin for an Admin's). `src/sync/apply.ts` refuses, as not found, a change to a
+list or an item on a list the sender is not on, and lets only the group's own account make a list; the maker becomes its Admin. `src/sync/pull.ts` hands
+a reader only the lists they are on, their items, the products those items use, their people and their tombstones and aliases, and names the visible
+lists; the device (`src/local/store.ts`, store version 3, `member` keyed by list) forgets any other. A join re-stamps the list's rows
+(`stampList`). An item moved to another list leaves a tombstone kept to the first list, handed only to a reader who cannot see the item where it is now.
+Limits count people per list and groups per account. `adoptListMembers` runs at every start and turns 0.1.0's shared households into lists of their
+own (everyone keeps every list they had; household links are revoked). `People.deletePerson` passes a shared list's Admin role to the person on it
+longest; **left out:** the list stays in the departed account's group rather than moving into the heir's (it changes nothing a person sees), and the
+export keeps the person's lists only. The Share dialog sends the list and speaks of one list. Tests: `src/lists/scope.test.ts` (seen to fail with the
+pull's and apply's checks taken out), and in `src/local/leaving.test.ts` a person removed from one of two lists keeps the other, and an item moved to a
+list they are not on leaves their device (seen to fail without the tombstone). **Left for 21.3:** a product is still the group's, so an add on a shared
+list can fold into a product of another list by its name key; the pull hands a reader only products their lists use.
 
 #### 📋 21.3 — A list's catalog
 

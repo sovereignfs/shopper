@@ -6,7 +6,8 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { memberOf } from '../access/membership';
+import { memberOf, onList, ownerOf } from '../access/membership';
+import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
 import { type Fold, foldProductFields, recordFold, resolveAlias } from './fold';
 import { foldItemFields, withoutSecondTick } from './items';
@@ -152,8 +153,40 @@ async function run(
       target === raw.id ? raw : { table: raw.table, id: target, fields: raw.fields };
     // Who did it is the sender: checked on what the device sent, and not on what the server itself writes when it folds two rows into one.
     await checkAuthorship(deps, spec, mutation.householdId, accountId, change);
+    const from = await checkListAccess(deps, spec, mutation.householdId, accountId, change);
     if (moved) throw new Held();
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
+    // An item moved to another list leaves the devices of those on the first and not on the second (RFC 0004): a tombstone kept to the first list, which
+    // the pull hands only to a reader who cannot see the item where it is now.
+    if (
+      spec.table === 'item' &&
+      from !== undefined &&
+      typeof change.fields.listId === 'string' &&
+      change.fields.listId !== from &&
+      outcome.written.includes(change.id)
+    )
+      await dbAll(
+        database,
+        sql`INSERT INTO ${appTable(database, 'tombstone')} (household_id, table_name, id, seq, created_at, list_id)
+            VALUES (${mutation.householdId}, 'item', ${change.id}, ${seq}, ${now}, ${from})
+            ON CONFLICT (household_id, table_name, id) DO UPDATE SET seq = excluded.seq, list_id = excluded.list_id RETURNING id`,
+      );
+    // A list made now has its maker as its Admin (RFC 0004).
+    if (spec.table === 'list' && raw.create && outcome.written.includes(change.id)) {
+      const me = await dbGet<{ id: string }>(
+        database,
+        sql`SELECT id FROM ${appTable(database, 'person')} WHERE account_id = ${accountId}`,
+      );
+      if (me)
+        await addListMember(database, {
+          household: mutation.householdId,
+          list: change.id,
+          person: me.id,
+          role: 'admin',
+          seq,
+          now,
+        });
+    }
     if (outcome.fold) folds.push(outcome.fold);
     for (const id of outcome.written) changed.push({ table: change.table, id });
   }
@@ -453,7 +486,9 @@ async function checkReferences(
       target === 'person'
         ? await dbGet<{ yes: number }>(
             database,
-            sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${String(value)}`,
+            // Someone who has been on one of the group's lists, or its own account (RFC 0004).
+            sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${String(value)}
+                UNION SELECT 1 FROM ${appTable(database, 'list_member')} WHERE household_id = ${household} AND person_id = ${String(value)}`,
           )
         : await dbGet<{ yes: number }>(
             database,
@@ -483,11 +518,52 @@ async function checkAuthorship(
     if (value === undefined || value === null) continue;
     const own = await dbGet<{ yes: number }>(
       database,
-      sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} m JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
-          WHERE m.household_id = ${household} AND m.person_id = ${String(value)} AND p.account_id = ${accountId}`,
+      sql`SELECT 1 AS yes FROM ${appTable(database, 'person')} p WHERE p.id = ${String(value)} AND p.account_id = ${accountId}`,
     );
     if (!own) throw notFound();
   }
+}
+
+/**
+ * **A change touches only lists its sender is on** (RFC 0004): a list itself, or an item on it (where it is, and where it is moved to). A new list is made
+ * only by the group's own account, in its own group. A product is the group's until 21.3 gives it a list, and anyone on the group may write one. Every
+ * refusal reads as not found, as for a row of another group.
+ */
+async function checkListAccess(
+  deps: ApplyDeps,
+  spec: TableSpec,
+  household: string,
+  accountId: string,
+  change: Change,
+): Promise<string | undefined> {
+  const { database } = deps;
+  const allowed = async (condition: ReturnType<typeof sql>) =>
+    (await dbGet<{ yes: number }>(database, sql`SELECT 1 AS yes WHERE ${condition}`)) !== undefined;
+  if (spec.table === 'list') {
+    const existing = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${appTable(database, 'list')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const ok = existing
+      ? await allowed(onList(database, change.id, accountId))
+      : await allowed(ownerOf(database, household, accountId));
+    if (!ok) throw notFound();
+    return;
+  }
+  if (spec.table === 'item') {
+    const existing = await dbGet<{ list_id: string }>(
+      database,
+      sql`SELECT list_id FROM ${appTable(database, 'item')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const lists = new Set<string>();
+    if (existing) lists.add(existing.list_id);
+    if (typeof change.fields.listId === 'string') lists.add(change.fields.listId);
+    for (const list of lists)
+      if (!(await allowed(onList(database, list, accountId)))) throw notFound();
+    // The list it was on, for the move's tombstone.
+    return existing?.list_id;
+  }
+  return undefined;
 }
 
 /** Replaces, in a change, an id that names a product that was folded into another with the other (`fold.ts`). */
@@ -555,7 +631,7 @@ async function foldItem(
     delete additions.note;
   }
   const fold: Fold = { table: 'item', from: change.id, to: into };
-  await recordFold(deps.database, household, fold, seq, now, carried);
+  await recordFold(deps.database, household, fold, seq, now, carried, String(twin.list_id));
   if (Object.keys(additions).length === 0) return { written: [into], fold };
   const merged = await applyChange(
     deps,

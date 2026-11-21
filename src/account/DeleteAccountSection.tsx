@@ -12,8 +12,8 @@ import { addressOf, shopperVault } from '../keys/vault-client';
 interface Preview {
   /** Whether it asks for the password; an account that came in through Sovereign has none, and a session made just now stands in. */
   password: boolean;
-  households: {
-    household: string;
+  lists: {
+    list: string;
     own: boolean;
     outcome: 'passes' | 'deleted' | 'left';
     to: string | null;
@@ -21,11 +21,41 @@ interface Preview {
 }
 
 /**
- * Settings, Data, Delete account (DESIGN.md §17, §19). **It says what goes before it asks:** the account and everything personal of it, and for each
- * household whether the Admin role passes to the member who has been in longest, whether it is deleted because nobody else is in it, or whether the person
- * simply leaves; that what they added stays on the lists of a household that carries on, under their name. It asks for the password. Other devices find
+ * Settings, Data, Delete account (DESIGN.md §17, §19). **It says what goes before it asks:** the account and everything personal of it, and of its
+ * lists (RFC 0004) how many are deleted because nobody else is on them, which pass to the person on them longest, and how many it simply leaves;
+ * that what they added stays on the lists that carry on, under their name. It asks for the password. Other devices find
  * out at their next sync, when their session has ended (task 6.2 also deletes this device's store).
  */
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
+/** What deleting would do to the person's lists, in a sentence each: counted, since a list's name is not the server's to say. */
+function sentences(lists: Preview['lists']): string[] {
+  const deleted = lists.filter((each) => each.outcome === 'deleted').length;
+  const left = lists.filter((each) => each.outcome === 'left').length;
+  const to = new Map<string, number>();
+  for (const each of lists)
+    if (each.outcome === 'passes') {
+      const name = each.to ?? 'the person on it longest';
+      to.set(name, (to.get(name) ?? 0) + 1);
+    }
+  return [
+    ...(deleted > 0
+      ? [
+          `${deleted} ${plural(deleted, 'list nobody else is on is', 'lists nobody else is on are')} deleted.`,
+        ]
+      : []),
+    ...[...to].map(
+      ([name, n]) =>
+        `${n} shared ${plural(n, 'list passes', 'lists pass')} to ${name}, who has been on ${plural(n, 'it', 'them')} longest.`,
+    ),
+    ...(left > 0
+      ? [
+          `You leave ${left} shared ${plural(left, 'list', 'lists')}, which ${plural(left, 'carries', 'carry')} on without you.`,
+        ]
+      : []),
+  ];
+}
+
 export function DeleteAccountSection({ email, vaultId }: { email: string; vaultId: string }) {
   const { accountId } = useLocal();
   const [open, setOpen] = useState(false);
@@ -115,18 +145,10 @@ export function DeleteAccountSection({ email, vaultId }: { email: string; vaultI
           <p>This deletes your account and everything of yours that is not shared.</p>
           {preview ? (
             <>
-              {preview.households.length > 0 ? (
-                <ul aria-label="Your households">
-                  {preview.households.map((each) => (
-                    <li key={each.household}>
-                      <strong>{each.own ? 'Your lists' : 'Shared lists you are in'}</strong>:{' '}
-                      {each.outcome === 'deleted'
-                        ? 'nobody else is in them, so they are deleted'
-                        : each.outcome === 'passes'
-                          ? `pass to ${each.to ?? 'the member who has been in longest'}, who has been in them longest, and are theirs from then on`
-                          : 'you leave them, and they carry on without you'}
-                      .
-                    </li>
+              {sentences(preview.lists).length > 0 ? (
+                <ul aria-label="Your lists">
+                  {sentences(preview.lists).map((sentence) => (
+                    <li key={sentence}>{sentence}</li>
                   ))}
                 </ul>
               ) : null}

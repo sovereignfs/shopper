@@ -80,7 +80,7 @@ describe(`households and access (${leg})`, () => {
     expect(
       await readHousehold(database, TEST_RING, 'no-such-household', grace.accountId),
     ).toBeUndefined();
-    expect(await membersOf(database, TEST_RING, ada.household, grace.accountId)).toBeUndefined();
+    expect(await membersOf(database, TEST_RING, ada.list, grace.accountId)).toBeUndefined();
     expect(
       await membersOf(database, TEST_RING, 'no-such-household', grace.accountId),
     ).toBeUndefined();
@@ -99,12 +99,12 @@ describe(`households and access (${leg})`, () => {
       ada.household,
     ]);
 
-    const byAda = await membersOf(database, TEST_RING, ada.household, ada.accountId);
+    const byAda = await membersOf(database, TEST_RING, ada.list, ada.accountId);
     expect(byAda?.map((m) => [m.name, m.role, m.email])).toEqual([
       ['Ada', 'admin', ada.email],
       ['Grace', 'member', grace.email],
     ]);
-    const byGrace = await membersOf(database, TEST_RING, ada.household, grace.accountId);
+    const byGrace = await membersOf(database, TEST_RING, ada.list, grace.accountId);
     expect(byGrace?.map((m) => [m.name, m.email, m.self])).toEqual([
       ['Ada', null, false],
       ['Grace', grace.email, true],
@@ -116,7 +116,7 @@ describe(`households and access (${leg})`, () => {
     expect(await readHousehold(database, TEST_RING, ada.household, lin.accountId)).toBeDefined();
     await leave(database, ada.household, lin);
     expect(await readHousehold(database, TEST_RING, ada.household, lin.accountId)).toBeUndefined();
-    expect(await membersOf(database, TEST_RING, ada.household, lin.accountId)).toBeUndefined();
+    expect(await membersOf(database, TEST_RING, ada.list, lin.accountId)).toBeUndefined();
     // Joining again is the same row.
     await join(database, ada.household, lin);
     expect(await readHousehold(database, TEST_RING, ada.household, lin.accountId)).toBeDefined();

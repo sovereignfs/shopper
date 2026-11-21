@@ -1,14 +1,15 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_RING, callAs, join, somebody } from '../access/test-support';
+import { TEST_RING, callAs, join, joinList, somebody } from '../access/test-support';
 import type { Env } from '../actions/env';
-import { addItem } from '../actions/items';
+import { addItem, moveItem } from '../actions/items';
+import { makeList } from '../actions/lists';
 import type { Database } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { OPERATIONS } from '../households/ops';
 import type { EndpointDeps } from '../sync/endpoint';
 import { listViewOf } from './listview';
-import { householdsOf, listsOf } from './store';
+import { householdsOf, itemsOf, listsOf } from './store';
 import { closeDevices, device } from './test-support';
 
 const { leg } = testTarget();
@@ -63,10 +64,12 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
           ? await callAs(database, OPERATIONS, grace, {
               op: 'member.leave',
               household: ada.household,
+              list: ada.list,
             })
           : await callAs(database, OPERATIONS, ada, {
               op: 'member.remove',
               household: ada.household,
+              list: ada.list,
               person: grace.personId,
             });
       expect(reply.status).toBe(200);
@@ -87,4 +90,62 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
       expect(view.showPeople).toBe(true);
     });
   }
+
+  it('takes one list off the device when its person is removed from it, keeping the other list of the same group (RFC 0004)', async () => {
+    const ada = await somebody(database, 'Ada-two-lists');
+    const grace = await somebody(database, 'Grace-two-lists');
+    const adas = await device(deps, ada);
+    await adas.client.sync();
+    const made = makeList(env(), {
+      householdId: ada.household,
+      name: 'Hardware store',
+      position: 'a5',
+    });
+    await adas.client.commit(made);
+    await adas.client.sync();
+    const hardware = made.changes[0]?.id ?? '';
+    await joinList(database, ada.household, ada.list, grace);
+    await joinList(database, ada.household, hardware, grace);
+    const graces = await device(deps, grace);
+    await graces.client.sync();
+    expect(
+      (await graces.client.read((db) => listsOf(db, ada.household))).map((l) => l.id).sort(),
+    ).toEqual([ada.list, hardware].sort());
+
+    const reply = await callAs(database, OPERATIONS, ada, {
+      op: 'member.remove',
+      household: ada.household,
+      list: hardware,
+      person: grace.personId,
+    });
+    expect(reply.status).toBe(200);
+    await graces.client.sync();
+    expect((await graces.client.read((db) => listsOf(db, ada.household))).map((l) => l.id)).toEqual(
+      [ada.list],
+    );
+
+    // Ada moves an item from the shared list to the one Grace is no longer on: it leaves Grace's device, and stays on Ada's.
+    const groceries = await adas.client.read((db) => listsOf(db, ada.household));
+    const shared = groceries.find((l) => l.id === ada.list);
+    if (!shared) throw new Error('no Groceries');
+    await adas.client.commit(
+      addItem(env(), { list: shared, name: 'Light bulbs', last: null, by: ada.personId }),
+    );
+    await adas.client.sync();
+    await graces.client.sync();
+    expect((await graces.client.read((db) => itemsOf(db, ada.list))).map((i) => i.name)).toEqual([
+      'Light bulbs',
+    ]);
+    const bulbs = (await adas.client.read((db) => itemsOf(db, ada.list)))[0];
+    if (!bulbs) throw new Error('no item');
+    const move = moveItem(env(), bulbs, { position: 'a0', listId: hardware });
+    if (!move) throw new Error('nothing to move');
+    await adas.client.commit(move);
+    await adas.client.sync();
+    await graces.client.sync();
+    expect(await graces.client.read((db) => itemsOf(db, ada.list))).toEqual([]);
+    expect((await adas.client.read((db) => itemsOf(db, hardware))).map((i) => i.name)).toEqual([
+      'Light bulbs',
+    ]);
+  });
 });

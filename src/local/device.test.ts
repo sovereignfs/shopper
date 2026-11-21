@@ -123,7 +123,7 @@ describe(`a device (${leg})`, () => {
       5,
     );
     expect(
-      (await d.client.read((db) => membersOf(db, ada.household))).map((m) => [m.name, m.self]),
+      (await d.client.read((db) => membersOf(db, ada.list))).map((m) => [m.name, m.self]),
     ).toEqual([['Ada', true]]);
     expect(await d.client.hasSynced()).toBe(true);
     expect(await d.client.intervalSeconds()).toBe(20);

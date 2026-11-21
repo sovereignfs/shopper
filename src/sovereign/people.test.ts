@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { is } from 'drizzle-orm';
 import { SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_RING, join, somebody, type Someone } from '../access/test-support';
+import { firstList, TEST_RING, join, somebody, type Someone } from '../access/test-support';
 import type { Database } from '../db/client';
 import { openDatabase } from '../db/client';
 import { dbAll, dbRun } from '../db/exec';
@@ -32,7 +32,9 @@ const DECIDED_APP: Record<string, string> = {
   applied_mutation: 'the account’s own record of what it sent, deleted by account_id',
   invitation:
     'a household’s, deleted with it; the links a person made that are still waiting are revoked, and who accepted one stays as an id',
-  member: 'ended (left_at), or deleted with a household nobody else is in',
+  member: 'ended (left_at), or deleted with a group nobody else is on',
+  list_member:
+    'ended (left_at) on a list that carries on, the Admin passing to the person on it longest; deleted with a list nobody else is on',
   category: 'a household’s, deleted with it',
   list: 'a household’s, deleted with it',
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
@@ -160,6 +162,7 @@ describe(`deleting a person (${leg})`, () => {
     for (const household of [ada.household, lin.household]) {
       const made = await createInvitation(app, {
         household,
+        list: await firstList(app, household),
         accountId: ada.accountId,
         personId: ada.personId,
         now: 1_799_999_999_000,
@@ -226,17 +229,14 @@ describe(`deleting a person (${leg})`, () => {
       2,
     );
 
-    // Her household lives on, Grace its Admin; her name stays on the member list; the others' own households are intact; and the others' accounts are.
-    expect((await readHousehold(app, TEST_RING, ada.household, grace.accountId))?.role).toBe(
-      'admin',
-    );
-    const members = await membersOf(app, TEST_RING, ada.household, grace.accountId);
+    // Her shared list lives on, Grace its Admin (RFC 0004); her name stays on the member list; the others' own households are intact; and the others' accounts are.
+    const members = await membersOf(app, TEST_RING, ada.list, grace.accountId);
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Grace', 'admin'],
       ['Lin', 'member'],
     ]);
     expect((await readHousehold(app, TEST_RING, lin.household, lin.accountId))?.role).toBe('admin');
-    expect(await membersOf(app, TEST_RING, lin.household, lin.accountId)).toHaveLength(1);
+    expect(await membersOf(app, TEST_RING, lin.list, lin.accountId)).toHaveLength(1);
     expect(await count(auth, authTable('user'), sql`id = ${grace.accountId}`)).toBe(1);
     expect(await count(auth, authTable('session'), sql`user_id = ${grace.accountId}`)).toBe(1);
     expect(
@@ -265,9 +265,9 @@ describe(`deleting a person (${leg})`, () => {
     await seedAuth(twice);
     await deletePerson(deps(), twice.accountId);
     expect(await deletePerson(deps(), twice.accountId)).toEqual({ passed: 0, deleted: 0, left: 0 });
-    expect((await readHousehold(app, TEST_RING, twice.household, other.accountId))?.role).toBe(
-      'admin',
-    );
+    expect(
+      (await membersOf(app, TEST_RING, twice.list, other.accountId))?.find((m) => m.self)?.role,
+    ).toBe('admin');
 
     // A run that stopped after the sign-in store and before the person: the person still names the account, so a second run finds it.
     const halfway = await somebody(app, 'Halfway');

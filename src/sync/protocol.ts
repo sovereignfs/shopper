@@ -44,7 +44,10 @@ export interface HouseholdPull {
   readonly items: readonly Record<string, unknown>[];
   readonly products: readonly Record<string, unknown>[];
   readonly categories: readonly Record<string, unknown>[];
+  /** The people of the reader's lists, one row a person a list (`listId`), as the reader may see them (§6.1). */
   readonly members: readonly Record<string, unknown>[];
+  /** Every list of this group the reader may see now (RFC 0004): the device forgets any other it holds. */
+  readonly visibleLists?: readonly string[];
   readonly tombstones: readonly { table: string; id: string; seq: number }[];
   readonly aliases: readonly {
     table: string;

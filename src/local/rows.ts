@@ -25,6 +25,8 @@ export interface CategoryRow {
 /** A person's place in a household, as the reader may see it (an address only where `canSeeEmail` allows). */
 export interface MemberRow {
   readonly householdId: string;
+  /** The list this person is on (RFC 0004): people are a list's, one row per list they are on. */
+  readonly listId: string;
   readonly personId: string;
   readonly name: string;
   readonly email: string | null;

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { memberOf } from '../access/membership';
+import { memberOf, onList, ownerOf } from '../access/membership';
 import type { KeyRing } from '../crypto/keys';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -8,7 +8,7 @@ import { appTable } from '../db/tables';
 
 /**
  * **What a person's export holds of Shopper** (RFC 0003, `contracts/export.md`): one file of records per kind under `apps/shopper/records/`. Their own
- * person, and every household they are in, whole: its lists, items, products and categories, and its members **by name only**, with no one else's
+ * person, and of every group they are on a list of, the lists they are on: those lists, items, products and categories, and its members **by name only**, with no one else's
  * address. A household that has moved keeps its content as the ciphertext its devices wrote, marked end to end, with the person's own copy of its keys
  * beside it, so that their keys open it and nothing is in plain text on the way; one the server still seals is given as the server reads it, since it
  * is the person's and the server holds its key. Nothing the contract forbids: no password, session, token or other person's email.
@@ -52,6 +52,16 @@ export async function personRecords(
     plain[table] = [];
     encrypted[table] = [];
   }
+  // Only the person's own lists and those shared with them (RFC 0004), as the pull hands them: never another list of a group they are on.
+  const visible = (table: (typeof CONTENT_TABLES)[number]) =>
+    table === 'list'
+      ? onList(database, sql`r.id`, accountId)
+      : table === 'item'
+        ? onList(database, sql`r.list_id`, accountId)
+        : table === 'product'
+          ? sql`(${ownerOf(database, sql`r.household_id`, accountId)} OR EXISTS (SELECT 1 FROM ${appTable(database, 'item')} vi
+                 WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`
+          : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
     plain.household?.push({
@@ -60,6 +70,7 @@ export async function personRecords(
       encrypted: moved,
     });
     const members = await dbAll<{
+      list_id: string;
       person_id: string;
       role: string;
       joined_at: number;
@@ -67,12 +78,15 @@ export async function personRecords(
       sealed: string;
     }>(
       database,
-      sql`SELECT m.person_id, m.role, m.joined_at, m.left_at, p.sealed FROM ${appTable(database, 'member')} m
-          JOIN ${appTable(database, 'person')} p ON p.id = m.person_id WHERE m.household_id = ${household.id} ORDER BY m.joined_at, m.person_id`,
+      sql`SELECT m.list_id, m.person_id, m.role, m.joined_at, m.left_at, p.sealed FROM ${appTable(database, 'list_member')} m
+          JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
+          WHERE m.household_id = ${household.id} AND ${onList(database, sql`m.list_id`, accountId)}
+          ORDER BY m.list_id, m.joined_at, m.person_id`,
     );
     for (const member of members)
       plain.member?.push({
         household: household.id,
+        list: member.list_id,
         person: member.person_id,
         // By name only: another person's address is never in someone else's export.
         name: unsealRow('person', member.person_id, member.sealed, ring).name ?? null,
@@ -83,7 +97,7 @@ export async function personRecords(
     for (const table of CONTENT_TABLES) {
       const rows = await dbAll<Record<string, unknown>>(
         database,
-        sql`SELECT * FROM ${appTable(database, table)} WHERE household_id = ${household.id} ORDER BY id`,
+        sql`SELECT * FROM ${appTable(database, table)} r WHERE r.household_id = ${household.id} AND ${visible(table)} ORDER BY r.id`,
       );
       for (const row of rows) {
         const { sealed, encrypted: cipher, fseq: _fseq, ...rest } = row;

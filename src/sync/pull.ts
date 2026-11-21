@@ -4,7 +4,7 @@ import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet } from '../db/exec';
 import { appTable } from '../db/tables';
-import { adminOf, memberOf } from '../access/membership';
+import { listAdminOf, memberOf, onList, ownerOf } from '../access/membership';
 import { STARTER_CATEGORIES } from '../catalog/categories';
 import { readHousehold } from '../households/households';
 import { canSeeEmail } from '../people/visibility';
@@ -46,34 +46,53 @@ export async function pullHousehold(
         WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
   );
 
-  const take = (name: string, extra: ReturnType<typeof sql> = sql``) =>
+  // **Only the reader's lists** (RFC 0004): a list, its items and their tombstones and aliases only if the reader is on that list; a product only if an
+  // item on such a list uses it (21.3 gives products a list of their own), or the reader is the group's own account; a category is the group's.
+  const t = (name: string) => appTable(database, name);
+  const own = ownerOf(database, household, accountId);
+  const take = (name: string, visible: ReturnType<typeof sql>) =>
     dbAll<Raw>(
       database,
-      sql`SELECT * FROM ${appTable(database, name)}
-          WHERE household_id = ${household} AND seq > ${cursor} AND ${memberOf(database, household, accountId)} ${extra}
-          ORDER BY seq, id LIMIT ${pageRows + 1}`,
+      sql`SELECT * FROM ${t(name)} r
+          WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)} AND ${visible}
+          ORDER BY r.seq, r.id LIMIT ${pageRows + 1}`,
     );
-  const [lists, items, products, categories, members, tombstones, aliases] = await Promise.all([
-    take('list'),
-    take('item'),
-    take('product'),
-    take('category'),
-    dbAll<Raw>(
-      database,
-      sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${adminOf(database, household, accountId)} AS viewer_is_admin
-          FROM ${appTable(database, 'member')} m JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
-          WHERE m.household_id = ${household} AND m.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+  const [lists, items, products, categories, members, tombstones, aliases, visibleLists] =
+    await Promise.all([
+      take('list', onList(database, sql`r.id`, accountId)),
+      take('item', onList(database, sql`r.list_id`, accountId)),
+      take(
+        'product',
+        sql`(${own} OR EXISTS (SELECT 1 FROM ${t('item')} vi WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`,
+      ),
+      take('category', sql`1 = 1`),
+      dbAll<Raw>(
+        database,
+        sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
+          FROM ${t('list_member')} m JOIN ${t('person')} p ON p.id = m.person_id
+          WHERE m.household_id = ${household} AND m.seq > ${cursor} AND ${onList(database, sql`m.list_id`, accountId)}
           ORDER BY m.seq, m.id LIMIT ${pageRows + 1}`,
-    ),
-    dbAll<Raw>(
-      database,
-      sql`SELECT * FROM ${appTable(database, 'tombstone')} WHERE household_id = ${household} AND seq > ${cursor} AND ${memberOf(database, household, accountId)} ORDER BY seq LIMIT ${pageRows + 1}`,
-    ),
-    dbAll<Raw>(
-      database,
-      sql`SELECT * FROM ${appTable(database, 'alias')} WHERE household_id = ${household} AND seq > ${cursor} AND ${memberOf(database, household, accountId)} ORDER BY seq LIMIT ${pageRows + 1}`,
-    ),
-  ]);
+      ),
+      dbAll<Raw>(
+        database,
+        sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+          -- An item moved away from a list (RFC 0004) is gone only for a reader who cannot see it where it is now.
+          AND NOT (r.table_name = 'item' AND EXISTS (SELECT 1 FROM ${t('item')} ti WHERE ti.id = r.id AND ti.household_id = r.household_id
+                   AND ${onList(database, sql`ti.list_id`, accountId)}))
+          ORDER BY r.seq LIMIT ${pageRows + 1}`,
+      ),
+      dbAll<Raw>(
+        database,
+        sql`SELECT * FROM ${t('alias')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
+      ),
+      // Every list the reader may see in this group, whatever its seq: the device forgets any other it holds.
+      dbAll<{ id: string }>(
+        database,
+        sql`SELECT l.id FROM ${t('list')} l WHERE l.household_id = ${household} AND ${onList(database, sql`l.id`, accountId)} ORDER BY l.id`,
+      ),
+    ]);
 
   // The page ends at a seq that is whole: where a table overflowed, just before the seq of its first row past the page, and never before the cursor.
   let upTo = Number(view.seq);
@@ -104,6 +123,7 @@ export async function pullHousehold(
     products: within(products).map((row) => productOf(row, ring)),
     categories: within(categories).map((row) => categoryOf(row, ring)),
     members: within(members).map((row) => memberRow(row, ring, accountId)),
+    visibleLists: visibleLists.map((row) => row.id),
     tombstones: within(tombstones).map((row) => ({
       table: String(row.table_name),
       id: String(row.id),
@@ -231,6 +251,7 @@ function memberRow(row: Raw, ring: KeyRing, accountId: string) {
     adminOfSharedHousehold: Boolean(row.viewer_is_admin),
   });
   return {
+    listId: row.list_id,
     personId: row.person_id,
     name: text(person.name) ?? '',
     email: visible ? text(person.email) : null,

@@ -390,6 +390,33 @@ async function takeHousehold(
     }
   }
   for (const alias of pull.aliases) await repoint(tx, alias.table, alias.from, alias.to, touched);
+  if (pull.visibleLists) await forgetHidden(tx, pull.household, pull.visibleLists, touched);
+}
+
+/**
+ * **The device keeps only the lists it may see** (RFC 0004): the pull names them, and any other list of the group the device holds goes, with its items
+ * and its people. That is what leaving or being removed from one list, while still on another of the same group, does on the device. A list made here
+ * and not yet sent has a shadow, and stays until the server has answered for it.
+ */
+async function forgetHidden(
+  tx: Tx,
+  household: string,
+  visible: readonly string[],
+  touched: Set<string>,
+): Promise<void> {
+  const keep = new Set(visible);
+  for (const list of await tx.objectStore('list').index('byHousehold').getAll(household)) {
+    if (keep.has(list.id) || (await tx.objectStore('shadow').get(['list', list.id]))) continue;
+    for (const item of await tx.objectStore('item').index('byList').getAll(list.id)) {
+      await tx.objectStore('item').delete(item.id);
+      await tx.objectStore('shadow').delete(['item', item.id]);
+      touched.delete(keyOf('item', item.id));
+    }
+    for (const member of await tx.objectStore('member').index('byList').getAll(list.id))
+      await tx.objectStore('member').delete([member.listId, member.personId]);
+    await tx.objectStore('list').delete(list.id);
+    touched.delete(keyOf('list', list.id));
+  }
 }
 
 /**
@@ -482,7 +509,7 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
     item = await item.continue();
   }
   for (const member of await tx.objectStore('member').index('byHousehold').getAll(id))
-    await tx.objectStore('member').delete([member.householdId, member.personId]);
+    await tx.objectStore('member').delete([member.listId, member.personId]);
   await tx.objectStore('household').delete(id);
 }
 
@@ -619,9 +646,9 @@ export async function categoriesOf(db: LocalDatabase, householdId: string): Prom
     .sort(byPosition);
 }
 
-/** The household's members who are in it now. */
-export async function membersOf(db: LocalDatabase, householdId: string): Promise<MemberRow[]> {
-  return (await db.getAllFromIndex('member', 'byHousehold', householdId)).filter(
+/** The people on a list now (RFC 0004). */
+export async function membersOf(db: LocalDatabase, listId: string): Promise<MemberRow[]> {
+  return (await db.getAllFromIndex('member', 'byList', listId)).filter(
     (member) => member.leftAt === null,
   );
 }

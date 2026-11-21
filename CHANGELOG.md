@@ -28,6 +28,12 @@ lists should be encrypted. Encryption is the suite's and is **not yet audited**.
 - Added to an iPhone's Home Screen from Safari, it opens as an app without Safari's bars, under its own name.
 - The bar around an installed Shopper takes the page's own colour in light and in dark, as the suite's other apps do.
 
+### Fixed
+
+- **Sharing a list shares that list and nothing else.** Before, someone given a link to one list saw every list of the household. Each list now has its
+  own people, invited, removed and leaving list by list. People already sharing a household keep every list they had; a list made after is yours
+  alone until you share it. Links made before this, to a household as a whole, are revoked: make a new one from the list.
+
 ### Changed
 
 - Shopper's service worker is now the one every app of the suite runs (`@sovereignfs/pwa`). With no connection, a page that is not kept on the device

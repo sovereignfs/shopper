@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { CONTENT, type SyncedTable } from '../../actions/format';
-import { memberOf } from '../../access/membership';
+import { ownerOf } from '../../access/membership';
 import type { KeyRing } from '../../crypto/keys';
 import { unsealRow } from '../../crypto/sealed';
 import type { Database } from '../../db/client';
@@ -36,7 +36,10 @@ export interface Manifest {
   >;
 }
 
-/** The household, if this account is its only active member and it is still sealed: its `seq` and the account's person. */
+/**
+ * The group, if it is this account's own, nobody else is on any of its lists (RFC 0004), and it is still sealed: its `seq` and the account's person.
+ * A group with a shared list stays sealed by the server until each list has keys of its own (task 21.4).
+ */
 async function movable(
   database: Database,
   household: string,
@@ -48,10 +51,12 @@ async function movable(
   const found = await dbGet<{ seq: number | string; person: string; others: number | string }>(
     database,
     sql`SELECT h.seq, me.id AS person,
-          (SELECT COUNT(*) FROM ${m} o WHERE o.household_id = h.id AND o.left_at IS NULL AND o.person_id <> me.id) AS others
+          (SELECT COUNT(*) FROM ${m} o WHERE o.household_id = h.id AND o.left_at IS NULL AND o.person_id <> me.id)
+            + (SELECT COUNT(*) FROM ${appTable(database, 'list_member')} o
+               WHERE o.household_id = h.id AND o.left_at IS NULL AND o.person_id <> me.id) AS others
         FROM ${h} h, ${p} me
         WHERE h.id = ${household} AND h.encryption = 'sealed' AND me.account_id = ${accountId}
-          AND ${memberOf(database, household, accountId)}`,
+          AND ${ownerOf(database, household, accountId)}`,
   );
   if (!found || Number(found.others) > 0) return undefined;
   return { seq: Number(found.seq), person: found.person };

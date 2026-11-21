@@ -34,7 +34,7 @@ export async function listViewOf(db: LocalDatabase, id: string): Promise<ListDat
   const household = list ? await db.get('household', list.householdId) : undefined;
   if (!list || list.deletedAt !== null || !household)
     return { found: false, synced: await hasSynced(db) };
-  const members = await db.getAllFromIndex('member', 'byHousehold', household.id);
+  const members = await db.getAllFromIndex('member', 'byList', id);
   return {
     found: true,
     list,

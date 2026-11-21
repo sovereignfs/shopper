@@ -96,6 +96,8 @@ export const invitation = app.table(
   {
     id: id('id'),
     householdId: ref('household_id').notNull(),
+    // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
+    listId: ref('list_id'),
     tokenHash: ref('token_hash').notNull(),
     // A moved household's keyring, wrapped under the secret in the link's fragment, which the server never sees (RFC 0001). Gone on accept or
     // revoke.
@@ -201,6 +203,8 @@ export const alias = app.table(
   'alias',
   {
     householdId: ref('household_id').notNull(),
+    // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
+    listId: ref('list_id'),
     tableName: text('table_name').notNull(),
     fromId: ref('from_id').notNull(),
     toId: ref('to_id').notNull(),
@@ -223,6 +227,8 @@ export const tombstone = app.table(
   'tombstone',
   {
     householdId: ref('household_id').notNull(),
+    // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
+    listId: ref('list_id'),
     tableName: text('table_name').notNull(),
     id: ref('id').notNull(),
     seq: counter('seq').notNull(),
@@ -354,5 +360,28 @@ export const pushOutbox = app.table(
   (table) => [
     index('push_outbox_due_idx').on(table.dueAt, table.claimedUntil),
     index('push_outbox_endpoint_idx').on(table.endpoint),
+  ],
+);
+
+/**
+ * A list's people (RFC 0004): who may see and change a list, its items and its products. Admin (its owner, who made it or to whom it passed) or Member;
+ * joined by accepting an invitation to the list, and left or removed list by list. Active means `left_at` is null, and every statement says so.
+ */
+export const listMember = app.table(
+  'list_member',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    personId: ref('person_id').notNull(),
+    role: text('role').notNull(),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('list_member_list_person_idx').on(table.listId, table.personId),
+    index('list_member_person_idx').on(table.personId),
+    index('list_member_household_seq_idx').on(table.householdId, table.seq),
   ],
 );

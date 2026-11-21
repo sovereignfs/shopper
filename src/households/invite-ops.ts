@@ -11,7 +11,9 @@ import type { Operation } from './ops';
 export const createInvite: Operation = {
   name: 'invite.create',
   who: 'member',
+  scope: 'list',
   input: z.object({
+    list: z.string().refine(isId, 'not an id'),
     // A moved household's keyring, wrapped under the link's secret by the inviter's browser (RFC 0001).
     wrappedKey: z
       .string()
@@ -22,6 +24,7 @@ export const createInvite: Operation = {
   async run({ database, accountId, personId, household, now }, input) {
     const made = await createInvitation(database, {
       household,
+      list: String(input.list),
       accountId,
       personId,
       now,
@@ -39,10 +42,15 @@ export const createInvite: Operation = {
 export const revokeInvite: Operation = {
   name: 'invite.revoke',
   who: 'member',
-  input: z.object({ invitation: z.string().refine(isId, 'not an id') }),
+  scope: 'list',
+  input: z.object({
+    list: z.string().refine(isId, 'not an id'),
+    invitation: z.string().refine(isId, 'not an id'),
+  }),
   async run({ database, accountId, personId, household, now }, input) {
     const done = await revokeInvitation(database, {
       household,
+      list: String(input.list),
       accountId,
       personId,
       invitation: String(input.invitation),
@@ -64,11 +72,17 @@ export const revokeInvite: Operation = {
 export const listInvites: Operation = {
   name: 'invite.list',
   who: 'member',
-  input: z.object({}),
-  async run({ database, ring, accountId, household, now }) {
+  scope: 'list',
+  input: z.object({ list: z.string().refine(isId, 'not an id') }),
+  async run({ database, ring, accountId, household, now }, input) {
     return {
       ok: true as const,
-      result: await liveInvitations(database, ring, { household, accountId, now }),
+      result: await liveInvitations(database, ring, {
+        household,
+        list: String(input.list),
+        accountId,
+        now,
+      }),
     };
   },
 };

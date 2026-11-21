@@ -1,6 +1,14 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_RING, callAs, join, leave, somebody, type Someone } from '../access/test-support';
+import {
+  TEST_RING,
+  callAs,
+  join,
+  joinList,
+  leave,
+  somebody,
+  type Someone,
+} from '../access/test-support';
 import type { Env } from '../actions/env';
 import { addItem, tickItem } from '../actions/items';
 import { archiveList } from '../actions/lists';
@@ -133,6 +141,7 @@ describe(`Couldn't sync (${leg})`, () => {
     const a = await synced(host);
     const g = await synced(guest);
     const hardware = await newList(a, host.household, 'Hardware', 'a5');
+    await joinList(database, host.household, hardware, guest);
     await g.client.sync();
     const groceries = await firstList(a, host.household);
 
@@ -203,6 +212,7 @@ describe(`Couldn't sync (${leg})`, () => {
     const a = await synced(host);
     const g = await synced(guest);
     const hardware = await newList(a, host.household, 'Tools', 'a5');
+    await joinList(database, host.household, hardware, guest);
     await addTo(a, hardware, host.household, 'Saw');
     await a.client.sync();
     await g.client.sync();

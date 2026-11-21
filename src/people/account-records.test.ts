@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_RING, join, somebody } from '../access/test-support';
+import { TEST_RING, join, somebody, firstList } from '../access/test-support';
 import type { Database } from '../db/client';
 import { dbAll } from '../db/exec';
 import { runMigrations } from '../db/migrate';
@@ -34,7 +34,12 @@ describe(`an account's first household (${leg})`, () => {
     const { personId, householdId } = await makeAccountRecords(database, TEST_RING, account);
     const view = await readHousehold(database, TEST_RING, householdId, account.id);
     expect(view).toMatchObject({ own: true, role: 'admin', label: 'My lists' });
-    const members = await membersOf(database, TEST_RING, householdId, account.id);
+    const members = await membersOf(
+      database,
+      TEST_RING,
+      await firstList(database, householdId),
+      account.id,
+    );
     expect(members?.map((m) => [m.personId, m.role])).toEqual([[personId, 'admin']]);
   });
 

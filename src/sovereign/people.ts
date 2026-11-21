@@ -15,9 +15,10 @@ import { pushStore } from '../push/store';
  * stores (the app's and the sign-in store) cannot share a transaction, so a run that stopped part way is finished by running it again, and **the row that
  * makes the account findable goes last** (the person's link to its account, and to a core identity), so that a run that stopped can still find it.
  *
- *  1. The households the person is in. **Where they were the only Admin and others remain, the Admin role passes to the member who has been in longest**
- *     (who is told, in phase 2); where nobody else remains, the household is deleted with everything of it, by `household_id`; elsewhere they simply
- *     leave. A household that changes has its counter stepped, so that its other members' devices learn of it. What they added stays, by their name.
+ *  1. The lists the person is on (RFC 0004). **Where they were a shared list's only Admin, the Admin role passes to the person on it longest** (who is
+ *     told, in phase 2); a list nobody else is on is deleted with everything of it; elsewhere they simply leave. A group nobody is left on is deleted
+ *     whole, by `household_id`. A group that changes has its counter stepped, so that its other people's devices learn of it. What they added stays,
+ *     by their name.
  *  2. What was kept for them: the record of the mutations they sent, and the rate counters that carry their account.
  *  3. The sign-in store: sessions, sign-ins, pending verifications, and then the account.
  *  4. Their person is kept **as a name only**: the link to the account and to a core identity cleared, the email gone from the sealed row, `deleted_at` set.
@@ -37,11 +38,11 @@ export interface PeopleDeps {
 }
 
 export interface Deleted {
-  /** Households whose Admin role passed to another member. */
+  /** Shared lists whose Admin role passed to the person on them longest. */
   readonly passed: number;
-  /** Households deleted because nobody else was in them. */
+  /** Lists deleted because nobody else was on them. */
   readonly deleted: number;
-  /** Households they left, with nothing to hand over. */
+  /** Lists they left, with nothing to hand over. */
   readonly left: number;
 }
 
@@ -70,15 +71,20 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     sql`SELECT id, sealed FROM ${appTable(database, 'person')} WHERE account_id = ${accountId}`,
   );
 
-  // 1. Households. Each is its own transaction, so that a household that cannot be finished does not hold the others, and each is safe to run again.
+  // 1. Their lists, group by group (RFC 0004). Each group is its own transaction, so that one that cannot be finished does not hold the others, and
+  // each is safe to run again.
   if (person) {
-    const households = await dbAll<{ household_id: string }>(
+    const groups = await dbAll<{ household_id: string }>(
       database,
-      sql`SELECT household_id FROM ${appTable(database, 'member')} WHERE person_id = ${person.id} AND left_at IS NULL`,
+      sql`SELECT household_id FROM ${appTable(database, 'list_member')} WHERE person_id = ${person.id} AND left_at IS NULL
+          UNION
+          SELECT household_id FROM ${appTable(database, 'member')} WHERE person_id = ${person.id} AND left_at IS NULL`,
     );
-    for (const { household_id: household } of households) {
-      const outcome = await leaveHousehold(database, household, person.id, now);
-      result[outcome === 'passed' ? 'passed' : outcome === 'deleted' ? 'deleted' : 'left'] += 1;
+    for (const { household_id: household } of groups) {
+      const outcome = await leaveGroup(database, household, person.id, now);
+      result.passed += outcome.passed;
+      result.deleted += outcome.deleted;
+      result.left += outcome.left;
     }
   }
 
@@ -152,109 +158,147 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
 }
 
 /**
- * One household, for a person who is deleting their account: the Admin role passes if they were its only Admin and others remain, the household is
- * deleted if nobody else remains, and otherwise they just leave. In one transaction, with the household's counter stepped for what changed.
+ * One group, for a person who is deleting their account (RFC 0004). On each of its lists they are on: **a list nobody else is on is deleted**, with
+ * its items, people, links and records; **a shared list whose only Admin they were passes to the person on it longest**, who becomes its Admin, and
+ * stays where it is; otherwise they just leave it. Their own group is theirs no more (`own_of` cleared). A group nobody is left on is deleted whole.
+ * In one transaction, with the group's counter stepped for what changed.
  */
-async function leaveHousehold(
+async function leaveGroup(
   database: Database,
   household: string,
   personId: string,
   now: number,
-): Promise<'passed' | 'deleted' | 'left'> {
-  const member = appTable(database, 'member');
+): Promise<{ passed: number; deleted: number; left: number }> {
+  const listMember = appTable(database, 'list_member');
   const h = appTable(database, 'household');
+  const outcome = { passed: 0, deleted: 0, left: 0 };
   return transaction(database, async (tx) => {
-    const others = await dbAll<{ person_id: string; role: string }>(
+    const stepped = await dbGet<{ seq: number | string }>(
       tx,
-      sql`SELECT person_id, role FROM ${member}
-          WHERE household_id = ${household} AND left_at IS NULL AND person_id <> ${personId}
-          ORDER BY joined_at, person_id`,
+      sql`UPDATE ${h} SET seq = seq + 1, updated_at = ${now} WHERE id = ${household} RETURNING seq`,
     );
-    if (others.length === 0) {
-      // Nobody else is in it: it goes, with everything of it, by `household_id`, and then the household.
+    if (!stepped) return outcome;
+    const seq = Number(stepped.seq);
+    const lists = await dbAll<{ list_id: string; role: string }>(
+      tx,
+      sql`SELECT list_id, role FROM ${listMember}
+          WHERE household_id = ${household} AND person_id = ${personId} AND left_at IS NULL`,
+    );
+    for (const { list_id: list, role } of lists) {
+      const others = await dbAll<{ person_id: string; role: string }>(
+        tx,
+        sql`SELECT person_id, role FROM ${listMember}
+            WHERE list_id = ${list} AND left_at IS NULL AND person_id <> ${personId}
+            ORDER BY joined_at, person_id`,
+      );
+      if (others.length === 0) {
+        await deleteList(tx, household, list);
+        outcome.deleted += 1;
+        continue;
+      }
+      const heir = others[0];
+      if (role === 'admin' && heir && !others.some((other) => other.role === 'admin')) {
+        await dbAll(
+          tx,
+          sql`UPDATE ${listMember} SET role = 'admin', seq = ${seq}
+              WHERE list_id = ${list} AND person_id = ${heir.person_id} RETURNING id`,
+        );
+        outcome.passed += 1;
+      } else outcome.left += 1;
+      await dbAll(
+        tx,
+        sql`UPDATE ${listMember} SET left_at = ${now}, seq = ${seq}
+            WHERE list_id = ${list} AND person_id = ${personId} AND left_at IS NULL RETURNING id`,
+      );
+    }
+    // Their own group is theirs no more: its lists that carry on are their people's, in a group nobody owns.
+    await dbAll(
+      tx,
+      sql`UPDATE ${appTable(tx, 'member')} SET left_at = ${now}, seq = ${seq}
+          WHERE household_id = ${household} AND person_id = ${personId} AND left_at IS NULL RETURNING id`,
+    );
+    await dbAll(
+      tx,
+      sql`UPDATE ${h} SET own_of = NULL WHERE id = ${household} AND own_of IN
+            (SELECT account_id FROM ${appTable(tx, 'person')} WHERE id = ${personId}) RETURNING id`,
+    );
+    // Nobody left on any of its lists, nor in it: it goes, with everything of it, by `household_id`, and then the group.
+    const anyone = await dbGet<{ n: number | string }>(
+      tx,
+      sql`SELECT (SELECT COUNT(*) FROM ${listMember} WHERE household_id = ${household} AND left_at IS NULL)
+               + (SELECT COUNT(*) FROM ${appTable(tx, 'member')} WHERE household_id = ${household} AND left_at IS NULL) AS n`,
+    );
+    if (Number(anyone?.n ?? 0) === 0) {
       for (const table of HOUSEHOLD_TABLES)
         await dbAll(
           tx,
           sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} RETURNING 1 AS gone`,
         );
       await dbAll(tx, sql`DELETE FROM ${h} WHERE id = ${household} RETURNING id`);
-      return 'deleted';
     }
-    const seq = await dbGet<{ seq: number | string }>(
-      tx,
-      sql`UPDATE ${h} SET seq = seq + 1, updated_at = ${now} WHERE id = ${household} RETURNING seq`,
-    );
-    const mine = await dbGet<{ role: string }>(
-      tx,
-      sql`SELECT role FROM ${member} WHERE household_id = ${household} AND person_id = ${personId}`,
-    );
-    const onlyAdmin = mine?.role === 'admin' && !others.some((other) => other.role === 'admin');
-    let outcome: 'passed' | 'left' = 'left';
-    if (onlyAdmin) {
-      const heir = others[0];
-      if (heir) {
-        await dbAll(
-          tx,
-          sql`UPDATE ${member} SET role = 'admin', seq = ${Number(seq?.seq)}
-              WHERE household_id = ${household} AND person_id = ${heir.person_id} RETURNING id`,
-        );
-        outcome = 'passed';
-      }
-    }
-    await dbAll(
-      tx,
-      sql`UPDATE ${member} SET left_at = ${now}, seq = ${Number(seq?.seq)}
-          WHERE household_id = ${household} AND person_id = ${personId} AND left_at IS NULL RETURNING id`,
-    );
     return outcome;
   });
 }
 
-/** What deleting an account would do to each household the person is in, for the confirmation that says it before it is done. Reads only. */
+/** A list nobody else is on, with what is of it alone: its items, people, links, and the records about them. */
+async function deleteList(tx: Database, household: string, list: string): Promise<void> {
+  for (const table of ['item', 'list_member', 'invitation', 'alias', 'tombstone'] as const)
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND list_id = ${list} RETURNING 1 AS gone`,
+    );
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${appTable(tx, 'list')} WHERE household_id = ${household} AND id = ${list} RETURNING id`,
+  );
+}
+
+/**
+ * What deleting an account would do to each list the person is on, for the confirmation that says it before it is done. Reads only. The list's name
+ * is not here (the server may not be able to read it): the device names it from what it holds.
+ */
 export async function previewLeaving(
   database: Database,
   ring: KeyRing,
   accountId: string,
 ): Promise<
-  { household: string; own: boolean; outcome: 'passes' | 'deleted' | 'left'; to: string | null }[]
+  { list: string; own: boolean; outcome: 'passes' | 'deleted' | 'left'; to: string | null }[]
 > {
+  const lm = appTable(database, 'list_member');
   const rows = await dbAll<{
-    household_id: string;
+    list_id: string;
     role: string;
     own_of: string | null;
     other_person: string | null;
     other_sealed: string | null;
-    other_role: string | null;
     others: number | string;
+    other_admins: number | string;
   }>(
     database,
-    sql`SELECT m.household_id, m.role, h.own_of,
-          (SELECT COUNT(*) FROM ${appTable(database, 'member')} o WHERE o.household_id = m.household_id AND o.left_at IS NULL AND o.person_id <> m.person_id) AS others,
-          (SELECT o.person_id FROM ${appTable(database, 'member')} o WHERE o.household_id = m.household_id AND o.left_at IS NULL AND o.person_id <> m.person_id ORDER BY o.joined_at, o.person_id LIMIT 1) AS other_person,
-          (SELECT p2.sealed FROM ${appTable(database, 'member')} o JOIN ${appTable(database, 'person')} p2 ON p2.id = o.person_id WHERE o.household_id = m.household_id AND o.left_at IS NULL AND o.person_id <> m.person_id ORDER BY o.joined_at, o.person_id LIMIT 1) AS other_sealed,
-          (SELECT o.role FROM ${appTable(database, 'member')} o WHERE o.household_id = m.household_id AND o.left_at IS NULL AND o.person_id <> m.person_id ORDER BY o.joined_at, o.person_id LIMIT 1) AS other_role
-        FROM ${appTable(database, 'member')} m
+    sql`SELECT m.list_id, m.role, h.own_of,
+          (SELECT COUNT(*) FROM ${lm} o WHERE o.list_id = m.list_id AND o.left_at IS NULL AND o.person_id <> m.person_id) AS others,
+          (SELECT COUNT(*) FROM ${lm} o WHERE o.list_id = m.list_id AND o.left_at IS NULL AND o.person_id <> m.person_id AND o.role = 'admin') AS other_admins,
+          (SELECT o.person_id FROM ${lm} o WHERE o.list_id = m.list_id AND o.left_at IS NULL AND o.person_id <> m.person_id ORDER BY o.joined_at, o.person_id LIMIT 1) AS other_person,
+          (SELECT p2.sealed FROM ${lm} o JOIN ${appTable(database, 'person')} p2 ON p2.id = o.person_id WHERE o.list_id = m.list_id AND o.left_at IS NULL AND o.person_id <> m.person_id ORDER BY o.joined_at, o.person_id LIMIT 1) AS other_sealed
+        FROM ${lm} m
         JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
         JOIN ${appTable(database, 'household')} h ON h.id = m.household_id
         WHERE p.account_id = ${accountId} AND m.left_at IS NULL
-        ORDER BY CASE WHEN h.own_of = ${accountId} THEN 0 ELSE 1 END, m.joined_at, m.household_id`,
+        ORDER BY CASE WHEN h.own_of = ${accountId} THEN 0 ELSE 1 END, m.joined_at, m.list_id`,
   );
   return rows.map((row) => {
     const others = Number(row.others);
+    const passes = others > 0 && row.role === 'admin' && Number(row.other_admins) === 0;
     const name =
       row.other_sealed !== null && row.other_person !== null
         ? String(unsealRow('person', row.other_person, row.other_sealed, ring).name ?? '')
         : null;
     return {
-      household: row.household_id,
+      list: row.list_id,
       own: row.own_of === accountId,
       outcome:
-        others === 0
-          ? ('deleted' as const)
-          : row.role === 'admin'
-            ? ('passes' as const)
-            : ('left' as const),
-      to: others > 0 && row.role === 'admin' ? name : null,
+        others === 0 ? ('deleted' as const) : passes ? ('passes' as const) : ('left' as const),
+      to: passes ? name : null,
     };
   });
 }

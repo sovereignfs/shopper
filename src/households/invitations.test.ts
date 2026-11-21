@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  firstList,
   NOT_FOUND,
   TEST_RING,
   callAs,
@@ -49,6 +50,7 @@ afterAll(async () => database.close());
 const make = async (by: Someone, household = by.household, now = NOW) => {
   const made = await createInvitation(database, {
     household,
+    list: await firstList(database, household),
     accountId: by.accountId,
     personId: by.personId,
     now,
@@ -94,14 +96,14 @@ describe(`invitations by link (${leg})`, () => {
       person: grace.personId,
       wrappedKey: null,
     });
-    const members = await membersOf(database, TEST_RING, ada.household, ada.accountId);
+    const members = await membersOf(database, TEST_RING, ada.list, ada.accountId);
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Ada2', 'admin'],
       ['Grace2', 'member'],
     ]);
     expect(await accept(lin, token)).toEqual({ status: 'invalid' });
     expect(await accept(grace, token)).toEqual({ status: 'invalid' });
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(2);
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(2);
     expect((await rows(sql`token_hash = ${hashToken(token)}`))[0]).toMatchObject({
       accepted_by: grace.personId,
     });
@@ -121,6 +123,7 @@ describe(`invitations by link (${leg})`, () => {
     expect(
       await revokeInvitation(database, {
         household: ada.household,
+        list: await firstList(database, ada.household),
         accountId: ada.accountId,
         personId: ada.personId,
         invitation: revoked.id,
@@ -142,7 +145,7 @@ describe(`invitations by link (${leg})`, () => {
     await join(database, ada.household, grace);
     const { token } = await make(ada);
     expect(await accept(grace, token)).toEqual({ status: 'already', household: ada.household });
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(2);
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(2);
     expect(await previewInvitation(database, TEST_RING, token, NOW + 1)).not.toBeNull();
     // The link is still good for someone else.
     const lin = await somebody(database, 'Lin4');
@@ -160,7 +163,7 @@ describe(`invitations by link (${leg})`, () => {
     const tooMany = await accept(grace, token, { accountHouseholds: 1 });
     expect(tooMany).toMatchObject({ status: 'refused' });
     expect(tooMany.status === 'refused' && tooMany.message).toContain('at most 1 household');
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(1);
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(1);
     expect(await previewInvitation(database, TEST_RING, token, NOW + 1)).not.toBeNull();
     expect((await accept(lin, token)).status).toBe('joined');
   });
@@ -171,14 +174,14 @@ describe(`invitations by link (${leg})`, () => {
     await join(database, ada.household, grace, 'admin');
     await leave(database, ada.household, grace);
     expect((await accept(grace, (await make(ada)).token)).status).toBe('joined');
-    const members = await membersOf(database, TEST_RING, ada.household, ada.accountId);
+    const members = await membersOf(database, TEST_RING, ada.list, ada.accountId);
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Ada6', 'admin'],
       ['Grace6', 'member'],
     ]);
     const mine = await dbAll<{ n: number | string }>(
       database,
-      sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'member')} WHERE household_id = ${ada.household} AND person_id = ${grace.personId}`,
+      sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'list_member')} WHERE list_id = ${ada.list} AND person_id = ${grace.personId}`,
     );
     expect(Number(mine[0]?.n)).toBe(1);
   });
@@ -206,6 +209,7 @@ describe(`invitations by link (${leg})`, () => {
     for (let i = 0; i < MAX_LIVE_INVITATIONS; i++) tokens.push(await make(ada));
     const over = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: NOW,
@@ -215,6 +219,7 @@ describe(`invitations by link (${leg})`, () => {
     if (!first) throw new Error('none');
     await revokeInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       invitation: first.id,
@@ -235,9 +240,11 @@ describe(`invitations by link (${leg})`, () => {
     const eve = await somebody(database, 'Eve9');
     await join(database, ada.household, grace);
     await join(database, ada.household, lin);
+    const adaList = await firstList(database, ada.household);
     const revoke = (who: Someone, invitation: string) =>
       revokeInvitation(database, {
         household: ada.household,
+        list: adaList,
         accountId: who.accountId,
         personId: who.personId,
         invitation,
@@ -262,6 +269,7 @@ describe(`invitations by link (${leg})`, () => {
     await make(grace, ada.household, NOW + 1);
     const asGrace = await liveInvitations(database, TEST_RING, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: grace.accountId,
       now: NOW + 1,
     });
@@ -271,6 +279,7 @@ describe(`invitations by link (${leg})`, () => {
     ]);
     const asAda = await liveInvitations(database, TEST_RING, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       now: NOW + 1,
     });
@@ -279,6 +288,7 @@ describe(`invitations by link (${leg})`, () => {
     expect(
       await liveInvitations(database, TEST_RING, {
         household: ada.household,
+        list: await firstList(database, ada.household),
         accountId: eve.accountId,
         now: NOW + 1,
       }),
@@ -295,12 +305,17 @@ describe(`the operations, as a second person (${leg})`, () => {
     const made = await callAs(database, OPERATIONS, grace, {
       op: 'invite.create',
       household: ada.household,
+      list: ada.list,
     });
     expect(made.status).toBe(200);
     const result = made.body.result as { path: string; id: string };
     expect(result.path).toMatch(/^\/invite\/[A-Za-z0-9_-]{43}$/);
     expect(
-      await callAs(database, OPERATIONS, eve, { op: 'invite.create', household: ada.household }),
+      await callAs(database, OPERATIONS, eve, {
+        op: 'invite.create',
+        household: ada.household,
+        list: ada.list,
+      }),
     ).toEqual(NOT_FOUND);
     expect(await rows(sql`household_id = ${ada.household}`)).toHaveLength(1);
   });
@@ -315,12 +330,14 @@ describe(`the operations, as a second person (${leg})`, () => {
     const made = await callAs(database, OPERATIONS, grace, {
       op: 'invite.create',
       household: ada.household,
+      list: ada.list,
     });
     const id = (made.body.result as { id: string }).id;
     const attempt = (who: Someone) =>
       callAs(database, OPERATIONS, who, {
         op: 'invite.revoke',
         household: ada.household,
+        list: ada.list,
         invitation: id,
       });
     expect(await attempt(eve)).toEqual(NOT_FOUND);
@@ -337,6 +354,7 @@ describe(`the operations, as a second person (${leg})`, () => {
     const reply = await callAs(database, OPERATIONS, ada, {
       op: 'invite.revoke',
       household: ada.household,
+      list: ada.list,
       invitation: made.id,
     });
     expect(reply.status).toBe(409);
@@ -348,17 +366,26 @@ describe(`the operations, as a second person (${leg})`, () => {
     const grace = await somebody(database, 'GraceLs');
     const eve = await somebody(database, 'EveLs');
     await join(database, ada.household, grace);
-    await callAs(database, OPERATIONS, ada, { op: 'invite.create', household: ada.household });
+    await callAs(database, OPERATIONS, ada, {
+      op: 'invite.create',
+      household: ada.household,
+      list: ada.list,
+    });
     const listed = await callAs(database, OPERATIONS, grace, {
       op: 'invite.list',
       household: ada.household,
+      list: ada.list,
     });
     expect(listed.status).toBe(200);
     const links = listed.body.result as { by: string; canRevoke: boolean }[];
     expect(links.map((l) => [l.by, l.canRevoke])).toEqual([['AdaLs', false]]);
     expect(JSON.stringify(listed.body)).not.toMatch(/[A-Za-z0-9_-]{43}/);
     expect(
-      await callAs(database, OPERATIONS, eve, { op: 'invite.list', household: ada.household }),
+      await callAs(database, OPERATIONS, eve, {
+        op: 'invite.list',
+        household: ada.household,
+        list: ada.list,
+      }),
     ).toEqual(NOT_FOUND);
   });
 });
@@ -375,6 +402,7 @@ describe(`a link to an encrypted household (${testTarget().leg})`, () => {
     const ada = await somebody(database, 'Ada');
     const sealedLink = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: NOW,
@@ -384,6 +412,7 @@ describe(`a link to an encrypted household (${testTarget().leg})`, () => {
     await encrypt(ada);
     const bare = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: NOW,
@@ -397,6 +426,7 @@ describe(`a link to an encrypted household (${testTarget().leg})`, () => {
     await encrypt(ada);
     const made = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: NOW,
@@ -411,6 +441,7 @@ describe(`a link to an encrypted household (${testTarget().leg})`, () => {
 
     const other = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: NOW,
@@ -419,6 +450,7 @@ describe(`a link to an encrypted household (${testTarget().leg})`, () => {
     if (!other.ok) throw new Error(other.refused);
     await revokeInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       invitation: other.id,

@@ -40,20 +40,20 @@ export function limitSentence(kind: LimitKind, limit: number, name?: string): st
   }
 }
 
-/** How many people are active members of a household: what `householdMembers` is checked against, in the statement that adds one. */
-export async function countActiveMembers(database: Database, household: string): Promise<number> {
+/** How many people are on a list now (RFC 0004): what `householdMembers` is checked against, in the statement that adds one. */
+export async function countActiveMembers(database: Database, list: string): Promise<number> {
   const row = await dbGet<{ n: number | string }>(
     database,
-    sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND left_at IS NULL`,
+    sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'list_member')} WHERE list_id = ${list} AND left_at IS NULL`,
   );
   return Number(row?.n ?? 0);
 }
 
-/** How many households an account is an active member of, its own included: what `accountHouseholds` is checked against. */
+/** How many groups an account is on a list of, its own included: what `accountHouseholds` is checked against. */
 export async function countHouseholdsOf(database: Database, accountId: string): Promise<number> {
   const row = await dbGet<{ n: number | string }>(
     database,
-    sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'member')} m
+    sql`SELECT COUNT(DISTINCT m.household_id) AS n FROM ${appTable(database, 'list_member')} m
         JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
         WHERE p.account_id = ${accountId} AND m.left_at IS NULL`,
   );

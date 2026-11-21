@@ -1,6 +1,14 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NOT_FOUND, TEST_RING, callAs, join, somebody, type Someone } from '../access/test-support';
+import {
+  firstList,
+  NOT_FOUND,
+  TEST_RING,
+  callAs,
+  join,
+  somebody,
+  type Someone,
+} from '../access/test-support';
 import type { Database } from '../db/client';
 import { dbAll } from '../db/exec';
 import { runMigrations } from '../db/migrate';
@@ -18,12 +26,17 @@ beforeAll(async () => {
 });
 afterAll(async () => database.close());
 
-const leaves = (who: Someone, household: string) =>
-  callAs(database, OPERATIONS, who, { op: 'member.leave', household });
-const removes = (who: Someone, household: string, person: Someone) =>
+const leaves = async (who: Someone, household: string) =>
+  callAs(database, OPERATIONS, who, {
+    op: 'member.leave',
+    household,
+    list: await firstList(database, household),
+  });
+const removes = async (who: Someone, household: string, person: Someone) =>
   callAs(database, OPERATIONS, who, {
     op: 'member.remove',
     household,
+    list: await firstList(database, household),
     person: person.personId,
   });
 const seqOf = async (household: string) =>
@@ -39,7 +52,7 @@ const memberRow = async (household: string, person: Someone) =>
   (
     await dbAll<Record<string, unknown>>(
       database,
-      sql`SELECT * FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${person.personId}`,
+      sql`SELECT * FROM ${appTable(database, 'list_member')} WHERE list_id = ${await firstList(database, household)} AND person_id = ${person.personId}`,
     )
   )[0];
 
@@ -57,7 +70,7 @@ describe(`leaving a household (${leg})`, () => {
     expect((await householdsOf(database, TEST_RING, grace.accountId)).map((h) => h.id)).toEqual([
       grace.household,
     ]);
-    const members = await membersOf(database, TEST_RING, ada.household, ada.accountId);
+    const members = await membersOf(database, TEST_RING, ada.list, ada.accountId);
     expect(members?.map((m) => m.name)).toEqual(['Ada']);
     // Having left, they cannot do it again, and the household reads as not found to them.
     expect(await leaves(grace, ada.household)).toEqual(NOT_FOUND);
@@ -102,6 +115,7 @@ describe(`leaving a household (${leg})`, () => {
     const make = async (by: Someone) => {
       const made = await createInvitation(database, {
         household: ada.household,
+        list: await firstList(database, ada.household),
         accountId: by.accountId,
         personId: by.personId,
         now: 1_800_000_000_000,
@@ -123,6 +137,7 @@ describe(`leaving a household (${leg})`, () => {
     await leaves(grace, ada.household);
     const made = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: 1_800_000_000_000,
@@ -174,7 +189,7 @@ describe(`removing a member (${leg})`, () => {
     expect(await removes(grace, ada.household, ada)).toEqual(NOT_FOUND);
     expect(await removes(grace, ada.household, grace)).toEqual(NOT_FOUND);
     expect(await seqOf(ada.household)).toBe(before);
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(3);
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(3);
   });
 
   it('reads as not found for an outsider, and an Admin of another household cannot remove across', async () => {
@@ -204,6 +219,7 @@ describe(`removing a member (${leg})`, () => {
     await join(database, ada.household, grace);
     const made = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: grace.accountId,
       personId: grace.personId,
       now: 1_800_000_000_000,

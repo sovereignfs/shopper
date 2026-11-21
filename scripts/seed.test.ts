@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_RING } from '../src/access/test-support';
+import { firstList, TEST_RING } from '../src/access/test-support';
 import { type TestAuth, makeAuth } from '../src/auth/test-support';
 import { type Database, openDatabase } from '../src/db/client';
 import { dbAll } from '../src/db/exec';
@@ -77,7 +77,12 @@ describe(`the development seed (${leg})`, () => {
     expect((await householdsOf(app, TEST_RING, three.accountId)).map((h) => h.id)).toEqual([
       three.household,
     ]);
-    const members = await membersOf(app, TEST_RING, one.household, one.accountId);
+    const members = await membersOf(
+      app,
+      TEST_RING,
+      await firstList(app, one.household),
+      one.accountId,
+    );
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Seed', 'admin'],
       ['Seed Two', 'member'],
@@ -127,6 +132,7 @@ describe(`the development seed (${leg})`, () => {
     expect(
       await liveInvitations(app, TEST_RING, {
         household: one.household,
+        list: await firstList(app, one.household),
         accountId: one.accountId,
         now: context().now,
       }),
@@ -167,7 +173,12 @@ describe(`the development seed (${leg})`, () => {
     const again = await runSeed(context());
     expect(again.created).toBe(true);
     expect(
-      await membersOf(app, TEST_RING, again.people.one.household, again.people.one.accountId),
+      await membersOf(
+        app,
+        TEST_RING,
+        await firstList(app, again.people.one.household),
+        again.people.one.accountId,
+      ),
     ).toHaveLength(2);
   });
 });

@@ -28,17 +28,19 @@ export async function recordFold(
   now: number,
   /** An encrypted household's second note, for a device to join with the first (RFC 0001). */
   carried?: string,
+  /** The list the fold is about, for who may see it (RFC 0004): an item's; none for a product until 21.3. */
+  listId?: string,
 ): Promise<void> {
   await dbAll(
     database,
-    sql`INSERT INTO ${appTable(database, 'alias')} (household_id, table_name, from_id, to_id, seq, created_at, carried)
-        VALUES (${household}, ${fold.table}, ${fold.from}, ${fold.to}, ${seq}, ${now}, ${carried ?? null})
+    sql`INSERT INTO ${appTable(database, 'alias')} (household_id, table_name, from_id, to_id, seq, created_at, carried, list_id)
+        VALUES (${household}, ${fold.table}, ${fold.from}, ${fold.to}, ${seq}, ${now}, ${carried ?? null}, ${listId ?? null})
         ON CONFLICT (household_id, table_name, from_id) DO NOTHING RETURNING from_id`,
   );
   await dbAll(
     database,
-    sql`INSERT INTO ${appTable(database, 'tombstone')} (household_id, table_name, id, seq, created_at)
-        VALUES (${household}, ${fold.table}, ${fold.from}, ${seq}, ${now})
+    sql`INSERT INTO ${appTable(database, 'tombstone')} (household_id, table_name, id, seq, created_at, list_id)
+        VALUES (${household}, ${fold.table}, ${fold.from}, ${seq}, ${now}, ${listId ?? null})
         ON CONFLICT (household_id, table_name, id) DO NOTHING RETURNING id`,
   );
 }
