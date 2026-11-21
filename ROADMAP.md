@@ -230,11 +230,11 @@ take theirs, and an export imports into a second account.
 
 | #   | ID                            | Task                              | Priority | Depends on | Status |
 | --- | ----------------------------- | --------------------------------- | -------- | ---------- | ------ |
-| 79  | [20.1](docs/epics/exports.md) | Core's export of a person         | P1       | 17.1, 18.6 | 📋     |
-| 80  | [20.2](docs/epics/exports.md) | A person's export with no core    | P1       | 20.1       | 📋     |
-| 81  | [20.3](docs/epics/exports.md) | The app's export for its operator | P2       | 20.2       | 📋     |
-| 82  | [20.4](docs/epics/exports.md) | Import                            | P2       | 20.2       | 📋     |
-| 83  | [20.5](docs/epics/exports.md) | Backups, written down             | P2       | 18.2       | 📋     |
+| 79  | [20.1](docs/epics/exports.md) | Core's export of a person         | P1       | 17.1, 18.6 | ✅     |
+| 80  | [20.2](docs/epics/exports.md) | A person's export with no core    | P1       | 20.1       | 🚧     |
+| 81  | [20.3](docs/epics/exports.md) | The app's export for its operator | P2       | 20.2       | 🚧     |
+| 82  | [20.4](docs/epics/exports.md) | Import                            | P2       | 20.2       | 🚧     |
+| 83  | [20.5](docs/epics/exports.md) | Backups, written down             | P2       | 18.2       | ✅     |
 
 ### Milestone V — The release of workstream 0001
 

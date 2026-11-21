@@ -88,6 +88,16 @@ The database is the whole of it, apart from `SHOPPER_ENCRYPTION_KEY`, which is w
 A backup of the database without `SHOPPER_ENCRYPTION_KEY` cannot be read, and the key without the backup is of no use: keep them in different places, and test a
 restore with both.
 
+**What a backup holds of what people write** (RFC 0001, RFC 0003): a household that has moved to its devices' encryption is in the backup as ciphertext, with
+each member's keys wrapped so that only their own password, kit or core opens them. The vault's tables (`sv_key_*`) are in the app's database and so in the
+same backup: restore them with it, or nobody's password opens their keys again. Keep `SHOPPER_VAPID_PRIVATE_KEY` with the other secrets too: a new one
+ends every device's push subscription.
+
+- **Hosted on a Sovereign instance:** `sv backup` takes the database and the generated secrets, encrypted to the operator's key, and `sv restore --app
+shopper` puts them back; core then sends its account deletions again, which Shopper runs again safely. A person's export comes from core, with Shopper's
+  part in it (`signIn.export`).
+- **Alone:** the database backup above, the secrets, and a restore you have tried. People sign in and unlock exactly as before a restore.
+
 ## Updating
 
 Pull or build the new image and `docker compose up -d`. Migrations apply when the new server starts. A patch release has none and changes no setting; a

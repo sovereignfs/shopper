@@ -225,6 +225,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/sovereign/export',
+    who: 'public',
+    note: 'Core asks for a person’s part of their export (RFC 0003). The signed token is the whole credential, checked by the SDK, a replay refused; not found where core is not set.',
+  },
+  {
+    kind: 'route',
     address: '/api/sovereign/account-deleted',
     who: 'public',
     note: 'Core’s notice that a person deleted their account. The signed token is the whole credential; it runs deletePerson and answers 200 only once done; not found where core is not set.',

@@ -11,6 +11,7 @@
     "redirect": ["/api/auth/callback/sovereign"],
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
+    "export": "/api/sovereign/export",
     "scopes": ["openid", "profile", "email"]
   },
   "encryption": {
