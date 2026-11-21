@@ -5,6 +5,7 @@ import {
   accountOf,
   deviceRows,
   fillSignUp,
+  keepKit,
   forgetSession,
   newEmail,
   PASSWORD,
@@ -43,6 +44,7 @@ test('a second person opens the link, makes an account, comes back to it, joins,
   await expect(guest).toHaveURL(/\/sign-up\?next=/);
   await fillSignUp(guest, { name: 'Grace', email: newEmail('grace'), password: PASSWORD });
   await guest.getByRole('button', { name: 'Create account' }).click();
+  await keepKit(guest);
   // The link survived the round trip.
   await expect(guest).toHaveURL(link.path);
   await guest.getByRole('button', { name: 'Join' }).click();

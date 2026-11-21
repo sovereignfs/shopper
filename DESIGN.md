@@ -1243,7 +1243,9 @@ Beyond better-auth's, in the auth store.
 no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`, `notice_digest`, `notice_pref`,
 `mail_outbox` and `credential`, and those columns, by new migrations. **Workstream 0001 adds** `household_key`, `push_subscription`, the SDK's vault
 tables and the export package's jobs (their own migrations, recorded apart), `encrypted` on every table of §13.1 (the old `sealed` content emptied
-by the move, §13.7), `epoch` and `encryption` (`sealed`, `moving`, `encrypted`) on `household`, and `wrapped_key` on `invitation`.
+by the move, §13.7), `epoch` and `encryption` (`sealed`, `moving`, `encrypted`) on `household`, and `wrapped_key` on `invitation`. In the auth store, `key_secret` on better-auth's
+`session` (the session's key secret, sdk §9.5) and `password_derived` on its `account` (a hash of the derived value, or a 0.1.0 password still to
+move).
 
 | Table               | Columns                                                                                                                                                                                                                                                                               |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -48,6 +48,15 @@ export async function runMigrations(
   database: Database,
   folder = migrationsFolder(database.dialect, database.store),
 ): Promise<void> {
+  await runOwnMigrations(database, folder);
+  // The SDK's vault (RFC 0001) lives in the app's store, with a history of its own.
+  if (database.store === 'app') {
+    const { runVaultMigrations } = await import('../keys/server/migrate');
+    await runVaultMigrations(database);
+  }
+}
+
+async function runOwnMigrations(database: Database, folder: string): Promise<void> {
   if (database.dialect === 'sqlite') {
     const { migrate } = await import('drizzle-orm/libsql/migrator');
     for (let attempt = 1; ; attempt++) {

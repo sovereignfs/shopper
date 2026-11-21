@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useState } from 'react';
+import { addressOf, shopperVault } from '../keys/vault-client';
 import { authClient } from '../auth/client';
 import { messageFor } from '../auth/messages';
 import { Alert, Button, FormField, Input } from '@sovereignfs/ui';
@@ -14,9 +15,14 @@ import styles from './Account.module.css';
 export function PasswordSection({
   hasPassword,
   minLength,
+  email,
+  vaultId,
 }: {
   hasPassword: boolean;
   minLength: number;
+  /** The account's address and the vault's id, which both passwords are derived with (RFC 0001). */
+  email: string;
+  vaultId: string;
 }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -43,11 +49,18 @@ export function PasswordSection({
     setError(null);
     setSaved(false);
     try {
+      // Both are derived here (RFC 0001). The new one is given its way into the keys beside the old before the change is asked for, and the old one's
+      // goes once the server has said yes, so that a change that fails leaves the keys as they were.
+      const vault = shopperVault(vaultId);
+      const was = await vault.derive(current, addressOf(email));
+      const will = await vault.derive(next, addressOf(email));
+      const prepared = await vault.prepareChange(was.secret, will.secret);
       const { error: failure } = await authClient.changePassword({
-        currentPassword: current,
-        newPassword: next,
+        currentPassword: was.signIn,
+        newPassword: will.signIn,
         revokeOtherSessions: true,
       });
+      if (prepared) await vault.finishChange(prepared, !failure);
       if (failure) {
         setError(messageFor(failure));
         return;

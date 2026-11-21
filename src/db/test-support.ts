@@ -157,8 +157,17 @@ const namesIn = (module: Record<string, unknown>): string[] =>
     .map((table) => getTableConfig(table).name)
     .sort();
 
-/** What the app store holds once it is migrated. */
-export const APP_TABLES: readonly string[] = namesIn(sqliteApp);
+/** The SDK's vault's tables (RFC 0001), in the app's store, with their history. */
+export const VAULT_TABLES: readonly string[] = [
+  'sv_key_accounts',
+  'sv_key_apps',
+  'sv_key_migrations',
+  'sv_key_settings',
+  'sv_key_wraps',
+];
+
+/** What the app store holds once it is migrated: Shopper's tables and the vault's. */
+export const APP_TABLES: readonly string[] = [...namesIn(sqliteApp), ...VAULT_TABLES].sort();
 
 /** What the auth store holds once it is migrated. */
 export const AUTH_TABLES: readonly string[] = namesIn(sqliteAuth);

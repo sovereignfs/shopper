@@ -1,6 +1,6 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { betterAuth } from 'better-auth';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { genericOAuth } from 'better-auth/plugins';
 import type { Database } from '../db/client';
@@ -14,6 +14,8 @@ import {
   SOVEREIGN_PROVIDER_ID,
   SOVEREIGN_SCOPES,
 } from './config';
+import { newSessionSecret } from '@sovereignfs/sdk/vault';
+import { PASSWORD_NOT_DERIVED, isDerived } from './derived';
 import { countUsers } from './users';
 
 /**
@@ -51,6 +53,19 @@ export const COOKIE_PREFIX = 'shopper';
  * minutes: long enough to do them after signing in, short enough that a session left open is not enough.
  */
 export const FRESH_SESSION_SECONDS = 10 * 60;
+
+/**
+ * Where a password went before RFC 0001, and the fields that carry it: each must now be the sign-in value the browser derives (`src/auth/derived.ts`).
+ * A sign-in with anything else is a wrong password, before any lookup; anything else is refused with its own code.
+ */
+const PASSWORD_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  '/sign-in/email': ['password'],
+  '/sign-up/email': ['password'],
+  '/change-password': ['currentPassword', 'newPassword'],
+  '/reset-password': ['newPassword'],
+  '/verify-password': ['password'],
+  '/set-password': ['newPassword'],
+};
 
 export function createAuth({
   settings,
@@ -124,9 +139,45 @@ export function createAuth({
       },
       // What core hands over is not used after sign-in; what is kept is kept encrypted.
       encryptOAuthTokens: true,
+      additionalFields: {
+        passwordDerived: {
+          type: 'boolean',
+          required: false,
+          defaultValue: false,
+          input: false,
+          returned: false,
+        },
+      },
     },
-    // A session is fresh for ten minutes (`FRESH_SESSION_SECONDS`), for the few things that ask for it.
-    session: { freshAge: FRESH_SESSION_SECONDS },
+    // The server is never sent a password (RFC 0001): only the value a page derives from it.
+    hooks: {
+      before: createAuthMiddleware(async (context) => {
+        const fields = PASSWORD_FIELDS[context.path];
+        if (!fields) return;
+        const body = (context.body ?? {}) as Record<string, unknown>;
+        for (const field of fields) {
+          if (body[field] === undefined && field === 'currentPassword') continue;
+          if (isDerived(body[field])) continue;
+          if (context.path === '/sign-in/email')
+            throw new APIError('UNAUTHORIZED', {
+              message: 'Invalid email or password',
+              code: 'INVALID_EMAIL_OR_PASSWORD',
+            });
+          throw new APIError('BAD_REQUEST', {
+            message: 'The password was not derived by the page.',
+            code: PASSWORD_NOT_DERIVED,
+          });
+        }
+      }),
+    },
+    // A session is fresh for ten minutes (`FRESH_SESSION_SECONDS`), for the few things that ask for it. It keeps its key secret (RFC 0001), which
+    // is never part of what the session's API answers.
+    session: {
+      freshAge: FRESH_SESSION_SECONDS,
+      additionalFields: {
+        keySecret: { type: 'string', required: false, input: false, returned: false },
+      },
+    },
     // Counted in the database, not in memory, so that a limit holds across every process.
     rateLimit: { enabled: true, storage: 'database' },
     advanced: {
@@ -137,6 +188,27 @@ export function createAuth({
       disableOriginCheck: false,
     },
     databaseHooks: {
+      session: {
+        create: {
+          // Every session has its own key secret from the start (RFC 0001, sdk §9.5).
+          before: async (session) => ({ data: { ...session, keySecret: newSessionSecret() } }),
+        },
+      },
+      account: {
+        create: {
+          // A password set from now on is a hash of the derived value.
+          before: async (account) => ({
+            data: { ...account, passwordDerived: account.providerId === 'credential' },
+          }),
+        },
+        update: {
+          // So is a password changed or reset: the hook above refused it otherwise.
+          before: async (account) =>
+            'password' in account && account.password
+              ? { data: { ...account, passwordDerived: true } }
+              : { data: account },
+        },
+      },
       user: {
         create: {
           // One policy for every way an account can come to be (DESIGN.md §6.3), here and not in a route, so that it holds for all of them,

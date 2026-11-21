@@ -131,15 +131,29 @@ describe('the registry and the design', () => {
     return out;
   }
 
-  it('reads the design’s table', () => {
+  /**
+   * What §13.4 says the server holds itself: a person's name and email, and an invitation's email. Until 18.6 moves §13.1's fields into the browser,
+   * the server still seals those too, so the registry may hold both.
+   */
+  const SERVER_HELD: Record<string, readonly string[]> = {
+    person: ['name', 'email'],
+    invitation: ['email'],
+  };
+
+  it('reads the design’s tables', () => {
     const rows = sealedInDesign();
     expect(rows.get('household')).toEqual(new Set(['name']));
     expect(rows.get('item')).toEqual(new Set(['name', 'note', 'price']));
-    expect(rows.size).toBeGreaterThanOrEqual(9);
+    expect(rows.size).toBeGreaterThanOrEqual(8);
+    const held = squash(design.slice(design.indexOf('### 13.4'), design.indexOf('### 13.5')));
+    expect(held).toContain(squash("a person's name and email"));
+    expect(held).toContain(squash("an invitation's email"));
   });
 
   it('lists no table or field the design does not seal', () => {
     const rows = sealedInDesign();
+    for (const [table, fields] of Object.entries(SERVER_HELD))
+      rows.set(table, new Set([...(rows.get(table) ?? []), ...fields]));
     const offenders: string[] = [];
     for (const [table, fields] of Object.entries(SEALED)) {
       const allowed = rows.get(squash(table));

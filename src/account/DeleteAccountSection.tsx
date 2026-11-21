@@ -7,6 +7,7 @@ import { deleteLocal } from '../local/db';
 import { useLocal } from '../local/react';
 import { Alert, Button, FormField, Input } from '@sovereignfs/ui';
 import styles from './Account.module.css';
+import { addressOf, shopperVault } from '../keys/vault-client';
 
 interface Preview {
   /** Whether it asks for the password; an account that came in through Sovereign has none, and a session made just now stands in. */
@@ -25,7 +26,7 @@ interface Preview {
  * simply leaves; that what they added stays on the lists of a household that carries on, under their name. It asks for the password. Other devices find
  * out at their next sync, when their session has ended (task 6.2 also deletes this device's store).
  */
-export function DeleteAccountSection() {
+export function DeleteAccountSection({ email, vaultId }: { email: string; vaultId: string }) {
   const { accountId } = useLocal();
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -50,10 +51,15 @@ export function DeleteAccountSection() {
     setWorking(true);
     setProblem(null);
     try {
+      // The password is derived here and never sent (RFC 0001); with none to ask for, nothing is sent.
+      const sent =
+        password === ''
+          ? ''
+          : (await shopperVault(vaultId).derive(password, addressOf(email))).signIn;
       const reply = await fetch('/api/account/delete', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: sent }),
       });
       if (reply.status === 403) {
         const { code } = (await reply.json().catch(() => ({}))) as { code?: string };

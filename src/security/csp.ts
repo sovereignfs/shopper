@@ -32,7 +32,9 @@ export function contentSecurityPolicy({ nonce, secure, development }: PolicyOpti
   const styles = development ? "'self' 'unsafe-inline'" : `'self' 'nonce-${nonce}'`;
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
+    // `'wasm-unsafe-eval'` lets WebAssembly be compiled, and nothing else: the vault's password derivation (Argon2id, RFC 0001) is WebAssembly, and an
+    // unlock can be asked for on any signed-in page. Never `'unsafe-eval'` outside development.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${development ? " 'unsafe-eval'" : ''}`,
     `style-src ${styles}`,
     `style-src-elem ${styles}`,
     "style-src-attr 'unsafe-inline'",

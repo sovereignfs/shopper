@@ -26,6 +26,7 @@ import { applyMutation } from '../src/sync/apply';
 import { starterEntryFor } from '../src/catalog/starter';
 import { categoryOfNew } from '../src/lists/adding';
 import type { CategoryRow } from '../src/local/rows';
+import { CLIENT_ID, vaultOf } from '../src/keys/server/vault';
 
 /**
  * A realistic set of accounts for development (task 12.1). Everything goes **through the app's own paths**: accounts through better-auth, persons and
@@ -110,7 +111,7 @@ async function findUser(auth: Database, email: string): Promise<string | undefin
 
 /** Makes the account through better-auth, with sign-up open for this one call whatever the instance says: it is making a development account. */
 async function makeUser(
-  auth: Database,
+  stores: SeedContext['stores'],
   settings: AuthSettings,
   email: string,
   name: string,
@@ -118,10 +119,31 @@ async function makeUser(
   const instance = createAuth({
     settings: { ...settings, signUp: 'open', local: true },
     name: 'Shopper',
-    database: auth,
+    database: stores.auth,
   });
-  const made = await instance.api.signUpEmail({ body: { name, email, password: SEED_PASSWORD } });
+  const made = await instance.api.signUpEmail({
+    body: { name, email, password: await signInValue(stores.app, email) },
+  });
   return made.user.id;
+}
+
+/**
+ * What the sign-in page sends for `SEED_PASSWORD` (RFC 0001): the value the SDK's vault derives from it, with this database's vault id, so that the
+ * account signs in by hand with the password. Its keys are made the first time it does, in the browser.
+ */
+async function signInValue(app: Database, email: string): Promise<string> {
+  const { localVault } = await import('@sovereignfs/sdk/local-vault');
+  const none = {
+    get: async () => undefined,
+    set: async () => undefined,
+    delete: async () => undefined,
+  };
+  const vault = localVault({
+    clientId: CLIENT_ID,
+    vaultId: await vaultOf(app).vaultId(),
+    backend: none,
+  });
+  return (await vault.derive(SEED_PASSWORD, email.trim().toLowerCase())).signIn;
 }
 
 async function accounts(ctx: SeedContext): Promise<Record<Key, Who>> {
@@ -129,7 +151,7 @@ async function accounts(ctx: SeedContext): Promise<Record<Key, Who>> {
   for (const seed of SEEDS) {
     const accountId =
       (await findUser(ctx.stores.auth, seed.email)) ??
-      (await makeUser(ctx.stores.auth, ctx.settings, seed.email, seed.name));
+      (await makeUser(ctx.stores, ctx.settings, seed.email, seed.name));
     const { personId, householdId } = await makeAccountRecords(
       ctx.stores.app,
       ctx.ring,

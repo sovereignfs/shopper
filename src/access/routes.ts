@@ -99,6 +99,30 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/account/move-password',
+    who: 'public',
+    note: 'Before sign-in: a 0.1.0 password moved once to a hash of its derived value, if the password opens the stored hash. Same origin only, rate limited by address, always 204.',
+  },
+  {
+    kind: 'route',
+    address: '/api/keys/vault',
+    who: 'signed-in',
+    note: "The session's own account's wrapped keys in Shopper's vault (RFC 0001), read and changed; the account is the session's, never the request's.",
+  },
+  {
+    kind: 'route',
+    address: '/api/keys/secret',
+    who: 'signed-in',
+    note: "The session's own key secret, which the browser's kept keys are wrapped by; gone with the session.",
+  },
+  {
+    kind: 'page',
+    address: '/keys/kit',
+    who: 'signed-in',
+    note: "The recovery kit, shown once after a password account's keys are made; through core it sends the person on.",
+  },
+  {
+    kind: 'route',
     address: '/api/account/delete',
     who: 'signed-in',
     note: "The session's own account only: what deleting it would do, and doing it, after the password.",

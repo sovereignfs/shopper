@@ -5,6 +5,7 @@ import { authSettings, mailAvailable, signUpAvailable } from '@/src/auth/server'
 import { nextQuery, safeNext } from '@/src/auth/next';
 import { getSession } from '@/src/auth/session';
 import { AuthLink } from '@sovereignfs/ui';
+import { getVaultId } from '@/src/keys/server/vault';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Create an account' };
@@ -39,7 +40,12 @@ export default async function SignUpPage({
         </>
       }
     >
-      <SignUpForm minLength={settings.passwordMinLength} mail={mailAvailable()} next={next} />
+      <SignUpForm
+        minLength={settings.passwordMinLength}
+        vaultId={await getVaultId()}
+        mail={mailAvailable()}
+        next={next}
+      />
     </AuthShell>
   );
 }

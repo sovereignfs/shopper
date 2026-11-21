@@ -4,6 +4,7 @@ import {
   anotherDevice,
   deviceRows,
   fillSignUp,
+  keepKit,
   newEmail,
   offline,
   online,
@@ -52,6 +53,7 @@ async function joinThrough(
   await guest.page.getByRole('link', { name: 'create an account' }).click();
   await fillSignUp(guest.page, { name, email, password: PASSWORD });
   await guest.page.getByRole('button', { name: 'Create account' }).click();
+  await keepKit(guest.page);
   await guest.page.getByRole('button', { name: 'Join' }).click();
   // Landed on the household just joined: its section is in the sidebar once the device has pulled it.
   await expect(

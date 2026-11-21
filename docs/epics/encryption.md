@@ -43,7 +43,7 @@ rewritten by 18.9, when it ships. The 2026-11-09 decision row that ruled end to 
 2026-11-21's. **The owner's review (the leg's gate) has not happened:** the owner asked for the workstream to run through without stopping, so it
 continues on this text and the review stays open.
 
-#### 📋 18.2 — Shopper's own vault
+#### ✅ 18.2 — Shopper's own vault
 
 **Goal:** a password account has keys, kept in Shopper's database and unlocked at sign-in. **Design:** RFC 0001, "Keys". **Depends on:** 18.1.
 
@@ -57,6 +57,42 @@ derive, and nowhere else; `vault.deleteAccount` in `People.deletePerson`'s trans
 
 **Accepts when:** sign-up makes a vault, sign-out and sign-in open it, the old password of a 0.1.0 account still works once and then only the new
 value is stored, deleting a person deletes their vault rows; a second person cannot read the first's vault.
+
+**Done as:** sign-in stays on `src/auth/` (ADR 0001's fallback).
+
+**The server:**
+
+- **The vault:** the SDK's `AppVault` on the app's store (`src/keys/server/`).
+  - `vaultDatabase` puts Shopper's database in the SDK's shape. Its `?` statements are bound through Drizzle, behind the file's one-writer queue, with a new `dbExec`.
+  - `runVaultMigrations` applies `vaultMigrations` under `sv_key_migrations`, from `runMigrations` for the app store. On PostgreSQL it holds a transaction lock.
+- **Routes:** `/api/keys/vault` (`vaultRoute`) and `/api/keys/secret` (the session's secret, `{ sub, secret }`). They are under `/api/` rather than the SDK's default `/auth/`, through `localVault`'s `path` and `secretPath`.
+- **The session's secret** is a new column on better-auth's session (`key_secret`, migration `auth/0001`). It is made with every session in a hook, made once for an older session, and never part of what the session's API answers.
+- **No password reaches the server:** a hook before every route that took one refuses anything that is not a derived value (`src/auth/derived.ts`). A sign-in reads it as a wrong password; anything else gets `PASSWORD_NOT_DERIVED`.
+- **Moving a 0.1.0 account:** `account.password_derived` (the same migration) marks a hash of the derived value. `/api/account/move-password` (`src/auth/move.ts`) moves a 0.1.0 account once: same origin, rate limited by a hash of the address, always 204. The sign-in page offers it only while some account has still to move.
+- **Deleting a person** deletes their vault (`deletePerson`), and the every-table test seeds and checks vault rows.
+- **The policy** carries `'wasm-unsafe-eval'` on every page (the derivation is WebAssembly, and an unlock can come on any signed-in page). Never `'unsafe-eval'`.
+
+**The pages** (`src/keys/vault-client.ts`):
+
+- Sign-in, sign-up, reset, change and delete derive with `localVault`'s `derive`. The address is lower-cased, and a reset finds it from the token (`src/auth/reset.ts`).
+- They check a password's length themselves, then hand the secret to `afterSignIn`.
+- A new account sees `/keys/kit` (`RecoveryKit`, the kit made in the browser, `keepKit`).
+- A sign-in after a reset unlocks once with the kit (`unlockWithKit`). A change prepares the new way in and drops the old once the server says yes (`prepareChange`, `finishChange`).
+- The seed derives with the SDK in Node, so its accounts sign in by hand with `SEED_PASSWORD`.
+
+**Tests:**
+
+- The auth tests post as a page does, through `derivedFor`, a stand-in of the right shape; `postRaw` is for the refusals.
+- The length tests became refusals of a password sent as itself. The refusal test was seen to fail with the hook off.
+- `src/keys/server/vault.test.ts` covers the binding, the vault for a second person, deletion, the key secret for a second account, and the move (once, only with the old password).
+- The browser tests keep the kit after sign-up, and delete from Settings.
+
+**Verified:** `pnpm verify`; `pnpm test` (all passed); `pnpm build`; `pnpm e2e --project=chromium` (100 passed).
+
+**Left out:**
+
+- No browser test of a 0.1.0 account moving, or of the kit after a reset (both need a database made by 0.1.0, or mail; the move is unit-tested).
+- WebKit's run waits for the leg's end.
 
 #### 📋 18.3 — Key release through core
 

@@ -5,6 +5,7 @@ import {
   anotherDevice,
   deviceRows,
   fillSignUp,
+  keepKit,
   makeLink,
   test,
 } from './helpers';
@@ -312,6 +313,7 @@ test.describe('an instance that takes both ways, with sign-up closed', () => {
     if (await page.getByRole('heading', { name: 'Create your account' }).isVisible()) {
       await fillSignUp(page, { name: LOCAL.name, email: LOCAL.email, password: PASSWORD });
       await page.getByRole('button', { name: 'Create account' }).click();
+      await keepKit(page);
       await expect(page).toHaveURL(/\/$/);
       await signOut(page);
     } else {

@@ -67,6 +67,9 @@ export async function fillSignUp(
   }).toPass({ timeout: 15_000 });
 }
 
+/** A value of the shape a page sends for a password (RFC 0001), for a request a test makes itself: the server checks the shape, not the value. */
+export const DERIVED_SHAPE = `svp1.${'A'.repeat(43)}`;
+
 /** Makes an account through the sign-up page, as a person would, and waits until they are signed in and on the front address. */
 export async function signUp(
   page: Page,
@@ -75,8 +78,32 @@ export async function signUp(
   await page.goto(`${base}/sign-up`);
   await fillSignUp(page, { name, email, password });
   await page.getByRole('button', { name: 'Create account' }).click();
+  await keepKit(page);
   await expect(page).toHaveURL(`${base}/`);
   return email;
+}
+
+/**
+ * A new password account is shown its recovery kit before anything else (RFC 0001): says it was kept, and goes on. The page is waited for, since the
+ * password is derived and the keys are made first, which takes a moment.
+ */
+export async function keepKit(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/keys\/kit/, { timeout: 15_000 });
+  await page.getByRole('checkbox', { name: /kept my recovery kit/ }).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
+}
+
+/**
+ * Deletes the signed-in account from Settings, as a person does: the password is derived by the page and never sent (RFC 0001), so a test cannot post
+ * it to the route itself. `expect` is what the page says after: the sign-in link once the account is gone, or the refusal of a wrong password.
+ */
+export async function deleteInSettings(page: Page, password: string): Promise<void> {
+  await page.goto('/settings?section=data');
+  await page.getByRole('button', { name: 'Delete my account…' }).click();
+  const remove = page.getByRole('form', { name: 'Delete account' });
+  await expect(remove.getByLabel('Your password')).toBeVisible();
+  await remove.getByLabel('Your password').fill(password);
+  await remove.getByRole('button', { name: 'Delete my account for good' }).click();
 }
 
 /**

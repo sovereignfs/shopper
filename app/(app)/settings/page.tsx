@@ -8,6 +8,7 @@ import { SettingsShell } from '@/src/account/SettingsShell';
 import { accountHasPassword } from '@/src/auth/password';
 import { authSettings } from '@/src/auth/server';
 import { requireSession } from '@/src/auth/session';
+import { getVaultId } from '@/src/keys/server/vault';
 
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export default async function SettingsPage({
   const session = await requireSession();
   const query = await searchParams;
   const settings = authSettings();
+  const vaultId = await getVaultId();
   return (
     <SettingsShell
       initial={sectionOf({ section: one(query.section) })}
@@ -34,9 +36,11 @@ export default async function SettingsPage({
           <PasswordSection
             hasPassword={await accountHasPassword(session.user.id)}
             minLength={settings?.passwordMinLength ?? 10}
+            email={session.user.email}
+            vaultId={vaultId}
           />
         ),
-        data: <DeleteAccountSection />,
+        data: <DeleteAccountSection email={session.user.email} vaultId={vaultId} />,
       }}
     />
   );

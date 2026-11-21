@@ -106,6 +106,15 @@ async function seedAuth(person: Someone) {
     app,
     sql`INSERT INTO ${appTable(app, 'account_settings')} (account_id, last_list_id, created_at, updated_at) VALUES (${person.accountId}, ${'l-' + person.accountId}, ${now}, ${now})`,
   );
+  // Their keys in Shopper's vault (RFC 0001), as the SDK's tables hold them.
+  await dbRun(
+    app,
+    sql`INSERT INTO sv_key_accounts (user_id, suite, unlock_salt, signing_public, signing_private, created_at) VALUES (${person.accountId}, 1, 's', 'p', '{}', ${now})`,
+  );
+  await dbRun(
+    app,
+    sql`INSERT INTO sv_key_wraps (user_id, way, wrap_id, record, created_at) VALUES (${person.accountId}, 'password', 'w', '{}', ${now})`,
+  );
 }
 
 const count = async (
@@ -183,6 +192,8 @@ describe(`deleting a person (${leg})`, () => {
     expect(
       await count(app, appTable(app, 'account_settings'), sql`account_id = ${ada.accountId}`),
     ).toBe(0);
+    for (const table of ['sv_key_accounts', 'sv_key_wraps'])
+      expect(await count(app, sql.raw(table), sql`user_id = ${ada.accountId}`), table).toBe(0);
     const person = await personById(app, TEST_RING, ada.personId);
     expect(person).toMatchObject({ name: 'Ada', email: null, accountId: null, deleted: true });
     const raw = await dbAll<Record<string, unknown>>(
@@ -222,6 +233,7 @@ describe(`deleting a person (${leg})`, () => {
     expect(
       await count(app, appTable(app, 'account_settings'), sql`account_id = ${grace.accountId}`),
     ).toBe(1);
+    expect(await count(app, sql.raw('sv_key_accounts'), sql`user_id = ${grace.accountId}`)).toBe(1);
   });
 
   it('deletes a household nobody else is in, with everything of it', async () => {

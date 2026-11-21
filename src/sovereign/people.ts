@@ -7,6 +7,7 @@ import * as postgresAuth from '../db/schema/postgres/auth';
 import * as sqliteAuth from '../db/schema/sqlite/auth';
 import { appTable } from '../db/tables';
 import { HOUSEHOLD_TABLES } from '../households/tables';
+import { vaultOf } from '../keys/server/vault';
 
 /**
  * **Everything personal of an account is removed by this, and only this** (DESIGN.md §19). One routine, in a fixed order, **safe to run again**: the two
@@ -89,7 +90,9 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
           WHERE created_by = ${person.id} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
     );
 
-  // 3. What was kept for them: their settings, the record of the mutations they sent, and the rate counters that carry their account.
+  // 3. What was kept for them: their keys in Shopper's vault (RFC 0001; with them gone, nothing encrypted for them opens for them, backups
+  // included), their settings, the record of the mutations they sent, and the rate counters that carry their account.
+  await vaultOf(database).deleteAccount(accountId);
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'account_settings')} WHERE account_id = ${accountId} RETURNING account_id`,

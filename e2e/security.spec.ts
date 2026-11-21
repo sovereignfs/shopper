@@ -1,6 +1,15 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- a test reads rows it has just made, and a missing one should fail it loudly */
 import { expect, type Page } from '@playwright/test';
-import { anotherDevice, deviceRows, accountOf, makeLink, signUp, test } from './helpers';
+import {
+  PASSWORD,
+  accountOf,
+  anotherDevice,
+  deleteInSettings,
+  deviceRows,
+  makeLink,
+  signUp,
+  test,
+} from './helpers';
 
 /**
  * The review of phase 1 (`docs/security/0.1.0.md`), as tests that keep it true: what a second person can and cannot do through the doors a browser has, with
@@ -226,7 +235,7 @@ test('what is a person’s is not cacheable, every page carries a nonce policy, 
     expect(reply.headers()['cache-control'], path).toMatch(/no-store/);
     const csp = reply.headers()['content-security-policy'] ?? '';
     expect(csp, path).toMatch(/script-src [^;]*'nonce-/);
-    expect(csp, path).not.toMatch(/script-src[^;]*unsafe-(inline|eval)/);
+    expect(csp, path).not.toMatch(/script-src[^;]*'unsafe-(inline|eval)'/);
     expect(csp, path).toContain("frame-ancestors 'none'");
     expect(reply.headers()['x-content-type-options'], path).toBe('nosniff');
     expect(reply.headers()['referrer-policy'], path).toBe('no-referrer');
@@ -294,10 +303,8 @@ test('the session cookie is HttpOnly and SameSite=Lax, and the device’s copy o
   expect(session?.name.startsWith('shopper')).toBe(true);
   const account = await accountOf(page);
   expect(await deviceRows(page, account, 'household')).not.toBeNull();
-  const deleted = await post(page, base, '/api/account/delete', {
-    password: 'correct horse battery',
-  });
-  expect(deleted.status()).toBe(204);
+  await deleteInSettings(page, PASSWORD);
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
   expect(
     (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).status(),
   ).toBe(401);

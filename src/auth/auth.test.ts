@@ -235,11 +235,23 @@ describe(`local sign-in, first account only (${leg})`, () => {
     });
   });
 
-  it('must have a password as long as the instance says', async () => {
+  it('is never sent a password: a sign-up, sign-in or change that carries one is refused, as a wrong password where it is a sign-in', async () => {
     const before = await userCount(t);
-    const { reply } = await signUp(visitor(t), newEmail(), 'short');
-    expect([400, 403]).toContain(reply.status);
+    const client = visitor(t);
+    const up = await client.postRaw('/api/auth/sign-up/email', {
+      name: 'Ada',
+      email: newEmail(),
+      password: PASSWORD,
+    });
+    expect(up.status).toBe(400);
+    expect(up.body?.code).toBe('PASSWORD_NOT_DERIVED');
     expect(await userCount(t)).toBe(before);
+    const signIn = await client.postRaw('/api/auth/sign-in/email', {
+      email: newEmail(),
+      password: PASSWORD,
+    });
+    expect(signIn.status).toBe(401);
+    expect(signIn.body?.code).toBe('INVALID_EMAIL_OR_PASSWORD');
   });
 });
 

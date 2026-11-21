@@ -31,6 +31,9 @@ export const session = auth.table(
     updatedAt: date('updated_at').notNull(),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
+    // The session's key secret (RFC 0001, sdk §9.5): what the browser's kept keys are wrapped by, served only to this session's pages, and gone
+    // with the session. Shopper's own column, beside better-auth's.
+    keySecret: text('key_secret'),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -54,6 +57,9 @@ export const account = auth.table(
     refreshTokenExpiresAt: date('refresh_token_expires_at'),
     scope: text('scope'),
     password: text('password'),
+    // Whether `password` is a hash of the sign-in value the browser derives (RFC 0001), as every password made since is, or of a 0.1.0 password,
+    // which is moved once at its next sign-in. Shopper's own column.
+    passwordDerived: boolean('password_derived').notNull().default(false),
     createdAt: date('created_at').notNull(),
     updatedAt: date('updated_at').notNull(),
   },
