@@ -1,5 +1,5 @@
 {
-  "manifest": 2,
+  "manifest": 5,
   "prefix": "shopper",
   "name": "Shopper",
   "description": "Your household's shopping lists, working in the shop with no signal, and remembering what you buy",
@@ -15,5 +15,5 @@
   },
   "database": true,
   "generate": ["SHOPPER_AUTH_SECRET", { "name": "SHOPPER_ENCRYPTION_KEY", "bytes": 32 }],
-  "core": ">=0.57.0 <1.0.0"
+  "core": ">=0.126.0 <1.0.0"
 }

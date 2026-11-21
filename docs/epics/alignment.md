@@ -16,7 +16,7 @@ later task of epics 18 to 20 stands on it.
 
 ## Tasks
 
-#### 📋 17.1 — The packages, current
+#### ✅ 17.1 — The packages, current
 
 **Goal:** Shopper on `@sovereignfs/sdk` 2.11.0, `@sovereignfs/ui` 0.104.0 or later, `@sovereignfs/manifest` 0.4.x and manifest 5. **Design:** §15.3,
 §16.10. **Depends on:** nothing.
@@ -28,6 +28,15 @@ use them.
 
 **Accepts when:** `pnpm verify`, `pnpm manifest:check` and the browser tests pass, and every screen looks as before at desktop and phone widths, in
 light and dark.
+
+**Done as:** `@sovereignfs/sdk` 2.1.0 → 2.11.0, `@sovereignfs/ui` 0.92.0 → 0.105.0, `@sovereignfs/manifest` ^0.1.0 → 0.4.0 (now exact), and
+`@sovereignfs/create` 0.14.0 → 0.27.1, each listed in `minimumReleaseAgeExclude`. The SDK's own `@sovereignfs/export` 0.3.0 is listed too, with a comment saying why. `sovereign.manifest.json` is manifest 5 with
+the template's `core` floor (`>=0.126.0 <1.0.0`), and `DESIGN.md` §15.3 says so. The sync of create 0.27.1 took its new shared rules into
+`AGENTS.md` and `CONTRIBUTING.md`. It also now counts the `Dockerfile`, `.dockerignore` and `compose.yml` as shared. Shopper keeps its own (an image for three databases, and `deploy/`'s
+setups in place of one `compose.yml`), so those three are listed under `sovereign.unmanaged`. `ui`'s changelog since 0.96 only adds
+components (0.92 to 0.95 predate its changelog); nothing Shopper uses changed, and the typecheck agrees. Verified: `pnpm verify`; `pnpm test` (682
+passed; one earlier run had a timing failure in a test of `core_sub` that three reruns did not repeat); `pnpm build`. Left out: the browser tests
+in Chromium, which Playwright had no browser for on the machine that ran them (WebKit's ran and passed), and a look at every screen by eye.
 
 #### 📋 17.2 — The worker from `@sovereignfs/pwa`
 

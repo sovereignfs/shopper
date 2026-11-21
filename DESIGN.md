@@ -879,7 +879,7 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
 
 ```json
 {
-  "manifest": 2,
+  "manifest": 5,
   "prefix": "shopper",
   "name": "Shopper",
   "description": "Your household's shopping lists, working in the shop with no signal, and remembering what you buy",
@@ -895,7 +895,7 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
   },
   "database": true,
   "generate": ["SHOPPER_AUTH_SECRET", { "name": "SHOPPER_ENCRYPTION_KEY", "bytes": 32 }],
-  "core": ">=0.57.0 <1.0.0"
+  "core": ">=0.126.0 <1.0.0"
 }
 ```
 
@@ -906,6 +906,8 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
   the same question Tally's task 11.2 answers; whichever app answers it first, the other copies (§24).
 - **The `core` floor** is raised, if needed, to the first release that shipped the directory scope and the app scopes Shopper calls, checked against
   core's changelog in that task.
+- **Manifest 5** (17.1), as `sovereign`'s template, with its `core` floor: the version a core must read to host Shopper. `encryption` (18.3) and
+  `signIn.export` (20.1) are added by the tasks that use them.
 - **`pooling`** is not set, as Tusk's and Tally's.
 - **`data`** is not needed until phase 4's photos and receipts (§22.3), which add `/data/media`.
 
