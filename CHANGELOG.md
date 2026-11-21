@@ -14,14 +14,14 @@ lists should be encrypted. Encryption is the suite's and is **not yet audited**.
 
 ### Added
 
-- **What you write is encrypted on your device,** with a key only your household holds: a new account's lists from their first item, and an account's own
-  household from 0.1.0 the first time it is opened. The server stores what it cannot read. A household with more than one person in it stays sealed by
-  the server's key, as before, until each of them can be given its key; Settings › Encryption says which is which.
+- **What you write is encrypted on your device,** with a key only you hold: a new account's lists from their first item, and an account's own lists
+  from 0.1.0 the first time they are opened. The server stores what it cannot read. Lists shared with others stay sealed by the server's key, as
+  before, until each person on them can be given its key; Settings › Encryption says which is which.
 - The server is never sent your password: your browser sends a value derived from it. A recovery kit is shown once after signing up, and opens your
   lists if you forget your password. Through a Sovereign core, core keeps your key.
-- A link to an encrypted household carries its keys, after `#`, which a browser never sends.
+- A link to an encrypted list carries its keys, after `#`, which a browser never sends.
 - Notifications on a device where Shopper is not open, when its operator sets `SHOPPER_VAPID_PRIVATE_KEY` (Settings › Notifications): for now, when
-  someone joins your household. A notification never names a list or an item.
+  someone joins a list you share. A notification never names a list or an item.
 - A person's export from a Sovereign core now includes what Shopper holds of them.
 
 - Opened from Sovereign's launcher, or from any link to it, an installed Shopper now opens as itself on desktop Chrome and Edge and on Android Chrome, on the page the link names, rather than in a browser view. On an iPhone, an iPad and in Safari the link opens a browser view, as before.
@@ -33,6 +33,8 @@ lists should be encrypted. Encryption is the suite's and is **not yet audited**.
 - **Sharing a list shares that list and nothing else.** Before, someone given a link to one list saw every list of the household. Each list now has its
   own people, invited, removed and leaving list by list. People already sharing a household keep every list they had; a list made after is yours
   alone until you share it. Links made before this, to a household as a whole, are revoked: make a new one from the list.
+- **Each list keeps its own catalog.** Adding something on a shared list never finds or changes a product of another of your lists; a name you use
+  elsewhere still comes as a suggestion, with its quantity, unit and aisle.
 
 ### Changed
 

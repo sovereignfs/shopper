@@ -116,8 +116,8 @@ export const invitation = app.table(
 );
 
 /**
- * What a household remembers about something it buys (DESIGN.md §8.2), so that adding is one tap and the item arrives right. **One product per name in a
- * household**: `name_key` is the HMAC of its normalised name (`src/crypto/name-key.ts`), unique with `household_id`, so the server finds "the same
+ * What a list remembers about something it buys (DESIGN.md §8.2, RFC 0004), so that adding is one tap and the item arrives right. **One product per name on a
+ * list**: `name_key` is the HMAC of its normalised name (`src/crypto/name-key.ts`), unique with `household_id` and `list_id`, so the server finds "the same
  * product" without reading a name, and a second made for the same name is folded into the first (task 5.3). The name and the note are sealed. Its
  * category and icon are what the next add comes with; `default_quantity` and `default_unit` likewise; `times_bought`, `last_bought_at` and
  * `last_added_at` are what suggestions rank by (§8.5), kept by apply. The last unit price and the barcode are phase 2's and 4's columns. `fseq` is
@@ -128,6 +128,8 @@ export const product = app.table(
   {
     id: id('id'),
     householdId: ref('household_id').notNull(),
+    /** The list whose catalog it is (RFC 0004, task 21.3): a name is one product per list, and an add on one list never finds another's. */
+    listId: ref('list_id'),
     nameKey: ref('name_key').notNull(),
     sealed: sealed('sealed').notNull(),
     encrypted: sealed('encrypted'),
@@ -144,7 +146,7 @@ export const product = app.table(
     createdAt: epochMs('created_at').notNull(),
   },
   (table) => [
-    uniqueIndex('product_household_name_key_idx').on(table.householdId, table.nameKey),
+    uniqueIndex('product_list_name_key_idx').on(table.householdId, table.listId, table.nameKey),
     index('product_household_seq_idx').on(table.householdId, table.seq),
   ],
 );

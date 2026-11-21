@@ -150,14 +150,17 @@ async function run(
     // A change that names a row that was folded into another is a change to the other (`fold.ts`).
     const target = await resolveAlias(database, mutation.householdId, raw.table, raw.id);
     const change: Change =
-      target === raw.id ? raw : { table: raw.table, id: target, fields: raw.fields };
+      target === raw.id
+        ? withProductList(raw, mutation)
+        : { table: raw.table, id: target, fields: raw.fields };
     // Who did it is the sender: checked on what the device sent, and not on what the server itself writes when it folds two rows into one.
     await checkAuthorship(deps, spec, mutation.householdId, accountId, change);
     const from = await checkListAccess(deps, spec, mutation.householdId, accountId, change);
     if (moved) throw new Held();
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
-    // An item moved to another list leaves the devices of those on the first and not on the second (RFC 0004): a tombstone kept to the first list, which
-    // the pull hands only to a reader who cannot see the item where it is now.
+    // An item moved to another list leaves the devices of those on the first and not on the second (RFC 0004): a tombstone of no list, which the pull
+    // hands only to a reader who cannot see the item where it is now (it names an id and nothing else). Of no list, so that a second move cannot keep it
+    // from those on the first.
     if (
       spec.table === 'item' &&
       from !== undefined &&
@@ -168,8 +171,8 @@ async function run(
       await dbAll(
         database,
         sql`INSERT INTO ${appTable(database, 'tombstone')} (household_id, table_name, id, seq, created_at, list_id)
-            VALUES (${mutation.householdId}, 'item', ${change.id}, ${seq}, ${now}, ${from})
-            ON CONFLICT (household_id, table_name, id) DO UPDATE SET seq = excluded.seq, list_id = excluded.list_id RETURNING id`,
+            VALUES (${mutation.householdId}, 'item', ${change.id}, ${seq}, ${now}, NULL)
+            ON CONFLICT (household_id, table_name, id) DO UPDATE SET seq = excluded.seq, list_id = NULL RETURNING id`,
       );
     // A list made now has its maker as its Admin (RFC 0004).
     if (spec.table === 'list' && raw.create && outcome.written.includes(change.id)) {
@@ -300,11 +303,13 @@ async function applyChange(
         ? spec.derive({ household, ring, sealed: sealedFields })
         : {};
 
-  // A name already in the household is another product's: a new one is folded into it, and a rename is refused.
+  // A name already in the list's catalog is another product's (21.3): a new one is folded into it, and a rename is refused. Another list's never.
   if (derived.name_key !== undefined) {
+    const list = existing ? existing.list_id : change.fields.listId;
     const same = await dbGet<{ id: string }>(
       database,
-      sql`SELECT id FROM ${t} WHERE household_id = ${household} AND name_key = ${derived.name_key} AND id <> ${change.id}`,
+      sql`SELECT id FROM ${t} WHERE household_id = ${household} AND name_key = ${derived.name_key} AND id <> ${change.id}
+          AND ${typeof list === 'string' ? sql`list_id = ${list}` : sql`list_id IS NULL`}`,
     );
     if (same) {
       // Renaming to a name that is taken is a person's decision, and is refused with the merge offered (task 5.6); making one is folded.
@@ -563,7 +568,44 @@ async function checkListAccess(
     // The list it was on, for the move's tombstone.
     return existing?.list_id;
   }
+  if (spec.table === 'product') {
+    // A list's catalog (task 21.3): written by those on the list; one from before lists had catalogs, by the group's own account or anyone whose list
+    // uses it. Its list is set when it is made and never changed.
+    const existing = await dbGet<{ list_id: string | null }>(
+      database,
+      sql`SELECT list_id FROM ${appTable(database, 'product')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const sent = change.fields.listId;
+    if (existing) {
+      if (sent !== undefined && sent !== existing.list_id) throw notFound();
+      const usedOnMine = sql`EXISTS (SELECT 1 FROM ${appTable(database, 'item')} ui WHERE ui.product_id = ${change.id}
+        AND ui.household_id = ${household} AND ${onList(database, sql`ui.list_id`, accountId)})`;
+      const ok = existing.list_id
+        ? await allowed(sql`(${onList(database, existing.list_id, accountId)} OR ${usedOnMine})`)
+        : await allowed(sql`(${ownerOf(database, household, accountId)} OR ${usedOnMine})`);
+      if (!ok) throw notFound();
+    } else if (typeof sent === 'string') {
+      if (!(await allowed(onList(database, sent, accountId)))) throw notFound();
+    } else if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+  }
   return undefined;
+}
+
+/**
+ * **A new product is its item's list's** (task 21.3): a device that made a product with an item in the same mutation and did not say its list gives it
+ * the item's. What the device said is kept.
+ */
+function withProductList(change: Change, mutation: Mutation): Change {
+  if (change.table !== 'product' || !change.create || 'listId' in change.fields) return change;
+  const item = mutation.changes.find(
+    (other) =>
+      other.table === 'item' &&
+      other.fields.productId === change.id &&
+      typeof other.fields.listId === 'string',
+  );
+  return item
+    ? { ...change, fields: { ...change.fields, listId: item.fields.listId ?? null } }
+    : change;
 }
 
 /** Replaces, in a change, an id that names a product that was folded into another with the other (`fold.ts`). */

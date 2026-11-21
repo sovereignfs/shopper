@@ -50,6 +50,8 @@ export function addItem(env: Env, input: AddItem): Mutation {
       id: productId,
       create: true,
       fields: {
+        // The list whose catalog it joins (RFC 0004, 21.3).
+        listId: list.id,
         name: input.name,
         note: input.note ?? null,
         categoryId,

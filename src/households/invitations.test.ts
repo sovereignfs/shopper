@@ -484,6 +484,6 @@ describe(`a push when someone joins (${testTarget().leg})`, () => {
       sql`SELECT endpoint, message FROM ${appTable(database, 'push_outbox')}`,
     );
     expect(queued.map((row) => row.endpoint)).toEqual([adas.endpoint]);
-    expect(JSON.parse(queued[0]?.message ?? '{}').title).toBe('Grace joined your household');
+    expect(JSON.parse(queued[0]?.message ?? '{}').title).toBe('Grace joined a list you share');
   });
 });

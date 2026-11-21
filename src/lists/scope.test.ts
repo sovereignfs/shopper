@@ -4,7 +4,7 @@ import { NOT_FOUND, TEST_RING, callAs, somebody, type Someone } from '../access/
 import type { Env } from '../actions/env';
 import type { Mutation } from '../actions/format';
 import { addItem } from '../actions/items';
-import { makeList, renameList } from '../actions/lists';
+import { archiveList, makeList, renameList } from '../actions/lists';
 import { list as listRow } from '../actions/test-support';
 import type { Database } from '../db/client';
 import { dbAll, dbGet } from '../db/exec';
@@ -17,7 +17,8 @@ import { OPERATIONS } from '../households/ops';
 import type { Limits } from '../limits/config';
 import { applyMutation } from '../sync/apply';
 import { pullHousehold } from '../sync/pull';
-import { adoptListMembers } from './members';
+import { personRecords } from '../portability/records';
+import { adoptListMembers, adoptProductLists } from './members';
 
 /**
  * **Sharing one list shows that list and nothing more** (RFC 0004): the bug this fixes was that a person invited to one list saw every list of the
@@ -120,6 +121,86 @@ describe(`one list shared (${leg})`, () => {
       expect(await callAs(database, OPERATIONS, grace, body)).toEqual(NOT_FOUND);
   });
 
+  it('refuses the other list’s links, people and export to the person', async () => {
+    const { ada, grace, hardware } = await setUp();
+    const link = await createInvitation(database, {
+      household: ada.household,
+      list: hardware.id,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: Date.now(),
+    });
+    if (!link.ok) throw new Error(link.refused);
+    for (const body of [
+      { op: 'invite.revoke', household: ada.household, list: hardware.id, invitation: link.id },
+      { op: 'member.remove', household: ada.household, list: hardware.id, person: ada.personId },
+      { op: 'member.leave', household: ada.household, list: hardware.id },
+    ])
+      expect(await callAs(database, OPERATIONS, grace, body)).toEqual(NOT_FOUND);
+    const exported = JSON.stringify(await personRecords(database, TEST_RING, grace.accountId));
+    expect(exported).not.toContain(hardware.id);
+    expect(exported).toContain(ada.list);
+  });
+
+  it('lets nobody join a list by a link once the list is deleted', async () => {
+    const ada = await somebody(database, 'Ada');
+    const grace = await somebody(database, 'Grace');
+    const made = makeList(env(), { householdId: ada.household, name: 'Gone', position: 'a1' });
+    expect((await send(ada, made)).status).toBe('applied');
+    const gone = listRow({
+      id: made.changes[0]?.id ?? '',
+      householdId: ada.household,
+      name: 'Gone',
+    });
+    const link = await createInvitation(database, {
+      household: ada.household,
+      list: gone.id,
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: Date.now(),
+    });
+    if (!link.ok) throw new Error(link.refused);
+    expect((await send(ada, archiveList(env(), gone))).status).toBe('applied');
+    expect(
+      (
+        await callAs(database, OPERATIONS, ada, {
+          op: 'list.delete',
+          household: ada.household,
+          list: gone.id,
+        })
+      ).status,
+    ).toBe(200);
+    const joined = await acceptInvitation(database, TEST_RING, {
+      token: link.token,
+      accountId: grace.accountId,
+      limits: LIMITS,
+      now: Date.now(),
+    });
+    expect(joined.status).toBe('invalid');
+    expect((await householdsOf(database, TEST_RING, grace.accountId)).map((h) => h.id)).toEqual([
+      grace.household,
+    ]);
+  });
+
+  it('never folds an add on a shared list into a product of another list (21.3)', async () => {
+    const { ada, grace, screwProduct } = await setUp();
+    const groceries = listRow({ id: ada.list, householdId: ada.household, name: 'Groceries' });
+    const adding = addItem(env(), {
+      list: groceries,
+      name: 'Screws',
+      last: null,
+      by: grace.personId,
+    });
+    expect((await send(grace, adding)).status).toBe('applied');
+    const used = await dbGet<{ product_id: string }>(
+      database,
+      sql`SELECT product_id FROM ${appTable(database, 'item')} WHERE list_id = ${ada.list}`,
+    );
+    expect(used?.product_id).not.toBe(screwProduct);
+    const pull = await pullHousehold(database, TEST_RING, grace.accountId, ada.household, 0);
+    expect(pull?.products.some((row) => row.id === screwProduct)).toBe(false);
+  });
+
   it('forgets the group for the person once they are on none of its lists', async () => {
     const { ada, grace } = await setUp();
     const left = await callAs(database, OPERATIONS, grace, {
@@ -193,5 +274,43 @@ describe(`a household from 0.1.0 (${leg})`, () => {
       sql`SELECT id FROM ${appTable(database, 'list_member')} WHERE household_id = ${ada.household}`,
     );
     expect(after).toHaveLength(again.length);
+  });
+});
+
+describe(`products from before lists had catalogs (${leg})`, () => {
+  it('are given the list of the first item that used them, else the group’s first list, once', async () => {
+    const ada = await somebody(database, 'Ada');
+    const made = makeList(env(), { householdId: ada.household, name: 'Hardware', position: 'a1' });
+    expect((await send(ada, made)).status).toBe('applied');
+    const hardware = listRow({
+      id: made.changes[0]?.id ?? '',
+      householdId: ada.household,
+      name: 'Hardware',
+    });
+    const screws = addItem(env(), { list: hardware, name: 'Screws', last: null, by: ada.personId });
+    expect((await send(ada, screws)).status).toBe('applied');
+    const used = screws.changes.find((change) => change.table === 'product')?.id ?? '';
+    const spare = crypto.randomUUID();
+    await dbAll(
+      database,
+      sql`INSERT INTO ${appTable(database, 'product')} (id, household_id, name_key, sealed, created_at)
+          VALUES (${spare}, ${ada.household}, ${'nk-' + spare}, ${''}, 1) RETURNING id`,
+    );
+    await dbAll(
+      database,
+      sql`UPDATE ${appTable(database, 'product')} SET list_id = NULL WHERE household_id = ${ada.household} RETURNING id`,
+    );
+    expect(await adoptProductLists(database)).toBeGreaterThan(0);
+    const lists = await dbAll<{ id: string; list_id: string | null }>(
+      database,
+      sql`SELECT id, list_id FROM ${appTable(database, 'product')} WHERE household_id = ${ada.household}`,
+    );
+    expect(lists.find((row) => row.id === used)?.list_id).toBe(hardware.id);
+    expect(lists.find((row) => row.id === spare)?.list_id).toBe(ada.list);
+    const again = await dbAll<{ household_id: string }>(
+      database,
+      sql`SELECT household_id FROM ${appTable(database, 'product')} WHERE list_id IS NULL AND household_id = ${ada.household}`,
+    );
+    expect(again).toEqual([]);
   });
 });

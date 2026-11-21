@@ -37,6 +37,7 @@ export const list = (over: Partial<ListRow> = {}): ListRow => ({
 export const product = (over: Partial<ProductRow> = {}): ProductRow => ({
   id: '50000000-0000-4000-8000-000000000001',
   householdId: HOUSEHOLD,
+  listId: null,
   name: 'Oat milk',
   note: null,
   categoryId: CATEGORY,

@@ -46,7 +46,7 @@ export async function stampList(
   await dbAll(
     database,
     sql`UPDATE ${appTable(database, 'product')} SET seq = ${seq} WHERE household_id = ${household}
-        AND id IN (SELECT product_id FROM ${appTable(database, 'item')} WHERE list_id = ${list}) RETURNING id`,
+        AND (list_id = ${list} OR id IN (SELECT product_id FROM ${appTable(database, 'item')} WHERE list_id = ${list})) RETURNING id`,
   );
   for (const table of ['list_member', 'tombstone', 'alias'] as const)
     await dbAll(
@@ -125,6 +125,46 @@ export async function adoptListMembers(
         sql`UPDATE ${appTable(tx, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL
             WHERE household_id = ${household} AND list_id IS NULL AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
       );
+    });
+  }
+  return groups.length;
+}
+
+/**
+ * **Products from before lists had catalogs** (RFC 0004, task 21.3), at every start, safe to run again: each product with no list is given the list of
+ * the first item that used it, else the group's first list, at a new `seq` of its group so that devices learn it. A product items of several lists use
+ * stays one, on the first of them; it was already seen by everyone on those lists, who were one household. One transaction a group.
+ */
+export async function adoptProductLists(database: Database): Promise<number> {
+  const groups = await dbAll<{ household_id: string }>(
+    database,
+    sql`SELECT DISTINCT household_id FROM ${appTable(database, 'product')} WHERE list_id IS NULL`,
+  );
+  for (const { household_id: household } of groups) {
+    await transaction(database, async (tx) => {
+      const stepped = await dbGet<{ seq: number | string }>(
+        tx,
+        sql`UPDATE ${appTable(tx, 'household')} SET seq = seq + 1 WHERE id = ${household} RETURNING seq`,
+      );
+      if (!stepped) return;
+      const products = await dbAll<{ id: string; used: string | null }>(
+        tx,
+        sql`SELECT p.id, (SELECT i.list_id FROM ${appTable(tx, 'item')} i WHERE i.product_id = p.id ORDER BY i.added_at, i.id LIMIT 1) AS used
+            FROM ${appTable(tx, 'product')} p WHERE p.household_id = ${household} AND p.list_id IS NULL`,
+      );
+      const first = await dbGet<{ id: string }>(
+        tx,
+        sql`SELECT id FROM ${appTable(tx, 'list')} WHERE household_id = ${household} ORDER BY created_at, id LIMIT 1`,
+      );
+      for (const product of products) {
+        const list = product.used ?? first?.id;
+        if (!list) continue;
+        await dbAll(
+          tx,
+          sql`UPDATE ${appTable(tx, 'product')} SET list_id = ${list}, seq = ${Number(stepped.seq)}
+              WHERE id = ${product.id} AND list_id IS NULL RETURNING id`,
+        );
+      }
     });
   }
   return groups.length;

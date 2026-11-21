@@ -40,5 +40,7 @@ _Share_, on a list, opens the sharing dialog. **Make a link** gives one, shown o
 
 ## What it does not do yet
 
-Roles beyond Admin and Member; inviting by email; trips, shops and prices. The catalog that learns what you buy is still shared by all of a person's
-lists (task 21.3 gives each list its own). [`ROADMAP.md`](../ROADMAP.md) has the order.
+Roles beyond Admin and Member; inviting by email; trips, shops and prices. [`ROADMAP.md`](../ROADMAP.md) has the order.
+
+Each list has its own catalog, the products it remembers: what someone adds on a list you share never finds or changes a product of another of your
+lists. A name you use on another list still comes up as a suggestion.

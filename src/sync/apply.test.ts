@@ -40,10 +40,17 @@ beforeAll(async () => {
 afterAll(async () => database.close());
 
 const deps = (limits: Limits = LIMITS) => ({ database, ring: TEST_RING, limits });
+/** A product made with no list is given the group's first list, as a device's add gives it its item's (RFC 0004, 21.3). */
+const firstListOf = (household: string): string | undefined =>
+  [ada, grace, lin].find((each) => each.household === household)?.list;
 const mutation = (household: string, changes: Mutation['changes'][number][]): Mutation => ({
   mutationId: crypto.randomUUID(),
   householdId: household,
-  changes,
+  changes: changes.map((change) =>
+    change.table === 'product' && change.create && !('listId' in change.fields)
+      ? { ...change, fields: { ...change.fields, listId: firstListOf(household) ?? null } }
+      : change,
+  ),
 });
 const create = (id: string, name: string, extra: Record<string, string | number | null> = {}) => ({
   table: 'product' as const,
@@ -116,6 +123,7 @@ describe(`applying a mutation (${leg})`, () => {
       createdAt: before + 1,
       note: before + 1,
       icon: before + 1,
+      listId: before + 1,
     });
     expect(unsealRow('product', id, String(row?.sealed), TEST_RING)).toEqual({
       name: 'Oat Milk',
@@ -227,7 +235,7 @@ describe(`a mutation sent again (${leg})`, () => {
     // The same mutation id from an account that is in the household is its own mutation: nothing links it to Ada's.
     const replay = await applyMutation(deps(), grace.accountId, {
       ...m,
-      changes: [create(crypto.randomUUID(), 'Rye')],
+      changes: [create(crypto.randomUUID(), 'Rye', { listId: ada.list })],
     });
     expect(replay.status).toBe('applied');
   });
@@ -491,7 +499,7 @@ describe(`the order of arrival decides, and nothing else does (${leg})`, () => {
         await applyMutation(
           deps(),
           owner.accountId,
-          mutation(owner.household, [create(id, `Thing ${i}`)]),
+          mutation(owner.household, [create(id, `Thing ${i}`, { listId: owner.list })]),
         ),
       );
 

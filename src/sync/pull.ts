@@ -63,7 +63,9 @@ export async function pullHousehold(
       take('item', onList(database, sql`r.list_id`, accountId)),
       take(
         'product',
-        sql`(${own} OR EXISTS (SELECT 1 FROM ${t('item')} vi WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`,
+        // A list's catalog (21.3), or one an item of the reader's lists uses (an item moved, or a product from before lists had catalogs).
+        sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own})
+            OR EXISTS (SELECT 1 FROM ${t('item')} vi WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`,
       ),
       take('category', sql`1 = 1`),
       dbAll<Raw>(
@@ -207,6 +209,7 @@ function productOf(row: Raw, ring: KeyRing) {
   return {
     id: row.id,
     householdId: row.household_id,
+    listId: nullable(row.list_id),
     name: text(sealed.name) ?? '',
     note: text(sealed.note),
     categoryId: nullable(row.category_id),

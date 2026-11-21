@@ -84,6 +84,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
     sql: 'product',
     sealed: ['name', 'note'],
     plain: [
+      { field: 'listId', column: 'list_id' },
       { field: 'categoryId', column: 'category_id' },
       { field: 'icon', column: 'icon' },
       { field: 'defaultQuantity', column: 'default_quantity' },
@@ -92,7 +93,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
       { field: 'deletedAt', column: 'deleted_at' },
       { field: 'createdAt', column: 'created_at' },
     ],
-    refs: { categoryId: 'category' },
+    refs: { listId: 'list', categoryId: 'category' },
     derive: ({ household, ring, sealed }) => ({
       name_key: productNameKey(ring, household, String(sealed.name ?? '')),
     }),

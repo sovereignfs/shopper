@@ -111,6 +111,8 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     fields: {
       name,
       note: nullable(note),
+      // The list whose catalog it is (RFC 0004): set when it is made, never changed.
+      listId: nullable(id),
       categoryId: nullable(id),
       icon: nullable(icon),
       defaultQuantity: nullable(quantity),

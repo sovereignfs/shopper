@@ -42,10 +42,15 @@ const deps = {
   ring: TEST_RING,
   limits: LIMITS,
 };
+/** Products are made on Ada's first list, as a device's add makes them on its item's (RFC 0004, 21.3). */
 const mutation = (changes: Mutation['changes'][number][]): Mutation => ({
   mutationId: crypto.randomUUID(),
   householdId: ada.household,
-  changes,
+  changes: changes.map((change) =>
+    change.table === 'product' && change.create && !('listId' in change.fields)
+      ? { ...change, fields: { ...change.fields, listId: ada.list } }
+      : change,
+  ),
 });
 const create = (id: string, name: string, extra: Record<string, string | number | null> = {}) => ({
   table: 'product' as const,

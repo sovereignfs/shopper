@@ -45,16 +45,18 @@ allowed by `dispatch` only for someone on that list of that group (its Admin for
 list or an item on a list the sender is not on, and lets only the group's own account make a list; the maker becomes its Admin. `src/sync/pull.ts` hands
 a reader only the lists they are on, their items, the products those items use, their people and their tombstones and aliases, and names the visible
 lists; the device (`src/local/store.ts`, store version 3, `member` keyed by list) forgets any other. A join re-stamps the list's rows
-(`stampList`). An item moved to another list leaves a tombstone kept to the first list, handed only to a reader who cannot see the item where it is now.
+(`stampList`). An item moved to another list leaves a tombstone of no list, handed only to a reader who cannot see the item where it is now (of no
+list, so that a second move cannot keep it from those on the first). Deleting a list revokes its links, and accepting a link needs its list.
 Limits count people per list and groups per account. `adoptListMembers` runs at every start and turns 0.1.0's shared households into lists of their
 own (everyone keeps every list they had; household links are revoked). `People.deletePerson` passes a shared list's Admin role to the person on it
-longest; **left out:** the list stays in the departed account's group rather than moving into the heir's (it changes nothing a person sees), and the
+longest; **left out:** the list stays in the departed account's group rather than moving into the heir's, so the heir finds it under Shared with
+you, as its Admin, with no name under it; and the
 export keeps the person's lists only. The Share dialog sends the list and speaks of one list. Tests: `src/lists/scope.test.ts` (seen to fail with the
 pull's and apply's checks taken out), and in `src/local/leaving.test.ts` a person removed from one of two lists keeps the other, and an item moved to a
-list they are not on leaves their device (seen to fail without the tombstone). **Left for 21.3:** a product is still the group's, so an add on a shared
-list can fold into a product of another list by its name key; the pull hands a reader only products their lists use.
+list they are not on leaves their device, once or twice moved (each seen to fail before); a second person is refused the other list's links, people
+and export; and nobody joins a deleted list by its link (seen to fail before).
 
-#### 📋 21.3 — A list's catalog
+#### ✅ 21.3 — A list's catalog
 
 **Goal:** a product belongs to a list. **Depends on:** 21.2.
 
@@ -62,6 +64,17 @@ list can fold into a product of another list by its name key; the pull hands a r
 device; the migration copies a product to each list that uses it.
 
 **Accepts when:** an add on a shared list never folds into, nor is refused for, a product of another list.
+
+**Done as:** `product.list_id` (migration `0016_product_lists`), the unique name key per household and list. A new product is its item's list's
+(the device sends it, and `apply` gives a product made with an item the item's list if it does not); only those on a list write its products, its
+list never changes, and a name folds only into a product of the same list. The pull and the export hand a reader the products of their lists (and
+one an item of their lists uses). On the device (`src/lists/adding.ts`) an add finds a product only in the list's own catalog; another list's product
+with the name lends its quantity, unit, category and icon to a new product of this list, so suggestions still come from every list a person has. A
+refused add moved to another list (`remake`) takes its new product with it. `adoptProductLists` gives every product from before a list at start.
+**Left out:** the migration does not copy a product used by items of several lists; it stays one, on the first of them, since everyone on those lists
+already saw it as one household. The name key is still derived from the group (21.4 makes it the list's). Tests: `scope.test.ts` (an add on a
+shared list never folds into another list's product, seen to fail before; the adoption), `adding.test.ts` (another list's product only lends its
+defaults, seen to fail before).
 
 #### 📋 21.4 — A list's keys
 

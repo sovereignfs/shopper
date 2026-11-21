@@ -25,6 +25,8 @@ export interface ListRow {
 export interface ProductRow {
   readonly id: string;
   readonly householdId: string;
+  /** The list whose catalog it is (RFC 0004); `null` only for one from before lists had catalogs of their own. */
+  readonly listId: string | null;
   readonly name: string;
   readonly note: string | null;
   readonly categoryId: string | null;

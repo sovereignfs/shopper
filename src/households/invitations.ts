@@ -294,7 +294,8 @@ export async function acceptInvitation(
         tx,
         sql`INSERT INTO ${member} (id, household_id, list_id, person_id, role, joined_at, left_at, seq)
             SELECT ${crypto.randomUUID()}, ${household}, ${list}, ${person.id}, 'member', CAST(${now} AS BIGINT), NULL, ${seq}
-            WHERE (SELECT COUNT(*) FROM ${member} WHERE list_id = ${list} AND left_at IS NULL) < ${limits.householdMembers}
+            WHERE EXISTS (SELECT 1 FROM ${appTable(tx, 'list')} WHERE id = ${list} AND household_id = ${household} AND deleted_at IS NULL)
+              AND (SELECT COUNT(*) FROM ${member} WHERE list_id = ${list} AND left_at IS NULL) < ${limits.householdMembers}
               AND (SELECT COUNT(DISTINCT m.household_id) FROM ${member} m JOIN ${appTable(tx, 'person')} p ON p.id = m.person_id
                    WHERE p.account_id = ${accountId} AND m.left_at IS NULL) < ${limits.accountHouseholds}
             ON CONFLICT (list_id, person_id) DO UPDATE
@@ -302,6 +303,12 @@ export async function acceptInvitation(
             RETURNING id`,
       );
       if (added.length === 0) {
+        // A list deleted since the link was made: the link is as dead as one revoked.
+        const there = await dbGet<{ id: string }>(
+          tx,
+          sql`SELECT id FROM ${appTable(tx, 'list')} WHERE id = ${list} AND household_id = ${household} AND deleted_at IS NULL`,
+        );
+        if (!there) throw new Invalid();
         const members = await dbGet<{ n: number | string }>(
           tx,
           sql`SELECT COUNT(*) AS n FROM ${member} WHERE list_id = ${list} AND left_at IS NULL`,
@@ -314,7 +321,7 @@ export async function acceptInvitation(
       }
       // The list's rows are stamped at this join, so that a device whose cursor for the group is past them pulls them (RFC 0004, "Sync").
       await stampList(tx, household, list, seq);
-      // The household's other members hear of it on their devices (RFC 0002), queued in this transaction: who joined, never the household's name.
+      // The list's other people hear of it on their devices (RFC 0002), queued in this transaction: who joined, never the list's name.
       const others = await dbAll<{ account_id: string }>(
         tx,
         sql`SELECT p.account_id FROM ${member} m JOIN ${appTable(tx, 'person')} p ON p.id = m.person_id
@@ -325,7 +332,7 @@ export async function acceptInvitation(
         await enqueuePush(store, {
           account: other.account_id,
           message: {
-            title: `${person.name || 'Someone'} joined your household`,
+            title: `${person.name || 'Someone'} joined a list you share`,
             path: '/',
             tag: `joined-${household}`,
             kind: 'member_joined',

@@ -77,6 +77,34 @@ describe('adding from a suggestion', () => {
     });
   });
 
+  it('never uses another list’s product: it lends what it comes with to a new product of this list (RFC 0004, 21.3)', () => {
+    const elsewhere = product({
+      listId: 'another-list',
+      name: 'Oat milk',
+      categoryId: DAIRY,
+      defaultQuantity: '2',
+      defaultUnit: 'L',
+      icon: 'milk',
+    });
+    for (const suggestion of [
+      only(suggest({ text: 'oat', products: [elsewhere], items: [], starter: [] })[0]),
+      typed('Oat milk'),
+    ]) {
+      const { mutation } = planned(planAdd(env(), context({ products: [elsewhere] }), suggestion));
+      const made = only(changesOf(mutation, 'product')[0]);
+      expect(made.id).not.toBe(elsewhere.id);
+      expect(made.create).toBe(true);
+      expect(made.fields.listId).toBe(list().id);
+      expect(changesOf(mutation, 'item')[0]?.fields).toMatchObject({
+        productId: made.id,
+        quantity: '2',
+        unit: 'L',
+        categoryId: DAIRY,
+        icon: 'milk',
+      });
+    }
+  });
+
   it('bumps what is already open instead of making a second row', () => {
     const milk = product({ name: 'Oat milk', categoryId: DAIRY, defaultQuantity: '1' });
     const open = item({ productId: milk.id, name: 'Oat milk', quantity: '2', categoryId: DAIRY });

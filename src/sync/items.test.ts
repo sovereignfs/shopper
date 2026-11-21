@@ -110,6 +110,7 @@ const asItem = (row: Record<string, unknown> | undefined, name = 'x'): ItemRow =
 const asProduct = (row: Record<string, unknown> | undefined): ProductRow => ({
   id: String(row?.id),
   householdId: String(row?.household_id),
+  listId: (row?.list_id as string | null) ?? null,
   name: 'x',
   note: null,
   categoryId: (row?.category_id as string | null) ?? null,

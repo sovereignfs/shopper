@@ -84,7 +84,7 @@ describe('moving a refused change to another list', () => {
     ).toBe(true);
   });
 
-  it('makes a new mutation with a new id, the item on the other list after its last, the product as it was', () => {
+  it('makes a new mutation with a new id, the item on the other list after its last, the product in its catalog', () => {
     const refused = addItem(e(), { list: list(), name: 'Oat milk', last: null, by: 'p' });
     const moved = remake(refused, target, 'a3', id);
     expect(moved).not.toBeNull();
@@ -92,9 +92,12 @@ describe('moving a refused change to another list', () => {
     const placed = moved?.changes.find((c) => c.table === 'item');
     expect(placed?.fields.listId).toBe(target.id);
     expect(String(placed?.fields.position) > 'a3').toBe(true);
-    expect(moved?.changes.find((c) => c.table === 'product')).toEqual(
-      refused.changes.find((c) => c.table === 'product'),
-    );
+    // The product it made is the same, in the catalog of the list it goes to (RFC 0004, 21.3).
+    const made = refused.changes.find((c) => c.table === 'product');
+    expect(moved?.changes.find((c) => c.table === 'product')).toEqual({
+      ...made,
+      fields: { ...made?.fields, listId: target.id },
+    });
     // The one it was made from is not touched.
     expect(refused.changes.find((c) => c.table === 'item')?.fields.listId).toBe(list().id);
   });

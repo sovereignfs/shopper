@@ -59,7 +59,8 @@ export async function personRecords(
       : table === 'item'
         ? onList(database, sql`r.list_id`, accountId)
         : table === 'product'
-          ? sql`(${ownerOf(database, sql`r.household_id`, accountId)} OR EXISTS (SELECT 1 FROM ${appTable(database, 'item')} vi
+          ? sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${ownerOf(database, sql`r.household_id`, accountId)})
+                 OR EXISTS (SELECT 1 FROM ${appTable(database, 'item')} vi
                  WHERE vi.product_id = r.id AND ${onList(database, sql`vi.list_id`, accountId)}))`
           : sql`1 = 1`;
   for (const household of households) {

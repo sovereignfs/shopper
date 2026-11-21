@@ -380,6 +380,10 @@ with editing categories (4.7).
 
 ## 8. The catalog
 
+> **Since [RFC 0004](docs/rfcs/0004-lists-of-their-own.md) (task 21.3) a catalog is a list's:** a product has `list_id`, its name key is unique per
+> list, an add finds and folds only into its own list's products, and another list's product with the name only lends what it comes with to a new one.
+> Suggestions still draw on every list a person has. Where this section says a household's catalog, read a list's. Task 21.1 rewrites it.
+
 ### 8.1 What it is for
 
 The catalog is what a household's Shopper remembers about the things it buys, so that adding is one tap and the item arrives right. It is never a

@@ -148,4 +148,51 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
       'Light bulbs',
     ]);
   });
+
+  it('takes an item moved twice, to lists the person is not on, off their device (RFC 0004)', async () => {
+    const ada = await somebody(database, 'Ada-twice');
+    const grace = await somebody(database, 'Grace-twice');
+    const adas = await device(deps, ada);
+    await adas.client.sync();
+    const lists: string[] = [];
+    for (const [name, position] of [
+      ['Hardware', 'a5'],
+      ['Party', 'a6'],
+    ] as const) {
+      const made = makeList(env(), { householdId: ada.household, name, position });
+      await adas.client.commit(made);
+      lists.push(made.changes[0]?.id ?? '');
+    }
+    await adas.client.sync();
+    const [hardware = '', party = ''] = lists;
+    await joinList(database, ada.household, ada.list, grace);
+    const shared = (await adas.client.read((db) => listsOf(db, ada.household))).find(
+      (l) => l.id === ada.list,
+    );
+    if (!shared) throw new Error('no Groceries');
+    await adas.client.commit(
+      addItem(env(), { list: shared, name: 'Candles', last: null, by: ada.personId }),
+    );
+    await adas.client.sync();
+    const graces = await device(deps, grace);
+    await graces.client.sync();
+    expect((await graces.client.read((db) => itemsOf(db, ada.list))).map((i) => i.name)).toEqual([
+      'Candles',
+    ]);
+    for (const to of [hardware, party]) {
+      const item = (
+        await adas.client.read(async (db) => [
+          ...(await itemsOf(db, ada.list)),
+          ...(await itemsOf(db, hardware)),
+        ])
+      )[0];
+      if (!item) throw new Error('no item');
+      const move = moveItem(env(), item, { position: 'a0', listId: to });
+      if (!move) throw new Error('nothing to move');
+      await adas.client.commit(move);
+      await adas.client.sync();
+    }
+    await graces.client.sync();
+    expect(await graces.client.read((db) => itemsOf(db, ada.list))).toEqual([]);
+  });
 });

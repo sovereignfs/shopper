@@ -45,6 +45,12 @@ export const deleteList: Operation = {
         tx,
         sql`DELETE FROM ${appTable(tx, 'item')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
       );
+      // Its links go with it, so that nobody joins a list that is gone (RFC 0004).
+      await dbAll(
+        tx,
+        sql`UPDATE ${appTable(tx, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL
+            WHERE list_id = ${listId} AND household_id = ${household} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
+      );
       // Its people go with it (RFC 0004).
       await dbAll(
         tx,

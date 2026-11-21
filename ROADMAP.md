@@ -254,7 +254,7 @@ take theirs, and an export imports into a second account.
 | --- | --------------------------- | ------------------------------------ | -------- | ---------- | ------ |
 | 86  | [21.1](docs/epics/lists.md) | The design                           | P0       | —          | 📋     |
 | 87  | [21.2](docs/epics/lists.md) | A list's people, and the leak closed | P0       | 21.1       | ✅     |
-| 88  | [21.3](docs/epics/lists.md) | A list's catalog                     | P0       | 21.2       | 📋     |
+| 88  | [21.3](docs/epics/lists.md) | A list's catalog                     | P0       | 21.2       | ✅     |
 | 89  | [21.4](docs/epics/lists.md) | A list's keys                        | P0       | 21.3       | 📋     |
 | 90  | [21.5](docs/epics/lists.md) | Screens without households           | P1       | 21.2       | ✅     |
 | 91  | [21.6](docs/epics/lists.md) | The phone                            | P1       | 21.5       | ✅     |
