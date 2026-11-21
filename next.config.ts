@@ -5,6 +5,9 @@ const config: NextConfig = {
   // One self-contained server in .next/standalone: what the image runs (task 1.10).
   output: 'standalone',
   poweredByHeader: false,
+  // `next dev` would otherwise add a block to AGENTS.md, which `npm create @sovereignfs app sync` writes and this repository never edits; its
+  // rules already send an agent to the guide in node_modules/next/dist/docs/.
+  agentRules: false,
   // Loaded by Node at run time, not bundled: pg is CommonJS with optional native parts, and libsql ships a native addon that only the `file:`
   // database loads.
   serverExternalPackages: ['pg', '@libsql/client', 'libsql'],

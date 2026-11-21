@@ -130,6 +130,14 @@ You need Node 24.15 or newer and [pnpm](https://pnpm.io).
 
 ```bash
 pnpm install --frozen-lockfile
+cp .env.example .env
+```
+
+Then in `.env`, set `SHOPPER_AUTH_SECRET` (`openssl rand -base64 48`) and `SHOPPER_ENCRYPTION_KEY` (`openssl rand -base64 32`). Also set a database you
+have: `SHOPPER_DB_DIALECT=sqlite` and `SHOPPER_SQLITE_URL=file:./data/shopper.db` need nothing running (the default, `sqld`, is the one in
+`deploy/`). Then:
+
+```bash
 pnpm dev
 ```
 
