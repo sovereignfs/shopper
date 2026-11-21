@@ -427,3 +427,30 @@ describe(`a link to an encrypted household (${testTarget().leg})`, () => {
     expect((await rows(sql`id = ${other.id}`))[0]?.wrapped_key).toBeNull();
   });
 });
+
+describe(`a push when someone joins (${testTarget().leg})`, () => {
+  it('is queued for the household’s other members’ devices, never the one who joined, and names no household', async () => {
+    const { pushStore } = await import('../push/store');
+    const ada = await somebody(database, 'Ada');
+    const grace = await somebody(database, 'Grace');
+    const store = pushStore(database, TEST_RING);
+    const device = (who: string) => ({
+      endpoint: `https://fcm.googleapis.com/fcm/send/${who}-${crypto.randomUUID()}`,
+      p256dh:
+        'BK3xhTb5gk1p7y4V6bW1i6p1Xq5e3l8Cq1x5yKZ7b3VQfQe1L7Z3Q8c4j9n2t0r6w1s5u9y3a7e1i5o9u3e7i1o5u9a',
+      auth: 'AAAAAAAAAAAAAAAAAAAAAA',
+    });
+    const adas = device('ada');
+    const graces = device('grace');
+    await store.saveDevice(ada.accountId, adas, NOW);
+    await store.saveDevice(grace.accountId, graces, NOW);
+    const made = await make(ada);
+    expect((await accept(grace, made.token)).status).toBe('joined');
+    const queued = await dbAll<{ endpoint: string; message: string }>(
+      database,
+      sql`SELECT endpoint, message FROM ${appTable(database, 'push_outbox')}`,
+    );
+    expect(queued.map((row) => row.endpoint)).toEqual([adas.endpoint]);
+    expect(JSON.parse(queued[0]?.message ?? '{}').title).toBe('Grace joined your household');
+  });
+});

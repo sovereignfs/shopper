@@ -10,6 +10,8 @@ import { type Limits } from '../limits/config';
 import { limitSentence } from '../limits/limits';
 import { personById, personOfAccount } from '../people/people';
 import { householdLabel } from './label';
+import { enqueuePush } from '@sovereignfs/push';
+import { pushStore } from '../push/store';
 
 /**
  * **Invitations by link** (DESIGN.md §7.3). People join a household only by accepting, never by being added. In 0.1.0 an invitation is a link and nothing
@@ -310,6 +312,24 @@ export async function acceptInvitation(
             : limitSentence('accountHouseholds', limits.accountHouseholds),
         );
       }
+      // The household's other members hear of it on their devices (RFC 0002), queued in this transaction: who joined, never the household's name.
+      const others = await dbAll<{ account_id: string }>(
+        tx,
+        sql`SELECT p.account_id FROM ${member} m JOIN ${appTable(tx, 'person')} p ON p.id = m.person_id
+            WHERE m.household_id = ${household} AND m.left_at IS NULL AND p.account_id IS NOT NULL AND p.account_id <> ${accountId}`,
+      );
+      const store = pushStore(tx, ring);
+      for (const other of others)
+        await enqueuePush(store, {
+          account: other.account_id,
+          message: {
+            title: `${person.name || 'Someone'} joined your household`,
+            path: '/',
+            tag: `joined-${household}`,
+            kind: 'member_joined',
+          },
+          now,
+        });
       return {
         status: 'joined' as const,
         household,

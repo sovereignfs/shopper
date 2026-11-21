@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { turnOffPush } from '@sovereignfs/pwa/client';
 import { UserMenu } from '@sovereignfs/ui';
 import { useKeys } from '../keys/keys';
 import { useLocal, useLocalQuery } from '../local/react';
@@ -23,6 +24,8 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
 
   async function signOut() {
     setLeaving(true);
+    // This device takes no more pushes for the account (RFC 0002): the server forgets it first, and the browser gives it up. Never throws.
+    await turnOffPush();
     // Not left: the person kept their unsent changes, or the server could not be reached to end the session. Either way they are as they were.
     if ((await leave()).status !== 'left') return setLeaving(false);
     // What this browser keeps of the key goes too (RFC 0001); with the session gone it opened nothing anyway.

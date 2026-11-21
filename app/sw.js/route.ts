@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { serviceWorkerResponse } from '@sovereignfs/pwa';
+import { getConfig } from '@/src/config/current';
 import { inertWorkerSource, workerSource } from '@/src/sw/source';
 
 /**
@@ -41,5 +42,9 @@ function builtFiles(): string[] {
 export function GET() {
   const version = buildId();
   // A development server has no build to keep: its worker keeps nothing and goes.
-  return serviceWorkerResponse(version ? workerSource(version, builtFiles()) : inertWorkerSource());
+  return serviceWorkerResponse(
+    version
+      ? workerSource(version, builtFiles(), getConfig().push !== undefined)
+      : inertWorkerSource(),
+  );
 }

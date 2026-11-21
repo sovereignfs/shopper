@@ -138,6 +138,7 @@ describe('the registry and the design', () => {
   const SERVER_HELD: Record<string, readonly string[]> = {
     person: ['name', 'email'],
     invitation: ['email'],
+    push_device: ['p256dh', 'auth'],
   };
 
   it('reads the design’s tables', () => {
@@ -148,12 +149,13 @@ describe('the registry and the design', () => {
     const held = squash(design.slice(design.indexOf('### 13.4'), design.indexOf('### 13.5')));
     expect(held).toContain(squash("a person's name and email"));
     expect(held).toContain(squash("an invitation's email"));
+    expect(held).toContain(squash("a push device's keys"));
   });
 
   it('lists no table or field the design does not seal', () => {
     const rows = sealedInDesign();
     for (const [table, fields] of Object.entries(SERVER_HELD))
-      rows.set(table, new Set([...(rows.get(table) ?? []), ...fields]));
+      rows.set(squash(table), new Set([...(rows.get(squash(table)) ?? []), ...fields.map(squash)]));
     const offenders: string[] = [];
     for (const [table, fields] of Object.entries(SEALED)) {
       const allowed = rows.get(squash(table));

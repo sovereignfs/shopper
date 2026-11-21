@@ -1,4 +1,5 @@
 import type { Config } from '../config';
+import { pushOutboxJob } from '../push/job';
 import { JobRunner, realDeps, type JobDefinition, type RunnerDeps } from './runner';
 
 /**
@@ -6,7 +7,7 @@ import { JobRunner, realDeps, type JobDefinition, type RunnerDeps } from './runn
  * the jobs that wait for the clock arrive in phase 2: finishing trips (7.2), the mail (9.1), the digest and the trimming of notices (9.3, 9.2) and
  * pruning the history (6.6).
  */
-export const jobs: readonly JobDefinition[] = [];
+export const jobs: readonly JobDefinition[] = [pushOutboxJob];
 
 /**
  * Starts the jobs, or says why not. `SHOPPER_WORKER=off` runs nothing in this process: when several share a database, one runs the jobs and the

@@ -326,3 +326,38 @@ export const householdKey = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.householdId, table.personId] })],
 );
+
+/**
+ * A device that takes Web Push (RFC 0002, `@sovereignfs/push`): an account's, at most ten. Its keys are sealed by the server (`src/crypto/`), which needs
+ * them to send; the endpoint is the push service's address for the device. Deleted with the person.
+ */
+export const pushDevice = sqliteTable(
+  'push_device',
+  {
+    // The push service's address for the device, which is the row's id.
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    sealed: sealed('sealed').notNull(),
+    savedAt: epochMs('saved_at').notNull(),
+  },
+  (table) => [index('push_device_account_idx').on(table.accountId, table.savedAt)],
+);
+
+/** A push waiting to be sent to one device, claimed by the outbox job with a lease. Goes with its device: every deletion here names both. */
+export const pushOutbox = sqliteTable(
+  'push_outbox',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    endpoint: ref('endpoint').notNull(),
+    message: text('message').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    dueAt: epochMs('due_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    expiresAt: epochMs('expires_at').notNull(),
+  },
+  (table) => [
+    index('push_outbox_due_idx').on(table.dueAt, table.claimedUntil),
+    index('push_outbox_endpoint_idx').on(table.endpoint),
+  ],
+);

@@ -42,10 +42,20 @@ self.addEventListener('sync', function (event) {
 }
 
 /** The worker of a production build, for `version` (Next's build id), keeping `files` (the build's static files) at install. */
-export function workerSource(version: string, files: readonly string[] = []): string {
+export function workerSource(
+  version: string,
+  files: readonly string[] = [],
+  /** Whether Shopper sends pushes (RFC 0002): only then does the worker show them. A push says what happened and who did it, never a name. */
+  push = false,
+): string {
   return (
-    serviceWorkerSource({ version, cachePrefix: CACHE_PREFIX, precache: files, shell: '/shell' }) +
-    backgroundSyncSource()
+    serviceWorkerSource({
+      version,
+      cachePrefix: CACHE_PREFIX,
+      precache: files,
+      shell: '/shell',
+      ...(push ? { push: { name: 'Shopper', icon: '/icons/icon-192.png' } } : {}),
+    }) + backgroundSyncSource()
   );
 }
 

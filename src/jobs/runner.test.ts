@@ -329,7 +329,7 @@ describe('starting the jobs', () => {
     await runner?.stop();
   });
 
-  it('has no job in 0.1.0: the key rotation runs at start-up, and each job of phase 2 adds itself here', () => {
-    expect(jobs).toEqual([]);
+  it('has the push outbox (RFC 0002) and nothing else yet: the key rotation runs at start-up, and each later job adds itself here', () => {
+    expect(jobs.map((job) => job.name)).toEqual(['push outbox']);
   });
 });

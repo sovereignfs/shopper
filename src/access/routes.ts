@@ -111,6 +111,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/push/subscription',
+    who: 'signed-in',
+    note: 'This device’s push subscription (RFC 0002): the session’s own account only, and a change only from Shopper’s own pages.',
+  },
+  {
+    kind: 'route',
     address: '/api/keys/move',
     who: 'signed-in',
     note: 'Moving a household to content its device encrypts (RFC 0001): only its only member, only while it is sealed; anyone else reads as not found.',

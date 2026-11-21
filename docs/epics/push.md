@@ -15,7 +15,7 @@ Shopper notifies a device where it is not open, with `@sovereignfs/push` and `@s
 
 ## Tasks
 
-#### 📋 19.1 — Push on the server
+#### ✅ 19.1 — Push on the server
 
 **Goal:** a device can subscribe, and Shopper can send to it. **Design:** RFC 0002, "What is built". **Depends on:** 17.1, 18.11.
 
@@ -26,7 +26,17 @@ job; `People.deletePerson` forgetting devices.
 
 **Accepts when:** the conformance suite passes on all three databases; with no key, the route answers that push is off and nothing is sent.
 
-#### 📋 19.2 — The worker, the page and the first kind
+**Done as:**
+
+- **The package and its settings:** `@sovereignfs/push` 0.2.0. `SHOPPER_VAPID_PRIVATE_KEY` and `SHOPPER_VAPID_SUBJECT` are declared with the other settings and checked at start by the package's own `pushSettings`, so a wrong key stops the server.
+- **Where they are written down:** `.env.example`, the README's table and the manifest's `generate`. The Compose files read `.env`, and push is optional, so they needed no change.
+- **The tables** are `push_device` (the endpoint as the row's id, its keys a sealed row, so key rotation re-wraps them) and `push_outbox` (migration `0014`).
+- **The store** (`src/push/store.ts`) passes the package's `pushStoreConformance` on each database. There are no foreign keys: what a cascade would do is written out.
+- **The route and job:** `pushSubscriptionHandlers` at `/api/push/subscription` (the package's default address), in the route list; `runPushOutbox` as the `push outbox` job, every 15 seconds.
+- **Deletion:** `People.deletePerson` forgets the person's devices.
+- **A browser test** calls the route signed in, from another site and as a visitor (`e2e/security.spec.ts`).
+
+#### ✅ 19.2 — The worker, the page and the first kind
 
 **Goal:** a person turns push on and hears when someone joins their household. **Design:** RFC 0002, "What is built", "What is pushed". **Depends
 on:** 19.1, 17.2.
@@ -35,6 +45,14 @@ on:** 19.1, 17.2.
 `enqueuePush` in the accepting operation (3.4) to the other members; the words "Sam joined your household" and nothing of the household's name.
 
 **Accepts when:** a subscribed browser receives one push when someone joins, the joiner none; turning it off stops it; signing out unsubscribes.
+
+**Done as:**
+
+- **The worker** shows pushes (`serviceWorkerSource({ push })`), only when the server has a push key.
+- **Settings › Notifications** uses `PushControl` with `usePush`.
+- **Sign-out** calls `turnOffPush` first.
+- **The first kind:** joining a household queues a push, in the acceptance's transaction, to the other members' devices only: "Grace joined your household", with no household name. A test holds that.
+- **Left out:** a push received in a real browser (Playwright cannot subscribe to a push service); WebKit.
 
 #### 📋 19.3 — Push as a channel of notices (phase 2)
 

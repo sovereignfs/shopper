@@ -22,6 +22,10 @@
     {
       "name": "SHOPPER_ENCRYPTION_KEY",
       "bytes": 32
+    },
+    {
+      "name": "SHOPPER_VAPID_PRIVATE_KEY",
+      "bytes": 32
     }
   ],
   "core": ">=0.126.0 <1.0.0"

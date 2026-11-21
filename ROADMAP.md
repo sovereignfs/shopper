@@ -220,8 +220,8 @@ and no file on all three databases, both kinds of account unlock and share, and 
 
 | #   | ID                         | Task                                    | Priority | Depends on  | Status |
 | --- | -------------------------- | --------------------------------------- | -------- | ----------- | ------ |
-| 77  | [19.1](docs/epics/push.md) | Push on the server                      | P1       | 17.1, 18.11 | 📋     |
-| 78  | [19.2](docs/epics/push.md) | The worker, the page and the first kind | P1       | 19.1, 17.2  | 📋     |
+| 77  | [19.1](docs/epics/push.md) | Push on the server                      | P1       | 17.1, 18.11 | ✅     |
+| 78  | [19.2](docs/epics/push.md) | The worker, the page and the first kind | P1       | 19.1, 17.2  | ✅     |
 
 ### Milestone U — Exports and backups
 

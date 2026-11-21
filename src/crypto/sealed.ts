@@ -25,6 +25,8 @@ export const SEALED: SealedRegistry = {
   category: ['name'],
   list: ['name'],
   item: ['name', 'note'],
+  // A push device's keys (RFC 0002): the server needs them to send, so it holds them sealed (DESIGN.md §13.4). The row's id is its endpoint.
+  push_device: ['p256dh', 'auth'],
 };
 
 /** A sealed field's value: text, or a number (money, in phase 2), or nothing. */

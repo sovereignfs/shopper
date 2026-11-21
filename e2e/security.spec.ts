@@ -378,7 +378,16 @@ test('the vault and the key secret are the session’s own: another person gets 
   expect(foreign.status()).toBe(403);
   await other.context.close();
 
+  // Push (RFC 0002): a signed-in person is told whether this server sends any; a change from another site, and a visitor, get nothing.
+  expect((await page.request.get(`${base}/api/push/subscription`)).status()).toBe(200);
+  const foreignPush = await page.request.post(`${base}/api/push/subscription`, {
+    headers: { origin: 'https://elsewhere.test' },
+    data: {},
+  });
+  expect([403, 503]).toContain(foreignPush.status());
+
   const visitor = await anotherDevice(browser, base);
+  expect((await visitor.page.request.get(`${base}/api/push/subscription`)).status()).toBe(401);
   expect((await visitor.page.request.get(`${base}/api/keys/secret`)).status()).toBe(401);
   expect((await visitor.page.request.get(`${base}/api/keys/vault`)).status()).toBe(401);
   await visitor.context.close();

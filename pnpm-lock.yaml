@@ -23,6 +23,9 @@ importers:
       '@sovereignfs/config':
         specifier: 0.1.0
         version: 0.1.0
+      '@sovereignfs/push':
+        specifier: 0.2.0
+        version: 0.2.0
       '@sovereignfs/pwa':
         specifier: 0.2.0
         version: 0.2.0(@sovereignfs/ui@0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
@@ -1198,6 +1201,11 @@ packages:
 
   '@sovereignfs/manifest@0.4.0':
     resolution: {integrity: sha512-RqmfZW03RQVD7XoLIurr8V6AAKgsjq3iYrEf/hy5IskVTsbGEu+kulDufXxuwVP0bIbNuFRjFjMGtAjhodgPHg==}
+    engines: {node: '>=22.3'}
+    hasBin: true
+
+  '@sovereignfs/push@0.2.0':
+    resolution: {integrity: sha512-4ytKykVflPXJWNTulKcyIvAA6lkv59wtnCBSOf+x9XgadfB7bCEnch2miitFkk+TWnXN7eOUTnyyrq29ivPi8g==}
     engines: {node: '>=22.3'}
     hasBin: true
 
@@ -3408,6 +3416,8 @@ snapshots:
       age-encryption: 0.3.1
 
   '@sovereignfs/manifest@0.4.0': {}
+
+  '@sovereignfs/push@0.2.0': {}
 
   '@sovereignfs/pwa@0.2.0(@sovereignfs/ui@0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)':
     dependencies:

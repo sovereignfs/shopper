@@ -32,6 +32,7 @@ const SECRETS = new Set([
   'ENCRYPTION_KEY_PREVIOUS',
   'POSTGRES_URL',
   'SMTP_PASSWORD',
+  'VAPID_PRIVATE_KEY',
 ]);
 
 /** Every setting the app reads as text, by its name without the prefix. */
@@ -60,6 +61,7 @@ const TEXT = [
   'LIMIT_HOUSEHOLD_LISTS',
   'LIMIT_LIST_OPEN_ITEMS',
   'LIMIT_HOUSEHOLD_PRODUCTS',
+  'VAPID_SUBJECT',
 ] as const;
 
 const PREFIX = 'SHOPPER_';

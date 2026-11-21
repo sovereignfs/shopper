@@ -8,6 +8,7 @@ import * as sqliteAuth from '../db/schema/sqlite/auth';
 import { appTable } from '../db/tables';
 import { HOUSEHOLD_TABLES } from '../households/tables';
 import { vaultOf } from '../keys/server/vault';
+import { pushStore } from '../push/store';
 
 /**
  * **Everything personal of an account is removed by this, and only this** (DESIGN.md §19). One routine, in a fixed order, **safe to run again**: the two
@@ -93,6 +94,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   // 3. What was kept for them: their keys in Shopper's vault (RFC 0001; with them gone, nothing encrypted for them opens for them, backups
   // included), their settings, the record of the mutations they sent, and the rate counters that carry their account.
   await vaultOf(database).deleteAccount(accountId);
+  // Their devices for Web Push (RFC 0002), with what was waiting for them.
+  await pushStore(database, deps.ring).removeAccount(accountId);
   // Their copies of households' keys (RFC 0001): in a household that carries on, the others keep theirs.
   if (person)
     await dbAll(

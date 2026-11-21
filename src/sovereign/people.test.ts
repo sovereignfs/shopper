@@ -42,6 +42,8 @@ const DECIDED_APP: Record<string, string> = {
   account_settings: 'the account’s own, deleted by account_id',
   household_key:
     'a member’s copy of a household’s keys: deleted with the person, and with a household nobody else is in',
+  push_device: 'the account’s own devices for push, deleted by account_id',
+  push_outbox: 'pushes waiting for the account’s devices, deleted with them',
 };
 const DECIDED_AUTH: Record<string, string> = {
   user: 'deleted',
