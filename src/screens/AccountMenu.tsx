@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UserMenu } from '@sovereignfs/ui';
+import { useKeys } from '../keys/keys';
 import { useLocal, useLocalQuery } from '../local/react';
 import { failedCount } from '../local/store';
 import styles from './AccountMenu.module.css';
@@ -15,6 +16,7 @@ import styles from './AccountMenu.module.css';
 export function AccountMenu({ name, email }: { name: string; email: string }) {
   const router = useRouter();
   const { leave } = useLocal();
+  const keys = useKeys();
   // What the server refused and the person has not yet seen to: a mark on the avatar and an entry in its menu (DESIGN.md §12.5).
   const refused = useLocalQuery(failedCount).data ?? 0;
   const [leaving, setLeaving] = useState(false);
@@ -23,6 +25,8 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
     setLeaving(true);
     // Not left: the person kept their unsent changes, or the server could not be reached to end the session. Either way they are as they were.
     if ((await leave()).status !== 'left') return setLeaving(false);
+    // What this browser keeps of the key goes too (RFC 0001); with the session gone it opened nothing anyway.
+    await keys.forget();
     window.location.assign('/');
   }
 

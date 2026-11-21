@@ -119,7 +119,7 @@ back-channel logout leaves nothing that opens.
 - **A release from core, end to end**, and its refusals. The SDK's fake core (`@sovereignfs/sdk/testing`) has no key release to answer one, so the round trip is the SDK's own tested code and not run here; raised as 16.16.
 - **A unit test of `keySourceOf` for a core account** (it reads the server's own settings); a browser test of it needs the same fake.
 
-#### 📋 18.4 — The key in the page
+#### ✅ 18.4 — The key in the page
 
 **Goal:** one interface over both ways, and nothing shown that cannot be opened. **Design:** RFC 0001, "Keys", "The screens". **Depends on:** 18.2,
 18.3.
@@ -128,6 +128,16 @@ back-channel logout leaves nothing that opens.
 `LockedState` wherever a key is missing; `forget()` and the store's deletion at sign-out.
 
 **Accepts when:** both kinds of account reach their lists after unlocking, and a locked device shows `LockedState`, never ciphertext.
+
+**Done as:** `src/keys/keys.tsx`: `KeysProvider` and `useKeys` (`current`, `unlock`, `forget`) over core's `appKeys` or the vault's `localVault`, chosen
+by the server per account (`keySourceOf`) and handed to the signed-in layout. **The key does not gate the screens**, which the epic's words assumed it
+would: the SDK keeps a browser's key wrapped by the session's secret, which only the server holds, so a cold start with no network cannot open it,
+and Shopper must work in the shop with none. The device's store keeps what it has opened (§12.1); encrypting what is sent and opening what arrives
+happen when syncing (18.6), which needs the network anyway. A locked key, online, shows `KeyPrompt`: `LockedState` above the lists, with core's
+Unlock or the password (derived, then `afterSignIn`); offline it shows nothing. Sign-out calls `forget()` once the device has left. A browser test
+(`e2e/keys.spec.ts`) empties the browser's stores, finds the prompt above the lists, refuses a wrong password and opens with the right one. Verified:
+`pnpm verify`; `pnpm test`; `pnpm e2e --project=chromium`. Left out: WebKit's run, whose browser is not installed here and was not asked for; core's
+Unlock end to end (16.16).
 
 #### 📋 18.5 — Household keys
 

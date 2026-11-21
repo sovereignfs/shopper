@@ -201,7 +201,7 @@ and no file on all three databases, both kinds of account unlock and share, and 
 | 62  | [18.2](docs/epics/encryption.md)  | Shopper's own vault                                           | P0       | 18.1            | ✅     |
 | 63  | [16.10](docs/epics/upstream.md)   | The key secret over an app's own session (`sovereign`)        | P0       | —               | 📋     |
 | 64  | [18.3](docs/epics/encryption.md)  | Key release through core                                      | P0       | 18.1, 16.10     | ✅     |
-| 65  | [18.4](docs/epics/encryption.md)  | The key in the page                                           | P0       | 18.2, 18.3      | 📋     |
+| 65  | [18.4](docs/epics/encryption.md)  | The key in the page                                           | P0       | 18.2, 18.3      | ✅     |
 | 66  | [18.5](docs/epics/encryption.md)  | Household keys                                                | P0       | 18.4            | 📋     |
 | 67  | [18.6](docs/epics/encryption.md)  | Content encrypted in sync                                     | P0       | 18.5            | 📋     |
 | 68  | [18.11](docs/epics/encryption.md) | The server seals only what it must                            | P1       | 18.6            | 📋     |

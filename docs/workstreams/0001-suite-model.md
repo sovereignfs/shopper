@@ -109,6 +109,8 @@ key) and `docs/epics/README.md`'s "every task holds" change with it.
 **Why here:** nothing can be encrypted before an account has a key. Sign-in stays on `src/auth/` ([ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md)'s
 fallback, taken after checking the package against 0.1.0's accounts).
 
+**Done (2026-11-21):** 18.2, 18.3, 18.4. The key does not gate the screens (18.4's Done as): leg 4 encrypts and opens at sync, not at render.
+
 **Technical notes:** a standalone sign-in now sends the `svp1.…` value where it sent the password: existing 0.1.0 password accounts move on their
 next sign-in (better-auth checks the old password once, then stores the derived value). `/auth/key-secret` over better-auth's session is 16.10's
 question; if the SDK's helper needs its own `nextAuth`, keep the secret with better-auth's session row and serve it from Shopper's route.
