@@ -5,7 +5,8 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '@sovereignfs/ui';
 import { isId } from '../actions/format';
-import { type Identity, readIdentity } from '../identity';
+import { type Identity, readIdentity, readKeySource } from '../identity';
+import { KeysProvider, parseKeySource } from '../keys/keys';
 import { LocalProvider } from '../local/react';
 import { site } from '../site';
 import { answersOffline } from '../sw/shared';
@@ -32,6 +33,8 @@ export function OfflineApp() {
   // Not known until the page is in the browser: the server renders nothing of a person.
   const [who, setWho] = useState<Identity | null | undefined>(undefined);
   useEffect(() => setWho(readIdentity()), []);
+  // Read once: the provider makes its way to the key from it, and must not make a new one at each render.
+  const [keySource] = useState(() => parseKeySource(readKeySource()));
 
   if (who === undefined) return null;
   if (who === null)
@@ -46,13 +49,15 @@ export function OfflineApp() {
       </AppShell>
     );
   return (
-    <LocalProvider accountId={who.id}>
-      <UndoProvider>
-        <ShellFrame account={<AccountMenu name={who.name} email={who.email} />}>
-          <Screen />
-        </ShellFrame>
-      </UndoProvider>
-    </LocalProvider>
+    <KeysProvider source={keySource}>
+      <LocalProvider accountId={who.id}>
+        <UndoProvider>
+          <ShellFrame account={<AccountMenu name={who.name} email={who.email} />}>
+            <Screen />
+          </ShellFrame>
+        </UndoProvider>
+      </LocalProvider>
+    </KeysProvider>
   );
 }
 

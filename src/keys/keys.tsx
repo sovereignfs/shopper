@@ -85,6 +85,10 @@ export function KeysProvider({
 
   useEffect(() => {
     void open();
+    // With no network the key cannot open (the session's secret is the server's): it is tried again when the network is back.
+    const retry = () => void open();
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
   }, [open]);
 
   const keys = useMemo<Keys>(
@@ -115,4 +119,20 @@ export function KeysProvider({
   );
 
   return <KeysContext.Provider value={keys}>{children}</KeysContext.Provider>;
+}
+
+/** A key source read back from the device (`readKeySource`), if it has the shape of one; anything else is none. */
+export function parseKeySource(value: unknown): PageKeySource | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  if (v.kind === 'vault' && typeof v.vaultId === 'string' && typeof v.email === 'string')
+    return { kind: 'vault', vaultId: v.vaultId, email: v.email };
+  if (
+    v.kind === 'core' &&
+    typeof v.core === 'string' &&
+    typeof v.clientId === 'string' &&
+    typeof v.returnTo === 'string'
+  )
+    return { kind: 'core', core: v.core, clientId: v.clientId, returnTo: v.returnTo };
+  return undefined;
 }

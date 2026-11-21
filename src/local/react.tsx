@@ -20,6 +20,8 @@ import { requestPersistence } from './persist';
 import { type Left, leaveDevice } from './signout';
 import { rememberPersistence } from './store';
 import { fetchTransport } from './transport';
+import { EncryptionMemory, encryptingTransport } from '../keys/transport';
+import { useKeys } from '../keys/keys';
 
 /**
  * The working copy in React (DESIGN.md §12.1): `LocalProvider` opens this account's database once the page is in the browser, makes the client and starts
@@ -53,6 +55,14 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
   const fresh = useRef(0);
   const syncNow = useRef<() => void>(() => undefined);
   const rearm = useRef<() => void>(() => undefined);
+  // The key as it is at each sync (RFC 0001): read through a ref, so that unlocking needs no new loop.
+  const keys = useKeys();
+  const appKeyRef = useRef<CryptoKey | undefined>(undefined);
+  appKeyRef.current = keys.current.state === 'open' ? keys.current.key : undefined;
+  // Unlocked, sync at once: what the device held back goes now.
+  useEffect(() => {
+    if (keys.current.state === 'open') syncNow.current();
+  }, [keys.current.state]);
 
   useEffect(() => {
     let stopped = false;
@@ -78,7 +88,11 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       channel?.addEventListener('message', onLeft);
       const made = new SyncClient({
         db,
-        transport: fetchTransport(),
+        transport: encryptingTransport(
+          fetchTransport(),
+          { appKey: () => appKeyRef.current },
+          new EncryptionMemory(storage(), `shopper.encrypted.${accountId}`),
+        ),
         channel: channel ?? undefined,
       });
       let intervalMs = DEFAULT_INTERVAL_MS;
@@ -234,4 +248,13 @@ export function useLocalQuery<T>(
   }, [client, ...deps]);
 
   return state;
+}
+
+/** The page's own storage, if it may be used: which households have moved is kept there, per account, and removed at sign-out. */
+function storage(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }

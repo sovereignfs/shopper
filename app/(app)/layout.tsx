@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           accountId={session.user.id}
           name={session.user.name}
           email={session.user.email}
+          keys={source}
         />
         <UndoProvider>
           <ShellFrame account={<AccountMenu name={session.user.name} email={session.user.email} />}>

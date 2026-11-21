@@ -50,8 +50,37 @@ export function readIdentity(): Identity | null {
 
 export function forgetIdentity(): void {
   try {
+    const who = readIdentity();
     window.localStorage.removeItem(IDENTITY_KEY);
+    window.localStorage.removeItem(KEY_SOURCE_KEY);
+    // Which of the account's households have moved (RFC 0001, `src/keys/transport.ts`).
+    if (who) window.localStorage.removeItem(`shopper.encrypted.${who.id}`);
   } catch {
     // Nothing to remove from.
+  }
+}
+
+/**
+ * Where the account's key comes from (RFC 0001, `PageKeySource`), kept beside who is signed in so that the offline shell can open the key once there is
+ * a network again. It names a way to the key, never the key: core's address and the app's client id, or the vault's id and the address the password is
+ * derived with. Removed at sign-out with the rest.
+ */
+export const KEY_SOURCE_KEY = 'shopper.keys';
+
+export function rememberKeySource(source: unknown): void {
+  try {
+    if (source === undefined) window.localStorage.removeItem(KEY_SOURCE_KEY);
+    else window.localStorage.setItem(KEY_SOURCE_KEY, JSON.stringify(source));
+  } catch {
+    // Storage that is full or blocked: the shell then holds the sync until a signed-in page has opened the key.
+  }
+}
+
+export function readKeySource(): unknown {
+  try {
+    const text = window.localStorage.getItem(KEY_SOURCE_KEY);
+    return text ? (JSON.parse(text) as unknown) : undefined;
+  } catch {
+    return undefined;
   }
 }
