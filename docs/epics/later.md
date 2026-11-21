@@ -16,11 +16,11 @@ What has been asked for or considered, recorded so it is not lost (`DESIGN.md` �
 
 #### 🚧 15.1 — Encrypted backup to Git
 
-**Goal:** a household's data kept in a repository the person names, encrypted. **Design:** §22.4. **Depends on:** 11.1.
+**Goal:** a household's data kept in a repository the person names, encrypted. **Design:** §22.4, RFC 0003. **Depends on:** 20.3.
 
 **Outline:** the export format, encrypted (as the other apps plan their backups), committed on a schedule and on demand; the repository's credential
-kept through `src/crypto/`. Wanted by the owner and deferred on 2026-11-09; how it is encrypted follows whatever the suite settles for Tusk's and
-Wallet's backups.
+kept through `src/crypto/`. Wanted by the owner and deferred on 2026-11-09; the format is now the app's export (20.3), and the destination
+waits on `sovereign`'s backups to a destination (RFC 0008, milestone 2).
 
 #### 🚧 15.2 — Sending a trip to Ledger or Tally
 

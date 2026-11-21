@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned. **All of epic 11 is phase 2.** Until it lands a person can delete their account (2.5) but not take a file of their lists with them;
+📋 Planned; 11.1 and 11.2 superseded by epic 20. **All of epic 11 is phase 2.** Until it lands a person can delete their account (2.5) but not take a file of their lists with them;
 the README says so.
 
 ## Overview
@@ -16,7 +16,9 @@ A person can take their households with them, bring them back, and bring in what
 
 ## Tasks
 
-#### 📋 11.1 — Export (phase 2)
+#### ➖ 11.1 — Export (phase 2)
+
+**Superseded on 2026-11-21** by 20.1 and 20.2 ([RFC 0003](../rfcs/0003-exports-and-backups.md)): the suite's format, content as ciphertext.
 
 **Goal:** one file of what is the person's to take. **Design:** §18.1. **Depends on:** 7.1, 3.9.
 
@@ -26,7 +28,9 @@ downloaded from Settings > Data with a sentence that the file is not encrypted; 
 
 **Accepts when:** the file validates against the schema, holds every household whole, and holds no other person's email.
 
-#### 📋 11.2 — Import (phase 2)
+#### ➖ 11.2 — Import (phase 2)
+
+**Superseded on 2026-11-21** by 20.4 ([RFC 0003](../rfcs/0003-exports-and-backups.md)).
 
 **Goal:** households made from a file. **Design:** §18.2. **Depends on:** 11.1.
 
@@ -39,7 +43,7 @@ writes nothing.
 
 #### 📋 11.3 — Import from the plugin (phase 2)
 
-**Goal:** the legacy plugin's data in the person's own household. **Design:** §18.3. **Depends on:** 11.2, 4.8.
+**Goal:** the legacy plugin's data in the person's own household. **Design:** §18.3, RFC 0003. **Depends on:** 20.4, 4.8. Runs in the browser, which encrypts what it writes (RFC 0001).
 
 **Technical:** `src/portability/plugin.ts` reads the plugin's export section (`fs.sovereign.shopper`, export schema version 1), alone or inside the
 platform's export file; the mapping of §18.3 (lists; products folded, categories by name, icons mapped through the starter catalog's set; open items;

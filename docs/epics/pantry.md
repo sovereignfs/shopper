@@ -83,7 +83,10 @@ past 180 days.
 
 **Accepts when:** every figure matches a hand-worked seed, with its chart and table.
 
-#### 📋 13.8 — Push notifications
+#### ➖ 13.8 — Push notifications
+
+**Superseded on 2026-11-21** by epic 19 ([RFC 0002](../rfcs/0002-web-push.md)): push is built on `@sovereignfs/push` before phase 2 (19.1, 19.2), and
+as a channel of notices in phase 2 (19.3). What follows is kept as it was planned.
 
 **Goal:** notices reach a phone. **Design:** §22.2, §14.3. **Depends on:** 12.6.
 
@@ -94,7 +97,7 @@ in `notice_pref`; sent by a job with claims; on iPhone only once added to the ho
 
 #### 📋 13.9 — Release 0.3.0
 
-**Goal:** phase 3 published. **Depends on:** 13.1–13.8.
+**Goal:** phase 3 published. **Depends on:** 13.1–13.7.
 
 **Technical:** a security review of what phase 3 added (`docs/security/0.3.0.md`); the release as 12.4; hosting updated as 12.5.
 
