@@ -113,8 +113,7 @@ Sovereign core is **never** refused by it: the core has decided who the person i
 **What people write into Shopper is encrypted on their device, with a key only their household holds** (the suite's encryption, through
 `@sovereignfs/sdk`; **not yet audited**). The server stores and syncs what it cannot read. A household with more than one person in it is still sealed by
 the server's own key until each of them can be given the household's key, and Settings says which is which. People's names and emails, and anything of a
-household not yet encrypted, are sealed at rest under `SHOPPER_ENCRYPTION_KEY`: keep it with your secrets, apart from the database backups; a lost key
-means what it seals cannot be read. A person signing in with a password is shown a recovery kit once: with neither the password nor the kit, their
+household not yet encrypted, are sealed at rest under `SHOPPER_ENCRYPTION_KEY`: keep it with your secrets, apart from the database backups. A lost key means what it seals cannot be read. A person signing in with a password is shown a recovery kit once: with neither the password nor the kit, their
 lists are gone for good. It does not protect against whoever runs the server, which sends the app the browser runs.
 
 More in [`docs/encryption.md`](docs/encryption.md).
