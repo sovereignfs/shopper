@@ -393,7 +393,7 @@ describe(`what is refused (${leg})`, () => {
     expect(over).toEqual({
       status: 'refused',
       reason: 'limit',
-      sentence: "A household's catalog can hold at most 2 products, and this one holds them all.",
+      sentence: 'The catalog can hold at most 2 products, and this one holds them all.',
     });
     applied(
       await applyMutation(

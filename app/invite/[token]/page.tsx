@@ -19,7 +19,7 @@ export const metadata = { title: 'Invitation', robots: { index: false, follow: f
 const RATE = { limit: 60, windowMs: 10 * 60_000 };
 
 /**
- * **An invitation** (DESIGN.md §7.3), at `/invite/<token>`, for anyone. It says the household's name and who invited, **and nothing else**, and it is **one
+ * **An invitation to a list** (DESIGN.md §7.3, RFC 0004), at `/invite/<token>`, for anyone. It says who invited, **and nothing else**, and it is **one
  * page for every link that does not work** (unknown, expired, used or revoked). It offers to sign in or make an account, and the link survives that round
  * trip; under a closed instance it says an account is needed first. Signed in, it offers to join. Whoever holds the link can accept it.
  */
@@ -42,7 +42,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       />
     );
 
-  const lead = `${preview.invitedBy ? `${preview.invitedBy} invited you` : 'You are invited'} to shop together. You will see and edit every list in ${preview.household}.`;
+  const title = preview.invitedBy ? `Join ${preview.invitedBy}’s list` : 'Join a shared list';
+  const lead = `${preview.invitedBy ? `${preview.invitedBy} invited you` : 'You are invited'} to a shopping list. You will see and change that list, and nothing else of theirs.`;
   const session = await getSession();
   if (session) {
     const found = await keySourceOf(session.user.id);
@@ -53,7 +54,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           ? { kind: 'core', core: found.core, clientId: found.clientId, returnTo: found.returnTo }
           : undefined;
     return (
-      <AuthShell title={`Join ${preview.household}`} lead={lead}>
+      <AuthShell title={title} lead={lead}>
         <KeepLinkSecret token={token} />
         <KeysProvider source={source}>
           <AcceptInvite token={token} encrypted={preview.encrypted} />
@@ -67,7 +68,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const canSignUp = await signUpAvailable();
   return (
     <AuthShell
-      title={`Join ${preview.household}`}
+      title={title}
       lead={lead}
       footer={
         // Sign-in through core makes an account whatever the sign-up setting says, so a closed instance with core has nothing to warn of.

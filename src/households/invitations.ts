@@ -1,7 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { KeyRing } from '../crypto/keys';
-import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
@@ -10,7 +9,6 @@ import { type Limits } from '../limits/config';
 import { limitSentence } from '../limits/limits';
 import { personById, personOfAccount } from '../people/people';
 import { stampList } from '../lists/members';
-import { householdLabel } from './label';
 import { enqueuePush } from '@sovereignfs/push';
 import { pushStore } from '../push/store';
 
@@ -80,8 +78,8 @@ export async function createInvitation(
       ok: false,
       refused:
         state.encryption === 'encrypted'
-          ? 'This household is encrypted, and this page could not give the link its keys. Reload it and try again.'
-          : 'This household is not encrypted yet: reload the page and try again.',
+          ? 'This list is encrypted, and this page could not give the link its keys. Reload it and try again.'
+          : 'This list is not encrypted yet: reload the page and try again.',
     };
   const id = crypto.randomUUID();
   const token = newToken();
@@ -180,15 +178,14 @@ export async function liveInvitations(
 }
 
 export interface Preview {
-  /** The household as it is called to someone outside it: "Kasun's lists" (DESIGN.md §7.4). */
-  readonly household: string;
+  /** Who made the link: the page says whose list it is by them, since a list's name may be one the server cannot read (RFC 0004). */
   readonly invitedBy: string;
   /** Whether the household has moved (RFC 0001): then joining needs the link whole, its secret after `#` included. */
   readonly encrypted: boolean;
 }
 
 /**
- * What the invitation page may say of a link: the household's name by the rule of §7.4 and who invited, **and nothing else**. `null` for a link that is
+ * What the invitation page may say of a link: who invited, **and nothing else** (no group is named, RFC 0004). `null` for a link that is
  * not live, whatever the reason (unknown, expired, used or revoked), so that the page says one thing for all of them.
  */
 export async function previewInvitation(
@@ -204,24 +201,16 @@ export async function previewInvitation(
     token_hash: string;
     created_by: string;
     household_id: string;
-    own_of: string | null;
-    sealed: string | null;
     encryption: string;
   }>(
     database,
-    sql`SELECT i.token_hash, i.created_by, i.household_id, h.own_of, h.sealed, h.encryption
+    sql`SELECT i.token_hash, i.created_by, i.household_id, h.encryption
         FROM ${table} i JOIN ${appTable(database, 'household')} h ON h.id = i.household_id
         WHERE i.token_hash = ${hash} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}`,
   );
   if (!row || !sameHash(row.token_hash, hash)) return null;
   const inviter = await personById(database, ring, row.created_by);
-  const owner = row.own_of ? await personOfAccount(database, ring, row.own_of) : undefined;
-  const name =
-    row.sealed === null
-      ? null
-      : String(unsealRow('household', row.household_id, row.sealed, ring).name ?? '');
   return {
-    household: householdLabel({ name, viewerIsOwner: false, ownerName: owner?.name ?? null }),
     invitedBy: inviter?.name ?? '',
     encrypted: row.encryption === 'encrypted',
   };

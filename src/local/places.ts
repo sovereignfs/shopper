@@ -14,6 +14,8 @@ export interface Place {
     readonly list: ListRow;
     readonly open: number;
     readonly synced: boolean;
+    /** Whose list it is, for a list someone shared (RFC 0004): its Admin's name, or `null` for the reader's own or before its people are known. */
+    readonly by: string | null;
   }[];
   readonly archived: readonly ListRow[];
   /** The position a new list takes: after every list the household has, archived too, so that restoring one does not put two in one place. */
@@ -33,10 +35,26 @@ export async function placesOf(db: LocalDatabase): Promise<Place[]> {
         .at(-1) ?? null;
     out.push({
       household,
-      lists: lists.map((list) => ({ list, open: counts.get(list.id) ?? 0, synced: list.seq > 0 })),
+      lists: await Promise.all(
+        lists.map(async (list) => ({
+          list,
+          open: counts.get(list.id) ?? 0,
+          synced: list.seq > 0,
+          by: household.own ? null : await adminOf(db, list.id),
+        })),
+      ),
       archived,
       nextPosition: after(last),
     });
   }
   return out;
+}
+
+/** The name of a list's Admin as the device holds it, if it is not the reader. */
+async function adminOf(db: LocalDatabase, list: string): Promise<string | null> {
+  const people = await db.getAllFromIndex('member', 'byList', list);
+  return (
+    people.find((person) => person.role === 'admin' && !person.self && person.leftAt === null)
+      ?.name ?? null
+  );
 }

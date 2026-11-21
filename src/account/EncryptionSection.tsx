@@ -30,18 +30,17 @@ export function EncryptionSection() {
       <h2>Encryption</h2>
       <p>
         What you write into Shopper (the names of lists and items, notes) is encrypted on this
-        device before it is sent, with a key only the people in your household hold. Whoever runs
-        this server cannot read it in the database or in a backup. It does not protect you from
-        someone who controls the server and changes the app it sends.{' '}
-        <strong>Not yet audited.</strong>
+        device before it is sent, with a key only the people on each list hold. Whoever runs this
+        server cannot read it in the database or in a backup. It does not protect you from someone
+        who controls the server and changes the app it sends. <strong>Not yet audited.</strong>
       </p>
-      <ul aria-label="Your households">
+      <ul aria-label="Your lists">
         {households.map((household) => (
           <li key={household.id}>
-            <strong>{household.label}</strong>:{' '}
+            <strong>{household.own ? 'Your lists' : household.label}</strong>:{' '}
             {states[household.id]
-              ? 'only its people can read it.'
-              : 'not yet: it has more than one person in it, and this server still seals it with its own key until each of them can be given the household’s key.'}
+              ? 'only their people can read them.'
+              : 'not yet: they are shared, and this server still seals them with its own key until each person on them can be given their key.'}
           </li>
         ))}
       </ul>

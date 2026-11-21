@@ -190,8 +190,7 @@ describe(`the actions on lists, applied (${leg})`, () => {
     expect(over).toEqual({
       status: 'refused',
       reason: 'limit',
-      sentence:
-        'A household can have at most 2 lists, archived ones included, and this one has them all.',
+      sentence: 'You can have at most 2 lists, archived ones included, and you have them all.',
     });
     expect(
       await applyMutation(

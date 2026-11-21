@@ -72,7 +72,7 @@ links carrying a list's keyring; an item moved between lists encrypted again; ho
 
 **Accepts when:** the marker test passes per list, and a list shared by a link opens for its new person and for no one on another list.
 
-#### 📋 21.5 — Screens without households
+#### ✅ 21.5 — Screens without households
 
 **Goal:** a person sees lists, never groups. **Depends on:** 21.2.
 
@@ -80,7 +80,16 @@ links carrying a list's keyring; an item moved between lists encrypted again; ho
 
 **Accepts when:** no screen, at any width, names a household or a group.
 
-#### 📋 21.6 — The phone
+**Done as:** the sidebar and the phone's sheet (`src/screens/ListsNav.tsx`) show **Your lists**, with _New list_ and archived lists, and **Shared with
+you**, every list others shared in one section, each with its Admin's name under it (`src/local/places.ts` reads it from the list's people on the
+device); the per-group _Share_ is gone, since Share is on a list. The invitation page says whose list it is and that the person will see that list and
+nothing else (`previewInvitation` no longer names a group). Settings › Encryption, Notifications, the recovery kit, accepting a link, the limit
+sentences and the duplicate refusal no longer say "household"; the environment variables keep their names. `DESIGN.md` §2's sharing row, §16.2 and
+§16.9, a note at §7 pointing to RFC 0004, `README.md`, `docs/sharing.md` and `docs/working-offline.md` say what this does. **Left for 21.1:** §7, §8,
+§12, §13 and §20 rewritten, and `AGENTS.md`'s words (its "household" is in the synced section's neighbour, Shopper's own rules, and waits for that
+task). Code and comments still say household for the hidden group.
+
+#### ✅ 21.6 — The phone
 
 **Goal:** the phone's screens are clear. **Depends on:** 21.5.
 
@@ -88,3 +97,9 @@ links carrying a list's keyring; an item moved between lists encrypted again; ho
 side menu as a sheet that covers what is under it, and the rest of the screens looked at at 375 px.
 
 **Accepts when:** every screen at 375 px has nothing cut mid-word, nothing overlapping, and nothing to scroll sideways.
+
+**Done as:** a list's header (`src/screens/ListScreen.tsx`) keeps its name on one line with an ellipsis (its whole name is its title), with Share as
+its icon alone below 720 px, Shop and the menu beside it; the "‹ Lists" button on a phone went, since the header's menu and the footer's Lists open the
+same sheet. A row's name wraps between words, with the quantity, note and who added it on a line under it. Looked at in the preview at 375 px: the
+list, the sheet, Share, shopping mode and Settings, with nothing to scroll sideways (`scrollWidth` 375 on each) and nothing cut mid-word; and the
+sidebar on a desktop width. The side menu was already a sheet from the bottom.

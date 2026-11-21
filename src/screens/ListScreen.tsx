@@ -13,7 +13,6 @@ import {
   Icon,
   type IconName,
   Menu,
-  ResponsiveSurface,
   useLongPress,
 } from '@sovereignfs/ui';
 import type { Env } from '../actions/env';
@@ -37,7 +36,6 @@ import {
 } from '../lists/view';
 import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors } from '../ui/dnd';
 import styles from './ListScreen.module.css';
-import { useMobileNav } from '../ui/mobile-nav';
 import { AddField } from './AddField';
 import { EditedItem, useItemParam, useQueryParam } from './ItemEditor';
 import { ShareDialog } from './ShareDialog';
@@ -210,58 +208,60 @@ function Header({
   const router = useRouter();
   return (
     <header className={styles.header}>
-      <ResponsiveSurface web={null} mobile={<BackToLists />} />
-      <h1>{name}</h1>
-      <Button variant="secondary" size="sm" onClick={share}>
-        Share
-      </Button>
-      {shop ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            shopEntry.setFromList(true);
-            router.push(`/shop?h=${householdId}&l=${id}`);
-          }}
-        >
-          Shop
+      <h1 title={name}>{name}</h1>
+      <div className={styles.actions}>
+        <Button variant="secondary" size="sm" onClick={share} aria-label="Share">
+          <Icon name="users" aria-hidden />
+          <span className={styles.actionLabel}>Share</span>
         </Button>
-      ) : null}
-      <Menu
-        open={menu}
-        onClose={() => setMenu(false)}
-        align="right"
-        aria-label="List menu"
-        trigger={
+        {shop ? (
           <Button
             variant="secondary"
             size="sm"
-            aria-label="List menu"
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            onClick={() => setMenu(!menu)}
+            onClick={() => {
+              shopEntry.setFromList(true);
+              router.push(`/shop?h=${householdId}&l=${id}`);
+            }}
           >
-            <Icon name="ellipsis-vertical" aria-hidden />
+            Shop
           </Button>
-        }
-        items={[
-          { label: 'Clear bought', icon: 'archive', disabled: !canClear, onSelect: clear },
-          { type: 'separator' },
-          { type: 'label', label: 'Show items' },
-          { label: 'By aisle', checked: view === 'aisle', onSelect: () => setView('aisle') },
-          {
-            label: 'In the order added',
-            checked: view === 'added',
-            onSelect: () => setView('added'),
-          },
-          { type: 'separator' },
-          {
-            label: 'List settings',
-            icon: 'settings',
-            onSelect: () => router.push(`/l/${id}/settings`),
-          },
-        ]}
-      />
+        ) : null}
+        <Menu
+          open={menu}
+          onClose={() => setMenu(false)}
+          align="right"
+          aria-label="List menu"
+          trigger={
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="List menu"
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              onClick={() => setMenu(!menu)}
+            >
+              <Icon name="ellipsis-vertical" aria-hidden />
+            </Button>
+          }
+          items={[
+            { label: 'Clear bought', icon: 'archive', disabled: !canClear, onSelect: clear },
+            { type: 'separator' },
+            { type: 'label', label: 'Show items' },
+            { label: 'By aisle', checked: view === 'aisle', onSelect: () => setView('aisle') },
+            {
+              label: 'In the order added',
+              checked: view === 'added',
+              onSelect: () => setView('added'),
+            },
+            { type: 'separator' },
+            {
+              label: 'List settings',
+              icon: 'settings',
+              onSelect: () => router.push(`/l/${id}/settings`),
+            },
+          ]}
+        />
+      </div>
     </header>
   );
 }
@@ -318,8 +318,10 @@ function Row({
         onChange={() => onToggle()}
       />
       <Icon name={iconOf(item, data)} aria-hidden />
-      <span className={styles.name}>{item.name}</span>
-      {trailing}
+      <span className={styles.text}>
+        <span className={styles.name}>{item.name}</span>
+        {trailing}
+      </span>
       <button
         type="button"
         className={styles.edit}
@@ -337,17 +339,6 @@ function Row({
     </DragHandleRow>
   ) : (
     pressed
-  );
-}
-
-/** On a phone, a way back to the lists (DESIGN.md §16.11): the drawer that holds them, as the footer's Lists does. Not drawn beside the sidebar. */
-function BackToLists() {
-  const nav = useMobileNav();
-  return (
-    <button type="button" className={styles.back} onClick={() => nav.setOpen(true)}>
-      <Icon name="chevron-left" aria-hidden />
-      Lists
-    </button>
   );
 }
 

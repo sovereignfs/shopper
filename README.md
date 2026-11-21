@@ -5,7 +5,7 @@ instance.
 
 - **Lists** you add to quickly, with suggestions that learn what your household buys, and items shown by aisle.
 - **Shopping mode** for the aisle: large rows, the screen kept on, ticked items dropping into the basket, and a _Finish shopping_ that clears what you bought.
-- **Sharing** by a link: the people you invite see and edit every list of your household.
+- **Sharing** list by list, by a link: the people you invite see and change that list, and nothing else of yours.
 - **Offline first:** everything works with no network and syncs in the background. It opens with no network too, once it has been opened once.
 - **Private at rest:** names, notes and the like are encrypted in the database under the app's own key ([what that does and does not do](#what-encryption-at-rest-does)).
 
@@ -20,8 +20,8 @@ network, and syncing; encrypted storage; deleting your account.
 
 **It does not do yet:** several households and naming them, roles other than Admin and Member, and moving a list between households; trips, shops, prices and
 totals; invitations by email, notices and the bell; live updates (a device asks every 20 seconds, every 10 in shopping mode, unless you set it); export and import;
-a pantry, barcodes and photos. [`ROADMAP.md`](ROADMAP.md) has the order they come in. What needs a network, and what a person cannot hide from others in their
-household, is in [`docs/working-offline.md`](docs/working-offline.md) and [`docs/sharing.md`](docs/sharing.md).
+a pantry, barcodes and photos. [`ROADMAP.md`](ROADMAP.md) has the order they come in. What needs a network, and what a person cannot hide from others on a list
+they share, is in [`docs/working-offline.md`](docs/working-offline.md) and [`docs/sharing.md`](docs/sharing.md).
 
 ## Run it
 

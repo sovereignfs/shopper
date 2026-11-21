@@ -36,6 +36,11 @@ lists should be encrypted. Encryption is the suite's and is **not yet audited**.
 
 ### Changed
 
+- **The lists are yours and shared with you, never a household's.** The sidebar shows _Your lists_ and _Shared with you_, each shared list with whose
+  it is; Share is on a list, and the invitation page says whose list it is. No screen speaks of a household.
+- **A list reads better on a phone:** its name stays on one line, Share is its icon, and an item's quantity and note sit under its name, which wraps
+  between words.
+
 - Shopper's service worker is now the one every app of the suite runs (`@sovereignfs/pwa`). With no connection, a page that is not kept on the device
   says it needs one from inside Shopper, and a page that takes more than eight seconds to load opens from what is kept. What is kept is unchanged:
   never anything of a person.

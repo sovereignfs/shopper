@@ -30,7 +30,7 @@ export const limited = (kind: LimitKind, limit: number, name?: string) =>
 
 /** A product with this name is already in the household (task 5.3 folds the two instead of refusing). */
 export const duplicate = () =>
-  new Refusal('duplicate', 'This household already has one with that name.');
+  new Refusal('duplicate', 'The catalog already has one with that name.');
 
 /** The mutation names a kind of row the server does not apply yet. */
 export const unsupported = (table: string) =>

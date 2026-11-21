@@ -41,7 +41,7 @@ describe('whether a change would pass a limit', () => {
       'Groceries has 500 items, the most it can hold.',
     );
     expect(limitSentence('listOpenItems', 500)).not.toContain('Groceries');
-    expect(limitSentence('householdMembers', 1)).toContain('1 person,');
+    expect(limitSentence('householdMembers', 1)).toContain('1 person on it');
   });
 
   it('has defaults an operator can change, and refuses a limit that is not a count', () => {

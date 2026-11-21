@@ -22,8 +22,8 @@ export function NotificationsSection() {
         onTurnOff={() => void push.turnOff()}
       />
       <p className={styles.muted}>
-        A notification says what happened and who did it, such as someone joining your household. It
-        never names a list or an item.
+        A notification says what happened and who did it, such as someone joining a list you share.
+        It never names a list or an item.
       </p>
     </div>
   );

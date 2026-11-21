@@ -26,17 +26,17 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function limitSentence(kind: LimitKind, limit: number, name?: string): string {
   switch (kind) {
     case 'householdMembers':
-      return `A household can have at most ${plural(limit, 'person', 'people')}, and this one has them all.`;
+      return `A list can have at most ${plural(limit, 'person', 'people')} on it, and this one has them all.`;
     case 'accountHouseholds':
-      return `You can be in at most ${plural(limit, 'household', 'households')}, and you are in that many.`;
+      return `You can have lists from at most ${plural(limit, 'person', 'people')}, yourself included, and you have that many.`;
     case 'householdLists':
-      return `A household can have at most ${plural(limit, 'list', 'lists')}, archived ones included, and this one has them all.`;
+      return `You can have at most ${plural(limit, 'list', 'lists')}, archived ones included, and you have them all.`;
     case 'listOpenItems':
       return name
         ? `${name} has ${plural(limit, 'item', 'items')}, the most it can hold.`
         : `A list can hold at most ${plural(limit, 'open item', 'open items')}, and this one holds them all.`;
     case 'householdProducts':
-      return `A household's catalog can hold at most ${plural(limit, 'product', 'products')}, and this one holds them all.`;
+      return `The catalog can hold at most ${plural(limit, 'product', 'products')}, and this one holds them all.`;
   }
 }
 

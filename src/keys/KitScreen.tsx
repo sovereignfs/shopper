@@ -38,8 +38,8 @@ export function KitScreen({ vaultId, next }: { vaultId: string; next: string | n
   return (
     <>
       <p>
-        Shopper encrypts your lists so that only your households can read them. If you forget your
-        password, this kit is the only way back to them. Not yet audited.
+        Shopper encrypts your lists so that only you and the people you share them with can read
+        them. If you forget your password, this kit is the only way back to them. Not yet audited.
       </p>
       {problem ? <Alert variant="error">{problem}</Alert> : null}
       <RecoveryKit

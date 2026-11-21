@@ -37,7 +37,7 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
     const secret = encrypted ? readLinkSecret(token) : null;
     if (encrypted && !secret)
       return setError(
-        'Open the whole link you were sent, in this browser: its end, after #, is what opens the household’s lists.',
+        'Open the whole link you were sent, in this browser: its end, after #, is what opens the list.',
       );
     if (encrypted && keys.current.state !== 'open')
       return setError('Unlock Shopper first, then join.');
@@ -90,7 +90,7 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
   if (already)
     return (
       <p role="status">
-        You are already in this household.{' '}
+        You are already on this list.{' '}
         <button type="button" onClick={() => window.location.assign('/')}>
           Go to your lists
         </button>

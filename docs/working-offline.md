@@ -29,5 +29,5 @@ adding to it), it is not thrown away: it goes to _Couldn't sync_, where you can 
 - **A browser can delete what a site stores.** Shopper asks the browser to keep its data (_Settings_, _This device_, says whether it agreed), but a browser that is short
   of space may still clear it. Changes that were not sent yet would be lost; ones that were are on the server.
 - **A shared computer holds a signed-in person's lists until they sign out.** Signing out deletes the copy on that device, and says first if some changes have not been sent.
-- **Everyone in a household sees and edits every list in it.** That is how sharing works ([`sharing.md`](sharing.md)).
+- **Everyone on a shared list sees and changes it, and only it.** That is how sharing works ([`sharing.md`](sharing.md)).
 - **Names and notes are plain text on your device** while you are signed in. They are encrypted on the server ([`encryption.md`](encryption.md)).

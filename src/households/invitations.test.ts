@@ -109,12 +109,11 @@ describe(`invitations by link (${leg})`, () => {
     });
   });
 
-  it('shows the same nothing for an unknown, expired, revoked or used link, and the household and inviter for a live one', async () => {
+  it('shows the same nothing for an unknown, expired, revoked or used link, and who invited for a live one', async () => {
     const ada = await somebody(database, 'Ada3');
     const grace = await somebody(database, 'Grace3');
     const live = await make(ada);
     expect(await previewInvitation(database, TEST_RING, live.token, NOW + 1)).toEqual({
-      household: 'Ada3’s lists',
       invitedBy: 'Ada3',
       encrypted: false,
     });
@@ -162,7 +161,9 @@ describe(`invitations by link (${leg})`, () => {
     expect(full.status === 'refused' && full.message).toContain('at most 1 person');
     const tooMany = await accept(grace, token, { accountHouseholds: 1 });
     expect(tooMany).toMatchObject({ status: 'refused' });
-    expect(tooMany.status === 'refused' && tooMany.message).toContain('at most 1 household');
+    expect(tooMany.status === 'refused' && tooMany.message).toContain(
+      'lists from at most 1 person',
+    );
     expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(1);
     expect(await previewInvitation(database, TEST_RING, token, NOW + 1)).not.toBeNull();
     expect((await accept(lin, token)).status).toBe('joined');

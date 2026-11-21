@@ -92,7 +92,7 @@ column, an operation or a screen.
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Sign-in          | Email and password; a Sovereign core, with its back-channel logout and account-deleted notices                                                                   | Passkeys, authenticator app, linking (2); core's directory, bell, email, activity (2)                                      |
 | Sign-up          | `open` (the default) or `closed` (§6.3)                                                                                                                          | `invite`, the default (2)                                                                                                  |
-| Sharing          | The household an account is made with, **shared by a link**: everyone invited sees and edits every list in it; leave and remove                                  | Making, naming and deleting households, several at once; roles; moving a list between households; invitations by email (2) |
+| Sharing          | **A list, shared by a link** (RFC 0004): everyone invited sees and changes that list and nothing else; leave and remove, list by list                            | Making, naming and deleting households, several at once; roles; moving a list between households; invitations by email (2) |
 | Lists and items  | Lists (make, rename, reorder, archive, delete for good); items with quantity, unit, category, icon, note; tick, untick, Bought, _Clear bought_; undo; fold       | Prices (2); reading "2 oat milk" (2); clearing rules (2)                                                                   |
 | Catalog          | Products learned from adding; about 150 starter entries; suggestions and "Often bought"; the starter categories, fixed, in their order                           | Editing and merging products and categories (2); about 400 entries and grocery icons (2)                                   |
 | Shopping         | Shopping mode, light: large rows, the screen kept on, In basket, _Finish shopping_ clears what was bought                                                        | Trips, shops, prices, totals, "shopping too", several lists, the trips history (2)                                         |
@@ -286,6 +286,10 @@ account. When `invite` arrives it becomes the default, which changes what a serv
 note say so.
 
 ## 7. Households
+
+> **Superseded in part by [RFC 0004](docs/rfcs/0004-lists-of-their-own.md):** a list, not a household, is what is shared. Each list has its own people
+> (`list_member`), invited, removed and leaving list by list; the household stays as each account's own group of lists and is never shown. Where this
+> section says a household's members see its lists, read a list's people. Task 21.1 rewrites it.
 
 ### 7.1 A household
 
@@ -991,9 +995,9 @@ muted row, never by colour alone.
 
 ### 16.2 The shell
 
-Two rows, as Tusk's and Tally's: the header, and the sidebar beside the content. **In 0.1.0** the sidebar holds _Add item_ and, for each household the
-person is in (their own, "My lists", first), its lists with open counts and _New list_; All lists, Trips, Catalog, the household dots and gears, _New
-household_ and the bell join in phase 2.
+Two rows, as Tusk's and Tally's: the header, and the sidebar beside the content. The sidebar holds _Add item_, **Your lists** with open counts and
+_New list_, and **Shared with you**, the lists others shared, each with whose it is under its name (RFC 0004); no group is named. On a phone the same
+lists are in a sheet from the bottom. All lists, Trips, Catalog and the bell join in phase 2.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
@@ -1087,12 +1091,12 @@ in which trip, at the foot.
   rename it, change category, icon, unit, note or barcode, **merge** it into another (§8.2), or delete it.
 - **Categories:** the aisle order as a draggable list (`DragHandleRow`), each with rename, icon, hide; _Add category_ at the end.
 
-### 16.9 Sharing, and household settings
+### 16.9 Sharing a list
 
-**In 0.1.0 a household has no settings page; sharing is a dialog** (`?share=1`), opened by **Share** on a list and from the household's section in the
-sidebar. It says first, "People you share with see and edit every list here", then lists the people (name and avatar, the Admin marked; an Admin also
-sees emails, §6.1); **Invite** makes a link, shown once with _Copy_ and a note that anyone holding it can join and that it expires in 14 days; live
-invitations are listed with _Revoke_; a Member has _Leave_ and the Admin _Remove_.
+**Sharing is a dialog** (`?share=1`), opened by **Share** on a list (its icon alone on a phone), and it is about that list only (RFC 0004). It says
+first, "People you share this list with can see and change it, and nothing else of yours", then lists the list's people (name and avatar, the Admin
+marked; the list's Admin also sees emails, §6.1); **Invite** makes a link to the list, shown once with _Copy_ and a note that anyone holding it can join
+it and that it expires in 14 days; live links are listed with _Revoke_; a Member has _Leave this list_ and the Admin _Remove_.
 
 **The page, from phase 2** (8.9): name, colour, currency (Admins); **People:** each member with role, an Admin's menu to change it or remove, and **Invite** (§7.3) with live
 invitations listed (copy link, resend, revoke); **Shops:** rename, delete; **Leave**; **Delete household** (Admins), behind a confirmation that names
