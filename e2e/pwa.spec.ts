@@ -65,10 +65,13 @@ test('the manifest names the app, opens it as an app, and has an icon of each si
     (await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')) ?? '',
   );
   expect(pngSize(await touch.body())).toEqual({ width: 180, height: 180 });
-  await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute(
-    'content',
-    '#18181b',
-  );
+  // The page's own colour in each scheme (0.2.0), so an installed app's bar matches the page under it.
+  await expect(
+    page.locator('meta[name="theme-color"][media="(prefers-color-scheme: light)"]'),
+  ).toHaveAttribute('content', '#ffffff');
+  await expect(
+    page.locator('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]'),
+  ).toHaveAttribute('content', '#09090b');
 });
 
 test('Chromium finds nothing in the way of installing it', async ({ page, browserName }) => {

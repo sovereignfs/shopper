@@ -96,4 +96,5 @@ policy (2.7) and the manifest's scopes grow (10.2); the release as 12.4; hosting
 every household once (18.10); the security review of 18.12; the release as 12.4; hosting updated as 12.5, with the manifest's new `generate`,
 `encryption` and `signIn.export`.
 
-**Accepts when:** the release is published and hosted, and a hosted and a standalone account each open their lists on it.
+**Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and
+a standalone account each open their lists on it.

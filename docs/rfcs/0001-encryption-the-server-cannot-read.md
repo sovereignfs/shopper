@@ -28,7 +28,8 @@ is no setting and no opt-in.
   positions, times, roles, field stamps and name keys.
 
 Shopper's own design for encryption (`DESIGN.md` §13 as it stands: `t1` envelopes under `SHOPPER_ENCRYPTION_KEY`, the server unsealing to work) is
-discarded, not extended. Nothing Shopper writes is its own cipher; every primitive is the SDK's.
+discarded, not extended. Every primitive is the SDK's but one: each member's copy of a household key is wrapped under their own app key with
+WebCrypto's AES-GCM, which the SDK has no call for yet (16.15), and which moves onto the SDK's when it has.
 
 ## Motivation
 
@@ -209,3 +210,18 @@ As `encrypting-an-app.md` sets out, in Shopper's words for `docs/encryption.md`:
 2. Whether a person's export should carry a readable copy made in their browser, beside the ciphertext the export contract requires (RFC 0003).
 3. Whether better-auth's `user` table, which keeps name and email in plain text (finding 2 of `docs/security/0.1.0.md`), should move to
    `@sovereignfs/auth` (17.3) and whether that changes it.
+
+## Amendment 1 — what the code said before leg 3 (2026-11-21)
+
+Checked against `@sovereignfs/sdk` 2.11.0 and `@sovereignfs/auth` 0.4.0 before any of this was built:
+
+1. **Sign-in stays on `src/auth/`** ([ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md)'s fallback). It sends the derived value through
+   `localVault`'s `derive()`. A 0.1.0 password account is moved once at its next sign-in: the page sends the old password and the derived value
+   together, the server checks the old and stores the new. That is the one time the server is sent a password again.
+2. **A household key is kept by each member wrapped under their own app key**, in both modes, since `localVault` has no `identity()` or `share()`
+   and `encryptBytes` takes a document key, not the AES-GCM app key `open()` gives. `share()` is used only to seal to another person whose keys core
+   gives (a new epoch, an invitation from the directory).
+3. **Each field's binding** goes in `encryptBytes`'s `documentId` (`<household>/<table>/<row>/<field>`) and the epoch in its `version`.
+4. **An invitation's fragment** is kept in the tab's `sessionStorage` until accepted, so it survives signing up and core's redirect; a link opened
+   in one browser and verified in another asks for the link again.
+5. **Sealing a new epoch to core accounts** needs `keys.person`, so `offline_access` and the SDK's token store come with 18.8.

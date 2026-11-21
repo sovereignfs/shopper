@@ -66,13 +66,13 @@ households, trips and notices are built encrypted from their first line.
 | --- | -------------------- | ---------------------------- | ------------------ | -------------------------------------------------------------------------- |
 | 1   | Suite alignment      | 17.1, 17.2, 17.3, 17.4       | —                  | `pnpm verify` and `pnpm manifest:check` pass on the new packages           |
 | 2   | The design           | 18.1                         | **Owner reviews**  | `DESIGN.md` says what RFC 0001 to 0003 build                               |
-| 3   | Keys                 | 17.5, 18.2, 18.3, 18.4       | —                  | Both kinds of account unlock, with nothing yet encrypted                   |
+| 3   | Keys                 | 18.2, 18.3, 18.4             | —                  | Both kinds of account unlock, with nothing yet encrypted                   |
 | 4   | Content encrypted    | 18.5, 18.6, 18.11            | **Owner reviews**  | The marker test passes for new households; property tests hold             |
 | 5   | Sharing              | 18.7, 18.8                   | —                  | Two accounts share by a link; removal makes a new epoch                    |
 | 6   | Screens and the move | 18.9, 18.10                  | —                  | A 0.1.0 database upgrades; every screen of RFC 0001 is there               |
 | 7   | Push                 | 19.1, 19.2                   | —                  | A push arrives, alone and hosted                                           |
 | 8   | Exports              | 20.1, 20.2, 20.3, 20.4, 20.5 | —                  | Core's export holds Shopper's part; alone, both exports and an import work |
-| 9   | Review and release   | 18.12, 12.7                  | **Owner releases** | Published, with `docs/security/` for the release                           |
+| 9   | Review and release   | 18.12, 12.7                  | **Owner releases** | Ready to release; the owner publishes                                      |
 
 One leg is one branch, one draft PR, one review gate, with one version bump.
 
@@ -104,10 +104,10 @@ key) and `docs/epics/README.md`'s "every task holds" change with it.
 
 ### Leg 3 — Keys
 
-**Epic tasks:** 17.5, 18.2, 18.3, 18.4
+**Epic tasks:** 18.2, 18.3, 18.4
 
-**Why here:** nothing can be encrypted before an account has a key, and [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md) puts the
-sign-in on `@sovereignfs/auth` first, so that the key store's hooks are the package's.
+**Why here:** nothing can be encrypted before an account has a key. Sign-in stays on `src/auth/` ([ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md)'s
+fallback, taken after checking the package against 0.1.0's accounts).
 
 **Technical notes:** a standalone sign-in now sends the `svp1.…` value where it sent the password: existing 0.1.0 password accounts move on their
 next sign-in (better-auth checks the old password once, then stores the derived value). `/auth/key-secret` over better-auth's session is 16.10's
@@ -158,7 +158,8 @@ manifest.
 
 **Epic tasks:** 18.12, 12.7
 
-**Do not proceed if:** the marker test finds anything, or a page describes encryption without "not yet audited".
+**Do not proceed if:** the marker test finds anything, or a page describes encryption without "not yet audited". The leg ends ready to release:
+the promotion into `main` and the publishing are the owner's.
 
 ## Risks
 

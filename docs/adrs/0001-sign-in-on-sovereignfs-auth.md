@@ -2,7 +2,7 @@
 
 |              |                                                                                                                 |
 | ------------ | --------------------------------------------------------------------------------------------------------------- |
-| **Status**   | Proposed on 2026-11-21, and followed by workstream 0001 until the owner decides; task 17.3                      |
+| **Status**   | Proposed on 2026-11-21; **its fallback taken the same day** (below): not in workstream 0001; task 17.3          |
 | **Deciders** | `kasunben` (owner)                                                                                              |
 | **Context**  | [RFC 0001](../rfcs/0001-encryption-the-server-cannot-read.md); `docs/specs/auth.md` and RFC 0007 in `sovereign` |
 
@@ -54,3 +54,20 @@ that the encryption legs are built once, on the package.
   `drizzle` over libsql, for example), 17.5 stops and 18.2 is built on `src/auth/` as RFC 0001 first said. That is the fallback, and it is recorded
   here so it is not decided again mid-leg.
 - better-auth stays at the one version the package names (1.7.18), exactly, as auth.md §11 requires.
+
+## Checked before leg 3, and the fallback taken (2026-11-21)
+
+Before 17.5 was started, what the decision rested on was checked against the code, not the documents' summaries:
+
+1. **0.1.0's password accounts would stop signing in.** The package refuses anything that is not the derived value, before any lookup, and core's
+   own move (`sovereign`'s `docs/upgrade.md`, 0.100.0) had every person set their password again by a reset link sent by mail, or made by an
+   operator on the server. Shopper alone often has no mail, and has no operator tool for a link.
+2. **The tables are not only renamed.** The package's are `users`, `sessions`, `accounts` and more, with columns better-auth's defaults do not have
+   (`timezone`, `locale`, `deactivatedAt`) and tables Shopper has none of (`two_factors`, `passkeys`): a move that changes the schema, on both
+   dialects, not a migration that only records what is there.
+3. **Key release on the package is not built** (auth.md §8, last line), and the template that does it uses the SDK's own `nextAuth`.
+
+The fallback this ADR recorded is taken: **workstream 0001 keeps Shopper's sign-in on `src/auth/`**, and 18.2 makes it send the derived value
+there, with a one-time upgrade of each 0.1.0 password account at its next sign-in (RFC 0001, "Keys"). Moving onto the package (17.5) waits for
+`sovereign` to give an app's existing password accounts a way across (16.14), a database for SQLite and sqld (16.13) and the key secret (16.10),
+and is decided again then.

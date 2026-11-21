@@ -144,3 +144,26 @@ connection until it lands, and drops the wrapper then.
 `Database` type an app gives is the package's own.
 
 **Accepts when:** a `@sovereignfs/auth` release carrying it is published.
+
+#### 📋 16.14 — An app's password accounts, across to `@sovereignfs/auth`
+
+**Goal:** an app that signed people in with passwords before the package can move onto it without everyone resetting their password. **Design:**
+[ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md). **Depends on:** nothing here. **Needed by:** 17.5.
+
+**What Shopper needs:** a documented way for an account whose stored hash is of a password, not of the derived value, to be moved once at its next
+sign-in (the browser sends the old password and the new derived value together, once; the server checks the old and stores the new), or the
+package's reason for refusing that, and a reset path that needs no mail. Core chose resets by mail for itself (`docs/upgrade.md`, 0.100.0); an app
+alone often has no mail.
+
+**Accepts when:** `sovereign` publishes the way, or decides against it and says what an app does instead.
+
+#### 📋 16.15 — Wrapping a document key under one's own app key
+
+**Goal:** the SDK seals a document key to the person who holds it, with no core, as `share()` does to another with one. **Design:** RFC 0001, "The
+household key". **Depends on:** nothing here. **Needed by:** nothing; 18.5 does it with WebCrypto until it lands.
+
+**What Shopper needs:** `/keys` (or `/local-vault`) taking the app key `open()` gives and a document key, and giving a record bound to the person,
+the app and the document, that only that app key opens; usable from both `appKeys` and `localVault`. A household's key is kept this way by each
+member in Shopper, in both modes.
+
+**Accepts when:** a `@sovereignfs/sdk` release carrying it is published.

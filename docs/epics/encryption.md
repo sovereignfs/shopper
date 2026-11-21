@@ -45,12 +45,14 @@ continues on this text and the review stays open.
 
 #### 📋 18.2 — Shopper's own vault
 
-**Goal:** a password account has keys, kept in Shopper's database and unlocked at sign-in. **Design:** RFC 0001, "Keys". **Depends on:** 18.1, 17.5.
+**Goal:** a password account has keys, kept in Shopper's database and unlocked at sign-in. **Design:** RFC 0001, "Keys". **Depends on:** 18.1.
 
 **Technical:** `AppVault`, `vaultMigrations` (sqlite for a file and sqld, postgres), applied apart from Shopper's migrations under
 `VAULT_MIGRATIONS_TABLE`, and `vaultRoute(vault, { origin: SHOPPER_URL })` at `/auth/vault`, in `src/access/routes.ts`; the session's secret
-(`newSessionSecret`) kept with better-auth's session and served at `/auth/key-secret`; the package's key-store hooks (`@sovereignfs/auth`, auth.md §7.2) given `AppVault` and `localVault`, so that sign-up, sign-in, reset and change send
-the derived value where they sent the password, with existing 0.1.0 accounts moved on their next sign-in; `'wasm-unsafe-eval'` in `script-src` on the pages that
+(`newSessionSecret`) kept with better-auth's session and served at `/auth/key-secret`; Shopper's own sign-in (`src/auth/`, ADR 0001's fallback): sign-up, sign-in, reset and change derive the value with `localVault`'s `derive()` and send
+it where they sent the password, and the server refuses anything that is not a derived value (`svp1.`); a 0.1.0 account, whose stored hash is of
+the password, is moved once at its next sign-in (the page sends the old password and the derived value together; the server checks the old, stores
+the new, and the account is marked moved), the one time the server is sent a password again; `'wasm-unsafe-eval'` in `script-src` on the pages that
 derive, and nowhere else; `vault.deleteAccount` in `People.deletePerson`'s transaction, with its test.
 
 **Accepts when:** sign-up makes a vault, sign-out and sign-in open it, the old password of a 0.1.0 account still works once and then only the new
@@ -82,7 +84,8 @@ back-channel logout leaves nothing that opens.
 **Goal:** every household has a key every member holds. **Design:** RFC 0001, "The household key". **Depends on:** 18.4.
 
 **Technical:** `household_key` (`household_id`, `epoch`, `person_id`, `record`) on both dialects; a key made with every household, the account's own
-included, sealed to its maker with `share()`; opened with `openShared`; the device keeping every epoch it was given; the server refusing a write under
+included, **wrapped by each member under their own app key** (AES-GCM through WebCrypto, bound to person, household and epoch, in both modes,
+until 16.15), and sealed to another person with `share()` only where core gives their keys; the device keeping every epoch it was given; the server refusing a write under
 a past epoch; `People.deletePerson` deleting the person's records; export (20.1) carrying them.
 
 **Accepts when:** a new account's household has a key after its first unlock; a second person gets no record; deleting a person leaves no record of
@@ -105,7 +108,8 @@ checking sizes; fold's note join moved to the first device that pulls the alias;
 **Goal:** joining by a link gives the newcomer the household's key and nobody else. **Design:** RFC 0001, "Invitations". **Depends on:** 18.5, 3.4.
 
 **Technical:** a 32-byte secret in the link's fragment; the current key wrapped under it, stored with the token's hash and deleted on accept, revoke
-or expiry; the fragment read and removed first on `/invite/<token>`; the newcomer sealing the key to themselves in the accepting operation; the dialog
+or expiry; the fragment read and removed first on `/invite/<token>`, and kept in the tab's `sessionStorage` (never sent, cleared on accept) so that
+it survives signing up and core's redirect; where it is lost (an address verified in another browser), the page asks for the link again; the newcomer sealing the key to themselves in the accepting operation; the dialog
 saying to send the link privately. Moved onto `sovereign`'s if 16.9 publishes one.
 
 **Accepts when:** journey 3 of §3 passes encrypted; a used, revoked or expired link opens nothing; no request, log or `Referer` carries the secret.
@@ -116,7 +120,7 @@ saying to send the link privately. Moved onto `sovereign`'s if 16.9 publishes on
 3.5; its standalone form on 16.8.
 
 **Technical:** the household marked as needing a new epoch; the next device that can check every remaining member (`checkPerson`, `keys.person` for
-core accounts) makes it and seals it to them; until 16.8 is released, a household of standalone accounts keeps its epoch and its settings say what
+core accounts, which needs `offline_access` and the SDK's token store for core's directory calls) makes it and seals it to them; until 16.8 is released, a household of standalone accounts keeps its epoch and its settings say what
 that means; the words when removing.
 
 **Accepts when:** hosted, a removed member's device cannot open a row written after; standalone, the household says what RFC 0001 says it says.

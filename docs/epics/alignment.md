@@ -35,8 +35,9 @@ the template's `core` floor (`>=0.126.0 <1.0.0`), and `DESIGN.md` §15.3 says so
 `AGENTS.md` and `CONTRIBUTING.md`. It also now counts the `Dockerfile`, `.dockerignore` and `compose.yml` as shared. Shopper keeps its own (an image for three databases, and `deploy/`'s
 setups in place of one `compose.yml`), so those three are listed under `sovereign.unmanaged`. `ui`'s changelog since 0.96 only adds
 components (0.92 to 0.95 predate its changelog); nothing Shopper uses changed, and the typecheck agrees. Verified: `pnpm verify`; `pnpm test` (682
-passed; one earlier run had a timing failure in a test of `core_sub` that three reruns did not repeat); `pnpm build`. Left out: the browser tests
-in Chromium, which Playwright had no browser for on the machine that ran them (WebKit's ran and passed), and a look at every screen by eye.
+passed; one earlier run had a timing failure in a test of `core_sub` that three reruns did not repeat); `pnpm build`. The browser tests in
+Chromium were run once Playwright's browser was installed, before leg 3: 100 passed, after `e2e/pwa.spec.ts`'s theme-colour check was brought up to
+0.2.0's colour for each scheme (stale since `4cbe486`, before this task). Left out: a look at every screen by eye.
 
 #### ✅ 17.2 — The worker from `@sovereignfs/pwa`
 
@@ -63,8 +64,8 @@ shell's addresses) moved to `src/sw/shared.ts`, so a page's bundle does not carr
 
 `src/sw/source.test.ts` was rewritten for the package's worker. Its tour now includes a plain fetch of a list, so widening the allow-list fails it (seen:
 with `keep: ['/l/', '/lists']` it fails, without it passes). Verified: `pnpm test` (682 passed); `pnpm build`; the built server's `/sw.js`
-carries the shell, the precache and the sync listener; `/shell` answers with no cookie, which the package needs before it keeps a page. Left out:
-6.5's browser test (`e2e/offline.spec.ts`, Chromium only), not run because Playwright's Chromium is not installed on this machine.
+carries the shell, the precache and the sync listener; `/shell` answers with no cookie, which the package needs before it keeps a page. 6.5's
+browser test (`e2e/offline.spec.ts`, Chromium only) passed once Playwright's Chromium was installed, before leg 3, with the whole Chromium suite.
 
 #### ⏳ 17.3 — Sign-in and `@sovereignfs/auth`
 
@@ -77,9 +78,10 @@ text). An ADR in `docs/adrs/` records the choice; moving, if chosen, is its own 
 
 **Accepts when:** the ADR is accepted by the owner.
 
-**Done as (waiting on the owner):** [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md): Shopper moves onto `@sovereignfs/auth` as 17.5, before
-18.2, wrapping its own database in the package's `Database` shape until `sovereign` publishes one for SQLite and sqld (16.13), and keeping the key
-secret with its session until 16.10. Workstream 0001 follows it; the task is done when the owner accepts the ADR or replaces it.
+**Done as (waiting on the owner):** [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md) proposed moving onto `@sovereignfs/auth` (17.5) before
+18.2; checked against the code before leg 3, it would have stopped 0.1.0's password accounts signing in, so its own fallback was taken: sign-in
+stays on `src/auth/` for workstream 0001, and 17.5 waits on 16.10, 16.13 and 16.14. The task is done when the owner accepts the ADR as it now reads,
+or replaces it.
 
 #### ✅ 17.4 — Stale lines and the settings table
 
@@ -99,10 +101,10 @@ own note on 2026-11-09's phase numbers, and four rows for 2026-11-21 are added. 
 `0010_account_settings`), deleted by `People.deletePerson` and in its every-table test, which was seen to fail before the deletion was added.
 Nothing writes or reads it yet, and §16.3 says so. Verified: `pnpm test src/sovereign/people.test.ts`; `pnpm verify`.
 
-#### 📋 17.5 — Sign-in on `@sovereignfs/auth`
+#### 🚧 17.5 — Sign-in on `@sovereignfs/auth`
 
 **Goal:** Shopper's sign-in is the suite's package, not better-auth configured by hand. **Design:** §15.1, [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md).
-**Depends on:** 17.3, 17.1.
+**Depends on:** 17.3, 17.1, 16.10, 16.13, 16.14. **Not in workstream 0001** (ADR 0001's fallback).
 
 **Technical:** `createAuthPreset` with Shopper's settings (`resolveAuthSettings` with the prefix `SHOPPER`), `signUpPolicy` for `SHOPPER_AUTH_SIGNUP`,
 the user-create hook making the person and household (`onAccountCreated`), and `./core` for core in place of `genericOAuth`; `src/auth/database.ts`
