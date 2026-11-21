@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@sovereignfs/ui';
 import styles from './Undo.module.css';
 
@@ -52,21 +53,25 @@ export function UndoProvider({ children }: { children: ReactNode }) {
   return (
     <Context.Provider value={value}>
       {children}
-      {current ? (
-        <div className={styles.bar} role="status" aria-live="polite">
-          <span>{current.message}</span>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              const { undo } = current;
-              setCurrent(null);
-              void undo();
-            }}
-          >
-            Undo
-          </Button>
-        </div>
-      ) : null}
+      {current
+        ? // Drawn inside the shell, where the phone's footer publishes its height, so that the bar floats above the footer and not under it.
+          createPortal(
+            <div className={styles.bar} role="status" aria-live="polite">
+              <span>{current.message}</span>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const { undo } = current;
+                  setCurrent(null);
+                  void undo();
+                }}
+              >
+                Undo
+              </Button>
+            </div>,
+            document.getElementById('sv-app-shell') ?? document.body,
+          )
+        : null}
     </Context.Provider>
   );
 }

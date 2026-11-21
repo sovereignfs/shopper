@@ -17,8 +17,8 @@ export const landing = {
       body: 'Shopper works from what is on your phone, online or not. Adding and ticking show at once, and it syncs in the background.',
     },
     {
-      title: 'Shared with a link',
-      body: 'Send a link, and the person who opens it sees and edits your lists. Changes from both of you end up on both phones, with nothing lost.',
+      title: 'Shared list by list',
+      body: 'Send a link to one list, and the person who opens it sees and changes that list and nothing else of yours. Changes from both of you end up on both phones, with nothing lost.',
     },
     {
       title: 'Private on the server',

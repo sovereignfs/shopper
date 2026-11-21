@@ -64,6 +64,9 @@ export function ItemDialog({
       category.deletedAt === null && (!category.hidden || category.id === item.categoryId),
   );
   const iconNow = icon && isGroceryIcon(icon) ? icon : null;
+  // What the row draws when the item has no icon of its own: its category's (`iconOf`), shown so that the picker never shows a blank.
+  const categoryIcon = data.categories.find((each) => each.id === categoryId)?.icon;
+  const shownIcon = iconNow ?? (categoryIcon && isGroceryIcon(categoryIcon) ? categoryIcon : null);
   const nameOk = name.trim() !== '';
 
   function save() {
@@ -185,10 +188,11 @@ export function ItemDialog({
           {() => (
             <IconPicker
               aria-label="Icon"
-              value={iconNow}
+              value={shownIcon}
               onChange={setIcon}
               options={GROCERY_ICONS}
-              triggerLabel={name.trim() || item.name}
+              // The name is in the field above: the trigger says what it does, and stays one short line on a phone.
+              triggerLabel={iconNow ? 'Change icon' : 'Choose an icon'}
             />
           )}
         </FormField>

@@ -256,6 +256,11 @@
   }
 }
 
+/* The drag handle stands level with the checkbox, however many lines the name and what is said of it take. */
+.handleRow {
+  align-items: center;
+}
+
 /* A row of a list (DESIGN.md §16.5): the checkbox, the item's icon and name, what is said of it, and the pencil. Only the checkbox ticks. */
 .line {
   display: flex;

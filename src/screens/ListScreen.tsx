@@ -334,7 +334,11 @@ function Row({
   );
   const pressed = <div {...press}>{row}</div>;
   return handle ? (
-    <DragHandleRow handleProps={handle.props} isDragging={handle.dragging}>
+    <DragHandleRow
+      handleProps={handle.props}
+      isDragging={handle.dragging}
+      className={styles.handleRow}
+    >
       {pressed}
     </DragHandleRow>
   ) : (

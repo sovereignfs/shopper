@@ -126,15 +126,17 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Every feature works with no Sovereign instance.** Core adds a way in, a directory, a bell and email; a feature that only works with core is not
   done. A call to core that fails, is refused or is not supported changes nothing but that call (`DESIGN.md` §15.4).
 - **An account is known by its better-auth user id (`account_id`); someone on a shared row is a `person`.** Every account has exactly one person and
-  exactly one household made with it (`own_of`), which others may be invited into. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
+  exactly one group (`household`, `own_of`) made with it, holding the lists it makes and **never shown** (RFC 0004): others are invited to a list,
+  never to the group. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
   a person at sign-in.
-- **People join a household only by accepting an invitation;** nobody is added without agreeing. An email is shown only to whom `DESIGN.md` §6.1
+- **People join a list only by accepting an invitation to it;** nobody is added without agreeing, and joining one list shows nothing else of its
+  group. An email is shown only to whom `DESIGN.md` §6.1
   allows, through the one visibility function, and never in a notice or another person's export.
 - **Everything personal of an account is removed by `People.deletePerson`** (`src/sovereign/people.ts`), which keeps only the name on the shared
   record, safe to run twice. **A new table is handled there, and exported and imported, in the same change,** with a test that seeds one of each.
-- **Every row of a household carries `household_id`, and the permission is in the statement:** active membership of the household as a condition of
-  the same query (`DESIGN.md` §5.2), never checked first and then touched; an Admin's operation adds the role to it. Anything a change points at must
-  be the same household's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
+- **Every row of a group carries `household_id`, and the permission is in the statement:** for a list, its items and its products, being on the list
+  (`list_member`, `onList` in `src/access/membership.ts`) as a condition of the same query (`DESIGN.md` §5.2, RFC 0004), never checked first and then
+  touched; a list's Admin's operation adds the role to it. Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
 - **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the household's
   key, through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
@@ -148,8 +150,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** (and, from phase 2, a second makes no trip line);
   the same product twice in a household, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
   refused change goes to Couldn't sync, never to nowhere.
-- **Households, membership, roles, invitations and moving a list between households are online operations** (`/api/ops`), decided by the server at
-  once. They are not queued offline.
+- **A list's people, roles, invitations and deleting a list are online operations** (`/api/ops`), decided by the server at once. They are not queued offline.
 - **The live stream carries signals only** (`{household, seq}`), never a row; the device pulls through `/api/sync`. The hub is in the process;
   `LISTEN/NOTIFY` is not used.
 - **Quantities are canonical decimal strings and money is integer minor units,** calculated in `src/quantity/`; no binary float touches either. One
@@ -179,8 +180,9 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Never fork a navigation decision by viewport;** fork only what is rendered.
 - **No third-party loads and no third-party requests from the browser.** What people write is rendered as text, never as HTML. A lookup by barcode
   (phase 4) is made by the server.
-- **User-facing words are "household", "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
-  (`DESIGN.md` §4), never "ledger", "purchase transaction", "owner", "viewer", "editor", "tenant", "client" or "plugin".
+- **User-facing words are "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
+  (`DESIGN.md` §4), never "household" or "group" (RFC 0004: the group is never shown), "ledger", "purchase transaction", "owner", "viewer",
+  "editor", "tenant", "client" or "plugin".
 - **Next.js tracks the latest stable release.** Read the guide bundled with the installed version (`node_modules/next/dist/docs/`) before writing Next
   code.
 - **TypeScript is strict.** No `any` without a comment; prefix an intentionally unused identifier with `_`; never disable a lint rule inline without a

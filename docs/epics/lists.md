@@ -115,4 +115,9 @@ side menu as a sheet that covers what is under it, and the rest of the screens l
 its icon alone below 720 px, Shop and the menu beside it; the "‹ Lists" button on a phone went, since the header's menu and the footer's Lists open the
 same sheet. A row's name wraps between words, with the quantity, note and who added it on a line under it. Looked at in the preview at 375 px: the
 list, the sheet, Share, shopping mode and Settings, with nothing to scroll sideways (`scrollWidth` 375 on each) and nothing cut mid-word; and the
-sidebar on a desktop width. The side menu was already a sheet from the bottom.
+sidebar on a desktop width. The side menu was already a sheet from the bottom. A second pass, as the list's Admin with long names: the drag handle
+stands level with its row's checkbox (`DragHandleRow`'s `className`); the Undo bar is drawn inside the shell, where the phone's footer publishes its
+height, so that it floats above the footer instead of under it; the item editor's icon shows the icon the row draws and a short label, not the
+item's name again; and the landing page says a link shares one list. Looked at: the item editor, the list menu, list settings, Share as Admin with a
+fresh link, a new list with a 53-character name (cut with an ellipsis), an item with a long name (wrapped at words) and one with a 44-letter word
+(broken only because it is wider than the row), and the invitation page.
