@@ -138,6 +138,18 @@ describe('loading the settings', () => {
     expect(partial.join()).not.toContain('core-secret');
   });
 
+  it('takes core at its own address only: an address with a path, as core’s issuer once was, stops the start', () => {
+    const { SHOPPER_AUTH_LOCAL: _local, ...base } = alone;
+    expect(
+      problems({
+        ...base,
+        SHOPPER_CORE_URL: 'https://sovereign.example.com/api/auth',
+        SHOPPER_CORE_CLIENT_ID: 'shopper',
+        SHOPPER_CORE_CLIENT_SECRET: 'core-secret',
+      }).join(),
+    ).toContain('SHOPPER_CORE_URL is the instance’s own address, with no path');
+  });
+
   it('checks the key ring: a previous key needs a current one and a different one', () => {
     expect(
       ok({ ...alone, SHOPPER_ENCRYPTION_KEY_PREVIOUS: OTHER_KEY }).encryption.previous,

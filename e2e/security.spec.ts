@@ -333,7 +333,8 @@ test('the session cookie is HttpOnly and SameSite=Lax, and the device’s copy o
   const session = cookies.find((c) => c.name.endsWith('session_token'));
   expect(session?.httpOnly).toBe(true);
   expect(session?.sameSite).toBe('Lax');
-  expect(session?.name.startsWith('shopper')).toBe(true);
+  // The package's name for it (ADR 0001): `__Host-` over https, bare on this http instance.
+  expect(session?.name).toBe('better-auth.session_token');
   const account = await accountOf(page);
   expect(await deviceRows(page, account, 'household')).not.toBeNull();
   await deleteInSettings(page, PASSWORD);
@@ -351,7 +352,7 @@ test('the vault and the key secret are the session’s own: another person gets 
   const base = baseURL ?? '';
   await signUp(page, { name: 'Ada' });
   const ada = await accountOf(page);
-  const adaSecret = await page.request.get(`${base}/api/keys/secret`);
+  const adaSecret = await page.request.get(`${base}/api/auth/sv/key-secret`);
   expect(adaSecret.status()).toBe(200);
   const adaBody = (await adaSecret.json()) as { sub: string; secret: string };
   expect(adaBody.sub).toBe(ada);
@@ -367,7 +368,9 @@ test('the vault and the key secret are the session’s own: another person gets 
   const other = await anotherDevice(browser, base);
   await signUp(other.page, { name: 'Grace' });
   const grace = await accountOf(other.page);
-  const graceBody = (await (await other.page.request.get(`${base}/api/keys/secret`)).json()) as {
+  const graceBody = (await (
+    await other.page.request.get(`${base}/api/auth/sv/key-secret`)
+  ).json()) as {
     sub: string;
     secret: string;
   };
@@ -395,7 +398,7 @@ test('the vault and the key secret are the session’s own: another person gets 
 
   const visitor = await anotherDevice(browser, base);
   expect((await visitor.page.request.get(`${base}/api/push/subscription`)).status()).toBe(401);
-  expect((await visitor.page.request.get(`${base}/api/keys/secret`)).status()).toBe(401);
+  expect((await visitor.page.request.get(`${base}/api/auth/sv/key-secret`)).status()).toBe(401);
   expect((await visitor.page.request.get(`${base}/api/keys/vault`)).status()).toBe(401);
   await visitor.context.close();
 });

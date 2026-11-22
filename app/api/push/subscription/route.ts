@@ -1,4 +1,5 @@
 import { pushSubscriptionHandlers } from '@sovereignfs/push';
+import { readSession } from '@sovereignfs/auth/server';
 import { getAuth } from '@/src/auth/server';
 import { getConfig } from '@/src/config/current';
 import { getDatabase } from '@/src/db/boot';
@@ -17,7 +18,7 @@ async function handlers() {
     settings: config.push,
     account: async (request: Request) => {
       const auth = await getAuth();
-      return (await auth?.api.getSession({ headers: request.headers }))?.user.id;
+      return auth ? (await readSession(auth, request.headers))?.user.id : undefined;
     },
     origin: config.url ?? '',
   });

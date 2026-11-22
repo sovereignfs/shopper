@@ -35,11 +35,17 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         turnOffPush(),
         new Promise((resolve) => setTimeout(resolve, PUSH_OFF_MS)),
       ]);
+    // Where to go afterwards, asked while the session is still there: core's sign-out for a session that came from core (auth.md §8).
+    const throughCore = await fetch('/api/account/sign-out', { cache: 'no-store' })
+      .then(async (reply) =>
+        reply.ok ? ((await reply.json()) as { url: string | null }).url : null,
+      )
+      .catch(() => null);
     // Not left: the person kept their unsent changes, or the server could not be reached to end the session. Either way they are as they were.
     if ((await leave()).status !== 'left') return setLeaving(false);
     // What this browser keeps of the key goes too (RFC 0001); with the session gone it opened nothing anyway.
     await keys.forget();
-    window.location.assign('/');
+    window.location.assign(throughCore ?? '/');
   }
 
   return (

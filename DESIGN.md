@@ -907,9 +907,14 @@ the table's.
 
 ### 15.1 Sign-in
 
-**As Tally's §14.1, with `SHOPPER_`:** better-auth in a store of its own; local accounts (a password; **passkeys and an authenticator app with backup codes are phase 2**, 2.8) when
-`SHOPPER_AUTH_LOCAL=1`; a Sovereign core through `genericOAuth` with PKCE when `SHOPPER_CORE_*` are set; either or both, from one image, and **both
-may be on when hosted**, so people not on the instance can join a list. Email is verified and passwords reset only with mail set up.
+**On `@sovereignfs/auth`** ([ADR 0001](docs/adrs/0001-sign-in-on-sovereignfs-auth.md), `sovereign`'s auth.md): better-auth on the package's
+preset in a store of its own (`shopper_auth`), its tables the package's; local accounts (a password; **passkeys and an authenticator app with backup
+codes are phase 2**, 2.8) when `SHOPPER_AUTH_LOCAL=1`; a Sovereign core through the package's `./core` on the SDK's steps (PKCE, matched by `sub`)
+when `SHOPPER_CORE_*` are set, `SHOPPER_CORE_URL` being the instance's own address; either or both, from one image, and **both may be on when
+hosted**, so people not on the instance can join a list. Email is verified and passwords reset only with mail set up; signing in unverified sends
+no link, and the sign-in page offers a new one. The server is sent the sign-in value the page derives, never the password, and a 0.1.0 password
+moves at its next sign-in for 90 days after the upgrade (auth.md §8.1). A session that came from core is checked against it every hour, and
+signing out of one goes through core's sign-out, which decides what else it ends.
 
 - **Making an account makes its person and its own group, with a first list** (§6.1, §7.1), or, through an invitation, also joins that list.
 - **No implicit linking**, as Tusk's: a core login whose email is a local account's is refused until the person links the two from a signed-in
@@ -919,9 +924,10 @@ may be on when hosted**, so people not on the instance can join a list. Email is
 
 ### 15.2 Core's notices
 
-Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of the person; account deleted at `/api/sovereign/account-deleted` runs
-`People.deletePerson` (§19) and answers `200` only once done. Both checked by the SDK (`verifyLogoutToken`, `verifyAccountDeletedToken`), a replayed
-`jti` refused after a restart (counted in `rate_bucket`, which every process shares: no table of its own), a bounded form, one rate limit, 404 where core is not set. Copied from Tusk.
+Back-channel logout at `/api/sovereign/backchannel-logout` ends the sessions of the core session it names, or every session of the person; account
+deleted at `/api/sovereign/account-deleted` runs `People.deletePerson` (§19) and answers `200` only once done. Both are `@sovereignfs/auth`'s
+`coreNotices`: checked by the SDK, a replayed `jti` refused after a restart (`sv_core_notices`), sessions ended through better-auth, the person's
+refresh token dropped. Shopper keeps a bounded form and one rate limit in front of them; 404 where core is not set.
 
 ### 15.3 The manifest
 
@@ -956,8 +962,8 @@ Back-channel logout at `/api/sovereign/backchannel-logout` ends every session of
 - **`directory` and `offline_access`** (phase 2: **0.1.0 asks for `openid`, `profile` and `email` only**, and the manifest above is what phase 2 ships)
   are for finding people to invite in core's directory, which the SDK does as the person (`sv.as({ sub })`) with
   their refresh token. That token is a credential, kept only through envelope encryption (`credential`, §20.3). If a core refuses the scopes, or the
-  person did not grant them, inviting works exactly as alone. How better-auth's `genericOAuth` hands the refresh token to the SDK's `tokenStore` is
-  the same question Tally's task 11.2 answers; whichever app answers it first, the other copies (§24).
+  person did not grant them, inviting works exactly as alone. The refresh token is the SDK's alone, in its `tokenStore` in the auth store, sealed
+  with Shopper's key ring (`src/auth/sdk-stores.ts`).
 - **The `core` floor** is raised, if needed, to the first release that shipped the directory scope and the app scopes Shopper calls, checked against
   core's changelog in that task.
 - **Manifest 5** (17.1), as `sovereign`'s template, with its `core` floor: the version a core must read to host Shopper. `encryption` (18.3) and
@@ -1245,8 +1251,9 @@ Beyond better-auth's, in the auth store.
 vault tables and the export package's jobs (their own migrations, recorded apart), without these columns, which arrive with the phase that needs them:
 `household` has no `color` or `currency`, and its sealed name is empty; `invitation` has no email; `product` has no barcode, last unit price or
 `price_unit`; `item` has no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`,
-`notice_digest`, `notice_pref`, `mail_outbox` and `credential`, and those columns. In the auth store, `key_secret` on better-auth's `session` (the
-session's key secret, sdk §9.5) and `password_derived` on its `account`.
+`notice_digest`, `notice_pref`, `mail_outbox` and `credential`, and those columns. **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
+account tables, the core sign-in's, the session's key secret (`sv_key_secrets`) and the SDK's stores, moved there from 0.2.x's better-auth tables at
+start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` columns are left in place and read by nothing but the move.
 
 | Table              | Columns                                                                                                                                                                                                                                                                                                        |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1414,8 +1421,7 @@ rows are at least 56 px high and its text follows the person's font size. Toasts
 
 - **`AUTH_SIGNUP`'s `invite`** (§6.3) is not in `contracts/env.md`; it is added there first, for every app, by the task in `sovereign` that Tally
   (14.5) and Roam (17.2) also wait on (16.1 here). Until it lands, Shopper does not ship it, and 0.1.0 does not wait for it (§6.3).
-- **The directory as a person** (§15.3) needs the SDK's `tokenStore` fed from better-auth's `genericOAuth`; Tally's 11.2 checks whether that works
-  without a change to the SDK, and Shopper follows its answer.
+- **The directory as a person** (§15.3) uses the SDK's `tokenStore`, which the package's core sign-in fills (ADR 0001).
 - The kit of research 0004 is not published, so the infrastructure is copied (§5.1); when the kit lands, Shopper adopts it in a task of its own.
 - `AUTH_LOCAL` accepts `1` and `true` until `contracts/env.md` and the apps agree (building-an-app §15).
 - **Port 3007** is added to building-an-app §2's table in `sovereign` (16.2), with Ledger's 3003, Tally's 3004, Roam's 3005 and Wallet's 3006 if they
@@ -1473,3 +1479,4 @@ None. Every question raised in planning was settled on 2026-11-09 or 2026-11-10 
 | 2026-11-21 | **Lists of their own** (RFC 0004): a list is what is shared, with its own people, catalog and keys; the group each account is made with holds its lists and is never shown. Supersedes the rows above that made the household the unit of sharing and ruled out per-list sharing           |
 | 2026-11-22 | **No compatibility with 0.1.0's shared households is designed for** (the owner): this design describes lists of their own only                                                                                                                                                             |
 | 2026-11-21 | **Sign-in on `@sovereignfs/auth`** (ADR 0001, proposed), before Shopper's vault                                                                                                                                                                                                            | One sign-in for the suite; the vault's hooks are the package's                                                                                      |
+| 2026-11-22 | **Sign-in on `@sovereignfs/auth`, built** (ADR 0001 accepted, task 17.5): the auth store moves onto the package's tables at start; everyone signs in once more after the upgrade, under the package's cookie                                                                               | What the ADR's fallback waited on was released in `@sovereignfs/auth` 0.6.0                                                                         |

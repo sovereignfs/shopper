@@ -5,8 +5,8 @@ import { oauthErrorMessage } from '@/src/auth/messages';
 import { authSettings, mailAvailable, signUpAvailable } from '@/src/auth/server';
 import { safeNext } from '@/src/auth/next';
 import { getSession } from '@/src/auth/session';
-import { passwordsToMove } from '@/src/auth/move';
-import { getAuthDatabase } from '@/src/db/boot';
+import { passwordsMoving } from '@sovereignfs/auth/server';
+import { getAuthStore } from '@/src/db/boot';
 import { getVaultId } from '@/src/keys/server/vault';
 
 // Decided per request from the settings and the visitor's cookies. Left to Next it would be prerendered at build time, with no settings, as the
@@ -33,7 +33,7 @@ export default async function SignInPage({
                 canSignUp: await signUpAvailable(),
                 canReset: mailAvailable(),
                 vaultId: await getVaultId(),
-                moving: await passwordsToMove(await getAuthDatabase()),
+                moving: await passwordsMoving(await getAuthStore()),
               }
             : undefined
         }

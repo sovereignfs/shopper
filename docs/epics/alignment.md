@@ -67,7 +67,7 @@ with `keep: ['/l/', '/lists']` it fails, without it passes). Verified: `pnpm tes
 carries the shell, the precache and the sync listener; `/shell` answers with no cookie, which the package needs before it keeps a page. 6.5's
 browser test (`e2e/offline.spec.ts`, Chromium only) passed once Playwright's Chromium was installed, before leg 3, with the whole Chromium suite.
 
-#### ⏳ 17.3 — Sign-in and `@sovereignfs/auth`
+#### ✅ 17.3 — Sign-in and `@sovereignfs/auth`
 
 **Goal:** a decision, recorded, on whether Shopper's sign-in (`src/auth/`, better-auth with a password and through core) moves onto
 `@sovereignfs/auth` 0.4.0. **Design:** §15.1. **Depends on:** 17.1.
@@ -81,7 +81,8 @@ text). An ADR in `docs/adrs/` records the choice; moving, if chosen, is its own 
 **Done as (waiting on the owner):** [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md) proposed moving onto `@sovereignfs/auth` (17.5) before
 18.2; checked against the code before leg 3, it would have stopped 0.1.0's password accounts signing in, so its own fallback was taken: sign-in
 stays on `src/auth/` for workstream 0001, and 17.5 waits on 16.10, 16.13 and 16.14. The task is done when the owner accepts the ADR as it now reads,
-or replaces it.
+or replaces it. **Accepted on 2026-11-22,** once the three were released in `@sovereignfs/auth` 0.6.0 and a move of a 0.2.x store was seen to work on
+all three databases (the ADR's last section).
 
 #### ✅ 17.4 — Stale lines and the settings table
 
@@ -101,7 +102,7 @@ own note on 2026-11-09's phase numbers, and four rows for 2026-11-21 are added. 
 `0010_account_settings`), deleted by `People.deletePerson` and in its every-table test, which was seen to fail before the deletion was added.
 Nothing writes or reads it yet, and §16.3 says so. Verified: `pnpm test src/sovereign/people.test.ts`; `pnpm verify`.
 
-#### 🚧 17.5 — Sign-in on `@sovereignfs/auth`
+#### ✅ 17.5 — Sign-in on `@sovereignfs/auth`
 
 **Goal:** Shopper's sign-in is the suite's package, not better-auth configured by hand. **Design:** §15.1, [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md).
 **Depends on:** 17.3, 17.1, 16.10, 16.13, 16.14. **Not in workstream 0001** (ADR 0001's fallback).
@@ -115,3 +116,23 @@ package's version. Not yet the vault: 18.2 gives the package its key-store hooks
 
 **Accepts when:** every test of `src/auth/` and the sign-in browser tests pass on the package, against all three databases; a 0.1.0 database's
 accounts still sign in; nothing of a password reaches the server in the clear once 18.2 is in.
+
+**Done as (0.3.0):** `createAuth` is the package's preset with Shopper's settings, mail, sign-up policy and records (`userCreated` finding the
+account by its address); the auth store is opened again in the package's shape (`src/auth/store.ts`: the file and the sqld namespace through
+`@sovereignfs/auth/database`, PostgreSQL through a pool whose `search_path` is `shopper_auth`), so no wrapper of Shopper's was needed. At every start
+`migrateAuthStore` runs `adoptAccountTables` after Shopper's own auth migrations, unmarks the passwords Shopper had already moved (`password_derived`),
+and runs the package's, the core sign-in's and the SDK stores' migrations. Core is the package's `./core` on the SDK's steps, its stores in the auth
+store and the refresh token sealed with Shopper's ring (`src/auth/sdk-stores.ts`); the notices are `coreNotices` behind Shopper's body cap and rate
+limit (`buildNotices`); the key secret, the move of a 0.1.0 password and the sign-in flow are the package's, so `move.ts`, `secret.ts`, the two
+routes, `http.ts` and `verifiers.ts` are gone. Deleting a person deletes the package's rows too, each by name. Signing out of a session from core goes
+through core (`/api/account/sign-out`, the manifest's `postLogout`). **Kept Shopper's own:** the sign-in and sign-up screens, which carry the
+recovery-kit step `SignInForm` has not, on the package's client flows; the fresh session that stands in for a password when deleting an account
+with none. `SHOPPER_CORE_URL` must be the instance's own address, as the SDK requires; the fake Sovereign's issuer follows core's. **Seen:**
+`upgrade.test.ts` (a 0.2.x store with an unmoved, a moved and a core account: kept, marked only the first, signed in after the move; seen to fail
+without the unmarking), the suite on a file, sqld and PostgreSQL (725 passed; on PostgreSQL the five tests of `boot.test.ts` and `migrate.test.ts`
+that list the app store's tables fail as they do on `develop` before this change: the vault's tables are not in the `shopper` schema there), the
+deletion test seen to fail without the refresh token's delete; the browser suite on a SQLite file in Chromium and WebKit (199 passed, with
+their expected changes: the package's wording for a wrong password, 422 for a closed sign-up, its cookie and key-secret address, `error=sovereign`,
+and a notice that names the person rather than a core session; one test now waits for the page's menu before signing out, which it had raced).
+**Found:** `@sovereignfs/sdk` 2.11 does not check the signature of the ID token it
+takes from core's token endpoint, though sdk §9.1 says it does; `sovereign.test.ts` keeps that test as `it.fails` until a release fixes it.

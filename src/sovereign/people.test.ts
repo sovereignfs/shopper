@@ -1,4 +1,6 @@
 import { sql } from 'drizzle-orm';
+import type { Database as AuthStore } from '@sovereignfs/auth/database';
+import { movedAuthStore } from '../auth/test-support';
 import { is } from 'drizzle-orm';
 import { SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,9 +10,8 @@ import { openDatabase } from '../db/client';
 import { dbAll, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import * as sqliteApp from '../db/schema/sqlite/app';
-import * as sqliteAuth from '../db/schema/sqlite/auth';
 import { appTable } from '../db/tables';
-import { freshDatabase, testTarget } from '../db/test-support';
+import { AUTH_TABLES, freshDatabase, testTarget } from '../db/test-support';
 import { householdsOf, membersOf, readHousehold } from '../households/households';
 import { createInvitation } from '../households/invitations';
 import { personById } from '../people/people';
@@ -53,13 +54,26 @@ const DECIDED_APP: Record<string, string> = {
   push_device: 'the account’s own devices for push, deleted by account_id',
   push_outbox: 'pushes waiting for the account’s devices, deleted with them',
 };
+/** The auth store's tables, `@sovereignfs/auth`'s since the move (ADR 0001), and what deleting a person does to each. */
 const DECIDED_AUTH: Record<string, string> = {
-  user: 'deleted',
-  session: 'deleted',
-  account: 'deleted',
-  verification: 'deleted, found by the address',
-  rate_limit:
-    'keyed by address, not by person, and swept when its window is over: not an account’s',
+  users: 'deleted',
+  sessions: 'deleted',
+  accounts: 'deleted',
+  verifications: 'deleted, found by the address',
+  two_factors: 'deleted',
+  passkeys: 'deleted',
+  sv_key_secrets: 'a session’s, deleted with the account’s sessions',
+  sv_core_sign_ins: 'a session’s, deleted with the account’s sessions',
+  sv_legacy_passwords: 'deleted',
+  sv_tokens: 'core’s refresh token, kept under the account’s core sub: deleted',
+  rate_limits:
+    'keyed by address or by a hash of it, not by person, and swept when its window is over: not an account’s',
+  sv_core_notices: 'core’s notices by their jti, kept until they expire: no person’s',
+  sv_sessions: 'sign-ins through core still pending, which run out: no account’s yet',
+  sv_auth_adoption: 'the record of the move: no person’s',
+  sv_auth_migrations: 'a migration history: no person’s',
+  sv_core_sign_in_migrations: 'a migration history: no person’s',
+  shopper_sdk_store_migrations: 'a migration history: no person’s',
 };
 
 const namesIn = (module: Record<string, unknown>): string[] =>
@@ -69,15 +83,17 @@ const namesIn = (module: Record<string, unknown>): string[] =>
 
 let app: Database;
 let auth: Database;
+let store: AuthStore;
 beforeAll(async () => {
   ({ database: app } = await freshDatabase('app'));
   await runMigrations(app);
   auth = await openDatabase(testTarget().config, 'auth');
-  await runMigrations(auth);
+  store = await movedAuthStore(testTarget().config, auth);
 });
 afterAll(async () => {
   await app.close();
   await auth.close();
+  await store.close();
 });
 
 const deps = () => ({
@@ -96,19 +112,19 @@ async function seedAuth(person: Someone) {
   const at = auth.dialect === 'postgres' ? sql`to_timestamp(${now / 1000})` : sql`${now}`;
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('user')} (id, name, email, email_verified, created_at, updated_at) VALUES (${person.accountId}, ${person.name}, ${person.email}, ${false}, ${at}, ${at})`,
+    sql`INSERT INTO ${q('users')} (id, name, email, email_verified, created_at, updated_at) VALUES (${person.accountId}, ${person.name}, ${person.email}, ${false}, ${at}, ${at})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('session')} (id, expires_at, token, created_at, updated_at, user_id) VALUES (${`s-${person.accountId}`}, ${at}, ${`t-${person.accountId}`}, ${at}, ${at}, ${person.accountId})`,
+    sql`INSERT INTO ${q('sessions')} (id, expires_at, token, created_at, updated_at, user_id) VALUES (${`s-${person.accountId}`}, ${at}, ${`t-${person.accountId}`}, ${at}, ${at}, ${person.accountId})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('account')} (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (${`a-${person.accountId}`}, ${person.accountId}, 'credential', ${person.accountId}, 'hash', ${at}, ${at})`,
+    sql`INSERT INTO ${q('accounts')} (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (${`a-${person.accountId}`}, ${person.accountId}, 'credential', ${person.accountId}, 'hash', ${at}, ${at})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('verification')} (id, identifier, value, expires_at, created_at, updated_at) VALUES (${`v-${person.accountId}`}, ${person.email}, 'v', ${at}, ${at}, ${at})`,
+    sql`INSERT INTO ${q('verifications')} (id, identifier, value, expires_at, created_at, updated_at) VALUES (${`v-${person.accountId}`}, ${person.email}, 'v', ${at}, ${at}, ${at})`,
   );
   await dbRun(
     app,
@@ -158,7 +174,7 @@ const authTable = (name: string) =>
 describe(`deleting a person (${leg})`, () => {
   it('decides what happens to every table there is', () => {
     expect(Object.keys(DECIDED_APP).sort()).toEqual(namesIn(sqliteApp).sort());
-    expect(Object.keys(DECIDED_AUTH).sort()).toEqual(namesIn(sqliteAuth).sort());
+    expect(Object.keys(DECIDED_AUTH).sort()).toEqual([...AUTH_TABLES].sort());
   });
 
   it('removes what is personal, keeps the name, passes the Admin role to the member who has been in longest, and leaves the others’ households whole', async () => {
@@ -184,8 +200,40 @@ describe(`deleting a person (${leg})`, () => {
     await seedAuth(grace);
     await dbRun(
       auth,
-      sql`UPDATE ${authTable('user')} SET email = ${PLANTED_EMAIL} WHERE id = ${ada.accountId}`,
+      sql`UPDATE ${authTable('users')} SET email = ${PLANTED_EMAIL} WHERE id = ${ada.accountId}`,
     );
+    // What the package keeps of Ada beside better-auth's rows: her session's key secret and its core sign-in, the mark on her password,
+    // and, through her sign-in through core, core's refresh token under her sub.
+    const stamp = Date.now();
+    await store.run(
+      'INSERT INTO accounts (id, account_id, provider_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        `core-${ada.accountId}`,
+        `sub-${ada.accountId}`,
+        'sovereign',
+        ada.accountId,
+        store.family === 'postgres' ? new Date(stamp) : stamp,
+        store.family === 'postgres' ? new Date(stamp) : stamp,
+      ],
+    );
+    await store.run(
+      'INSERT INTO sv_key_secrets (session_id, secret, created_at) VALUES (?, ?, ?)',
+      [`s-${ada.accountId}`, 'secret', stamp],
+    );
+    await store.run('INSERT INTO sv_core_sign_ins (session_id, sub, checked_at) VALUES (?, ?, ?)', [
+      `s-${ada.accountId}`,
+      `sub-${ada.accountId}`,
+      stamp,
+    ]);
+    await store.run('INSERT INTO sv_legacy_passwords (user_id, until) VALUES (?, ?)', [
+      ada.accountId,
+      stamp + 1000,
+    ]);
+    await store.run('INSERT INTO sv_tokens (sub, sealed, fingerprint) VALUES (?, ?, ?)', [
+      `sub-${ada.accountId}`,
+      'sealed',
+      'f',
+    ]);
 
     const preview = await previewLeaving(app, TEST_RING, ada.accountId);
     expect(preview.map((p) => [p.own, p.outcome, p.to])).toEqual([
@@ -197,16 +245,40 @@ describe(`deleting a person (${leg})`, () => {
     expect(done).toEqual({ passed: 1, deleted: 0, left: 1 });
 
     // Nothing personal of Ada's is left: the sign-in store, the counters, the link from her person to her account.
-    for (const table of ['user', 'session', 'account'])
+    for (const [table, where] of [
+      ['sv_key_secrets', 'session_id'],
+      ['sv_core_sign_ins', 'session_id'],
+      ['sv_legacy_passwords', 'user_id'],
+    ] as const)
+      expect(
+        Number(
+          (
+            await store.run(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where} = ?`, [
+              where === 'session_id' ? `s-${ada.accountId}` : ada.accountId,
+            ])
+          ).rows[0]?.n,
+        ),
+        table,
+      ).toBe(0);
+    expect(
+      Number(
+        (
+          await store.run('SELECT COUNT(*) AS n FROM sv_tokens WHERE sub = ?', [
+            `sub-${ada.accountId}`,
+          ])
+        ).rows[0]?.n,
+      ),
+    ).toBe(0);
+    for (const table of ['users', 'sessions', 'accounts'])
       expect(
         await count(
           auth,
           authTable(table),
-          sql`${sql.raw(table === 'user' ? 'id' : 'user_id')} = ${ada.accountId}`,
+          sql`${sql.raw(table === 'users' ? 'id' : 'user_id')} = ${ada.accountId}`,
         ),
         table,
       ).toBe(0);
-    expect(await count(auth, authTable('verification'), sql`identifier = ${PLANTED_EMAIL}`)).toBe(
+    expect(await count(auth, authTable('verifications'), sql`identifier = ${PLANTED_EMAIL}`)).toBe(
       0,
     );
     expect(
@@ -250,8 +322,8 @@ describe(`deleting a person (${leg})`, () => {
     ]);
     expect((await readHousehold(app, TEST_RING, lin.household, lin.accountId))?.role).toBe('admin');
     expect(await membersOf(app, TEST_RING, lin.list, lin.accountId)).toHaveLength(1);
-    expect(await count(auth, authTable('user'), sql`id = ${grace.accountId}`)).toBe(1);
-    expect(await count(auth, authTable('session'), sql`user_id = ${grace.accountId}`)).toBe(1);
+    expect(await count(auth, authTable('users'), sql`id = ${grace.accountId}`)).toBe(1);
+    expect(await count(auth, authTable('sessions'), sql`user_id = ${grace.accountId}`)).toBe(1);
     expect(
       await count(app, appTable(app, 'rate_bucket'), sql`"key" LIKE ${`%:${grace.accountId}`}`),
     ).toBe(1);
@@ -323,15 +395,15 @@ describe(`deleting a person (${leg})`, () => {
     await seedAuth(halfway);
     await dbAll(
       auth,
-      sql`DELETE FROM ${authTable('session')} WHERE user_id = ${halfway.accountId} RETURNING id`,
+      sql`DELETE FROM ${authTable('sessions')} WHERE user_id = ${halfway.accountId} RETURNING id`,
     );
     await dbAll(
       auth,
-      sql`DELETE FROM ${authTable('account')} WHERE user_id = ${halfway.accountId} RETURNING id`,
+      sql`DELETE FROM ${authTable('accounts')} WHERE user_id = ${halfway.accountId} RETURNING id`,
     );
     await dbAll(
       auth,
-      sql`DELETE FROM ${authTable('user')} WHERE id = ${halfway.accountId} RETURNING id`,
+      sql`DELETE FROM ${authTable('users')} WHERE id = ${halfway.accountId} RETURNING id`,
     );
     expect((await personById(app, TEST_RING, halfway.personId))?.accountId).toBe(halfway.accountId);
     await deletePerson(deps(), halfway.accountId);

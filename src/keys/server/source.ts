@@ -1,7 +1,7 @@
 import { accountHasPassword } from '../../auth/password';
 import { authSettings } from '../../auth/server';
 import { getConfig } from '../../config/current';
-import { getAuthDatabase } from '../../db/boot';
+import { getAuthStore } from '../../db/boot';
 import { subOfAccount } from '../../sovereign/identity';
 import { getVaultId } from './vault';
 
@@ -27,7 +27,7 @@ export async function keySourceOf(accountId: string): Promise<KeySource | undefi
   const url = getConfig().url;
   if (!sovereign || !url) return undefined;
   // Core's `sub` is the account id of the account's sign-in through core, as better-auth keeps it (DESIGN.md §15.1), the one place it is recorded.
-  const sub = await subOfAccount(await getAuthDatabase(), accountId);
+  const sub = await subOfAccount(await getAuthStore(), accountId);
   if (!sub) return undefined;
   return {
     kind: 'core',

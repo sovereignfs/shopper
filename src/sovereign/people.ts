@@ -3,9 +3,7 @@ import type { KeyRing } from '../crypto/keys';
 import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
-import * as postgresAuth from '../db/schema/postgres/auth';
-import * as sqliteAuth from '../db/schema/sqlite/auth';
-import { appTable } from '../db/tables';
+import { appTable, authTable } from '../db/tables';
 import { HOUSEHOLD_TABLES } from '../households/tables';
 import { deleteListProducts } from '../lists/members';
 import { vaultOf } from '../keys/server/vault';
@@ -46,21 +44,6 @@ export interface Deleted {
   /** Lists they left, with nothing to hand over. */
   readonly left: number;
 }
-
-const authTables = (database: Database) =>
-  database.dialect === 'postgres'
-    ? {
-        user: postgresAuth.user,
-        session: postgresAuth.session,
-        account: postgresAuth.account,
-        verification: postgresAuth.verification,
-      }
-    : {
-        user: sqliteAuth.user,
-        session: sqliteAuth.session,
-        account: sqliteAuth.account,
-        verification: sqliteAuth.verification,
-      };
 
 export async function deletePerson(deps: PeopleDeps, accountId: string): Promise<Deleted> {
   const { database, authDatabase } = deps;
@@ -129,26 +112,45 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   );
 
   // 4. The sign-in store: the pending verifications are found by the address, so it is read before the account goes.
-  const auth = authTables(authDatabase);
+  // The tables are `@sovereignfs/auth`'s (ADR 0001). Each is deleted by name rather than left to a cascade, which sqld does not
+  // promise to enforce.
+  const auth = (name: string) => authTable(authDatabase, name);
   const user = await dbGet<{ email: string }>(
     authDatabase,
-    sql`SELECT email FROM ${auth.user} WHERE id = ${accountId}`,
+    sql`SELECT email FROM ${auth('users')} WHERE id = ${accountId}`,
   );
+  const sessions = sql`SELECT id FROM ${auth('sessions')} WHERE user_id = ${accountId}`;
+  for (const table of ['sv_key_secrets', 'sv_core_sign_ins'])
+    await dbAll(
+      authDatabase,
+      sql`DELETE FROM ${auth(table)} WHERE session_id IN (${sessions}) RETURNING session_id`,
+    );
   await dbAll(
     authDatabase,
-    sql`DELETE FROM ${auth.session} WHERE user_id = ${accountId} RETURNING id`,
+    sql`DELETE FROM ${auth('sessions')} WHERE user_id = ${accountId} RETURNING id`,
   );
+  // Core's refresh token for the person, kept by the SDK under their `sub` (sdk §5.1).
   await dbAll(
     authDatabase,
-    sql`DELETE FROM ${auth.account} WHERE user_id = ${accountId} RETURNING id`,
+    sql`DELETE FROM ${auth('sv_tokens')} WHERE sub IN (
+          SELECT account_id FROM ${auth('accounts')} WHERE user_id = ${accountId} AND provider_id = 'sovereign') RETURNING sub`,
+  );
+  for (const table of ['accounts', 'two_factors', 'passkeys'])
+    await dbAll(
+      authDatabase,
+      sql`DELETE FROM ${auth(table)} WHERE user_id = ${accountId} RETURNING id`,
+    );
+  await dbAll(
+    authDatabase,
+    sql`DELETE FROM ${auth('sv_legacy_passwords')} WHERE user_id = ${accountId} RETURNING user_id`,
   );
   if (user) {
     await dbAll(
       authDatabase,
-      sql`DELETE FROM ${auth.verification} WHERE identifier = ${user.email} RETURNING id`,
+      sql`DELETE FROM ${auth('verifications')} WHERE identifier = ${user.email} RETURNING id`,
     );
   }
-  await dbAll(authDatabase, sql`DELETE FROM ${auth.user} WHERE id = ${accountId} RETURNING id`);
+  await dbAll(authDatabase, sql`DELETE FROM ${auth('users')} WHERE id = ${accountId} RETURNING id`);
 
   // 5. The person, last: a name and nothing else.
   if (person) {

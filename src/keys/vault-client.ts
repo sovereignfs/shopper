@@ -15,7 +15,7 @@ export function shopperVault(vaultId: string): Vault {
     clientId: CLIENT_ID,
     vaultId,
     path: '/api/keys/vault',
-    secretPath: '/api/keys/secret',
+    secretPath: '/api/auth/sv/key-secret',
   });
 }
 

@@ -1,10 +1,10 @@
 'use client';
 
 import { type FormEvent, useState } from 'react';
-import { addressOf, kitPath, shopperVault } from '../../keys/vault-client';
-import { authClient } from '../client';
+import { signInWithPassword } from '@sovereignfs/auth/client';
+import { kitPath, shopperVault } from '../../keys/vault-client';
+import { authClient, deriveWith, passwordMoveWhile } from '../client';
 import { nextQuery } from '../next';
-import { messageFor } from '../messages';
 import {
   AuthButton,
   AuthDivider,
@@ -26,7 +26,7 @@ export function SignInForm({
   failure: returned = null,
   next = null,
 }: {
-  /** With local sign-in: the vault's id, which the password is derived with, and whether 0.1.0 accounts are still to move (`src/auth/move.ts`). */
+  /** With local sign-in: the vault's id, which the password is derived with, and whether 0.1.0 passwords can still move (auth.md §8.1). */
   local: { canSignUp: boolean; canReset: boolean; vaultId: string; moving: boolean } | undefined;
   sovereign: boolean;
   failure?: string | null;
@@ -39,6 +39,9 @@ export function SignInForm({
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(returned);
   const [busy, setBusy] = useState(false);
+  /** Signed in with an address not yet confirmed: the page offers a new link, which signing in never sends (auth.md §4). */
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resent, setResent] = useState(false);
   /** After a reset the new password does not open the keys: the kit does, once, and the password opens them again after. */
   const [locked, setLocked] = useState<CryptoKey | null>(null);
   const [kit, setKit] = useState('');
@@ -52,31 +55,47 @@ export function SignInForm({
     setBusy(true);
     setError(null);
     const vault = shopperVault(local.vaultId);
-    // The password is derived here and never sent (RFC 0001): the server gets the sign-in value.
-    const derived = await vault.derive(password, addressOf(email));
-    let { error: failure } = await authClient.signIn.email({ email, password: derived.signIn });
-    if (failure && local.moving && failure.code === 'INVALID_EMAIL_OR_PASSWORD') {
-      // A 0.1.0 account's password moves across once, then signs in as any other (`src/auth/move.ts`).
-      await fetch('/api/account/move-password', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, password, signIn: derived.signIn }),
-        cache: 'no-store',
-      }).catch(() => undefined);
-      ({ error: failure } = await authClient.signIn.email({ email, password: derived.signIn }));
-    }
-    if (failure) {
+    // The password is derived here and never sent (RFC 0001): the server gets the sign-in value, through the package's flow, which moves a
+    // 0.1.0 password once on the way (auth.md §8.1).
+    const result = await signInWithPassword(
+      authClient,
+      deriveWith(local.vaultId),
+      { email, password },
+      undefined,
+      passwordMoveWhile(local.moving),
+    );
+    if (result.outcome !== 'signed-in') {
       setBusy(false);
-      setError(messageFor(failure));
+      setUnconfirmed(result.outcome === 'unverified');
+      setResent(false);
+      setError(
+        result.outcome === 'refused'
+          ? result.message
+          : result.outcome === 'unverified'
+            ? 'Open the link we sent to your email address first, then sign in.'
+            : result.outcome === 'not-ready'
+              ? 'This page could not get ready. Reload it and try again.'
+              : 'Signing in did not work. Try again.',
+      );
       return;
     }
-    const opened = await vault.afterSignIn(derived.secret);
+    const opened = await vault.afterSignIn(result.secret);
     if (opened === 'locked') {
       setBusy(false);
-      setLocked(derived.secret);
+      setLocked(result.secret);
       return;
     }
     go(opened === 'set-up' || (await vault.kitPending()) ? kitPath(next) : (next ?? '/'));
+  }
+
+  async function onResend() {
+    setBusy(true);
+    // The same answer whether or not the address has an account, so nothing is told here either way.
+    await authClient
+      .sendVerificationEmail({ email, callbackURL: next ?? '/' })
+      .catch(() => undefined);
+    setBusy(false);
+    setResent(true);
   }
 
   async function onKit(event: FormEvent<HTMLFormElement>) {
@@ -95,28 +114,20 @@ export function SignInForm({
     );
   }
 
-  async function onSovereign(event?: FormEvent<HTMLFormElement>) {
+  function onSovereign(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setBusy(true);
     setError(null);
-    // On success the browser is sent to Sovereign, so there is nothing to do after the call; a person who comes back with a failure lands on this page
+    // The browser goes to Sovereign through the package's route (auth.md §8); a person who comes back with a failure lands on this page
     // again with the reason.
-    const { error: failure } = await authClient.signIn.social({
-      provider: 'sovereign',
-      callbackURL: next ?? '/',
-      errorCallbackURL: '/sign-in',
-    });
-    if (failure) {
-      setBusy(false);
-      setError(messageFor(failure, 'Signing in with Sovereign did not work. Try again.'));
-    }
+    go(`/api/auth/sign-in/sovereign?returnTo=${encodeURIComponent(next ?? '/')}`);
   }
 
   const sovereignButton = (
     <AuthButton
       type={local ? 'button' : 'submit'}
       variant={local ? 'secondary' : 'primary'}
-      onClick={local ? () => void onSovereign() : undefined}
+      onClick={local ? () => onSovereign() : undefined}
       loading={busy}
       disabled={busy}
     >
@@ -126,7 +137,7 @@ export function SignInForm({
 
   if (!local)
     return (
-      <AuthForm onSubmit={(event) => void onSovereign(event)}>
+      <AuthForm onSubmit={(event) => onSovereign(event)}>
         {error ? <AuthError>{error}</AuthError> : null}
         {sovereignButton}
       </AuthForm>
@@ -196,6 +207,16 @@ export function SignInForm({
         <AuthButton type="submit" loading={busy}>
           Sign in
         </AuthButton>
+        {unconfirmed && canReset ? (
+          <AuthButton
+            type="button"
+            variant="secondary"
+            disabled={busy || resent}
+            onClick={() => void onResend()}
+          >
+            {resent ? 'A new link is on its way' : 'Send the link again'}
+          </AuthButton>
+        ) : null}
       </AuthForm>
       {sovereign ? (
         <>

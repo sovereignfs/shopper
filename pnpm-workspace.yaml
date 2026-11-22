@@ -20,6 +20,7 @@ supportedArchitectures:
 # in the commit that bumps them; any other needs an argument.
 minimumReleaseAgeExclude:
   - '@sovereignfs/ui@0.105.0'
+  - '@sovereignfs/auth@0.6.0'
   - '@sovereignfs/config@0.1.0'
   - '@sovereignfs/sdk@2.11.0'
   - '@sovereignfs/create@0.27.1'

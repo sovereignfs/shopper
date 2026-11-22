@@ -149,7 +149,8 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   });
 
   // What Sovereign tells the app when a person's session there ends, or they delete their account (task 2.4). The fake signs the notice with the key it
-  // publishes, as Sovereign does, and the test posts it where the manifest says to.
+  // publishes, as Sovereign does, and the test posts it where the manifest says to. It names the person, not one of their core sessions: a notice
+  // that names a core session ends only the sessions that came from it (auth.md §8).
   type Wrong = 'signature' | 'audience' | 'expired' | 'type';
   async function noticeFrom(
     page: Page,
@@ -158,7 +159,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     wrong?: Wrong,
   ): Promise<string> {
     const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/notice`, {
-      data: { kind, sub, sid: 'core-session-1', wrong },
+      data: { kind, sub, wrong },
     });
     expect(reply.ok()).toBe(true);
     return reply.text();
@@ -203,8 +204,8 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await signInAs(page, who);
     for (const wrong of ['signature', 'audience', 'expired', 'type'] as const) {
       const reply = await sendLogout(page, await noticeFrom(page, 'logout', who.sub, wrong));
+      // Refused with nothing said (auth.md §8): what was wrong with it is not the sender's to learn.
       expect(reply.status(), wrong).toBe(400);
-      expect(await reply.json()).toEqual({ error: 'invalid_request' });
     }
     // A deletion token is not a logout token, nor the reverse.
     expect(
@@ -295,9 +296,13 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     }
   });
 
-  test('a person who declines at Sovereign is told so and is not signed in', async ({ page }) => {
-    await page.goto('/sign-in?error=access_denied');
-    await expect(page.getByText(/You declined to share/)).toBeVisible();
+  // A sign-in through core that did not complete, declined at Sovereign included, comes back with the package's one word for it (auth.md §8;
+  // a real decline is driven in `src/auth/sovereign.test.ts`).
+  test('a person who declines at Sovereign is told it did not complete and is not signed in', async ({
+    page,
+  }) => {
+    await page.goto('/sign-in?error=sovereign');
+    await expect(page.getByText(/Signing in with Sovereign did not complete/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
   });
 });

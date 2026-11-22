@@ -6,6 +6,24 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.3.0] - 2026-11-22
+
+**Before upgrading:** take a backup. Every session open at the upgrade ends, and each person signs in once more: with a password, which opens
+their lists as at any sign-in, or through Sovereign, whose core gives their keys again. `SHOPPER_CORE_URL` is the instance's own address with no
+path (`https://sovereign.example.com`); one ending in `/api/auth` now stops Shopper at start, naming the variable. The core it is registered with must
+let it come back to `/sign-in` after signing out (the manifest's `postLogout`). The move of the sign-in's tables happens by itself at the first start
+and cannot be undone: an older Shopper cannot read them after it.
+
+### Changed
+
+- **Sign-in is the suite's `@sovereignfs/auth`** (ADR 0001), not better-auth configured by hand: the same rules as Sovereign itself and every app,
+  and its tables. A password 0.1.0 stored still moves across at its next sign-in, for 90 days after the upgrade.
+- **Signing in through Sovereign** follows the person's Sovereign session: an hour after it was last checked, it is checked again on the next page,
+  and ends if they have signed out there. Signing out of it goes through Sovereign, which decides whether it signs them out there too. A notice from
+  Sovereign that one of its sessions ended ends only the sessions that came from it.
+- Signing in with an address not yet confirmed no longer sends another link by itself; the sign-in page offers **Send the link again**.
+- A sign-up refused because sign-up is closed is answered with 422, the package's answer, rather than 403.
+
 ## [0.2.1] - 2026-11-22
 
 **If you sign in through a Sovereign core:** in 0.2.0 nothing of yours was encrypted on your device, and core never showed you a recovery kit. Open

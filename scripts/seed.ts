@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { Database as AuthStore } from '@sovereignfs/auth/database';
 import { sql } from 'drizzle-orm';
 import type { Env } from '../src/actions/env';
 import type { Mutation } from '../src/actions/format';
@@ -14,9 +15,7 @@ import { getStores } from '../src/db/boot';
 import type { Database } from '../src/db/client';
 import type { DatabaseConfig } from '../src/db/config';
 import { dbAll, dbGet } from '../src/db/exec';
-import * as postgresAuth from '../src/db/schema/postgres/auth';
-import * as sqliteAuth from '../src/db/schema/sqlite/auth';
-import { appTable } from '../src/db/tables';
+import { appTable, authTable } from '../src/db/tables';
 import { acceptInvitation, createInvitation, liveInvitations } from '../src/households/invitations';
 import { dispatch } from '../src/households/ops';
 import { resolveLimits } from '../src/limits/config';
@@ -63,9 +62,6 @@ export function isLocalDatabase(config: DatabaseConfig): boolean {
   return local(new URL(config.url).hostname) && local(new URL(config.adminUrl).hostname);
 }
 
-const authSchema = (database: Database) =>
-  database.dialect === 'postgres' ? postgresAuth : sqliteAuth;
-
 /** An id made from a name, the same every time (a version 5 UUID's shape from a SHA-1, in no namespace but the seed's). */
 const named = (name: string): string => {
   const bytes = createHash('sha1').update(`shopper-seed:${name}`).digest().subarray(0, 16);
@@ -84,6 +80,8 @@ const envFor = (label: string, now: number): Env => {
 export interface Stores {
   app: Database;
   auth: Database;
+  /** The auth store as `@sovereignfs/auth` takes it, which makes the accounts. */
+  authStore: AuthStore;
 }
 
 export interface SeedContext {
@@ -104,7 +102,7 @@ async function findUser(auth: Database, email: string): Promise<string | undefin
   return (
     await dbGet<{ id: string }>(
       auth,
-      sql`SELECT id FROM ${authSchema(auth).user} WHERE email = ${email}`,
+      sql`SELECT id FROM ${authTable(auth, 'users')} WHERE email = ${email}`,
     )
   )?.id;
 }
@@ -119,7 +117,7 @@ async function makeUser(
   const instance = createAuth({
     settings: { ...settings, signUp: 'open', local: true },
     name: 'Shopper',
-    database: stores.auth,
+    database: stores.authStore,
   });
   const made = await instance.api.signUpEmail({
     body: { name, email, password: await signInValue(stores.app, email) },

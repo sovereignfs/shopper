@@ -56,7 +56,7 @@ mkdirSync(closedFolder, { recursive: true });
 // Two more instances, for signing in through Sovereign: a fake one (`e2e/fake-sovereign-server.ts`, its ports in `e2e/ports.ts`) is the core. One takes only
 // Sovereign; the other both ways. Both have sign-up closed, to show that a sign-in through core is not refused by it. Each has a directory of its own.
 const CORE = {
-  SHOPPER_CORE_URL: `http://localhost:${PORTS.coreAuth}/api/auth`,
+  SHOPPER_CORE_URL: `http://localhost:${PORTS.coreAuth}`,
   SHOPPER_CORE_CLIENT_ID: 'shopper-e2e-client',
   SHOPPER_CORE_CLIENT_SECRET: 'shopper-e2e-secret',
 };

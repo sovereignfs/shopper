@@ -182,8 +182,8 @@ person sees has changed.
 | --- | ------------------------------- | ----------------------------------------------------------------------- | -------- | ------------------- | ------ |
 | 52  | [17.1](docs/epics/alignment.md) | The packages, current                                                   | P0       | —                   | ✅     |
 | 53  | [17.2](docs/epics/alignment.md) | The worker from `@sovereignfs/pwa`                                      | P1       | 17.1                | ✅     |
-| 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                                         | P2       | 17.1                | ⏳     |
-| 55  | [17.5](docs/epics/alignment.md) | Sign-in on `@sovereignfs/auth`                                          | P0       | 16.10, 16.13, 16.14 | 🚧     |
+| 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                                         | P2       | 17.1                | ✅     |
+| 55  | [17.5](docs/epics/alignment.md) | Sign-in on `@sovereignfs/auth`                                          | P0       | 16.10, 16.13, 16.14 | ✅     |
 | 56  | [16.13](docs/epics/upstream.md) | A SQLite and sqld database for `@sovereignfs/auth` (`sovereign`)        | P3       | —                   | 📋     |
 | 57  | [16.14](docs/epics/upstream.md) | An app's password accounts, across to `@sovereignfs/auth` (`sovereign`) | P3       | —                   | 📋     |
 | 58  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                                      | P2       | —                   | ✅     |

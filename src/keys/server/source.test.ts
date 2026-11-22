@@ -5,17 +5,23 @@ import { type Database, openDatabase } from '../../db/client';
 import { dbRun } from '../../db/exec';
 import { runMigrations } from '../../db/migrate';
 import { freshDatabase, testTarget } from '../../db/test-support';
+import { movedAuthStore } from '../../auth/test-support';
 
 /**
  * **Where a core account's key comes from** (RFC 0001, DESIGN.md §13.2): an account that came through core alone gets its key from core, bound to its
  * `sub`, which is where better-auth keeps it, the account id of its sign-in through core. Read from anywhere else, every core account had no key source:
  * nothing was encrypted, and core was never asked, so nobody was shown a recovery kit.
  */
-const stores = vi.hoisted(() => ({ app: undefined as unknown, auth: undefined as unknown }));
+const stores = vi.hoisted(() => ({
+  app: undefined as unknown,
+  auth: undefined as unknown,
+  store: undefined as unknown,
+}));
 const password = vi.hoisted(() => ({ has: new Set<string>() }));
 vi.mock('../../db/boot', () => ({
   getDatabase: async () => stores.app,
   getAuthDatabase: async () => stores.auth,
+  getAuthStore: async () => stores.store,
 }));
 vi.mock('../../auth/password', () => ({
   accountHasPassword: async (id: string) => password.has.has(id),
@@ -35,13 +41,14 @@ beforeAll(async () => {
   ({ database: app } = await freshDatabase('app'));
   await runMigrations(app);
   auth = await openDatabase(testTarget().config, 'auth');
-  await runMigrations(auth);
+  stores.store = await movedAuthStore(testTarget().config, auth);
   stores.app = app;
   stores.auth = auth;
 });
 afterAll(async () => {
   await app.close();
   await auth.close();
+  await (stores.store as { close(): Promise<void> }).close();
 });
 
 const q = (name: string) =>
@@ -53,11 +60,11 @@ async function account(id: string, provider: string, accountIdThere: string) {
   const at = auth.dialect === 'postgres' ? sql`to_timestamp(${now / 1000})` : sql`${now}`;
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('user')} (id, name, email, email_verified, created_at, updated_at) VALUES (${id}, ${'Ada'}, ${`${id}@example.test`}, ${true}, ${at}, ${at})`,
+    sql`INSERT INTO ${q('users')} (id, name, email, email_verified, created_at, updated_at) VALUES (${id}, ${'Ada'}, ${`${id}@example.test`}, ${true}, ${at}, ${at})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('account')} (id, account_id, provider_id, user_id, created_at, updated_at) VALUES (${`a-${id}`}, ${accountIdThere}, ${provider}, ${id}, ${at}, ${at})`,
+    sql`INSERT INTO ${q('accounts')} (id, account_id, provider_id, user_id, created_at, updated_at) VALUES (${`a-${id}`}, ${accountIdThere}, ${provider}, ${id}, ${at}, ${at})`,
   );
 }
 

@@ -61,13 +61,15 @@ describe('the proxy', () => {
 
   it('answers the front address with the signed-in area for someone with a session cookie, and keeps the address', () => {
     const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
-    const withCookie = (path: string, cookie = 'shopper.session_token=x') =>
+    const withCookie = (path: string, cookie = 'better-auth.session_token=x') =>
       new NextRequest(`https://shopper.example.com${path}`, { headers: { cookie } });
     expect(rewrite(proxy(withCookie('/')))).toMatch(/\/home$/);
-    expect(rewrite(proxy(withCookie('/', '__Secure-shopper.session_token=x')))).toMatch(/\/home$/);
+    expect(rewrite(proxy(withCookie('/', '__Secure-better-auth.session_token=x')))).toMatch(
+      /\/home$/,
+    );
     // A visitor, and a cookie with nothing in it, get the landing page.
     expect(rewrite(proxy(request('/')))).toBeNull();
-    expect(rewrite(proxy(withCookie('/', 'shopper.session_token=')))).toBeNull();
+    expect(rewrite(proxy(withCookie('/', 'better-auth.session_token=')))).toBeNull();
     // Other addresses are not rewritten, and a rewritten page keeps its policy.
     expect(rewrite(proxy(withCookie('/l/abc')))).toBeNull();
     expect(proxy(withCookie('/')).headers.get('content-security-policy')).toContain('nonce-');
@@ -76,7 +78,7 @@ describe('the proxy', () => {
   it('sends the signed-in area’s own address to the front one, once, and leaves it to the page for anyone else', () => {
     const reply = proxy(
       new NextRequest('https://shopper.example.com/home', {
-        headers: { cookie: 'shopper.session_token=x' },
+        headers: { cookie: 'better-auth.session_token=x' },
       }),
     );
     expect(reply.status).toBe(308);

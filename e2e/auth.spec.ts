@@ -53,7 +53,7 @@ test('a wrong password reads the same as an address with no account, and signs n
     await page.getByLabel('Email').fill(address);
     await page.getByLabel('Password').fill('not the password at all');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    const alert = page.getByText(/do not match/);
+    const alert = page.getByText(/email or password is incorrect/);
     await expect(alert).toBeVisible();
     messages.push((await alert.textContent()) ?? '');
   }
@@ -94,6 +94,8 @@ test('the front address is the landing page for a visitor and the signed-in area
   // The signed-in area's own address is the front one.
   await page.goto('/home');
   await expect(page).toHaveURL('/');
+  // Signed in on the page that has just loaded, before signing out: the helper takes a page with no menu as signed out already.
+  await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
 
   await signOutFromMenu(page);
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
@@ -126,7 +128,7 @@ test('an account is deleted with its password, and nothing of it signs in again'
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByText(/do not match/)).toBeVisible();
+  await expect(page.getByText(/email or password is incorrect/)).toBeVisible();
 });
 
 test.describe('an instance closed to sign-up', () => {
@@ -147,7 +149,8 @@ test.describe('an instance closed to sign-up', () => {
       headers: { origin: base, 'x-forwarded-for': ip },
       data: { name: 'Mallory', email: newEmail('mallory'), password: DERIVED_SHAPE },
     });
-    expect(reply.status()).toBe(403);
+    // The package's answer (auth.md §5), with the code the page reads.
+    expect(reply.status()).toBe(422);
     expect((await reply.json()).code).toBe('SIGNUP_CLOSED');
 
     await page.goto(`${base}/sign-up`);
