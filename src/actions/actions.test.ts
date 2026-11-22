@@ -190,9 +190,31 @@ describe('editing an item', () => {
     ]);
   });
 
-  it('moves an item to another list of the household in the same way', () => {
-    const m = valid(editItem(env(), item(), { listId: '40000000-0000-4000-8000-000000000002' }));
-    expect(m.changes[0]?.fields).toEqual({ listId: '40000000-0000-4000-8000-000000000002' });
+  it('moves an item to another list with a product of that list, and its name and note again (RFC 0004)', () => {
+    const other = '40000000-0000-4000-8000-000000000002';
+    const milk = product({ listId: item().listId });
+    // No product of the name on the other list: one is made there, with what this one remembers.
+    const made = valid(
+      editItem(env(), item(), { listId: other }, undefined, { product: milk, products: [milk] }),
+    );
+    const created = made.changes.find((change) => change.table === 'product');
+    expect(created).toMatchObject({ create: true, fields: { listId: other, name: milk.name } });
+    expect(made.changes.find((change) => change.table === 'item')?.fields).toEqual({
+      listId: other,
+      productId: created?.id,
+      name: item().name,
+      note: item().note,
+    });
+    // One there already: it is used.
+    const there = product({ id: '50000000-0000-4000-8000-0000000000aa', listId: other });
+    const found = valid(
+      editItem(env(), item(), { listId: other }, undefined, {
+        product: milk,
+        products: [milk, there],
+      }),
+    );
+    expect(found.changes).toHaveLength(1);
+    expect(found.changes[0]?.fields.productId).toBe(there.id);
   });
 });
 
@@ -228,14 +250,10 @@ describe('ticking, unticking, deleting and clearing', () => {
     expect(restoreItem(env(), item())).toBeNull();
   });
 
-  it('moves an item to a position, and to another list when told', () => {
+  it('moves an item to a position within its list', () => {
     expect(valid(moveItem(env(), item(), { position: 'a1' })).changes[0]?.fields).toEqual({
       position: 'a1',
     });
-    const other = '40000000-0000-4000-8000-000000000002';
-    expect(
-      valid(moveItem(env(), item(), { position: 'a1', listId: other })).changes[0]?.fields,
-    ).toEqual({ position: 'a1', listId: other });
     expect(moveItem(env(), item({ position: 'a1' }), { position: 'a1' })).toBeNull();
   });
 

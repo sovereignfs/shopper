@@ -20,6 +20,13 @@ import { requestPersistence } from './persist';
 import { type Left, leaveDevice } from './signout';
 import { rememberPersistence } from './store';
 import { fetchTransport } from './transport';
+import { EncryptionMemory, encryptingTransport } from '../keys/transport';
+import { useKeys } from '../keys/keys';
+import type { Keyring } from '../keys/household';
+import { Mover } from '../keys/mover';
+import { keepPending } from '../keys/pending';
+import { callOperation } from './ops';
+import { householdsOf } from './store';
 
 /**
  * The working copy in React (DESIGN.md §12.1): `LocalProvider` opens this account's database once the page is in the browser, makes the client and starts
@@ -37,6 +44,15 @@ interface Local {
   holdFresh(): () => void;
   /** Signs out of this device: sends what is waiting, asks before losing what cannot be sent, ends the session, and deletes the working copy (§12.10). */
   leave(): Promise<Left>;
+  /**
+   * A household's keys on this device (RFC 0001): whether it has moved, and its keyring while the app key is open, for what needs it beside the sync
+   * (an invitation link carries it, `ShareDialog`).
+   */
+  /** A group's encryption, and its keyring (its own account's only), or a list's keyring when `list` is given (RFC 0004). */
+  keysOf(
+    household: string,
+    list?: string,
+  ): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
 }
 
 const Context = createContext<Local | null>(null);
@@ -53,6 +69,34 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
   const fresh = useRef(0);
   const syncNow = useRef<() => void>(() => undefined);
   const rearm = useRef<() => void>(() => undefined);
+  // The key as it is at each sync (RFC 0001): read through a ref, so that unlocking needs no new loop.
+  const keys = useKeys();
+  const appKeyRef = useRef<CryptoKey | undefined>(undefined);
+  appKeyRef.current = keys.current.state === 'open' ? keys.current.key : undefined;
+  const memoryRef = useRef<EncryptionMemory | null>(null);
+  const moverRef = useRef<{ mover: Mover; db: LocalDatabase } | null>(null);
+  // Unlocked, sync at once (what the device held back goes now), and move each household that can move (RFC 0001), then sync it encrypted.
+  useEffect(() => {
+    if (keys.current.state !== 'open') return;
+    const key = keys.current.key;
+    syncNow.current();
+    // Copies of lists' keys from a link that the server has not taken yet (RFC 0004): sent again now.
+    void keepPending(storage(), async (entry) => {
+      const answer = await callOperation({
+        op: 'list.key.mine',
+        household: entry.household,
+        list: entry.list,
+        record: entry.record,
+      });
+      return answer.ok;
+    });
+    void (async () => {
+      const held = moverRef.current;
+      if (!held) return;
+      const households = (await householdsOf(held.db)).map((each) => each.id);
+      if (await held.mover.run(households, key)) syncNow.current();
+    })();
+  }, [keys.current]);
 
   useEffect(() => {
     let stopped = false;
@@ -76,9 +120,35 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         if ((event.data as { type?: string } | null)?.type === 'left') window.location.assign('/');
       };
       channel?.addEventListener('message', onLeft);
+      // Which households have moved, and their keys while open (RFC 0001): one for the transport, the move and the share dialog alike.
+      const memory = new EncryptionMemory(storage(), `shopper.encrypted.${accountId}`);
+      memoryRef.current = memory;
+      moverRef.current = { mover: new Mover(memory), db };
       const made = new SyncClient({
         db,
-        transport: fetchTransport(),
+        transport: encryptingTransport(
+          fetchTransport(),
+          { appKey: () => appKeyRef.current },
+          memory,
+          // Where a row is, for its list's keys (RFC 0004): an item's or a product's list as the server has it (its shadow, while changes to it wait),
+          // which the transport follows through the outbox in order.
+          async (table, id) => {
+            if (table !== 'item' && table !== 'product') return undefined;
+            const shadow = await db.get('shadow', [table, id]);
+            const row = shadow ? shadow.row : await db.get(table, id);
+            const list = (row as { listId?: string | null } | null | undefined)?.listId;
+            return typeof list === 'string' ? list : undefined;
+          },
+          (households) =>
+            void moverRef.current?.mover
+              .run(households, appKeyRef.current)
+              .then((moved) => moved && syncNow.current()),
+          // An item's name and note as this device holds it, for a change of list that does not carry them.
+          async (id) => {
+            const item = await db.get('item', id);
+            return item ? { name: item.name, note: item.note } : undefined;
+          },
+        ),
         channel: channel ?? undefined,
       });
       let intervalMs = DEFAULT_INTERVAL_MS;
@@ -170,8 +240,21 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     };
   }, []);
 
+  const keysOf = useCallback(async (household: string, list?: string) => {
+    const memory = memoryRef.current;
+    if (!memory) return { encrypted: false, ring: undefined };
+    return {
+      encrypted: memory.isEncrypted(household),
+      ring: list
+        ? await memory.listKeyring(household, list, appKeyRef.current)
+        : await memory.keyring(household, appKeyRef.current),
+    };
+  }, []);
+
   return (
-    <Context.Provider value={{ accountId, client, leave, holdFresh }}>{children}</Context.Provider>
+    <Context.Provider value={{ accountId, client, leave, holdFresh, keysOf }}>
+      {children}
+    </Context.Provider>
   );
 }
 
@@ -234,4 +317,13 @@ export function useLocalQuery<T>(
   }, [client, ...deps]);
 
   return state;
+}
+
+/** The page's own storage, if it may be used: which households have moved is kept there, per account, and removed at sign-out. */
+function storage(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }

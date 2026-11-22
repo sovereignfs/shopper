@@ -109,11 +109,32 @@ export function planAdd(
   const name = suggestion.name.trim();
   if (name === '' || normaliseName(name) === '') return null;
 
-  // A product the household has, whichever way it was chosen (a typed name that is an existing product is that product).
-  const product =
+  // A product of this list's catalog, whichever way it was chosen (a typed name that is an existing product is that product). Another list's product is
+  // never used (RFC 0004, 21.3): it lends its name and what it comes with to a new product of this list.
+  const ownCatalog = products.filter((each) => each.listId === list.id || each.listId === null);
+  const chosen =
     suggestion.kind === 'product' && suggestion.productId
       ? products.find((each) => each.id === suggestion.productId && each.deletedAt === null)
-      : productNamed(products, name);
+      : undefined;
+  const product =
+    chosen && (chosen.listId === list.id || chosen.listId === null)
+      ? chosen
+      : productNamed(ownCatalog, chosen?.name ?? name);
+  const template = product ? undefined : (chosen ?? productNamed(products, name));
+  if (template)
+    return {
+      mutation: addItem(env, {
+        list,
+        name: template.name,
+        ...(template.defaultQuantity ? { quantity: template.defaultQuantity } : {}),
+        unit: template.defaultUnit,
+        icon: template.icon,
+        categoryId: template.categoryId,
+        last: lastPositionIn(items, template.categoryId),
+        by: me,
+      }),
+      message: `Added ${template.name}`,
+    };
   if (product) {
     const open = openItemOf(items, product.id);
     if (open) {

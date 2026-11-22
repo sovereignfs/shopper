@@ -2,11 +2,11 @@
 
 ## Status
 
-📋 Planned. Detailed at the start of phase 4, after 0.3.0; what is here is the outline each task starts from.
+📋 Planned. Detailed at the start of phase 4, after phase 2's release; what is here is the outline each task starts from.
 
 ## Overview
 
-Phase 4, release 0.4.0 (`DESIGN.md` §22.3): barcodes scanned on the device, products looked up by barcode through the server, and photos and receipts
+Phase 4, ending in a release (`DESIGN.md` §22.3): barcodes scanned on the device, products looked up by barcode through the server, and photos and receipts
 stored by Shopper itself, sealed. The browser never calls a third party; files never go through core.
 
 ## Related
@@ -65,10 +65,10 @@ beside the JSON.
 
 **Accepts when:** a receipt added at Finish shopping offline is on the trip on every device once uploaded.
 
-#### 📋 14.6 — Release 0.4.0
+#### 📋 14.6 — The release of phase 4
 
 **Goal:** phase 4 published. **Depends on:** 14.1–14.5.
 
-**Technical:** a security review of capture and files (`docs/security/0.4.0.md`); the release as 12.4; hosting updated as 12.5, with the `data` path.
+**Technical:** a security review of capture and files (`docs/security/` for the version); the release as 12.4; hosting updated as 12.5, with the `data` path.
 
-**Accepts when:** `ghcr.io/sovereignfs/shopper:0.4.0` is published and hosted.
+**Accepts when:** the image of the version it sets is published and hosted.

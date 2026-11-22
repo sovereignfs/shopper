@@ -41,7 +41,7 @@ describe('whether a change would pass a limit', () => {
       'Groceries has 500 items, the most it can hold.',
     );
     expect(limitSentence('listOpenItems', 500)).not.toContain('Groceries');
-    expect(limitSentence('householdMembers', 1)).toContain('1 person,');
+    expect(limitSentence('householdMembers', 1)).toContain('1 person on it');
   });
 
   it('has defaults an operator can change, and refuses a limit that is not a count', () => {
@@ -64,17 +64,17 @@ describe(`what the limits count (${leg})`, () => {
   });
   afterAll(async () => database.close());
 
-  it('counts the active members of a household, and not those who left', async () => {
+  it('counts the people on a list, and not those who left', async () => {
     const ada = await somebody(database, 'Ada');
     const grace = await somebody(database, 'Grace');
     const lin = await somebody(database, 'Lin');
-    expect(await countActiveMembers(database, ada.household)).toBe(1);
+    expect(await countActiveMembers(database, ada.list)).toBe(1);
     await join(database, ada.household, grace);
     await join(database, ada.household, lin);
-    expect(await countActiveMembers(database, ada.household)).toBe(3);
+    expect(await countActiveMembers(database, ada.list)).toBe(3);
     await leave(database, ada.household, lin);
-    expect(await countActiveMembers(database, ada.household)).toBe(2);
-    expect(await countActiveMembers(database, 'no-such-household')).toBe(0);
+    expect(await countActiveMembers(database, ada.list)).toBe(2);
+    expect(await countActiveMembers(database, 'no-such-list')).toBe(0);
   });
 
   it('counts the households an account is in, its own included, and not those it left', async () => {

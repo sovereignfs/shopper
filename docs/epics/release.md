@@ -7,7 +7,7 @@
 ## Overview
 
 From a working app to a published image hosted on the live instance: a seed to develop against, a security review written up, the documents a person
-and an operator read, the release, and hosting it. **12.1 to 12.5 are 0.1.0;** 12.6 is 0.2.0, and phases 3 and 4 close with their own release tasks
+and an operator read, the release, and hosting it. **12.1 to 12.5 are 0.1.0;** 12.7 closes workstream 0001 before phase 2; 12.6 closes phase 2, and phases 3 and 4 close with their own release tasks
 (13.9, 14.6).
 
 ## Related
@@ -54,7 +54,7 @@ notices, several households); `RELEASING.md` copied from Tusk.
 
 **Done as:** **`README.md`** rewritten from the placeholder: what Shopper is; **what 0.1.0 does and does not do yet**; running it from the image in each database form (building it from the repository with the manifest's arguments, the one `docker run` with a SQLite file, the three Compose setups of `deploy/`, and hosting by a Sovereign instance); **every setting** in one table (all of `.env.example`, each with what it does and its default); **what `SHOPPER_AUTH_SIGNUP=open` means and when to set `closed`** (open lets a stranger who finds the address make an account of their own, so set `closed` once everyone who is to share has joined; closed refuses every other sign-up at the server, and a sign-in through core is never refused by it); and **what encryption at rest does and does not protect** (a copied database, a backup, a disk, the tables; not whoever controls the running server, nor the device, and a lost key cannot be recovered), with how to change the key. **`docs/`**: an index (`README.md`), `working-offline.md` (what works with no network, what needs one, and what cannot be hidden: iPhone syncs only while open, a browser can evict storage, a shared computer, everyone in a household sees everything, plain text on the device), `sharing.md` (a household is the unit of sharing and sharing is not per list; links: 14 days, once, revocable, anyone holding one can join; Admin and Member; what stays when someone leaves; who sees an address; what 0.1.0 does not do) and `encryption.md` (what is sealed and what is not, what it protects against and what it does not, the key, rotation). **`RELEASING.md`** copied from Tusk and renamed, with a note at the top that `scripts/release.sh` and its tests arrive with 12.4, so that until then the steps are done by hand. `CONTRIBUTING.md` corrected (it named a `pnpm e2e:fast` this repository does not have and a task-manager phrase). Every statement of what the system does was checked against the code, among them: rotation is at start-up and resumable, the start-up check refuses sealed content its keys cannot open, Settings says whether storage was persisted, an Admin's view of addresses, what deleting an account leaves, and what the offline shell serves. **`src/readme.test.ts`** (9) holds the documents to the code: every setting in `.env.example` is in the README, every one the code reads is in `.env.example` (or its `_FILE`), none in the README is invented (seen to fail with one added), the deployment files name only real settings (apart from Compose's own `SHOPPER_IMAGE` and `SHOPPER_PORT`), and what the README tells an operator to run is in the repository (its files, its port from the manifest, its commands, the two values of the sign-up setting, its links). **Accepts when, done by hand:** following the README alone, the image was built with its command and run from it in **each database form**: the `docker run` with a SQLite file, and the three Compose setups from a `.env` made from `deploy/.env.example` (sqld, a file, PostgreSQL), each answering `/api/health` with `200` on the database it names, and stopping cleanly (exit 143 for the `docker run`); everything was removed afterwards. The Compose runs used `SHOPPER_PORT=3017`, the documented override, because something of the developer's was already listening on 3007. Left out: the image on `ghcr.io` (12.4: the README names it and says how to build it meanwhile), `scripts/release.sh` (12.4), and the security review (12.2).
 
-#### 📋 12.4 — Release 0.1.0
+#### ✅ 12.4 — Release 0.1.0
 
 **Goal:** the first published image. **Depends on:** 12.2, 12.3.
 
@@ -62,6 +62,9 @@ notices, several households); `RELEASING.md` copied from Tusk.
 for amd64 and arm64 on `ghcr.io/sovereignfs/shopper`, attested, booted after publishing; the package made public.
 
 **Accepts when:** `ghcr.io/sovereignfs/shopper:0.1.0` is published, boots, and its release page carries the changelog.
+
+**Done as:** released on 2026-11-11 (`v0.1.0`, the GitHub release "shopper 0.1.0"); marked here on 2026-11-21 by 17.4, which found the row still
+planned. Whether the image booted after publishing was not re-checked then.
 
 #### 📋 12.5 — Hosting on an instance
 
@@ -73,13 +76,32 @@ scope needed, `./sv push && ./sv deploy`; checked with `./sv status` and `./sv d
 
 **Accepts when:** `shopper.<domain>` is in core's launcher, signs in through core, and journey 6 of §3 works on a phone.
 
-#### 📋 12.6 — Release 0.2.0 (phase 2)
+#### 📋 12.6 — The release of phase 2
 
 **Goal:** phase 2 published. **Depends on:** Milestones J to N of `ROADMAP.md`.
 
-**Technical:** the seed extended (12.1); a security review of what phase 2 added (`docs/security/0.2.0.md`): notices and mail, live updates, the
+**Technical:** the seed extended (12.1); a security review of what phase 2 added (`docs/security/` for the version): notices and mail, live updates, the
 directory and the refresh token, import, trips and prices, roles and moving lists; the README and the user's documentation brought up to date,
 including the more-than-one-process and proxy-buffering note of 6.4; a migration note for an operator, since `invite` becomes the default sign-up
 policy (2.7) and the manifest's scopes grow (10.2); the release as 12.4; hosting updated as 12.5, with the three app scopes granted.
 
-**Accepts when:** `ghcr.io/sovereignfs/shopper:0.2.0` is published and hosted, and a 0.1.0 database upgrades in place with every household intact.
+**Accepts when:** the image of the version it sets is published and hosted, and a 0.1.0 database upgrades in place with every household intact.
+
+#### ⏳ 12.7 — The release of workstream 0001
+
+**Goal:** Shopper encrypted as the suite is, with push and exports, published before phase 2. **Depends on:** epics 17 and 20, 18.1 to 18.12, 19.1,
+19.2.
+
+**Technical:** the version the owner settles in 17.4; `CHANGELOG.md` in a person's words, with "not yet audited" and the operator's step of opening
+every household once (18.10); the security review of 18.12; the release as 12.4; hosting updated as 12.5, with the manifest's new `generate`,
+`encryption` and `signIn.export`.
+
+**Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and
+a standalone account each open their lists on it.
+
+**Where it stands (2026-11-22):**
+
+- **Ready to release:** `develop` carries version 0.2.0 with its changelog, now with epic 21 (lists of their own), and the review is
+  `docs/security/0.2.0.md`, with an addendum for epic 21. The promotion pull request is open.
+- **The owner's part:** the promotion into `main` and the publishing.
+- **Not run:** hosting it on an instance.

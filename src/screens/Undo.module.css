@@ -1,7 +1,9 @@
 .bar {
   position: fixed;
   /* Clear of the phone's footer, whose height it publishes (`--sv-shell-footer-height`); none on a wide screen. */
-  bottom: calc(var(--sv-shell-footer-height, 0px) + var(--sv-space-6));
+  bottom: calc(
+    var(--sv-shell-footer-height, 0px) + env(safe-area-inset-bottom, 0px) + var(--sv-space-6)
+  );
   left: 50%;
   z-index: 50;
   display: flex;

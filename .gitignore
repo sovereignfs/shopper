@@ -11,3 +11,6 @@ test-results/
 playwright-report/
 coverage/
 data/
+
+# The desktop app's preview settings, per machine.
+.claude/launch.json

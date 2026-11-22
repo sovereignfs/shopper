@@ -176,7 +176,7 @@ test('a long press opens the item, and another person’s tick shows when the de
   const reply = await page.request.post('/api/sync', {
     headers: { origin: baseURL ?? '', 'content-type': 'application/json' },
     data: {
-      version: 1,
+      version: 2,
       outbox: [
         {
           mutationId: crypto.randomUUID(),

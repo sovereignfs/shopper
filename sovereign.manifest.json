@@ -1,5 +1,5 @@
 {
-  "manifest": 2,
+  "manifest": 5,
   "prefix": "shopper",
   "name": "Shopper",
   "description": "Your household's shopping lists, working in the shop with no signal, and remembering what you buy",
@@ -11,9 +11,23 @@
     "redirect": ["/api/auth/callback/sovereign"],
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
+    "export": "/api/sovereign/export",
     "scopes": ["openid", "profile", "email"]
   },
+  "encryption": {
+    "return": "/keys/return"
+  },
   "database": true,
-  "generate": ["SHOPPER_AUTH_SECRET", { "name": "SHOPPER_ENCRYPTION_KEY", "bytes": 32 }],
-  "core": ">=0.57.0 <1.0.0"
+  "generate": [
+    "SHOPPER_AUTH_SECRET",
+    {
+      "name": "SHOPPER_ENCRYPTION_KEY",
+      "bytes": 32
+    },
+    {
+      "name": "SHOPPER_VAPID_PRIVATE_KEY",
+      "bytes": 32
+    }
+  ],
+  "core": ">=0.126.0 <1.0.0"
 }

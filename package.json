@@ -1,6 +1,6 @@
 {
   "name": "@sovereignfs/shopper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -9,7 +9,7 @@
   },
   "type": "module",
   "packageManager": "pnpm@11.14.0",
-  "description": "Shopper: a household's shopping lists that work in the shop with no signal, and run on their own or on a Sovereign instance.",
+  "description": "Shopper: shopping lists shared one by one, that work in the shop with no signal, and run on their own or on a Sovereign instance.",
   "engines": {
     "node": ">=24.15 <25"
   },
@@ -29,7 +29,9 @@
     "icons": "node scripts/icons.mjs",
     "seed": "node scripts/seed-run.mjs",
     "manifest:check": "sovereign-manifest check",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm manifest:check",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "~1.7.18",
@@ -37,8 +39,10 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@libsql/client": "^0.18.0",
     "@sovereignfs/config": "0.1.0",
-    "@sovereignfs/sdk": "2.1.0",
-    "@sovereignfs/ui": "0.92.0",
+    "@sovereignfs/push": "0.2.0",
+    "@sovereignfs/pwa": "0.2.0",
+    "@sovereignfs/sdk": "2.11.0",
+    "@sovereignfs/ui": "0.105.0",
     "better-auth": "~1.7.18",
     "drizzle-orm": "^0.45.4",
     "fractional-indexing": "^3.4.0",
@@ -53,7 +57,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.64.1",
-    "@sovereignfs/manifest": "^0.1.0",
+    "@sovereignfs/create": "0.27.1",
+    "@sovereignfs/manifest": "0.4.0",
     "@types/node": "^24.19.2",
     "@types/nodemailer": "8.0.2",
     "@types/pg": "^8.23.1",
@@ -72,5 +77,17 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0"
+  },
+  "sovereign": {
+    "tagPrefix": "",
+    "requiredChecks": [
+      "what changed",
+      "format, lint, type-check, test and build"
+    ],
+    "unmanaged": [
+      "Dockerfile",
+      ".dockerignore",
+      "compose.yml"
+    ]
   }
 }

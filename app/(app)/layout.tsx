@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 import { requireSession } from '@/src/auth/session';
+import { KeyPrompt } from '@/src/keys/KeyPrompt';
+import { KeysProvider, type PageKeySource } from '@/src/keys/keys';
+import { keySourceOf } from '@/src/keys/server/source';
 import { LocalProvider } from '@/src/local/react';
 import { AccountMenu } from '@/src/screens/AccountMenu';
 import { RememberIdentity } from '@/src/screens/RememberIdentity';
@@ -11,19 +14,31 @@ export const dynamic = 'force-dynamic';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
+  const found = await keySourceOf(session.user.id);
+  // What the page needs to open the key (RFC 0001), read for each request: never built into the bundle.
+  const source: PageKeySource | undefined =
+    found?.kind === 'vault'
+      ? { kind: 'vault', vaultId: found.vaultId, email: session.user.email }
+      : found?.kind === 'core'
+        ? { kind: 'core', core: found.core, clientId: found.clientId, returnTo: found.returnTo }
+        : undefined;
   return (
-    <LocalProvider accountId={session.user.id}>
-      {/* A tick, an untick and _Clear bought_ offer Undo (DESIGN.md §12.7): kept here, so that the whole signed-in area has it. */}
-      <RememberIdentity
-        accountId={session.user.id}
-        name={session.user.name}
-        email={session.user.email}
-      />
-      <UndoProvider>
-        <ShellFrame account={<AccountMenu name={session.user.name} email={session.user.email} />}>
-          {children}
-        </ShellFrame>
-      </UndoProvider>
-    </LocalProvider>
+    <KeysProvider source={source}>
+      <LocalProvider accountId={session.user.id}>
+        {/* A tick, an untick and _Clear bought_ offer Undo (DESIGN.md §12.7): kept here, so that the whole signed-in area has it. */}
+        <RememberIdentity
+          accountId={session.user.id}
+          name={session.user.name}
+          email={session.user.email}
+          keys={source}
+        />
+        <UndoProvider>
+          <ShellFrame account={<AccountMenu name={session.user.name} email={session.user.email} />}>
+            <KeyPrompt />
+            {children}
+          </ShellFrame>
+        </UndoProvider>
+      </LocalProvider>
+    </KeysProvider>
   );
 }

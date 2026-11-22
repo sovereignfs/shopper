@@ -7,7 +7,7 @@ import { deletePerson, previewLeaving } from './people';
 /**
  * `/api/account/delete` (DESIGN.md §19): what deleting the account would do, and doing it. **It asks for the password** (a stolen session cannot delete an
  * account), counted, and runs `People.deletePerson` for the session's account and no other. **An account that came in through Sovereign alone has no
- * password, so it asks for a session made in the last few minutes instead**: signing in again is the proof. The preview says which households would pass to whom or be
+ * password, so it asks for a session made in the last few minutes instead**: signing in again is the proof. The preview says which lists would pass to whom or be
  * deleted, and in which the person would only leave.
  */
 export interface DeleteDeps {
@@ -33,11 +33,11 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
   });
 
 export async function deletionPreview(accountId: string, deps: DeleteDeps): Promise<Response> {
-  const households = await previewLeaving(deps.database, deps.ring, accountId);
+  const lists = await previewLeaving(deps.database, deps.ring, accountId);
   return json(200, {
     // Whether it asks for the password (or, for an account with none, a session made just now).
     password: await deps.hasPassword(accountId),
-    households,
+    lists,
   });
 }
 

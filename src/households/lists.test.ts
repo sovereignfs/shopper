@@ -10,6 +10,7 @@ import { dbAll, dbGet } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
+import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
 import { applyMutation, type ApplyResult } from '../sync/apply';
 import { ensureFirstList } from './households';
@@ -46,6 +47,7 @@ const lists = (household: string) =>
   );
 const ok = (r: ApplyResult) => {
   if (r.status === 'refused') throw new Error(`refused: ${r.reason}: ${r.sentence}`);
+  if (r.status === 'held') throw new Error('held');
   return r;
 };
 /** The action's mutation, with a mutation id and ids that are the household's own to make. */
@@ -103,12 +105,13 @@ describe(`a household's first list (${leg})`, () => {
 });
 
 describe(`the actions on lists, applied (${leg})`, () => {
-  it('make, rename, reorder, archive and restore a list, offline-made and merged field by field, by any member', async () => {
+  it('make, rename, reorder, archive and restore a list, offline-made and merged field by field, by anyone on it', async () => {
     const e = actionEnv();
+    // A list in a group is made by the group's own account (RFC 0004); someone else is on it only once it is shared with them.
     const made = ok(
       await applyMutation(
         deps(),
-        grace.accountId,
+        ada.accountId,
         live(
           makeList(e, { householdId: ada.household, name: 'Pharmacy', position: 'a1' }),
           ada.household,
@@ -116,6 +119,14 @@ describe(`the actions on lists, applied (${leg})`, () => {
       ),
     );
     const id = made.changed[0]?.id ?? '';
+    await addListMember(database, {
+      household: ada.household,
+      list: id,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: Date.now(),
+    });
     const row = () =>
       dbGet<Record<string, unknown>>(
         database,
@@ -179,8 +190,7 @@ describe(`the actions on lists, applied (${leg})`, () => {
     expect(over).toEqual({
       status: 'refused',
       reason: 'limit',
-      sentence:
-        'A household can have at most 2 lists, archived ones included, and this one has them all.',
+      sentence: 'You can have at most 2 lists, archived ones included, and you have them all.',
     });
     expect(
       await applyMutation(
@@ -300,7 +310,7 @@ describe(`deleting a list for good (${leg})`, () => {
         household: lin.household,
         list: id,
       }),
-    ).toMatchObject({ status: 409 });
+    ).toEqual(NOT_FOUND);
     expect(await exists(id)).toBe(true);
   });
 });

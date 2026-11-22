@@ -3,10 +3,59 @@
 All notable changes to Shopper are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-Each release's section is also its GitHub release notes: the release workflow reads this file when a release is cut. Write the notes under
-`## [Unreleased]` as you go; a release turns them into the version's section.
+Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
+titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-22
+
+**Before upgrading:** take a backup. Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted. Every person who signs in with a password
+signs in once more as before, and their password then moves across, once; they are shown a recovery kit. Open Shopper once with each account whose
+lists should be encrypted. Encryption is the suite's and is **not yet audited**.
+
+### Added
+
+- **What you write is encrypted on your device,** with keys only the people on each list hold: a new account's lists from their first item, and an
+  account's own lists from 0.1.0 the first time they are opened. The server stores what it cannot read. Lists that were already shared in 0.1.0 stay
+  sealed by the server's key, as before, until each person on them can be given its key; Settings › Encryption says which is which.
+- The server is never sent your password: your browser sends a value derived from it. A recovery kit is shown once after signing up, and opens your
+  lists if you forget your password. Through a Sovereign core, core keeps your key.
+- **Each list has keys of its own.** A link to an encrypted list carries that list's key and no other, after `#`, which a browser never sends:
+  someone you share one list with cannot open your other lists, even from a copy of the database. An item moved to another list is encrypted again for
+  it.
+- Notifications on a device where Shopper is not open, when its operator sets `SHOPPER_VAPID_PRIVATE_KEY` (Settings › Notifications): for now, when
+  someone joins a list you share. A notification never names a list or an item.
+- A person's export from a Sovereign core now includes what Shopper holds of them.
+
+- Opened from Sovereign's launcher, or from any link to it, an installed Shopper now opens as itself on desktop Chrome and Edge and on Android Chrome, on the page the link names, rather than in a browser view. On an iPhone, an iPad and in Safari the link opens a browser view, as before.
+- Added to an iPhone's Home Screen from Safari, it opens as an app without Safari's bars, under its own name.
+- The bar around an installed Shopper takes the page's own colour in light and in dark, as the suite's other apps do.
+
+### Fixed
+
+- **Sharing a list shares that list and nothing else.** Before, someone given a link to one list saw every list of the household. Each list now has its
+  own people, invited, removed and leaving list by list. People already sharing a household keep every list they had; a list made after is yours
+  alone until you share it. Links made before this, to a household as a whole, are revoked: make a new one from the list.
+- **Each list keeps its own catalog.** Adding something on a shared list never finds or changes a product of another of your lists; a name you use
+  elsewhere still comes as a suggestion, with its quantity, unit and aisle.
+
+### Changed
+
+- **The lists are yours and shared with you, never a household's.** The sidebar shows _Your lists_ and _Shared with you_, each shared list with whose
+  it is; Share is on a list, and the invitation page says whose list it is. No screen speaks of a household.
+- **A list reads better on a phone:** its name stays on one line, Share is its icon, and an item's quantity and note sit under its name, which wraps
+  between words.
+
+- Shopper's service worker is now the one every app of the suite runs (`@sovereignfs/pwa`). With no connection, a page that is not kept on the device
+  says it needs one from inside Shopper, and a page that takes more than eight seconds to load opens from what is kept. What is kept is unchanged:
+  never anything of a person.
+- Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted, and declares manifest 5, with `encryption` (core releases its key) and
+  `signIn.export`.
+- The referrer the browser sends from Shopper is its origin alone, so that core releases its key without asking each time.
+- An account signed in through a page from before this version is asked to update it.
+
+### For developers
+
+- `pnpm dev` no longer writes into `AGENTS.md`, and the README says how to make a `.env` that starts the app on a SQLite file.
 
 ## [0.1.0] - 2026-11-11
 
@@ -29,5 +78,5 @@ Each release's section is also its GitHub release notes: the release workflow re
 - The security review of 0.1.0, and a correction: the sign-in database holds each account's name and email address in plain text, which the documents now say.
 - On a list, only the checkbox ticks an item: a tap anywhere else on its row does nothing. Shopping mode is unchanged, and still ticks from anywhere on the row.
 
-[Unreleased]: https://github.com/sovereignfs/shopper/compare/v0.1.0...HEAD
+[0.2.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sovereignfs/shopper/releases/tag/v0.1.0

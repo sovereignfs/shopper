@@ -4,11 +4,12 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { adminOf, memberOf } from '../access/membership';
+import { listAdminOf, memberOf, onList } from '../access/membership';
 import { STARTER_CATEGORIES, STARTER_POSITIONS } from '../catalog/categories';
 import { canSeeEmail } from '../people/visibility';
 import { STARTER_POSITIONS as _unused } from '../catalog/categories';
 import { householdLabel } from './label';
+import { addListMember, ownerPerson } from '../lists/members';
 
 /**
  * Households and their members (DESIGN.md §7), read and made with the permission in every statement (`src/access/membership.ts`). A household is made
@@ -147,6 +148,10 @@ async function insertGroceries(
         VALUES (${id}, ${household}, ${sealRow('list', id, { name: FIRST_LIST_NAME }, ring)}, 'a0', 'manual', ${seq},
                 ${JSON.stringify(Object.fromEntries(fields.map((f) => [f, seq])))}, ${now}) RETURNING id`,
   );
+  // The group's own account is the list's Admin (RFC 0004).
+  const owner = await ownerPerson(database, household);
+  if (owner)
+    await addListMember(database, { household, list: id, person: owner, role: 'admin', seq, now });
 }
 
 /**
@@ -191,11 +196,14 @@ function toView(row: HouseholdRow, accountId: string, ring: KeyRing): HouseholdV
   };
 }
 
-const SELECT_HOUSEHOLD = (database: Database) => sql`
-  SELECT h.id, h.own_of, h.sealed, h.seq, m.role, p.sealed AS owner_sealed, p.id AS owner_person
+/**
+ * A group as an account sees it (RFC 0004): its own, of which it is the Admin, or another's, on one of whose lists it is. Which of them it may see is the
+ * statement's condition (`memberOf`); what of each it may see is the lists it is on.
+ */
+const SELECT_HOUSEHOLD = (database: Database, accountId: string) => sql`
+  SELECT h.id, h.own_of, h.sealed, h.seq, CASE WHEN h.own_of = ${accountId} THEN 'admin' ELSE 'member' END AS role,
+         p.sealed AS owner_sealed, p.id AS owner_person
   FROM ${appTable(database, 'household')} h
-  JOIN ${appTable(database, 'member')} m ON m.household_id = h.id
-  JOIN ${appTable(database, 'person')} me ON me.id = m.person_id
   LEFT JOIN ${appTable(database, 'person')} p ON p.account_id = h.own_of AND p.deleted_at IS NULL`;
 
 /** The households an account is an active member of, its own first, then by when it joined. **Only these**: membership is the statement's condition. */
@@ -208,9 +216,9 @@ export async function householdsOf(
     HouseholdRow & { owner_sealed: string | null; owner_person: string | null }
   >(
     database,
-    sql`${SELECT_HOUSEHOLD(database)}
-        WHERE me.account_id = ${accountId} AND m.left_at IS NULL
-        ORDER BY CASE WHEN h.own_of = ${accountId} THEN 0 ELSE 1 END, m.joined_at, h.id`,
+    sql`${SELECT_HOUSEHOLD(database, accountId)}
+        WHERE ${memberOf(database, sql`h.id`, accountId)}
+        ORDER BY CASE WHEN h.own_of = ${accountId} THEN 0 ELSE 1 END, h.created_at, h.id`,
   );
   return rows.map((row) => toView(withOwner(row, ring), accountId, ring));
 }
@@ -226,8 +234,8 @@ export async function readHousehold(
     HouseholdRow & { owner_sealed: string | null; owner_person: string | null }
   >(
     database,
-    sql`${SELECT_HOUSEHOLD(database)}
-        WHERE h.id = ${householdId} AND me.account_id = ${accountId} AND m.left_at IS NULL`,
+    sql`${SELECT_HOUSEHOLD(database, accountId)}
+        WHERE h.id = ${householdId} AND ${memberOf(database, sql`h.id`, accountId)}`,
   );
   return row ? toView(withOwner(row, ring), accountId, ring) : undefined;
 }
@@ -254,13 +262,13 @@ export interface MemberView {
 }
 
 /**
- * The people in a household, for a member of it; `undefined` for anyone else. Each person's email is given only where `canSeeEmail` says: the reader's
- * own, or any member's to an Admin. The reader's role is read in the same statement, since the permission is in it.
+ * The people on a list, for someone on it (RFC 0004); `undefined` for anyone else. Each person's email is given only where `canSeeEmail` says: the
+ * reader's own, or anyone's to the list's Admin. The reader's role is read in the same statement, since the permission is in it.
  */
 export async function membersOf(
   database: Database,
   ring: KeyRing,
-  householdId: string,
+  listId: string,
   accountId: string,
 ): Promise<MemberView[] | undefined> {
   const rows = await dbAll<{
@@ -273,11 +281,11 @@ export async function membersOf(
   }>(
     database,
     sql`SELECT m.person_id, p.account_id, p.sealed, m.role, m.joined_at,
-               ${adminOf(database, sql`m.household_id`, accountId)} AS viewer_is_admin
-        FROM ${appTable(database, 'member')} m
+               ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
+        FROM ${appTable(database, 'list_member')} m
         JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
-        WHERE m.household_id = ${householdId} AND m.left_at IS NULL
-          AND ${memberOf(database, sql`m.household_id`, accountId)}
+        WHERE m.list_id = ${listId} AND m.left_at IS NULL
+          AND ${onList(database, sql`m.list_id`, accountId)}
         ORDER BY m.joined_at, m.person_id`,
   );
   if (rows.length === 0) return undefined;

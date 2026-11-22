@@ -3,6 +3,8 @@ import { freshDatabase } from '../db/test-support';
 import type { Mailer } from '../mail/mailer';
 import { createAuth } from './auth';
 import type { AuthSettings } from './config';
+import { createHash } from 'node:crypto';
+import { isDerived } from './derived';
 
 /**
  * Everything a test of the sign-in flows needs: a better-auth instance on a freshly migrated auth store (on whichever database the leg is running),
@@ -67,7 +69,15 @@ export class TestClient {
     return other;
   }
 
+  /**
+   * Posts as a page does: a password in the body (`password`, `newPassword`, `currentPassword`) is sent as the sign-in value a page derives from it
+   * (`derivedFor`), never as itself (RFC 0001). `postRaw` sends the body as it is, for the tests that the server refuses a password.
+   */
   post(path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Reply> {
+    return this.request('POST', path, derivedBody(body), headers);
+  }
+
+  postRaw(path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Reply> {
     return this.request('POST', path, body, headers);
   }
 
@@ -128,4 +138,22 @@ export class TestClient {
     }
     return { status: response.status, headers: response.headers, body: parsed, setCookies };
   }
+}
+
+/**
+ * What a page sends for `password` (RFC 0001): a sign-in value of the right shape, the same for the same password. A stand-in for `localVault`'s
+ * `derive`, whose Argon2id takes a second, since the server sees only the value: it checks the shape and hashes what it is given.
+ */
+export function derivedFor(password: string): string {
+  return `svp1.${createHash('sha256').update(password).digest('base64url')}`;
+}
+
+const PASSWORD_KEYS = ['password', 'newPassword', 'currentPassword'];
+
+function derivedBody(body: unknown): unknown {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return body;
+  const out: Record<string, unknown> = { ...(body as Record<string, unknown>) };
+  for (const key of PASSWORD_KEYS)
+    if (typeof out[key] === 'string' && !isDerived(out[key])) out[key] = derivedFor(out[key]);
+  return out;
 }

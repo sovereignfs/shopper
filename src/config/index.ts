@@ -4,6 +4,7 @@ import { DatabaseConfigError, resolveDatabaseSettings, type DatabaseSettings } f
 import { resolveLimits, type Limits } from '../limits/config';
 import { resolveMail } from '../mail/config';
 import type { MailSettings } from '../mail/config';
+import { type PushSettings, pushSettings } from '@sovereignfs/push';
 import { readEnvironment, type Env, type ReadFile } from './env';
 
 /** What the app was told, once it has been checked. It grows as the tasks that read a setting are built. */
@@ -24,6 +25,8 @@ export interface Config {
   readonly syncIntervalSeconds: number;
   /** The operator's limits (DESIGN.md §7.6). */
   readonly limits: Limits;
+  /** Web Push (RFC 0002), or `undefined` with no `SHOPPER_VAPID_PRIVATE_KEY`: then Shopper sends no push, and Settings offers none. */
+  readonly push: PushSettings | undefined;
 }
 
 /** One thing that is wrong, in words that name the setting and never its value. */
@@ -165,6 +168,20 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
 
   const limits = resolveLimits(read, problems);
 
+  // Web Push (RFC 0002): the package's own check, so that a key that is not one, or a contact a push service refuses, stops the server here.
+  let push: PushSettings | undefined;
+  try {
+    push = pushSettings('SHOPPER', {
+      SHOPPER_VAPID_PRIVATE_KEY: read('SHOPPER_VAPID_PRIVATE_KEY'),
+      SHOPPER_VAPID_SUBJECT: read('SHOPPER_VAPID_SUBJECT'),
+      SHOPPER_URL: url,
+    });
+  } catch (error) {
+    problems.push(
+      error instanceof Error ? error.message : 'SHOPPER_VAPID_PRIVATE_KEY is not usable.',
+    );
+  }
+
   // The database: which of the three forms, and the address it needs. A secret address may arrive as a file.
   let database: DatabaseSettings | undefined;
   try {
@@ -191,6 +208,7 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
       mail,
       syncIntervalSeconds,
       limits,
+      push,
     },
   };
 }

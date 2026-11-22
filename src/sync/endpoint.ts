@@ -41,12 +41,20 @@ export async function handleSync(
 
   const applied: SyncAnswer['applied'][number][] = [];
   const refused: SyncAnswer['refused'][number][] = [];
+  // A household whose mutation was held (it moved under the device, RFC 0001) holds the rest of its mutations too, so that they keep their order.
+  const holding = new Set<string>();
   for (const mutation of outbox) {
+    const household = (mutation as { householdId?: unknown } | null)?.householdId;
+    if (typeof household === 'string' && holding.has(household)) continue;
     const result = await applyMutation(deps, accountId, mutation, now);
     const mutationId =
       typeof (mutation as { mutationId?: unknown } | null)?.mutationId === 'string'
         ? String((mutation as { mutationId: string }).mutationId)
         : '';
+    if (result.status === 'held') {
+      if (typeof household === 'string') holding.add(household);
+      continue;
+    }
     if (result.status === 'refused')
       refused.push({ mutationId, reason: result.reason, sentence: result.sentence });
     else applied.push({ mutationId, status: result.status, seq: result.seq, folds: result.folds });

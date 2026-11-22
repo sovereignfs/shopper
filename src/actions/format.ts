@@ -111,6 +111,8 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     fields: {
       name,
       note: nullable(note),
+      // The list whose catalog it is (RFC 0004): set when it is made, never changed.
+      listId: nullable(id),
       categoryId: nullable(id),
       icon: nullable(icon),
       defaultQuantity: nullable(quantity),
@@ -121,6 +123,13 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['name', 'createdAt'],
   },
+};
+
+/** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
+export const CONTENT: Record<SyncedTable, readonly string[]> = {
+  list: ['name'],
+  item: ['name', 'note'],
+  product: ['name', 'note'],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */

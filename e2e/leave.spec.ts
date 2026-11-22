@@ -11,9 +11,9 @@ import {
 } from './helpers';
 
 /**
- * Leaving and removing, in a browser (task 3.5): a Member who leaves, or is removed by the Admin, loses the household from their device at the next sync and
- * keeps their own; what they added stays on the list under their name, shown as left; the Admin cannot leave; a Member cannot remove anyone. There is no
- * button yet (8.7), so these call the operations the Share dialog will.
+ * Leaving and removing, in a browser (task 3.5; RFC 0004): a Member who leaves a list, or is removed by its Admin, loses it from their device at the next
+ * sync and keeps their own; what they added stays on the list under their name, shown as left; the Admin cannot leave while others are on it; a Member
+ * cannot remove anyone. These call the operations the Share dialog does.
  */
 const op = (page: Page, base: string, data: Record<string, unknown>) =>
   page.request.post('/api/ops', {
@@ -31,7 +31,7 @@ async function householdOf(page: Page): Promise<string> {
   return household.id;
 }
 
-/** Ada has a household with Milk on it; Grace has joined it through a link, and has it on her device. */
+/** Ada has a list with Milk on it; Grace has joined it through a link, and has it on her device. */
 async function shared(page: Page, browser: Parameters<typeof anotherDevice>[0], base: string) {
   await signUp(page, { name: 'Ada' });
   await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], base);
@@ -41,17 +41,18 @@ async function shared(page: Page, browser: Parameters<typeof anotherDevice>[0], 
   await guest.page.goto(link.path);
   await guest.page.getByRole('button', { name: 'Join' }).click();
   await expect(guest.page.getByRole('checkbox', { name: /Milk/ })).toBeVisible({ timeout: 30_000 });
-  return { household: await householdOf(page), guest };
+  const [list] = await deviceRows<{ id: string }>(page, await accountOf(page), 'list');
+  return { household: await householdOf(page), list: list?.id ?? '', guest };
 }
 
 for (const how of ['leaves', 'is removed'] as const) {
-  test(`when a Member ${how}, the household goes from their device and their name stays on what they added`, async ({
+  test(`when a Member ${how}, the list goes from their device and their name stays on what they added`, async ({
     page,
     browser,
     baseURL,
   }) => {
     const base = baseURL ?? '';
-    const { household, guest } = await shared(page, browser, base);
+    const { household, list, guest } = await shared(page, browser, base);
     // Grace adds something to Ada's list.
     const field = guest.page.getByRole('combobox', { name: 'Add an item' });
     await field.focus();
@@ -78,11 +79,11 @@ for (const how of ['leaves', 'is removed'] as const) {
 
     const reply =
       how === 'leaves'
-        ? await op(guest.page, base, { op: 'member.leave', household })
-        : await op(page, base, { op: 'member.remove', household, person: gracePerson });
+        ? await op(guest.page, base, { op: 'member.leave', household, list })
+        : await op(page, base, { op: 'member.remove', household, list, person: gracePerson });
     expect(reply.status()).toBe(200);
 
-    // Grace's device drops Ada's household at its next sync, and keeps her own.
+    // Grace's device drops Ada's list, her only one of Ada's, at its next sync, and keeps her own.
     await guest.page.reload();
     await expect
       .poll(async () => (await deviceRows(guest.page, graceAccount, 'household')).length, {
@@ -108,8 +109,8 @@ test('the Admin cannot leave, and a Member cannot remove anyone', async ({
   baseURL,
 }) => {
   const base = baseURL ?? '';
-  const { household, guest } = await shared(page, browser, base);
-  const adminLeaves = await op(page, base, { op: 'member.leave', household });
+  const { household, list, guest } = await shared(page, browser, base);
+  const adminLeaves = await op(page, base, { op: 'member.leave', household, list });
   expect(adminLeaves.status()).toBe(409);
   expect((await adminLeaves.json()).message).toContain('only Admin');
 
@@ -122,6 +123,7 @@ test('the Admin cannot leave, and a Member cannot remove anyone', async ({
   const memberRemoves = await op(guest.page, base, {
     op: 'member.remove',
     household,
+    list,
     person: adaPerson,
   });
   expect(memberRemoves.status()).toBe(404);

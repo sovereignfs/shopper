@@ -1,11 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { adminOf } from '../access/membership';
+import { listAdminOf } from '../access/membership';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
 import { isId } from '../actions/format';
 import { recordFold } from '../sync/fold';
 import type { Operation } from './ops';
+import { deleteListProducts } from '../lists/members';
 
 /**
  * **`list.delete`: delete a list for good** (DESIGN.md §9.1, §12.8), an Admin's online operation, and only for a list that is **archived**: a person
@@ -17,6 +18,7 @@ import type { Operation } from './ops';
 export const deleteList: Operation = {
   name: 'list.delete',
   who: 'admin',
+  scope: 'list',
   input: z.object({ list: z.string().refine(isId, 'not an id') }),
   async run({ database, accountId, household, now }, input) {
     const listId = String(input.list);
@@ -24,7 +26,7 @@ export const deleteList: Operation = {
       const stepped = await dbGet<{ seq: number | string }>(
         tx,
         sql`UPDATE ${appTable(tx, 'household')} SET seq = seq + 1, updated_at = ${now}
-            WHERE id = ${household} AND ${adminOf(tx, household, accountId)} RETURNING seq`,
+            WHERE id = ${household} AND ${listAdminOf(tx, listId, accountId)} RETURNING seq`,
       );
       if (!stepped)
         return {
@@ -43,6 +45,23 @@ export const deleteList: Operation = {
       await dbAll(
         tx,
         sql`DELETE FROM ${appTable(tx, 'item')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
+      );
+      // Its catalog goes with it (21.3).
+      await deleteListProducts(tx, household, listId, Number(stepped.seq));
+      // Its links go with it, so that nobody joins a list that is gone (RFC 0004).
+      await dbAll(
+        tx,
+        sql`UPDATE ${appTable(tx, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL
+            WHERE list_id = ${listId} AND household_id = ${household} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
+      );
+      // Its people and their copies of its keys go with it (RFC 0004).
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'list_key')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING list_id`,
+      );
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'list_member')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
       );
       await recordTombstone(tx, household, 'list', listId, Number(stepped.seq), now);
       return { ok: true as const };
@@ -69,6 +88,8 @@ async function recordTombstone(
 ): Promise<void> {
   await dbAll(
     database,
+    // No list of its own (RFC 0004): the list's people are deleted with it, so a tombstone kept to them would reach nobody. It names only an id, which
+    // tells someone on another list of the group nothing.
     sql`INSERT INTO ${appTable(database, 'tombstone')} (household_id, table_name, id, seq, created_at)
         VALUES (${household}, ${table}, ${id}, ${seq}, ${now})
         ON CONFLICT (household_id, table_name, id) DO NOTHING RETURNING id`,

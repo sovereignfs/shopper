@@ -1,6 +1,7 @@
 import '../zod-jitless';
 import { z } from 'zod';
-import { FIELDS, MAX_CHANGES, SYNCED_TABLES, isId, type Mutation } from './format';
+import { FIELD_VALUE, NAME_KEY } from '../keys/household';
+import { CONTENT, FIELDS, MAX_CHANGES, SYNCED_TABLES, isId, type Mutation } from './format';
 
 /**
  * **The validators: one module**, run by the browser before it queues a mutation and by the server before it applies one (DESIGN.md §12.2), so that what
@@ -29,7 +30,17 @@ const change = z.object({
   fields: z.record(z.string(), z.unknown()),
 });
 
-export function validateMutation(input: unknown): Verdict {
+/**
+ * How a household's content travels (RFC 0001): `plain`, in a household the server still seals, as a person typed it; `encrypted`, once it has moved,
+ * as each field's ciphertext (`src/keys/household.ts`), with a product's name key made by the device. The browser checks the plain form before it
+ * queues; the server checks the form its household is in.
+ */
+export type ContentMode = 'plain' | 'encrypted';
+
+const cipher = z.string().regex(FIELD_VALUE, 'not an encrypted value');
+const nameKey = z.string().regex(NAME_KEY, 'not a name key');
+
+export function validateMutation(input: unknown, mode: ContentMode = 'plain'): Verdict {
   const head = envelope.safeParse(input);
   if (!head.success) return refuse(head.error);
   const changes: Mutation['changes'][number][] = [];
@@ -45,11 +56,20 @@ export function validateMutation(input: unknown): Verdict {
     seen.add(key);
 
     const spec = FIELDS[table];
+    const content = CONTENT[table];
     const names = Object.keys(fields);
     if (names.length === 0) return { ok: false, problem: `change ${index + 1} says nothing` };
     const clean: Record<string, string | number | null> = {};
     for (const name of names) {
-      const shape = spec.fields[name];
+      const encrypted = mode === 'encrypted' && content.includes(name);
+      const shape =
+        mode === 'encrypted' && table === 'product' && name === 'nameKey'
+          ? nameKey
+          : encrypted
+            ? name === 'note'
+              ? z.union([cipher, z.null()])
+              : cipher
+            : spec.fields[name];
       if (!shape)
         return { ok: false, problem: `change ${index + 1}: ${table} has no field ${name}` };
       const value = shape.safeParse(fields[name]);
@@ -60,6 +80,12 @@ export function validateMutation(input: unknown): Verdict {
         };
       clean[name] = value.data;
     }
+    // An encrypted product's name comes with the name key its device made for it, the server's only way to know two are one (§13.3).
+    if (mode === 'encrypted' && table === 'product' && 'name' in clean !== 'nameKey' in clean)
+      return {
+        ok: false,
+        problem: `change ${index + 1}: a product's name and its name key go together`,
+      };
     if (create) {
       const missing = spec.required.filter((name) => !(name in clean));
       if (missing.length > 0)

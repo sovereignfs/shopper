@@ -2,11 +2,11 @@
 
 ## Status
 
-📋 Planned. Detailed at the start of phase 3, after 0.2.0; what is here is the outline each task starts from.
+📋 Planned. Detailed at the start of phase 3, after phase 1's release; what is here is the outline each task starts from.
 
 ## Overview
 
-Phase 3, release 0.3.0 (`DESIGN.md` §22.2): what is at home and running low, the things always wanted, items that come back on their own, lists saved
+Phase 3, ending in a release (`DESIGN.md` §22.2): what is at home and running low, the things always wanted, items that come back on their own, lists saved
 as templates, shops with an aisle order learned from how people walk them, prices per shop and over time, insights, and Push. Every new table syncs
 through the one path, is sealed where it names something, and is handled by deletion, export and import.
 
@@ -83,7 +83,10 @@ past 180 days.
 
 **Accepts when:** every figure matches a hand-worked seed, with its chart and table.
 
-#### 📋 13.8 — Push notifications
+#### ➖ 13.8 — Push notifications
+
+**Superseded on 2026-11-21** by epic 19 ([RFC 0002](../rfcs/0002-web-push.md)): push is built on `@sovereignfs/push` before phase 2 (19.1, 19.2), and
+as a channel of notices in phase 2 (19.3). What follows is kept as it was planned.
 
 **Goal:** notices reach a phone. **Design:** §22.2, §14.3. **Depends on:** 12.6.
 
@@ -92,10 +95,10 @@ in `notice_pref`; sent by a job with claims; on iPhone only once added to the ho
 
 **Accepts when:** a notice reaches a subscribed browser once; unsubscribing stops it; deletion removes the subscriptions.
 
-#### 📋 13.9 — Release 0.3.0
+#### 📋 13.9 — The release of phase 3
 
-**Goal:** phase 3 published. **Depends on:** 13.1–13.8.
+**Goal:** phase 3 published. **Depends on:** 13.1–13.7.
 
-**Technical:** a security review of what phase 3 added (`docs/security/0.3.0.md`); the release as 12.4; hosting updated as 12.5.
+**Technical:** a security review of what phase 3 added (`docs/security/` for the version); the release as 12.4; hosting updated as 12.5.
 
-**Accepts when:** `ghcr.io/sovereignfs/shopper:0.3.0` is published and hosted.
+**Accepts when:** the image of the version it sets is published and hosted.

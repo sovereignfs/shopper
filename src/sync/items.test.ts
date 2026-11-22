@@ -57,6 +57,7 @@ let clock = 1_800_000_000_000;
 const env = (): Env => ({ now: (clock += 1000), newId: () => crypto.randomUUID() });
 const ok = (r: ApplyResult) => {
   if (r.status === 'refused') throw new Error(`refused: ${r.reason}: ${r.sentence}`);
+  if (r.status === 'held') throw new Error('held');
   return r;
 };
 const send = (who: Someone, m: Mutation | null) => {
@@ -109,6 +110,7 @@ const asItem = (row: Record<string, unknown> | undefined, name = 'x'): ItemRow =
 const asProduct = (row: Record<string, unknown> | undefined): ProductRow => ({
   id: String(row?.id),
   householdId: String(row?.household_id),
+  listId: (row?.list_id as string | null) ?? null,
   name: 'x',
   note: null,
   categoryId: (row?.category_id as string | null) ?? null,

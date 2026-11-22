@@ -1,5 +1,16 @@
 import { expect } from '@playwright/test';
-import { PASSWORD, PHONE, forgetSession, newEmail, sessionOf, signUp, test } from './helpers';
+import {
+  DERIVED_SHAPE,
+  PASSWORD,
+  deleteInSettings,
+  PHONE,
+  forgetSession,
+  newEmail,
+  sessionOf,
+  signUp,
+  test,
+  signOutFromMenu,
+} from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -50,19 +61,20 @@ test('a wrong password reads the same as an address with no account, and signs n
   expect(await sessionOf(page)).toBeNull();
 });
 
-test('a password that is too short is refused by the server, and the form asks for the length', async ({
+test('the form asks for the length, and the server, which is never sent a password, refuses one', async ({
   page,
   request,
   ip,
 }) => {
   await page.goto('/sign-up');
   await expect(page.getByLabel('Password')).toHaveAttribute('minlength', '10');
+  // The page derives what it sends (RFC 0001): a password sent as itself is refused.
   const reply = await request.post('/api/auth/sign-up/email', {
     headers: { origin: new URL(page.url()).origin, 'x-forwarded-for': ip },
-    data: { name: 'Ada', email: newEmail(), password: 'short' },
+    data: { name: 'Ada', email: newEmail(), password: PASSWORD },
   });
   expect(reply.status()).toBe(400);
-  expect((await reply.json()).code).toBe('PASSWORD_TOO_SHORT');
+  expect((await reply.json()).code).toBe('PASSWORD_NOT_DERIVED');
 });
 
 test('the front address is the landing page for a visitor and the signed-in area for a person, and signing out returns to the landing page', async ({
@@ -83,8 +95,7 @@ test('the front address is the landing page for a visitor and the signed-in area
   await page.goto('/home');
   await expect(page).toHaveURL('/');
 
-  await page.getByRole('button', { name: 'User menu' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await signOutFromMenu(page);
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
   expect(await sessionOf(page)).toBeNull();
 });
@@ -96,24 +107,18 @@ test('an account is deleted with its password, and nothing of it signs in again'
   const email = await signUp(page);
   const headers = { origin: new URL(page.url()).origin, 'x-forwarded-for': ip };
 
-  // What it would do, before it is done: the first household, with nobody else in it, would be deleted.
+  // What it would do, before it is done: the first list, with nobody else on it, would be deleted.
   const preview = await page.request.get('/api/account/delete', { headers });
   expect(preview.status()).toBe(200);
-  expect((await preview.json()).households).toMatchObject([{ own: true, outcome: 'deleted' }]);
+  expect((await preview.json()).lists).toMatchObject([{ own: true, outcome: 'deleted' }]);
 
-  const wrong = await page.request.post('/api/account/delete', {
-    headers,
-    data: { password: 'not the password' },
-  });
-  expect(wrong.status()).toBe(403);
-  expect((await wrong.json()).code).toBe('WRONG_PASSWORD');
+  // The page derives the password (RFC 0001), so this is done as a person does it, from Settings.
+  await deleteInSettings(page, 'not the password');
+  await expect(page.getByText('That is not your password.')).toBeVisible();
   expect((await sessionOf(page))?.user.email).toBe(email);
 
-  const done = await page.request.post('/api/account/delete', {
-    headers,
-    data: { password: PASSWORD },
-  });
-  expect(done.status()).toBe(204);
+  await deleteInSettings(page, PASSWORD);
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
   expect(await sessionOf(page)).toBeNull();
 
   await forgetSession(page);
@@ -140,7 +145,7 @@ test.describe('an instance closed to sign-up', () => {
     }
     const reply = await request.post(`${base}/api/auth/sign-up/email`, {
       headers: { origin: base, 'x-forwarded-for': ip },
-      data: { name: 'Mallory', email: newEmail('mallory'), password: PASSWORD },
+      data: { name: 'Mallory', email: newEmail('mallory'), password: DERIVED_SHAPE },
     });
     expect(reply.status()).toBe(403);
     expect((await reply.json()).code).toBe('SIGNUP_CLOSED');
@@ -182,7 +187,7 @@ test('Settings: a name is changed, a password is changed, and the account is del
   await page.getByRole('button', { name: 'Data' }).click();
   await page.getByRole('button', { name: 'Delete my account…' }).click();
   const remove = page.getByRole('form', { name: 'Delete account' });
-  await expect(remove.getByText(/nobody else is in them, so they are deleted/)).toBeVisible();
+  await expect(remove.getByText(/1 list nobody else is on is deleted/)).toBeVisible();
   await remove.getByLabel('Your password').fill('another horse battery');
   await remove.getByRole('button', { name: 'Delete my account for good' }).click();
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();

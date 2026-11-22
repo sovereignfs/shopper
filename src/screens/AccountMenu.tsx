@@ -2,10 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { turnOffPush } from '@sovereignfs/pwa/client';
 import { UserMenu } from '@sovereignfs/ui';
+import { useKeys } from '../keys/keys';
 import { useLocal, useLocalQuery } from '../local/react';
 import { failedCount } from '../local/store';
 import styles from './AccountMenu.module.css';
+
+/** How long signing out waits for this device's push to be turned off. */
+const PUSH_OFF_MS = 3_000;
 
 /**
  * The avatar menu at the right of the header: who the person is (name and address) and _Sign out_. Settings is the other entry. Signing out leaves the
@@ -15,14 +20,25 @@ import styles from './AccountMenu.module.css';
 export function AccountMenu({ name, email }: { name: string; email: string }) {
   const router = useRouter();
   const { leave } = useLocal();
+  const keys = useKeys();
   // What the server refused and the person has not yet seen to: a mark on the avatar and an entry in its menu (DESIGN.md §12.5).
   const refused = useLocalQuery(failedCount).data ?? 0;
   const [leaving, setLeaving] = useState(false);
 
   async function signOut() {
     setLeaving(true);
+    // This device takes no more pushes for the account (RFC 0002): the server forgets it first, and the browser gives it up. Only where notifications were
+    // granted, since there can be no subscription otherwise, and asking a browser's push manager is not free: in WebKit it can take the page with it. Never
+    // throws, and waits a few seconds at most: the server forgets a device whose account has no session anyway, when a push to it fails.
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted')
+      await Promise.race([
+        turnOffPush(),
+        new Promise((resolve) => setTimeout(resolve, PUSH_OFF_MS)),
+      ]);
     // Not left: the person kept their unsent changes, or the server could not be reached to end the session. Either way they are as they were.
     if ((await leave()).status !== 'left') return setLeaving(false);
+    // What this browser keeps of the key goes too (RFC 0001); with the session gone it opened nothing anyway.
+    await keys.forget();
     window.location.assign('/');
   }
 

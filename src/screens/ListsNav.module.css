@@ -1,4 +1,4 @@
-/* The households and their lists, in the sidebar, the phone's drawer and the front page (DESIGN.md §16.2). */
+/* Your lists and those shared with you, in the sidebar, the phone's drawer and the front page (DESIGN.md §16.2). */
 .nav {
   display: flex;
   flex-direction: column;
@@ -70,8 +70,22 @@
   outline-offset: -2px;
 }
 
-.name {
+.label {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.by {
+  overflow: hidden;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,7 +132,7 @@
 
 /* The rail: a letter for each list, with the name as its title, and a plus. */
 .rail .heading,
-.rail .name,
+.rail .label,
 .rail .count,
 .rail .action span {
   display: none;

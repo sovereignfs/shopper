@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { forgetSession, signUp, sessionOf, test } from './helpers';
+import { forgetSession, signOutFromMenu, signUp, sessionOf, test, waitMoved } from './helpers';
 
 /**
  * The working copy on the device (task 6.2), in a browser: after signing up the page opens an IndexedDB database of its own for the account and the sync
@@ -118,8 +118,7 @@ test('signing out ends the session and deletes the account’s working copy from
     .toBe(1);
   expect(await databases(page)).toContain(`shopper-${account}`);
 
-  await page.getByRole('button', { name: 'User menu' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await signOutFromMenu(page);
   await expect(page).toHaveURL('/');
   await expect.poll(async () => (await sessionOf(page)) === null).toBe(true);
   await expect.poll(async () => await databases(page)).not.toContain(`shopper-${account}`);
@@ -179,6 +178,8 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
   const [household] = (await read(page, account, 'household')) as { id: string }[];
   const [groceries] = (await read(page, account, 'list')) as { id: string }[];
   const person = ((await read(page, account, 'member')) as { personId: string }[])[0]?.personId;
+  // After its household has moved (RFC 0001), so that the change goes, and is refused, on the page the test is looking at.
+  await waitMoved(page, new URL(page.url()).origin);
   const uuid = () => crypto.randomUUID();
   const deletedList = uuid();
   const product = uuid();
@@ -212,11 +213,12 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
   await queue(page, account, mutation(deletedList));
   await page.reload();
 
-  // The server refuses it; the device keeps it, and a toast says so.
+  // The server refuses it; a toast says so, and the device keeps it. The toast is looked for first: in a household that has moved the refusal comes
+  // once the key is open, a moment after the page, and the toast does not stay for long.
+  await expect(page.getByText(/Couldn.t add that/)).toBeVisible({ timeout: 15_000 });
   await expect
     .poll(async () => (await read(page, account, 'failed')).length, { timeout: 15_000 })
     .toBe(1);
-  await expect(page.getByText(/Couldn.t add that/)).toBeVisible();
   await expect(page.getByRole('img', { name: 'Some changes could not be synced' })).toBeVisible();
   expect(await read(page, account, 'outbox')).toHaveLength(0);
 

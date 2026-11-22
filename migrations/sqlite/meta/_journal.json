@@ -71,6 +71,62 @@
       "when": 1794410354369,
       "tag": "0009_add_invitation",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795263584152,
+      "tag": "0010_account_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1795279437743,
+      "tag": "0011_household_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795279769260,
+      "tag": "0012_alias_carried",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1795281045684,
+      "tag": "0013_invitation_wrapped_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1795285425494,
+      "tag": "0014_push",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1795295632828,
+      "tag": "0015_list_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1795298507075,
+      "tag": "0016_product_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1795301015316,
+      "tag": "0017_list_keys",
+      "breakpoints": true
     }
   ]
 }

@@ -123,7 +123,7 @@ describe(`a device (${leg})`, () => {
       5,
     );
     expect(
-      (await d.client.read((db) => membersOf(db, ada.household))).map((m) => [m.name, m.self]),
+      (await d.client.read((db) => membersOf(db, ada.list))).map((m) => [m.name, m.self]),
     ).toEqual([['Ada', true]]);
     expect(await d.client.hasSynced()).toBe(true);
     expect(await d.client.intervalSeconds()).toBe(20);
@@ -291,6 +291,7 @@ describe(`a device (${leg})`, () => {
           cursor: 999,
           more: false,
           view: { label: 'x', own: true, role: 'admin', seq: 999 },
+          encryption: { state: 'plain' as const, epoch: 0, keyring: null, person: null },
           lists: [],
           products: [],
           categories: [],
@@ -327,6 +328,7 @@ describe(`a device (${leg})`, () => {
       cursor: 999,
       more: false,
       view: { label: 'x', own: true, role: 'admin' as const, seq: 999 },
+      encryption: { state: 'plain' as const, epoch: 0, keyring: null, person: null },
       lists: [],
       items: [],
       categories: [],
@@ -513,6 +515,7 @@ describe(`a device (${leg})`, () => {
       ),
     ).not.toContain(hardware);
     expect(await d.client.read((db) => itemsOf(db, hardware, { cleared: true }))).toEqual([]);
-    expect((await productsOf(d.db, ada.household)).map((p) => p.name)).toContain('Nails');
+    // Its catalog went with it (RFC 0004, 21.3): a product is a list's.
+    expect((await productsOf(d.db, ada.household)).map((p) => p.name)).not.toContain('Nails');
   });
 });

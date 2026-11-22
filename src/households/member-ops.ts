@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { adminOf, memberOf } from '../access/membership';
+import { listAdminOf, onList } from '../access/membership';
 import { isId } from '../actions/format';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
@@ -26,53 +26,59 @@ class Declined extends Error {}
 
 async function end(
   context: OperationContext,
+  list: string,
   target: string,
   by: 'self' | 'admin',
 ): Promise<OperationResult> {
   const { database, accountId, household, now } = context;
   try {
     return await transaction(database, async (tx) => {
-      const member = appTable(tx, 'member');
+      const people = appTable(tx, 'list_member');
       const stepped = await dbGet<{ seq: number | string }>(
         tx,
         sql`UPDATE ${appTable(tx, 'household')} SET seq = seq + 1, updated_at = ${now}
             WHERE id = ${household}
-              AND ${by === 'admin' ? adminOf(tx, household, accountId) : memberOf(tx, household, accountId)}
+              AND ${by === 'admin' ? listAdminOf(tx, list, accountId) : onList(tx, list, accountId)}
             RETURNING seq`,
       );
       if (!stepped) throw new Declined(NOT_THERE);
       const seq = Number(stepped.seq);
-      // The condition on the row: still in; and never the last Admin (nor, by an Admin, another Admin).
-      // Leaving, an Admin may go only if another is staying; removing, an Admin is never the target.
+      // The condition on the row: still on the list; and never its last Admin (nor, by an Admin, another Admin). Leaving, an Admin may go only if another
+      // is staying; removing, an Admin is never the target.
       const otherAdmin =
         by === 'self'
-          ? sql` OR EXISTS (SELECT 1 FROM ${member} other
-                            WHERE other.household_id = ${household} AND other.role = 'admin' AND other.left_at IS NULL AND other.person_id <> ${target})`
+          ? sql` OR EXISTS (SELECT 1 FROM ${people} other
+                            WHERE other.list_id = ${list} AND other.role = 'admin' AND other.left_at IS NULL AND other.person_id <> ${target})`
           : sql``;
       const ended = await dbAll<{ id: string }>(
         tx,
-        sql`UPDATE ${member} SET left_at = ${now}, seq = ${seq}
-            WHERE household_id = ${household} AND person_id = ${target} AND left_at IS NULL
+        sql`UPDATE ${people} SET left_at = ${now}, seq = ${seq}
+            WHERE list_id = ${list} AND household_id = ${household} AND person_id = ${target} AND left_at IS NULL
               AND (role <> 'admin'${otherAdmin})
             RETURNING id`,
       );
       if (ended.length === 0) {
         const row = await dbGet<{ role: string }>(
           tx,
-          sql`SELECT role FROM ${member} WHERE household_id = ${household} AND person_id = ${target} AND left_at IS NULL`,
+          sql`SELECT role FROM ${people} WHERE list_id = ${list} AND person_id = ${target} AND left_at IS NULL`,
         );
         throw new Declined(
           row?.role === 'admin'
             ? by === 'self'
-              ? 'You are the only Admin, so you cannot leave. Nobody could look after this household.'
+              ? 'You are the only Admin of this list, so you cannot leave it while others are on it.'
               : 'An Admin cannot be removed.'
             : NOT_THERE,
         );
       }
+      // Their copy of the list's keys goes (RFC 0004). What they hold on a device is not taken back: a list's keys are not changed yet when someone goes.
       await dbAll(
         tx,
-        sql`UPDATE ${appTable(tx, 'invitation')} SET revoked_at = ${now}
-            WHERE household_id = ${household} AND created_by = ${target}
+        sql`DELETE FROM ${appTable(tx, 'list_key')} WHERE list_id = ${list} AND person_id = ${target} RETURNING list_id`,
+      );
+      await dbAll(
+        tx,
+        sql`UPDATE ${appTable(tx, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL
+            WHERE list_id = ${list} AND created_by = ${target}
               AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
       );
       return { ok: true as const };
@@ -83,16 +89,23 @@ async function end(
   }
 }
 
+/** **`member.leave`**: the account leaves one list (RFC 0004); the list goes from its devices at their next sync. */
 export const leaveHousehold: Operation = {
   name: 'member.leave',
   who: 'member',
-  input: z.object({}),
-  run: (context) => end(context, context.personId, 'self'),
+  scope: 'list',
+  input: z.object({ list: z.string().refine(isId, 'not an id') }),
+  run: (context, input) => end(context, String(input.list), context.personId, 'self'),
 };
 
+/** **`member.remove`**: a list's Admin takes someone off it (RFC 0004). */
 export const removeMember: Operation = {
   name: 'member.remove',
   who: 'admin',
-  input: z.object({ person: z.string().refine(isId, 'not an id') }),
-  run: (context, input) => end(context, String(input.person), 'admin'),
+  scope: 'list',
+  input: z.object({
+    list: z.string().refine(isId, 'not an id'),
+    person: z.string().refine(isId, 'not an id'),
+  }),
+  run: (context, input) => end(context, String(input.list), String(input.person), 'admin'),
 };

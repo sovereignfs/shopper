@@ -26,34 +26,34 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function limitSentence(kind: LimitKind, limit: number, name?: string): string {
   switch (kind) {
     case 'householdMembers':
-      return `A household can have at most ${plural(limit, 'person', 'people')}, and this one has them all.`;
+      return `A list can have at most ${plural(limit, 'person', 'people')} on it, and this one has them all.`;
     case 'accountHouseholds':
-      return `You can be in at most ${plural(limit, 'household', 'households')}, and you are in that many.`;
+      return `You can have lists from at most ${plural(limit, 'person', 'people')}, yourself included, and you have that many.`;
     case 'householdLists':
-      return `A household can have at most ${plural(limit, 'list', 'lists')}, archived ones included, and this one has them all.`;
+      return `You can have at most ${plural(limit, 'list', 'lists')}, archived ones included, and you have them all.`;
     case 'listOpenItems':
       return name
         ? `${name} has ${plural(limit, 'item', 'items')}, the most it can hold.`
         : `A list can hold at most ${plural(limit, 'open item', 'open items')}, and this one holds them all.`;
     case 'householdProducts':
-      return `A household's catalog can hold at most ${plural(limit, 'product', 'products')}, and this one holds them all.`;
+      return `The catalog can hold at most ${plural(limit, 'product', 'products')}, and this one holds them all.`;
   }
 }
 
-/** How many people are active members of a household: what `householdMembers` is checked against, in the statement that adds one. */
-export async function countActiveMembers(database: Database, household: string): Promise<number> {
+/** How many people are on a list now (RFC 0004): what `householdMembers` is checked against, in the statement that adds one. */
+export async function countActiveMembers(database: Database, list: string): Promise<number> {
   const row = await dbGet<{ n: number | string }>(
     database,
-    sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND left_at IS NULL`,
+    sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'list_member')} WHERE list_id = ${list} AND left_at IS NULL`,
   );
   return Number(row?.n ?? 0);
 }
 
-/** How many households an account is an active member of, its own included: what `accountHouseholds` is checked against. */
+/** How many groups an account is on a list of, its own included: what `accountHouseholds` is checked against. */
 export async function countHouseholdsOf(database: Database, accountId: string): Promise<number> {
   const row = await dbGet<{ n: number | string }>(
     database,
-    sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'member')} m
+    sql`SELECT COUNT(DISTINCT m.household_id) AS n FROM ${appTable(database, 'list_member')} m
         JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
         WHERE p.account_id = ${accountId} AND m.left_at IS NULL`,
   );

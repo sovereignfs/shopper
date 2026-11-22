@@ -27,6 +27,12 @@ export async function start(): Promise<void> {
     const { assertKeys, rotateSealed } = await import('./src/crypto/rotate');
     await assertKeys(stores.app, result.config.encryption);
     await rotateSealed(stores.app, result.config.encryption);
+    // 0.1.0's households become lists of their own (RFC 0004): safe at every start, it finds nothing to do once done.
+    const { adoptListMembers, adoptProductLists, splitSharedProducts } =
+      await import('./src/lists/members');
+    await adoptListMembers(stores.app, Date.now());
+    await adoptProductLists(stores.app);
+    await splitSharedProducts(stores.app, result.config.encryption);
   } catch (error) {
     console.error('Shopper cannot start, because its database or its keys are not usable:');
     console.error(`  - ${error instanceof Error ? error.message : String(error)}`);

@@ -131,15 +131,31 @@ describe('the registry and the design', () => {
     return out;
   }
 
-  it('reads the design’s table', () => {
+  /**
+   * What §13.4 says the server holds itself: a person's name and email, and an invitation's email. Until 18.6 moves §13.1's fields into the browser,
+   * the server still seals those too, so the registry may hold both.
+   */
+  const SERVER_HELD: Record<string, readonly string[]> = {
+    person: ['name', 'email'],
+    invitation: ['email'],
+    push_device: ['p256dh', 'auth'],
+  };
+
+  it('reads the design’s tables', () => {
     const rows = sealedInDesign();
     expect(rows.get('household')).toEqual(new Set(['name']));
     expect(rows.get('item')).toEqual(new Set(['name', 'note', 'price']));
-    expect(rows.size).toBeGreaterThanOrEqual(9);
+    expect(rows.size).toBeGreaterThanOrEqual(8);
+    const held = squash(design.slice(design.indexOf('### 13.4'), design.indexOf('### 13.5')));
+    expect(held).toContain(squash("a person's name and email"));
+    expect(held).toContain(squash("an invitation's email"));
+    expect(held).toContain(squash("a push device's keys"));
   });
 
   it('lists no table or field the design does not seal', () => {
     const rows = sealedInDesign();
+    for (const [table, fields] of Object.entries(SERVER_HELD))
+      rows.set(squash(table), new Set([...(rows.get(squash(table)) ?? []), ...fields.map(squash)]));
     const offenders: string[] = [];
     for (const [table, fields] of Object.entries(SEALED)) {
       const allowed = rows.get(squash(table));
@@ -264,6 +280,16 @@ describe('sealed rows in the database', async () => {
       ring(1).current.fingerprint,
     );
     await expect(assertKeys(database, ring(3), [spec])).rejects.not.toThrow(/PLANTED/);
+  });
+
+  it('counts no key for a row its device encrypts, whose sealed column is empty (RFC 0001)', async () => {
+    await put('a', 'h1', 'x', ring(2));
+    await dbRun(
+      database,
+      sql`INSERT INTO ${table()} (id, household_id, name_key, sealed) VALUES ('moved', 'h2', 'nk', '')`,
+    );
+    expect(await keysInUse(database, [spec])).toEqual(new Set([ring(2).current.fingerprint]));
+    await expect(assertKeys(database, ring(2), [spec])).resolves.toBeUndefined();
   });
 
   it('rotates: re-wraps every row and recomputes every name key, and twice is safe', async () => {

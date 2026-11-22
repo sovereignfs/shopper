@@ -5,11 +5,11 @@ import type { Problem } from '../config';
  * read, so that a wrong one stops the server at start-up. The limit on categories comes with editing them, in phase 2.
  */
 export interface Limits {
-  /** Members of a household. */
+  /** People on a list (RFC 0004); the setting keeps its name. */
   readonly householdMembers: number;
   /** Households an account is in, its own included. */
   readonly accountHouseholds: number;
-  /** Lists of a household, archived included. */
+  /** Lists of a person's own, archived included. */
   readonly householdLists: number;
   /** Open items on a list. */
   readonly listOpenItems: number;

@@ -1,0 +1,1 @@
+ALTER TABLE "shopper"."alias" ADD COLUMN "carried" text;

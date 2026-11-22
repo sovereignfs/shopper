@@ -47,8 +47,21 @@ export const POST = accountRoute(async ({ request, accountId }) => {
   });
   switch (accepted.status) {
     case 'joined':
+      return reply(200, {
+        ok: true,
+        status: accepted.status,
+        household: accepted.household,
+        list: accepted.list,
+        person: accepted.person,
+        wrappedKey: accepted.wrappedKey,
+      });
     case 'already':
-      return reply(200, { ok: true, status: accepted.status, household: accepted.household });
+      return reply(200, {
+        ok: true,
+        status: accepted.status,
+        household: accepted.household,
+        list: accepted.list,
+      });
     case 'refused':
       return reply(409, { ok: false, error: 'refused', message: accepted.message });
     case 'invalid':

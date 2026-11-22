@@ -5,6 +5,9 @@ import { oauthErrorMessage } from '@/src/auth/messages';
 import { authSettings, mailAvailable, signUpAvailable } from '@/src/auth/server';
 import { safeNext } from '@/src/auth/next';
 import { getSession } from '@/src/auth/session';
+import { passwordsToMove } from '@/src/auth/move';
+import { getAuthDatabase } from '@/src/db/boot';
+import { getVaultId } from '@/src/keys/server/vault';
 
 // Decided per request from the settings and the visitor's cookies. Left to Next it would be prerendered at build time, with no settings, as the
 // "off" 404 it would then keep.
@@ -26,7 +29,12 @@ export default async function SignInPage({
       <SignInForm
         local={
           settings.local
-            ? { canSignUp: await signUpAvailable(), canReset: mailAvailable() }
+            ? {
+                canSignUp: await signUpAvailable(),
+                canReset: mailAvailable(),
+                vaultId: await getVaultId(),
+                moving: await passwordsToMove(await getAuthDatabase()),
+              }
             : undefined
         }
         sovereign={settings.sovereign !== undefined}

@@ -50,18 +50,19 @@ describe(`products in the database (${leg})`, () => {
   afterAll(async () => database.close());
 
   const table = () => appTable(database, 'product');
-  async function put(id: string, household: string, name: string, key: KeyRing) {
+  async function put(id: string, household: string, name: string, key: KeyRing, list = 'l1') {
     await dbRun(
       database,
-      sql`INSERT INTO ${table()} (id, household_id, name_key, sealed, created_at)
-          VALUES (${id}, ${household}, ${productNameKey(key, household, name)}, ${sealRow('product', id, { name, note: null }, key)}, ${Date.now()})`,
+      sql`INSERT INTO ${table()} (id, household_id, list_id, name_key, sealed, created_at)
+          VALUES (${id}, ${household}, ${list}, ${productNameKey(key, household, name)}, ${sealRow('product', id, { name, note: null }, key)}, ${Date.now()})`,
     );
   }
 
-  it('are one to a name in a household, by the unique index, and the same name is free in another household', async () => {
+  it('are one to a name on a list, by the unique index, and the same name is free on another list and in another household', async () => {
     await put('p1', 'h1', 'Oat Milk', ring(1));
     await expect(put('p2', 'h1', 'oat  milk', ring(1))).rejects.toThrow();
     await put('p3', 'h2', 'oat milk', ring(1));
+    await put('p5', 'h1', 'oat milk', ring(1), 'l2');
     await put('p4', 'h1', 'bread', ring(1));
   });
 
@@ -69,7 +70,7 @@ describe(`products in the database (${leg})`, () => {
     const product = SEALED_TABLES.find((spec) => spec.table === 'product');
     if (!product) throw new Error('product is not a sealed table');
     const next = ring(2, 1);
-    expect(await rotateSealed(database, next, [product], undefined, () => undefined)).toBe(3);
+    expect(await rotateSealed(database, next, [product], undefined, () => undefined)).toBe(4);
     expect(await rotateSealed(database, next, [product], undefined, () => undefined)).toBe(0);
     const rows = await dbAll<{
       id: string;
@@ -85,6 +86,6 @@ describe(`products in the database (${leg})`, () => {
     expect(rows.some((row) => row.name_key === productNameKey(ring(1), 'h1', 'oat milk'))).toBe(
       false,
     );
-    await expect(put('p5', 'h1', 'OAT MILK', ring(2))).rejects.toThrow();
+    await expect(put('p6', 'h1', 'OAT MILK', ring(2))).rejects.toThrow();
   });
 });

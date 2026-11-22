@@ -26,6 +26,7 @@ import { applyMutation } from '../src/sync/apply';
 import { starterEntryFor } from '../src/catalog/starter';
 import { categoryOfNew } from '../src/lists/adding';
 import type { CategoryRow } from '../src/local/rows';
+import { CLIENT_ID, vaultOf } from '../src/keys/server/vault';
 
 /**
  * A realistic set of accounts for development (task 12.1). Everything goes **through the app's own paths**: accounts through better-auth, persons and
@@ -42,7 +43,7 @@ import type { CategoryRow } from '../src/local/rows';
  *
  * What there is to look at, once seeded: **Seed** (Admin of "My lists": Groceries with open, bought and noted items, a Hardware store list, a Party list that
  * was cleared, an archived list, a link waiting, and two people in it: Seed Two, and Seed Three, who has left but whose item is still there); **Seed Two**, who
- * is in Seed's household and has a household of their own with a list; and **Seed Three**, who left and has a household of their own. A product and an item
+ * is on Seed's Groceries (and no other of Seed's lists) and has a household of their own with a list; and **Seed Three**, who left and has a household of their own. A product and an item
  * that two people added at once and that the server folded into one.
  */
 export const SEED_PASSWORD = 'shopper-development-only';
@@ -110,7 +111,7 @@ async function findUser(auth: Database, email: string): Promise<string | undefin
 
 /** Makes the account through better-auth, with sign-up open for this one call whatever the instance says: it is making a development account. */
 async function makeUser(
-  auth: Database,
+  stores: SeedContext['stores'],
   settings: AuthSettings,
   email: string,
   name: string,
@@ -118,10 +119,31 @@ async function makeUser(
   const instance = createAuth({
     settings: { ...settings, signUp: 'open', local: true },
     name: 'Shopper',
-    database: auth,
+    database: stores.auth,
   });
-  const made = await instance.api.signUpEmail({ body: { name, email, password: SEED_PASSWORD } });
+  const made = await instance.api.signUpEmail({
+    body: { name, email, password: await signInValue(stores.app, email) },
+  });
   return made.user.id;
+}
+
+/**
+ * What the sign-in page sends for `SEED_PASSWORD` (RFC 0001): the value the SDK's vault derives from it, with this database's vault id, so that the
+ * account signs in by hand with the password. Its keys are made the first time it does, in the browser.
+ */
+async function signInValue(app: Database, email: string): Promise<string> {
+  const { localVault } = await import('@sovereignfs/sdk/local-vault');
+  const none = {
+    get: async () => undefined,
+    set: async () => undefined,
+    delete: async () => undefined,
+  };
+  const vault = localVault({
+    clientId: CLIENT_ID,
+    vaultId: await vaultOf(app).vaultId(),
+    backend: none,
+  });
+  return (await vault.derive(SEED_PASSWORD, email.trim().toLowerCase())).signIn;
 }
 
 async function accounts(ctx: SeedContext): Promise<Record<Key, Who>> {
@@ -129,7 +151,7 @@ async function accounts(ctx: SeedContext): Promise<Record<Key, Who>> {
   for (const seed of SEEDS) {
     const accountId =
       (await findUser(ctx.stores.auth, seed.email)) ??
-      (await makeUser(ctx.stores.auth, ctx.settings, seed.email, seed.name));
+      (await makeUser(ctx.stores, ctx.settings, seed.email, seed.name));
     const { personId, householdId } = await makeAccountRecords(
       ctx.stores.app,
       ctx.ring,
@@ -222,25 +244,27 @@ function itemOf(mutation: Mutation): ItemRow {
   } as unknown as ItemRow;
 }
 
-async function isMember(app: Database, household: string, person: string): Promise<boolean> {
+async function isOnList(app: Database, list: string, person: string): Promise<boolean> {
   return (
     (await dbGet(
       app,
-      sql`SELECT 1 AS yes FROM ${appTable(app, 'member')} WHERE household_id = ${household} AND person_id = ${person}`,
+      sql`SELECT 1 AS yes FROM ${appTable(app, 'list_member')} WHERE list_id = ${list} AND person_id = ${person}`,
     )) !== undefined
   );
 }
 
-/** Puts a person in a household by the invitation a member would send and the person would accept, as the app does. */
+/** Puts a person on one list by the invitation someone on it would send and the person would accept, as the app does (RFC 0004). */
 async function joinByInvitation(
   ctx: SeedContext,
   host: Who,
+  list: string,
   guest: Who,
   label: string,
   when: number,
 ) {
   const made = await createInvitation(ctx.stores.app, {
     household: host.household,
+    list,
     accountId: host.accountId,
     personId: host.personId,
     now: ctx.now,
@@ -271,9 +295,9 @@ export async function runSeed(ctx: SeedContext): Promise<SeedResult> {
   const env = (label: string) => envFor(label, (clock += 60_000));
 
   // ---- Seed's own household, "My lists". Everything below happens once: the whole block is skipped when it has been done.
-  const done = await isMember(app, one.household, two.personId);
+  const first = await groceries(app, one.household);
+  const done = await isOnList(app, first.id, two.personId);
   if (!done) {
-    const first = await groceries(app, one.household);
     const groceriesList = listRow(first.id, one.household, 'Groceries', at);
 
     // Lists: a Hardware store, a Party list, and one put away.
@@ -381,7 +405,7 @@ export async function runSeed(ctx: SeedContext): Promise<SeedResult> {
     await send(ctx, one, archiveList(env('one:a:old'), oldList));
 
     // ---- Seed Two joins by a link; they add, tick what Seed added, and both add the same thing at once, which the server folds into one.
-    await joinByInvitation(ctx, one, two, 'Seed Two', (clock += 60_000));
+    await joinByInvitation(ctx, one, first.id, two, 'Seed Two', (clock += 60_000));
     await add(two, groceriesList, 'two:g:pasta', { name: 'Pasta', quantity: '500', unit: 'g' });
     await add(two, groceriesList, 'two:g:tomatoes', { name: 'Tomatoes', quantity: '6' });
     await send(ctx, two, tickItem(env('two:t:butter'), butter, two.personId));
@@ -397,7 +421,7 @@ export async function runSeed(ctx: SeedContext): Promise<SeedResult> {
     });
 
     // ---- Seed Three joins, adds something, and leaves: the item stays, shown as theirs and as left.
-    await joinByInvitation(ctx, one, three, 'Seed Three', (clock += 60_000));
+    await joinByInvitation(ctx, one, first.id, three, 'Seed Three', (clock += 60_000));
     await add(three, groceriesList, 'three:g:water', {
       name: 'Sparkling water',
       quantity: '6',
@@ -406,7 +430,7 @@ export async function runSeed(ctx: SeedContext): Promise<SeedResult> {
     const left = await dispatch(
       { database: app, ring: ctx.ring },
       three.accountId,
-      { op: 'member.leave', household: one.household },
+      { op: 'member.leave', household: one.household, list: first.id },
       at,
     );
     if (left.status !== 200) throw new Error(`Seed Three could not leave (${left.status})`);
@@ -445,12 +469,14 @@ export async function runSeed(ctx: SeedContext): Promise<SeedResult> {
   // ---- A link waiting, from Seed, in "My lists": one, however often this runs.
   const waiting = await liveInvitations(app, ctx.ring, {
     household: one.household,
+    list: first.id,
     accountId: one.accountId,
     now: at,
   });
   if (waiting.length === 0) {
     const made = await createInvitation(app, {
       household: one.household,
+      list: first.id,
       accountId: one.accountId,
       personId: one.personId,
       now: at,

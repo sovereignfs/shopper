@@ -8,7 +8,7 @@ import { openDatabase } from '../db/client';
 import { dbAll, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { freshDatabase, testTarget } from '../db/test-support';
-import { householdsOf, membersOf, readHousehold } from '../households/households';
+import { householdsOf, membersOf } from '../households/households';
 import { RateLimiter } from '../limits/rate';
 import { personById } from '../people/people';
 import { handleAccountDeleted, handleBackChannelLogout, type NoticeDeps } from './http';
@@ -165,14 +165,14 @@ describe(`core's notices, through the real wiring (${leg})`, () => {
     expect(await householdsOf(app, TEST_RING, ada.accountId)).toEqual([]);
     expect(await accountOfSub(auth, 'sub-ada-d')).toBeNull();
 
-    // The others' households are whole, Ada's passed to the member who had been in longest, and her name stays.
-    expect((await readHousehold(app, TEST_RING, ada.household, grace.accountId))?.role).toBe(
-      'admin',
-    );
+    // The others' lists are whole, Ada's shared list passed to the person on it longest (RFC 0004), and her name stays.
     expect(
-      (await membersOf(app, TEST_RING, ada.household, grace.accountId))?.map((m) => m.name),
+      (await membersOf(app, TEST_RING, ada.list, grace.accountId))?.find((m) => m.self)?.role,
+    ).toBe('admin');
+    expect(
+      (await membersOf(app, TEST_RING, ada.list, grace.accountId))?.map((m) => m.name),
     ).toEqual(['GraceD', 'LinD']);
-    expect(await membersOf(app, TEST_RING, lin.household, lin.accountId)).toHaveLength(1);
+    expect(await membersOf(app, TEST_RING, lin.list, lin.accountId)).toHaveLength(1);
     expect(await sessionsOf(grace)).toBe(1);
 
     // Core sends a deletion until it is answered, with a new token each time: the second finds nobody and is answered 200 too.

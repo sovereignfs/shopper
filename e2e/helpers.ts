@@ -67,6 +67,9 @@ export async function fillSignUp(
   }).toPass({ timeout: 15_000 });
 }
 
+/** A value of the shape a page sends for a password (RFC 0001), for a request a test makes itself: the server checks the shape, not the value. */
+export const DERIVED_SHAPE = `svp1.${'A'.repeat(43)}`;
+
 /** Makes an account through the sign-up page, as a person would, and waits until they are signed in and on the front address. */
 export async function signUp(
   page: Page,
@@ -75,8 +78,32 @@ export async function signUp(
   await page.goto(`${base}/sign-up`);
   await fillSignUp(page, { name, email, password });
   await page.getByRole('button', { name: 'Create account' }).click();
+  await keepKit(page);
   await expect(page).toHaveURL(`${base}/`);
   return email;
+}
+
+/**
+ * A new password account is shown its recovery kit before anything else (RFC 0001): says it was kept, and goes on. The page is waited for, since the
+ * password is derived and the keys are made first, which takes a moment.
+ */
+export async function keepKit(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/keys\/kit/, { timeout: 15_000 });
+  await page.getByRole('checkbox', { name: /kept my recovery kit/ }).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
+}
+
+/**
+ * Deletes the signed-in account from Settings, as a person does: the password is derived by the page and never sent (RFC 0001), so a test cannot post
+ * it to the route itself. `expect` is what the page says after: the sign-in link once the account is gone, or the refusal of a wrong password.
+ */
+export async function deleteInSettings(page: Page, password: string): Promise<void> {
+  await page.goto('/settings?section=data');
+  await page.getByRole('button', { name: 'Delete my account…' }).click();
+  const remove = page.getByRole('form', { name: 'Delete account' });
+  await expect(remove.getByLabel('Your password')).toBeVisible();
+  await remove.getByLabel('Your password').fill(password);
+  await remove.getByRole('button', { name: 'Delete my account for good' }).click();
 }
 
 /**
@@ -186,10 +213,10 @@ export interface Seed {
 }
 
 /**
- * Puts items on the person's first list **through the server**, as another device would, and brings them to this one: the real endpoint applies them, so what
+ * Puts items on the person's first list **through this device's outbox**, as the app does, so that they are encrypted as it sends them: the real endpoint applies them, so what
  * a test then ticks, clears and moves is real, and the server's answer to it is too. Returns the ids of the items made, in order.
  */
-export async function seedItems(page: Page, items: Seed[], baseURL: string): Promise<string[]> {
+export async function seedItems(page: Page, items: Seed[], _baseURL: string): Promise<string[]> {
   const account = await accountOf(page);
   await expect
     .poll(async () => (await deviceRows(page, account, 'list')).length, { timeout: 15_000 })
@@ -218,7 +245,14 @@ export async function seedItems(page: Page, items: Seed[], baseURL: string): Pro
           table: 'product',
           id: product,
           create: true,
-          fields: { name: seed.name, categoryId, createdAt: now, lastAddedAt: now },
+          // A product is its list's (RFC 0004): an encrypted one is encrypted under that list's keys.
+          fields: {
+            listId: list?.id,
+            name: seed.name,
+            categoryId,
+            createdAt: now,
+            lastAddedAt: now,
+          },
         },
         {
           table: 'item',
@@ -240,14 +274,39 @@ export async function seedItems(page: Page, items: Seed[], baseURL: string): Pro
       ],
     };
   });
-  const reply = await page.request.post('/api/sync', {
-    headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { version: 1, outbox, cursors: {} },
-  });
-  expect(reply.status()).toBe(200);
-  const body = (await reply.json()) as { refused: unknown[] };
-  expect(body.refused).toEqual([]);
+  // Into this device's outbox, as the app writes what a person adds: the app sends it, encrypted where its household has moved (RFC 0001), and the
+  // server's answer brings the rows back. A server holds plain text sent to a household that has moved, so a test cannot post it as itself.
+  await page.evaluate(
+    ([name, entries]) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open(name as string);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('outbox', 'readwrite');
+          for (const mutation of entries as unknown[])
+            tx.objectStore('outbox').add({ mutation, queuedAt: Date.now() });
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    [`shopper-${account}`, outbox] as const,
+  );
   await page.reload();
+  await expect
+    .poll(
+      async () => {
+        const have = new Set(
+          (await deviceRows<{ id: string }>(page, account, 'item')).map((row) => row.id),
+        );
+        return ids.every((id) => have.has(id));
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
   return ids;
 }
 
@@ -272,23 +331,94 @@ export async function serverItems(
 > {
   const reply = await page.request.post('/api/sync', {
     headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { version: 1, outbox: [], cursors: {} },
+    data: { version: 2, outbox: [], cursors: {} },
   });
-  const body = (await reply.json()) as { households: { items: never[] }[] };
-  return body.households.flatMap((h) => h.items);
+  const body = (await reply.json()) as {
+    households: { items: { id: string; name: string; note: string | null }[] }[];
+  };
+  // A household that has moved holds only ciphertext (RFC 0001): what each row says is the server's, and its name and note are what this device opened of
+  // the same row.
+  const account = await accountOf(page);
+  const opened = new Map(
+    (
+      await deviceRows<{ id: string; name: string; note: string | null }>(page, account, 'item')
+    ).map((row) => [row.id, row]),
+  );
+  return body.households.flatMap((h) =>
+    h.items.map((item) => {
+      const mine = opened.get(item.id);
+      return { ...item, name: mine?.name ?? item.name, note: mine ? mine.note : item.note };
+    }),
+  ) as never[];
 }
 
-/** Makes a link to the person's own household through the operation the Share dialog will call (8.7), and returns its path and id. */
+/**
+ * Makes a link to a list of the person's **through the Share dialog**, as a person does (8.7), and returns its path and id. An encrypted list's link
+ * carries its keys after `#` (RFC 0001, RFC 0004), which only the page can make, so a test cannot ask the operation for one itself.
+ */
 export async function makeLink(page: Page, baseURL: string): Promise<{ path: string; id: string }> {
   const account = await accountOf(page);
   await expect
     .poll(async () => (await deviceRows(page, account, 'household')).length, { timeout: 15_000 })
     .toBeGreaterThan(0);
   const [household] = await deviceRows<{ id: string }>(page, account, 'household');
-  const reply = await page.request.post('/api/ops', {
+  // The list the dialog is about (RFC 0004): the one open, by its address, else the first.
+  const open = /\/l\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  const list = open ?? (await deviceRows<{ id: string }>(page, account, 'list'))[0]?.id;
+  const dialog = page.getByRole('dialog', { name: /^Share / });
+  if (!(await dialog.isVisible()))
+    await page.getByRole('button', { name: 'Share', exact: true }).last().click();
+  await dialog.getByRole('button', { name: 'Make a link' }).click();
+  const field = dialog.getByRole('textbox', { name: 'Link to share' });
+  await expect(field).toHaveValue(/\/invite\//);
+  const url = new URL(await field.inputValue());
+  await page.keyboard.press('Escape');
+  const listed = await page.request.post('/api/ops', {
     headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { op: 'invite.create', household: household?.id },
+    data: { op: 'invite.list', household: household?.id, list },
   });
-  expect(reply.status()).toBe(200);
-  return (await reply.json()).result as { path: string; id: string };
+  const links = ((await listed.json()).result ?? []) as { id: string; createdAt?: number }[];
+  const newest = [...links].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
+  return { path: `${url.pathname}${url.hash}`, id: newest?.id ?? '' };
+}
+
+/**
+ * Waits until every household of the page's account has moved to its device's encryption (RFC 0001), as each does once its device opens its key: a
+ * test that writes to it then does so after the move, and not in a race with it.
+ */
+export async function waitMoved(page: Page, baseURL: string): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const reply = await page.request.post(`${baseURL}/api/sync`, {
+          headers: { origin: baseURL, 'content-type': 'application/json' },
+          data: { version: 2, outbox: [], cursors: {} },
+        });
+        const body = (await reply.json()) as { households?: { encryption?: { state: string } }[] };
+        return (
+          (body.households ?? []).length > 0 &&
+          (body.households ?? []).every((h) => h.encryption?.state === 'encrypted')
+        );
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+}
+
+/**
+ * Signs out from the avatar's menu, as a person does. Right after signing up the page is still settling (its lists move to the device's encryption and the
+ * key opens again, which draws the header anew), and a click on a menu that is being drawn again is lost: WebKit shows it most. So the menu is opened and
+ * Sign out chosen again until the signed-in area is gone.
+ */
+export async function signOutFromMenu(page: Page): Promise<void> {
+  await expect(async () => {
+    const menu = page.getByRole('button', { name: 'User menu' });
+    if ((await menu.count()) > 0) {
+      await menu.click({ timeout: 2_000 });
+      await page.getByRole('menuitem', { name: 'Sign out' }).click({ timeout: 2_000 });
+    }
+    await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0, {
+      timeout: 5_000,
+    });
+  }).toPass({ timeout: 30_000 });
 }

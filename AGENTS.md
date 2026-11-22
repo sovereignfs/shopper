@@ -12,8 +12,8 @@ which.
 
 ## What this is
 
-**Shopper**, an app of the Sovereign suite exactly as Tusk, Fjord, Tally and Roam are: a household's shopping lists, a catalog that learns what the
-household buys, ticking things off in the shop (into trips, from phase 2), and a shopping mode made for the aisle, all working with no network and
+**Shopper**, an app of the Sovereign suite exactly as Tusk, Fjord, Tally and Roam are: shopping lists shared one by one (each with its own
+people, catalog and keys), a catalog that learns what is bought, ticking things off in the shop (into trips, from phase 2), and a shopping mode made for the aisle, all working with no network and
 syncing in the background, with others' changes arriving as fast as each person chooses (up to live, from phase 2). A Sovereign instance can host it, and **it runs fully on its
 own, with every feature, needing no instance**: its own accounts, people, mail and notices. It replaces the legacy plugin
 `sovereignfs/sovereign-plugin-shopper`, whose behaviour is the starting point and none of whose code or interface is carried over; its export can be
@@ -24,7 +24,8 @@ both, from one image.
 §5.1).
 
 **Phase 1 (0.1.0) is a minimum viable product,** built to be used as soon as it can be: sign-in by password or through a core, lists and items offline,
-ticking and a light shopping mode, sharing by a link, everything sealed at rest. `DESIGN.md` §2.2 says exactly what it holds and what waits. **A task
+ticking and a light shopping mode, sharing by a link, everything sealed at rest. **Before phase 2, workstream 0001**
+(`docs/workstreams/0001-suite-model.md`) moves it onto the suite's encryption, push and exports. `DESIGN.md` §2.2 says exactly what it holds and what waits. **A task
 of phase 2 or later is not started before 0.1.0 is released** unless the owner decides it, and a phase 1 task builds the design's data model
 and rules as written, leaving out only the screens and features §2.2 lists, so that phase 2 adds to it and moves nothing.
 
@@ -54,26 +55,69 @@ and security reviews (`docs/security/`) are used as Sovereign and Tusk use them.
 - **Epic 16 is work in `sovereign`;** a Shopper task that depends on it waits for the published release. **Epic 15 is candidates;** nothing in it is
   started without the owner's decision.
 
-## Working conventions
+<!-- sovereign:shared:begin -->
 
-- **One task, one branch, one draft PR.** Branch from an up-to-date `main`, named `feat/<slug>`, `fix/<slug>`, `docs/<slug>` or `chore/<slug>`. Do not
-  start a second task on a branch whose PR is not merged.
-- **Nothing goes to `main` directly,** except the owner's bypass, which is theirs to use.
-- **Never commit or push without being asked.** Prepare changes in the working tree and stop.
-- **Commits explain why.** `type(scope): summary` under 72 characters, body wrapped at 100, a `Verified:` line naming what was run, one logical change
-  per commit. Every commit an agent makes ends with `Co-Authored-By: Claude Code <noreply@anthropic.com>`: model-agnostic, never a specific model
-  name.
-- **PRs target `main`, are opened as drafts** (`gh pr create --draft --base main`), and are marked ready only on instruction. The body says what
-  changed and why, cites the `DESIGN.md` section, carries no task numbers, and ends with
-  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
-- **Merge with rebase and merge,** never squash and never a merge commit. **Never merge a PR automatically.**
-- **Verify before claiming done.** Run the commands under Commands and show the output. A regression test is trusted only after it has been seen to
-  fail against the code it guards.
-- **Docs are part of the change.** A statement a change makes false is fixed in the same PR; a change to behaviour adds a line under `## [Unreleased]`
-  in `CHANGELOG.md`.
-- **Releases are their own PR,** as Tusk's: `scripts/release.sh`, a `vX.Y.Z` tag publishes the image. A patch has no migration and no setting change.
-- **Flag Docker-config impact immediately:** a new setting, port, path or native dependency updates the `Dockerfile` and `.dockerignore` in the same
-  change.
+## Working conventions (shared by every app of the suite)
+
+- **Two branches.** Work lands on `develop`, committed directly or through a feature branch (`feat/`, `fix/`, `docs/`, `chore/` and a
+  slug) cut from an up-to-date `develop` and merged into it by draft pull request with rebase and merge. `main` is what is released: it
+  is protected and changes only by a promotion pull request from `develop`, merged with a merge commit (`CONTRIBUTING.md`).
+- **Never commit or push without being asked.** Prepare changes in the working tree and stop. **Never merge a pull request
+  automatically.**
+- **Commits explain why, not just what:** `type(scope): summary` (`feat`, `fix`, `docs`, `chore`) under 72 characters, a body wrapped at
+  100, a `Verified:` line naming what was run, one logical change each. An agent's commits end with its own model-agnostic trailer:
+  `Co-Authored-By: Claude Code <noreply@anthropic.com>` or `Co-Authored-By: Codex <noreply@openai.com>`, never one naming a model (the
+  promotion check refuses it).
+- **Pull requests into `develop` are drafts,** marked ready only on instruction; the body says what changed and why and ends with the
+  agent's footer.
+- **A version is set with its changelog section,** in the same change: `version` in `package.json` (or, in a repository of several
+  components, the file `sovereign.json` names for it) and `## [X.Y.Z] - date` in its changelog, in plain words for someone upgrading. A
+  promotion titled `Release` with that version's tag publishes it on merge (`RELEASING.md`).
+- **The version follows the change, by semver:** a `fix/` is a patch, a `feat/` a minor, a breaking change a major with a note for whoever
+  upgrades; `chore/` and `docs/` change no version unless they change what the app offers. Its tag is `vX.Y.Z`, with the `tagPrefix`
+  `package.json` names in front, made on the promotion's merge commit, never by hand.
+- **One task, one branch, one pull request,** reviewed before the next begins. `develop` and `main` are never rewritten: fix a commit
+  message before it reaches `develop`.
+- **CI runs only for `main`:** on pull requests into it that are not drafts, before a release and by hand; never for `develop` or a
+  feature branch, which the pre-push hook (`pnpm run verify`) checks locally.
+- **Verify before claiming done,** and show the output. A regression test is trusted only after it has been seen to fail against the code
+  it guards.
+- **Docs are part of the change:** a statement a change makes false is fixed in the same change.
+- **Flag Docker-config impact immediately:** a new or renamed environment variable, port, on-disk path or native dependency may need the
+  `Dockerfile`, `.dockerignore` or `compose.yml` changed. Those are shared files, the same in every app: change them in the template, or
+  list the one this app must keep as its own under `sovereign.unmanaged` and change it here, in the same change.
+- **Shared files are written, not edited:** the files `npm create @sovereignfs app sync` writes (this section among them) are changed
+  in the template, in sovereignfs/sovereign, and taken with the next sync; a file this app keeps as its own is listed in `package.json`
+  under `sovereign.unmanaged`.
+- **Commands are this app's package manager's:** `pnpm install`, `pnpm run dev`, `pnpm run build`, `pnpm run verify`. Never add a second
+  lockfile.
+
+## Rules every app of the suite keeps
+
+- **Naming:** user-facing text says "app"; "client" is the protocol term, for code and the settings that register one. Every environment
+  variable carries the app's prefix (`SHOPPER_`), and every one the code reads is declared in `.env.example`, a secret also as
+  `NAME_FILE`.
+- **No secret has a default:** a required setting the app cannot start without stops it at start-up, saying which; it is never filled in.
+- **Every server action and route decides for itself:** it asks who is calling (the session) before it reads or changes anything, and
+  one that changes something checks the request came from the app's own origin. A page's guard protects nothing, since a `'use server'`
+  function is a public endpoint.
+- **A person's data is theirs alone:** every statement that reads, changes or deletes it names the owner, from the session, never from
+  the request; their data and files are deleted with the notice that they deleted their account.
+- **People's files go only through `@sovereignfs/storage`,** in the app's own folder; a type is judged by the bytes, and only an image is
+  shown inline.
+- **Tokens and keys are compared in constant time,** never logged, and the refresh token is the SDK's to send; nothing from a request is
+  put into a shell command.
+- **Every outbound `fetch` has a timeout,** and a server render never waits on another service without one.
+- **The data layer is async and migrations only move forward:** a migration in `migrations/` is applied once, in name order, at start;
+  one that has been released is never edited, and a change is a new file.
+- **Configuration is read at run time:** never `NEXT_PUBLIC_*` for a value that differs between instances, since it is fixed at build;
+  the image bakes in no environment and no `.env` file.
+- **The interface is `@sovereignfs/ui`'s:** its components, and its semantic `--sv-*` tokens for colour; no hard-coded colour, no
+  Tailwind, no CSS-in-JS. The content security policy is a nonce, never `'unsafe-inline'` for scripts.
+- **Read the Next.js docs that come with the installed version** (`node_modules/next/dist/docs/`) before writing Next.js code; it
+  changes faster than anything remembered.
+
+<!-- sovereign:shared:end -->
 
 ## Rules of an app
 
@@ -82,32 +126,36 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Every feature works with no Sovereign instance.** Core adds a way in, a directory, a bell and email; a feature that only works with core is not
   done. A call to core that fails, is refused or is not supported changes nothing but that call (`DESIGN.md` §15.4).
 - **An account is known by its better-auth user id (`account_id`); someone on a shared row is a `person`.** Every account has exactly one person and
-  exactly one household made with it (`own_of`), which others may be invited into. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
+  exactly one group (`household`, `own_of`) made with it, holding the lists it makes and **never shown** (RFC 0004): others are invited to a list,
+  never to the group. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
   a person at sign-in.
-- **People join a household only by accepting an invitation;** nobody is added without agreeing. An email is shown only to whom `DESIGN.md` §6.1
+- **People join a list only by accepting an invitation to it;** nobody is added without agreeing, and joining one list shows nothing else of its
+  group. An email is shown only to whom `DESIGN.md` §6.1
   allows, through the one visibility function, and never in a notice or another person's export.
 - **Everything personal of an account is removed by `People.deletePerson`** (`src/sovereign/people.ts`), which keeps only the name on the shared
   record, safe to run twice. **A new table is handled there, and exported and imported, in the same change,** with a test that seeds one of each.
-- **Every row of a household carries `household_id`, and the permission is in the statement:** active membership of the household as a condition of
-  the same query (`DESIGN.md` §5.2), never checked first and then touched; an Admin's operation adds the role to it. Anything a change points at must
-  be the same household's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
+- **Every row of a group carries `household_id`, and the permission is in the statement:** for a list, its items and its products, being on the list
+  (`list_member`, `onList` in `src/access/membership.ts`) as a condition of the same query (`DESIGN.md` §5.2, RFC 0004), never checked first and then
+  touched; a list's Admin's operation adds the role to it. Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
-- **Names, notes, prices, shops, emails and barcodes are sealed at rest** through `src/crypto/sealed.ts`, never written in plain text, never in a
-  `WHERE`, `ORDER BY` or index. A product's identity in a household is its **name key** (`DESIGN.md` §13.2), never its name. A table that adds a
-  sealed field adds it to `DESIGN.md` §13.1's table and the registry test in the same change.
+- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the list's
+  keys (derived from the group's, RFC 0004), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
+  a `WHERE`, `ORDER BY` or index. A product's identity on a list is its **name key** (`DESIGN.md` §13.3), made in the browser, never its name.
+  What the server must hold itself (a person's name and email, an invitation's email, credentials) is sealed through `src/crypto/sealed.ts`
+  (§13.4). A table that adds such a field adds it to §13.1's or §13.4's table and its registry test in the same change. **The words "not yet
+  audited" go wherever Shopper describes its encryption.**
 - **Lists, items, products, categories, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
   mutation, and `src/sync/apply.ts` applies it, re-checking membership and limits, merging field by field, folding duplicates (`src/sync/fold.ts`), in
-  one short transaction that increments the household's `seq`. A replayed mutation writes nothing. The property tests pass.
+  one short transaction that increments the group's `seq`. A replayed mutation writes nothing. The property tests pass.
 - **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** (and, from phase 2, a second makes no trip line);
-  the same product twice in a household, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
+  the same product twice on a list, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
   refused change goes to Couldn't sync, never to nowhere.
-- **Households, membership, roles, invitations and moving a list between households are online operations** (`/api/ops`), decided by the server at
-  once. They are not queued offline.
+- **A list's people, roles, invitations and deleting a list are online operations** (`/api/ops`), decided by the server at once. They are not queued offline.
 - **The live stream carries signals only** (`{household, seq}`), never a row; the device pulls through `/api/sync`. The hub is in the process;
   `LISTEN/NOTIFY` is not used.
 - **Quantities are canonical decimal strings and money is integer minor units,** calculated in `src/quantity/`; no binary float touches either. One
   figure has one implementation, pure, shared by the browser, the server and the tests (suggestions, totals, unit prices, aisle order).
-- **The device's store is per account and holds only the account's households;** it is deleted at sign-out. **The service worker caches the shell
+- **The device's store is per account and holds only the lists the account is on;** it is deleted at sign-out. **The service worker caches the shell
   only,** by allow-list; no page or answer with a person's data is ever in a cache.
 - **Notices are raised in the change's transaction or by the digest job, never for the person who acted.** Mail goes
   through `mail_outbox`, in the background; no address or content is logged.
@@ -132,8 +180,9 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Never fork a navigation decision by viewport;** fork only what is rendered.
 - **No third-party loads and no third-party requests from the browser.** What people write is rendered as text, never as HTML. A lookup by barcode
   (phase 4) is made by the server.
-- **User-facing words are "household", "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
-  (`DESIGN.md` §4), never "ledger", "purchase transaction", "owner", "viewer", "editor", "tenant", "client" or "plugin".
+- **User-facing words are "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
+  (`DESIGN.md` §4), never "household" or "group" (RFC 0004: the group is never shown), "ledger", "purchase transaction", "owner", "viewer",
+  "editor", "tenant", "client" or "plugin".
 - **Next.js tracks the latest stable release.** Read the guide bundled with the installed version (`node_modules/next/dist/docs/`) before writing Next
   code.
 - **TypeScript is strict.** No `any` without a comment; prefix an intentionally unused identifier with `_`; never disable a lint rule inline without a
@@ -158,7 +207,7 @@ task's "Accepts when" says.
 | `pnpm format:check`       | Prettier over everything (`pnpm format` writes); the documents are wrapped at 150 columns                                                                                                                         |
 | `pnpm lint`               | ESLint, strict TypeScript and jsx-a11y (`pnpm lint:fix` fixes)                                                                                                                                                    |
 | `pnpm test`               | Vitest, files one after another                                                                                                                                                                                   |
-| `pnpm seed`               | Three development accounts with shared and own households, items and a link (`-- --reset` makes them again, `-- --remove` takes them away; local databases only)                                                  |
+| `pnpm seed`               | Three development accounts with shared and own lists, items and a link (`-- --reset` makes them again, `-- --remove` takes them away; local databases only)                                                       |
 | `pnpm manifest:check`     | `sovereign-manifest check`: `sovereign.manifest.json` against the contract's schema (`src/sovereign-manifest.test.ts` holds it to the code)                                                                       |
 | `scripts/deploy-check.sh` | Brings each setup of `deploy/` up from nothing in Docker, as an instance would host it (`SHOPPER_IMAGE=shopper:ci`; build with `eval "docker build $(pnpm exec sovereign-manifest docker-args) -t shopper:ci ."`) |
 | `pnpm icons`              | The PNG icons, made again from `public/icons/icon.svg` (committed; needed only if the mark changes)                                                                                                               |

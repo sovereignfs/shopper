@@ -9,6 +9,8 @@ const SECTIONS: { id: AccountSection; label: string; icon: IconName }[] = [
   { id: 'profile', label: 'Profile', icon: 'user' },
   { id: 'device', label: 'This device', icon: 'smartphone' },
   { id: 'sign-in', label: 'Sign-in', icon: 'shield' },
+  { id: 'encryption', label: 'Encryption', icon: 'lock' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell' },
   { id: 'data', label: 'Data', icon: 'database' },
 ];
 

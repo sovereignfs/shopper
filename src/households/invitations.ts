@@ -1,15 +1,16 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { KeyRing } from '../crypto/keys';
-import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { adminOf, memberOf } from '../access/membership';
+import { listAdminOf, onList } from '../access/membership';
 import { type Limits } from '../limits/config';
 import { limitSentence } from '../limits/limits';
 import { personById, personOfAccount } from '../people/people';
-import { householdLabel } from './label';
+import { stampList } from '../lists/members';
+import { enqueuePush } from '@sovereignfs/push';
+import { pushStore } from '../push/store';
 
 /**
  * **Invitations by link** (DESIGN.md §7.3). People join a household only by accepting, never by being added. In 0.1.0 an invitation is a link and nothing
@@ -49,25 +50,54 @@ export type Made =
  */
 export async function createInvitation(
   database: Database,
-  input: { household: string; accountId: string; personId: string; now: number },
+  input: {
+    household: string;
+    /** The list the link is to (RFC 0004): whoever accepts it joins this list and no other. */
+    list: string;
+    accountId: string;
+    personId: string;
+    now: number;
+    /** A moved household's keyring, wrapped by the inviter's browser under the link's secret (RFC 0001); none for a household still sealed. */
+    wrappedKey?: string | undefined;
+  },
 ): Promise<Made> {
-  const { household, accountId, personId, now } = input;
+  const { household, list, accountId, personId, now, wrappedKey } = input;
+  // What expired links held of a household's keys goes, so that nothing waits on the server for a link nobody can use.
+  await dbAll(
+    database,
+    sql`UPDATE ${appTable(database, 'invitation')} SET wrapped_key = NULL
+        WHERE household_id = ${household} AND wrapped_key IS NOT NULL AND expires_at <= ${now} RETURNING id`,
+  );
+  // A moved household's link carries its keys, or whoever joins could open none of it; a sealed one's carries none.
+  const state = await dbGet<{ encryption: string }>(
+    database,
+    sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${household} AND ${onList(database, list, accountId)}`,
+  );
+  if (state && (state.encryption === 'encrypted') !== (wrappedKey !== undefined))
+    return {
+      ok: false,
+      refused:
+        state.encryption === 'encrypted'
+          ? 'This list is encrypted, and this page could not give the link its key. Reload it and try again.'
+          : 'This list is not encrypted yet: reload the page and try again.',
+    };
   const id = crypto.randomUUID();
   const token = newToken();
   const expiresAt = now + INVITATION_TTL_MS;
   const table = appTable(database, 'invitation');
   const made = await dbAll<{ id: string }>(
     database,
-    sql`INSERT INTO ${table} (id, household_id, token_hash, created_by, created_at, expires_at)
-        SELECT ${id}, ${household}, ${hashToken(token)}, ${personId}, CAST(${now} AS BIGINT), CAST(${expiresAt} AS BIGINT)
-        WHERE ${memberOf(database, household, accountId)}
-          AND (SELECT COUNT(*) FROM ${table} WHERE household_id = ${household} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}) < ${MAX_LIVE_INVITATIONS}
+    sql`INSERT INTO ${table} (id, household_id, list_id, token_hash, created_by, created_at, expires_at, wrapped_key)
+        SELECT ${id}, ${household}, ${list}, ${hashToken(token)}, ${personId}, CAST(${now} AS BIGINT), CAST(${expiresAt} AS BIGINT), ${wrappedKey ?? null}
+        WHERE ${onList(database, list, accountId)}
+          AND EXISTS (SELECT 1 FROM ${appTable(database, 'list')} WHERE id = ${list} AND household_id = ${household})
+          AND (SELECT COUNT(*) FROM ${table} WHERE list_id = ${list} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}) < ${MAX_LIVE_INVITATIONS}
         RETURNING id`,
   );
   if (made.length === 0)
     return {
       ok: false,
-      refused: `A household can have ${MAX_LIVE_INVITATIONS} links waiting at once, and this one has them. Revoke one that is not needed, or wait for one to be used.`,
+      refused: `A list can have ${MAX_LIVE_INVITATIONS} links waiting at once, and this one has them. Revoke one that is not needed, or wait for one to be used.`,
     };
   return { ok: true, id, token, expiresAt };
 }
@@ -77,21 +107,22 @@ export async function revokeInvitation(
   database: Database,
   input: {
     household: string;
+    list: string;
     accountId: string;
     personId: string;
     invitation: string;
     now: number;
   },
 ): Promise<boolean> {
-  const { household, accountId, personId, invitation, now } = input;
+  const { household, list, accountId, personId, invitation, now } = input;
   const table = appTable(database, 'invitation');
   const done = await dbAll<{ id: string }>(
     database,
-    sql`UPDATE ${table} SET revoked_at = ${now}
-        WHERE id = ${invitation} AND household_id = ${household}
+    sql`UPDATE ${table} SET revoked_at = ${now}, wrapped_key = NULL
+        WHERE id = ${invitation} AND household_id = ${household} AND list_id = ${list}
           AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
-          AND ${memberOf(database, household, accountId)}
-          AND (created_by = ${personId} OR ${adminOf(database, household, accountId)})
+          AND ${onList(database, list, accountId)}
+          AND (created_by = ${personId} OR ${listAdminOf(database, list, accountId)})
         RETURNING id`,
   );
   return done.length > 0;
@@ -111,9 +142,9 @@ export interface LiveInvitation {
 export async function liveInvitations(
   database: Database,
   ring: KeyRing,
-  input: { household: string; accountId: string; now: number },
+  input: { household: string; list: string; accountId: string; now: number },
 ): Promise<LiveInvitation[]> {
-  const { household, accountId, now } = input;
+  const { household, list, accountId, now } = input;
   const table = appTable(database, 'invitation');
   const rows = await dbAll<{
     id: string;
@@ -126,10 +157,10 @@ export async function liveInvitations(
     database,
     sql`SELECT i.id, i.created_by, i.created_at, i.expires_at,
                (i.created_by = (SELECT id FROM ${appTable(database, 'person')} WHERE account_id = ${accountId})) AS mine,
-               ${adminOf(database, household, accountId)} AS admin
+               ${listAdminOf(database, list, accountId)} AS admin
         FROM ${table} i
-        WHERE i.household_id = ${household} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}
-          AND ${memberOf(database, sql`i.household_id`, accountId)}
+        WHERE i.household_id = ${household} AND i.list_id = ${list} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}
+          AND ${onList(database, list, accountId)}
         ORDER BY i.created_at, i.id`,
   );
   const out: LiveInvitation[] = [];
@@ -147,13 +178,14 @@ export async function liveInvitations(
 }
 
 export interface Preview {
-  /** The household as it is called to someone outside it: "Kasun's lists" (DESIGN.md §7.4). */
-  readonly household: string;
+  /** Who made the link: the page says whose list it is by them, since a list's name may be one the server cannot read (RFC 0004). */
   readonly invitedBy: string;
+  /** Whether the household has moved (RFC 0001): then joining needs the link whole, its secret after `#` included. */
+  readonly encrypted: boolean;
 }
 
 /**
- * What the invitation page may say of a link: the household's name by the rule of §7.4 and who invited, **and nothing else**. `null` for a link that is
+ * What the invitation page may say of a link: who invited, **and nothing else** (no group is named, RFC 0004). `null` for a link that is
  * not live, whatever the reason (unknown, expired, used or revoked), so that the page says one thing for all of them.
  */
 export async function previewInvitation(
@@ -169,38 +201,43 @@ export async function previewInvitation(
     token_hash: string;
     created_by: string;
     household_id: string;
-    own_of: string | null;
-    sealed: string | null;
+    encryption: string;
   }>(
     database,
-    sql`SELECT i.token_hash, i.created_by, i.household_id, h.own_of, h.sealed
+    sql`SELECT i.token_hash, i.created_by, i.household_id, h.encryption
         FROM ${table} i JOIN ${appTable(database, 'household')} h ON h.id = i.household_id
         WHERE i.token_hash = ${hash} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}`,
   );
   if (!row || !sameHash(row.token_hash, hash)) return null;
   const inviter = await personById(database, ring, row.created_by);
-  const owner = row.own_of ? await personOfAccount(database, ring, row.own_of) : undefined;
-  const name =
-    row.sealed === null
-      ? null
-      : String(unsealRow('household', row.household_id, row.sealed, ring).name ?? '');
   return {
-    household: householdLabel({ name, viewerIsOwner: false, ownerName: owner?.name ?? null }),
     invitedBy: inviter?.name ?? '',
+    encrypted: row.encryption === 'encrypted',
   };
 }
 
 export type Accepted =
-  | { readonly status: 'joined'; readonly household: string }
-  /** The person is already in the household: nothing changed, and the link is still unused. */
-  | { readonly status: 'already'; readonly household: string }
+  | {
+      readonly status: 'joined';
+      readonly household: string;
+      /** The list joined (RFC 0004): what the link's keyring is bound to. */
+      readonly list: string;
+      /** The person who joined, and the list's keyring as the link wrapped it, given once and then gone (RFC 0001). */
+      readonly person: string;
+      readonly wrappedKey: string | null;
+    }
+  /** The person is already on the list: nothing changed, and the link is still unused. */
+  | { readonly status: 'already'; readonly household: string; readonly list: string }
   /** Unknown, expired, used or revoked: one answer. */
   | { readonly status: 'invalid' }
   | { readonly status: 'refused'; readonly message: string };
 
 class Invalid extends Error {}
 class Already extends Error {
-  constructor(readonly household: string) {
+  constructor(
+    readonly household: string,
+    readonly list: string,
+  ) {
     super('already a member');
   }
 }
@@ -224,21 +261,33 @@ export async function acceptInvitation(
       const person = await personOfAccount(tx, ring, accountId);
       if (!person) throw new Invalid();
       const invitation = appTable(tx, 'invitation');
-      const member = appTable(tx, 'member');
-      const claimed = await dbGet<{ household_id: string; token_hash: string }>(
+      const member = appTable(tx, 'list_member');
+      // What the link carries of the household's keys is read before the claim empties it: given to the one who joins, and to nobody after.
+      const carried = await dbGet<{ wrapped_key: string | null }>(
         tx,
-        sql`UPDATE ${invitation} SET accepted_by = ${person.id}, accepted_at = ${now}
-            WHERE token_hash = ${hash} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
-            RETURNING household_id, token_hash`,
+        sql`SELECT wrapped_key FROM ${invitation}
+            WHERE token_hash = ${hash} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}`,
       );
-      if (!claimed || !sameHash(claimed.token_hash, hash)) throw new Invalid();
+      const claimed = await dbGet<{
+        household_id: string;
+        list_id: string | null;
+        token_hash: string;
+      }>(
+        tx,
+        sql`UPDATE ${invitation} SET accepted_by = ${person.id}, accepted_at = ${now}, wrapped_key = NULL
+            WHERE token_hash = ${hash} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
+            RETURNING household_id, list_id, token_hash`,
+      );
+      if (!claimed || !sameHash(claimed.token_hash, hash) || !claimed.list_id) throw new Invalid();
       const household = claimed.household_id;
+      // The list the link is to, and no other (RFC 0004).
+      const list = claimed.list_id;
 
       const already = await dbGet<{ id: string }>(
         tx,
-        sql`SELECT id FROM ${member} WHERE household_id = ${household} AND person_id = ${person.id} AND left_at IS NULL`,
+        sql`SELECT id FROM ${member} WHERE list_id = ${list} AND person_id = ${person.id} AND left_at IS NULL`,
       );
-      if (already) throw new Already(household);
+      if (already) throw new Already(household, list);
 
       const stepped = await dbGet<{ seq: number | string }>(
         tx,
@@ -248,19 +297,26 @@ export async function acceptInvitation(
       const seq = Number(stepped.seq);
       const added = await dbAll<{ id: string }>(
         tx,
-        sql`INSERT INTO ${member} (id, household_id, person_id, role, joined_at, left_at, seq)
-            SELECT ${crypto.randomUUID()}, ${household}, ${person.id}, 'member', CAST(${now} AS BIGINT), NULL, ${seq}
-            WHERE (SELECT COUNT(*) FROM ${member} WHERE household_id = ${household} AND left_at IS NULL) < ${limits.householdMembers}
-              AND (SELECT COUNT(*) FROM ${member} m JOIN ${appTable(tx, 'person')} p ON p.id = m.person_id
+        sql`INSERT INTO ${member} (id, household_id, list_id, person_id, role, joined_at, left_at, seq)
+            SELECT ${crypto.randomUUID()}, ${household}, ${list}, ${person.id}, 'member', CAST(${now} AS BIGINT), NULL, ${seq}
+            WHERE EXISTS (SELECT 1 FROM ${appTable(tx, 'list')} WHERE id = ${list} AND household_id = ${household} AND deleted_at IS NULL)
+              AND (SELECT COUNT(*) FROM ${member} WHERE list_id = ${list} AND left_at IS NULL) < ${limits.householdMembers}
+              AND (SELECT COUNT(DISTINCT m.household_id) FROM ${member} m JOIN ${appTable(tx, 'person')} p ON p.id = m.person_id
                    WHERE p.account_id = ${accountId} AND m.left_at IS NULL) < ${limits.accountHouseholds}
-            ON CONFLICT (household_id, person_id) DO UPDATE
+            ON CONFLICT (list_id, person_id) DO UPDATE
               SET left_at = NULL, role = 'member', joined_at = excluded.joined_at, seq = excluded.seq
             RETURNING id`,
       );
       if (added.length === 0) {
+        // A list deleted since the link was made: the link is as dead as one revoked.
+        const there = await dbGet<{ id: string }>(
+          tx,
+          sql`SELECT id FROM ${appTable(tx, 'list')} WHERE id = ${list} AND household_id = ${household} AND deleted_at IS NULL`,
+        );
+        if (!there) throw new Invalid();
         const members = await dbGet<{ n: number | string }>(
           tx,
-          sql`SELECT COUNT(*) AS n FROM ${member} WHERE household_id = ${household} AND left_at IS NULL`,
+          sql`SELECT COUNT(*) AS n FROM ${member} WHERE list_id = ${list} AND left_at IS NULL`,
         );
         throw new Refused(
           Number(members?.n ?? 0) >= limits.householdMembers
@@ -268,11 +324,38 @@ export async function acceptInvitation(
             : limitSentence('accountHouseholds', limits.accountHouseholds),
         );
       }
-      return { status: 'joined' as const, household };
+      // The list's rows are stamped at this join, so that a device whose cursor for the group is past them pulls them (RFC 0004, "Sync").
+      await stampList(tx, household, list, seq);
+      // The list's other people hear of it on their devices (RFC 0002), queued in this transaction: who joined, never the list's name.
+      const others = await dbAll<{ account_id: string }>(
+        tx,
+        sql`SELECT p.account_id FROM ${member} m JOIN ${appTable(tx, 'person')} p ON p.id = m.person_id
+            WHERE m.list_id = ${list} AND m.left_at IS NULL AND p.account_id IS NOT NULL AND p.account_id <> ${accountId}`,
+      );
+      const store = pushStore(tx, ring);
+      for (const other of others)
+        await enqueuePush(store, {
+          account: other.account_id,
+          message: {
+            title: `${person.name || 'Someone'} joined a list you share`,
+            path: '/',
+            tag: `joined-${household}`,
+            kind: 'member_joined',
+          },
+          now,
+        });
+      return {
+        status: 'joined' as const,
+        household,
+        list,
+        person: person.id,
+        wrappedKey: carried?.wrapped_key ?? null,
+      };
     });
   } catch (error) {
     if (error instanceof Invalid) return { status: 'invalid' };
-    if (error instanceof Already) return { status: 'already', household: error.household };
+    if (error instanceof Already)
+      return { status: 'already', household: error.household, list: error.list };
     if (error instanceof Refused) return { status: 'refused', message: error.message };
     throw error;
   }

@@ -73,6 +73,9 @@ export function remake(
   if (!canMove(mutation) || list.householdId !== mutation.householdId) return null;
   let end = last;
   const changes = mutation.changes.map((change): Change => {
+    // A product the add made joins the catalog of the list it goes to (RFC 0004, 21.3).
+    if (change.table === 'product' && change.create)
+      return { ...change, fields: { ...change.fields, listId: list.id } };
     if (!placing(change)) return change;
     end = after(end);
     return { ...change, fields: { ...change.fields, listId: list.id, position: end } };

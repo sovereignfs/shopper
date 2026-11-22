@@ -1,14 +1,15 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_RING, callAs, join, somebody } from '../access/test-support';
+import { TEST_RING, callAs, join, joinList, somebody } from '../access/test-support';
 import type { Env } from '../actions/env';
-import { addItem } from '../actions/items';
+import { addItem, editItem } from '../actions/items';
+import { makeList } from '../actions/lists';
 import type { Database } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { OPERATIONS } from '../households/ops';
 import type { EndpointDeps } from '../sync/endpoint';
 import { listViewOf } from './listview';
-import { householdsOf, listsOf } from './store';
+import { householdsOf, itemsOf, listsOf, productsOf } from './store';
 import { closeDevices, device } from './test-support';
 
 const { leg } = testTarget();
@@ -63,10 +64,12 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
           ? await callAs(database, OPERATIONS, grace, {
               op: 'member.leave',
               household: ada.household,
+              list: ada.list,
             })
           : await callAs(database, OPERATIONS, ada, {
               op: 'member.remove',
               household: ada.household,
+              list: ada.list,
               person: grace.personId,
             });
       expect(reply.status).toBe(200);
@@ -87,4 +90,136 @@ describe(`what a device does when its person leaves or is removed (${leg})`, () 
       expect(view.showPeople).toBe(true);
     });
   }
+
+  it('takes one list off the device when its person is removed from it, keeping the other list of the same group (RFC 0004)', async () => {
+    const ada = await somebody(database, 'Ada-two-lists');
+    const grace = await somebody(database, 'Grace-two-lists');
+    const adas = await device(deps, ada);
+    await adas.client.sync();
+    const made = makeList(env(), {
+      householdId: ada.household,
+      name: 'Hardware store',
+      position: 'a5',
+    });
+    await adas.client.commit(made);
+    await adas.client.sync();
+    const hardware = made.changes[0]?.id ?? '';
+    await joinList(database, ada.household, ada.list, grace);
+    await joinList(database, ada.household, hardware, grace);
+    const hardwareRow = (await adas.client.read((db) => listsOf(db, ada.household))).find(
+      (l) => l.id === hardware,
+    );
+    if (!hardwareRow) throw new Error('no Hardware');
+    await adas.client.commit(
+      addItem(env(), { list: hardwareRow, name: 'Nails', last: null, by: ada.personId }),
+    );
+    await adas.client.sync();
+    const graces = await device(deps, grace);
+    await graces.client.sync();
+    expect(
+      (await graces.client.read((db) => productsOf(db, ada.household))).some(
+        (product) => product.listId === hardware,
+      ),
+    ).toBe(true);
+    expect(
+      (await graces.client.read((db) => listsOf(db, ada.household))).map((l) => l.id).sort(),
+    ).toEqual([ada.list, hardware].sort());
+
+    const reply = await callAs(database, OPERATIONS, ada, {
+      op: 'member.remove',
+      household: ada.household,
+      list: hardware,
+      person: grace.personId,
+    });
+    expect(reply.status).toBe(200);
+    await graces.client.sync();
+    expect((await graces.client.read((db) => listsOf(db, ada.household))).map((l) => l.id)).toEqual(
+      [ada.list],
+    );
+    // Its catalog went with it (21.3): nothing of Hardware is suggested to Grace.
+    expect(
+      (await graces.client.read((db) => productsOf(db, ada.household))).some(
+        (product) => product.listId === hardware,
+      ),
+    ).toBe(false);
+
+    // Ada moves an item from the shared list to the one Grace is no longer on: it leaves Grace's device, and stays on Ada's.
+    const groceries = await adas.client.read((db) => listsOf(db, ada.household));
+    const shared = groceries.find((l) => l.id === ada.list);
+    if (!shared) throw new Error('no Groceries');
+    await adas.client.commit(
+      addItem(env(), { list: shared, name: 'Light bulbs', last: null, by: ada.personId }),
+    );
+    await adas.client.sync();
+    await graces.client.sync();
+    expect((await graces.client.read((db) => itemsOf(db, ada.list))).map((i) => i.name)).toEqual([
+      'Light bulbs',
+    ]);
+    const bulbs = (await adas.client.read((db) => itemsOf(db, ada.list)))[0];
+    if (!bulbs) throw new Error('no item');
+    const products = await adas.client.read((db) => productsOf(db, ada.household));
+    const move = editItem(env(), bulbs, { listId: hardware }, undefined, {
+      product: products.find((each) => each.id === bulbs.productId),
+      products,
+    });
+    if (!move) throw new Error('nothing to move');
+    await adas.client.commit(move);
+    await adas.client.sync();
+    await graces.client.sync();
+    expect(await graces.client.read((db) => itemsOf(db, ada.list))).toEqual([]);
+    expect((await adas.client.read((db) => itemsOf(db, hardware))).map((i) => i.name)).toContain(
+      'Light bulbs',
+    );
+  });
+
+  it('takes an item moved twice, to lists the person is not on, off their device (RFC 0004)', async () => {
+    const ada = await somebody(database, 'Ada-twice');
+    const grace = await somebody(database, 'Grace-twice');
+    const adas = await device(deps, ada);
+    await adas.client.sync();
+    const lists: string[] = [];
+    for (const [name, position] of [
+      ['Hardware', 'a5'],
+      ['Party', 'a6'],
+    ] as const) {
+      const made = makeList(env(), { householdId: ada.household, name, position });
+      await adas.client.commit(made);
+      lists.push(made.changes[0]?.id ?? '');
+    }
+    await adas.client.sync();
+    const [hardware = '', party = ''] = lists;
+    await joinList(database, ada.household, ada.list, grace);
+    const shared = (await adas.client.read((db) => listsOf(db, ada.household))).find(
+      (l) => l.id === ada.list,
+    );
+    if (!shared) throw new Error('no Groceries');
+    await adas.client.commit(
+      addItem(env(), { list: shared, name: 'Candles', last: null, by: ada.personId }),
+    );
+    await adas.client.sync();
+    const graces = await device(deps, grace);
+    await graces.client.sync();
+    expect((await graces.client.read((db) => itemsOf(db, ada.list))).map((i) => i.name)).toEqual([
+      'Candles',
+    ]);
+    for (const to of [hardware, party]) {
+      const item = (
+        await adas.client.read(async (db) => [
+          ...(await itemsOf(db, ada.list)),
+          ...(await itemsOf(db, hardware)),
+        ])
+      )[0];
+      if (!item) throw new Error('no item');
+      const products = await adas.client.read((db) => productsOf(db, ada.household));
+      const move = editItem(env(), item, { listId: to }, undefined, {
+        product: products.find((each) => each.id === item.productId),
+        products,
+      });
+      if (!move) throw new Error('nothing to move');
+      await adas.client.commit(move);
+      await adas.client.sync();
+    }
+    await graces.client.sync();
+    expect(await graces.client.read((db) => itemsOf(db, ada.list))).toEqual([]);
+  });
 });

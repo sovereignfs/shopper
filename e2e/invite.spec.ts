@@ -5,6 +5,7 @@ import {
   accountOf,
   deviceRows,
   fillSignUp,
+  keepKit,
   forgetSession,
   newEmail,
   PASSWORD,
@@ -16,12 +17,11 @@ import {
 } from './helpers';
 
 /**
- * Invitations by link, in a browser (task 3.4): journey 3 of DESIGN.md §3, alone with no mail set up. One person makes a link, a second opens it, makes an
- * account, comes back to it through the round trip and joins, and both see and edit the same lists. One page says every dead link, a second acceptance is
- * refused, someone already in is told so, and an outsider cannot make a link for a household. There is no Share dialog yet (8.7), so the link is made through
- * the operation the dialog will call.
+ * Invitations by link, in a browser (task 3.4; RFC 0004): journey 3 of DESIGN.md §3, alone with no mail set up. One person makes a link to a list, a
+ * second opens it, makes an account, comes back to it through the round trip and joins, and both see and edit that list. One page says every dead link,
+ * a second acceptance is refused, and someone already on the list is told so.
  */
-test('a second person opens the link, makes an account, comes back to it, joins, and both edit the same lists', async ({
+test('a second person opens the link, makes an account, comes back to it, joins, and both edit the same list', async ({
   page,
   browser,
   baseURL,
@@ -34,23 +34,24 @@ test('a second person opens the link, makes an account, comes back to it, joins,
   const { context, page: guest } = await anotherDevice(browser, base);
   const violations = await recordViolations(guest);
   await guest.goto(link.path);
-  await expect(guest.getByRole('heading', { name: 'Join Ada’s lists' })).toBeVisible();
+  await expect(guest.getByRole('heading', { name: 'Join Ada’s list' })).toBeVisible();
   await expect(guest.getByText('Ada invited you')).toBeVisible();
-  // The page says the household and who invited, and nothing else: no address, no list, no item.
+  // The page says who invited, and nothing else: no address, no list, no item.
   await expect(guest.getByText(/@example\.com|Milk|Groceries/)).toHaveCount(0);
 
   await guest.getByRole('link', { name: 'create an account' }).click();
   await expect(guest).toHaveURL(/\/sign-up\?next=/);
   await fillSignUp(guest, { name: 'Grace', email: newEmail('grace'), password: PASSWORD });
   await guest.getByRole('button', { name: 'Create account' }).click();
+  await keepKit(guest);
   // The link survived the round trip.
-  await expect(guest).toHaveURL(link.path);
+  await expect(guest).toHaveURL(link.path.split('#')[0] ?? link.path);
   await guest.getByRole('button', { name: 'Join' }).click();
 
-  // Grace lands on Ada's lists, with Ada's Milk, and ticks it.
+  // Grace lands on Ada's list, with Ada's Milk, shared with her, and ticks it.
   await expect(guest.getByRole('checkbox', { name: /Milk/ })).toBeVisible({ timeout: 30_000 });
   await expect(
-    guest.getByRole('navigation', { name: 'Shopper' }).getByText('Ada’s lists'),
+    guest.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
   ).toBeVisible();
   await guest.getByRole('checkbox', { name: /Milk/ }).click();
   await expect(guest.getByRole('button', { name: /Bought \(1\)/ })).toBeVisible();
@@ -80,9 +81,10 @@ test('a link used, a link revoked and a link that was never one all show the sam
   const revoked = await makeLink(page, base);
   const account = await accountOf(page);
   const [household] = await deviceRows<{ id: string }>(page, account, 'household');
+  const [list] = await deviceRows<{ id: string }>(page, account, 'list');
   const revoke = await page.request.post('/api/ops', {
     headers: { origin: base, 'content-type': 'application/json' },
-    data: { op: 'invite.revoke', household: household?.id, invitation: revoked.id },
+    data: { op: 'invite.revoke', household: household?.id, list: list?.id, invitation: revoked.id },
   });
   expect(revoke.status()).toBe(200);
 
@@ -121,7 +123,7 @@ test('a link used, a link revoked and a link that was never one all show the sam
   await second.context.close();
 });
 
-test('someone already in the household who opens its link is told so, and nothing changes', async ({
+test('someone already on the list who opens its link is told so, and nothing changes', async ({
   page,
   baseURL,
 }) => {
@@ -130,7 +132,7 @@ test('someone already in the household who opens its link is told so, and nothin
   const link = await makeLink(page, base);
   await page.goto(link.path);
   await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.getByText('You are already in this household')).toBeVisible();
+  await expect(page.getByText('You are already on this list')).toBeVisible();
   const account = await accountOf(page);
   expect(await deviceRows(page, account, 'member')).toHaveLength(1);
 });
@@ -154,7 +156,7 @@ test('someone who has an account signs in through the link and comes back to it'
   await other.page.getByLabel('Email').fill(email);
   await other.page.getByLabel('Password').fill(PASSWORD);
   await other.page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(other.page).toHaveURL(link.path);
+  await expect(other.page).toHaveURL(link.path.split('#')[0] ?? link.path);
   await expect(other.page.getByRole('button', { name: 'Join' })).toBeVisible();
   await other.context.close();
 });

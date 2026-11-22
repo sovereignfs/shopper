@@ -57,7 +57,11 @@ export const household = sqliteTable(
     id: id('id'),
     ownOf: ref('own_of'),
     sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
     seq: counter('seq').notNull().default(0),
+    // RFC 0001: `sealed` (the server seals its content), or `encrypted` (each member's device does); and the latest key epoch.
+    encryption: text('encryption').notNull().default('sealed'),
+    epoch: counter('epoch').notNull().default(0),
     createdBy: ref('created_by').notNull(),
     createdAt: epochMs('created_at').notNull(),
     updatedAt: epochMs('updated_at').notNull(),
@@ -97,7 +101,12 @@ export const invitation = sqliteTable(
   {
     id: id('id'),
     householdId: ref('household_id').notNull(),
+    // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
+    listId: ref('list_id'),
     tokenHash: ref('token_hash').notNull(),
+    // A moved household's keyring, wrapped under the secret in the link's fragment, which the server never sees (RFC 0001). Gone on accept or
+    // revoke.
+    wrappedKey: text('wrapped_key'),
     createdBy: ref('created_by').notNull(),
     createdAt: epochMs('created_at').notNull(),
     expiresAt: epochMs('expires_at').notNull(),
@@ -112,8 +121,8 @@ export const invitation = sqliteTable(
 );
 
 /**
- * What a household remembers about something it buys (DESIGN.md §8.2), so that adding is one tap and the item arrives right. **One product per name in a
- * household**: `name_key` is the HMAC of its normalised name (`src/crypto/name-key.ts`), unique with `household_id`, so the server finds "the same
+ * What a list remembers about something it buys (DESIGN.md §8.2, RFC 0004), so that adding is one tap and the item arrives right. **One product per name on a
+ * list**: `name_key` is the HMAC of its normalised name (`src/crypto/name-key.ts`), unique with `household_id` and `list_id`, so the server finds "the same
  * product" without reading a name, and a second made for the same name is folded into the first (task 5.3). The name and the note are sealed. Its
  * category and icon are what the next add comes with; `default_quantity` and `default_unit` likewise; `times_bought`, `last_bought_at` and
  * `last_added_at` are what suggestions rank by (§8.5), kept by apply. The last unit price and the barcode are phase 2's and 4's columns. `fseq` is
@@ -124,8 +133,11 @@ export const product = sqliteTable(
   {
     id: id('id'),
     householdId: ref('household_id').notNull(),
+    /** The list whose catalog it is (RFC 0004, task 21.3): a name is one product per list, and an add on one list never finds another's. */
+    listId: ref('list_id'),
     nameKey: ref('name_key').notNull(),
     sealed: sealed('sealed').notNull(),
+    encrypted: sealed('encrypted'),
     categoryId: ref('category_id'),
     icon: text('icon'),
     defaultQuantity: decimal('default_quantity'),
@@ -139,7 +151,7 @@ export const product = sqliteTable(
     createdAt: epochMs('created_at').notNull(),
   },
   (table) => [
-    uniqueIndex('product_household_name_key_idx').on(table.householdId, table.nameKey),
+    uniqueIndex('product_list_name_key_idx').on(table.householdId, table.listId, table.nameKey),
     index('product_household_seq_idx').on(table.householdId, table.seq),
   ],
 );
@@ -157,6 +169,7 @@ export const category = sqliteTable(
     householdId: ref('household_id').notNull(),
     starterKey: text('starter_key'),
     sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
     icon: text('icon'),
     position: position('position').notNull(),
     hidden: bool('hidden').notNull().default(false),
@@ -197,11 +210,15 @@ export const alias = sqliteTable(
   'alias',
   {
     householdId: ref('household_id').notNull(),
+    // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
+    listId: ref('list_id'),
     tableName: text('table_name').notNull(),
     fromId: ref('from_id').notNull(),
     toId: ref('to_id').notNull(),
     seq: counter('seq').notNull(),
     createdAt: epochMs('created_at').notNull(),
+    // An encrypted household's second note when two items were folded (RFC 0001): joined by a device, never read here.
+    carried: text('carried'),
   },
   (table) => [
     primaryKey({ columns: [table.householdId, table.tableName, table.fromId] }),
@@ -217,6 +234,8 @@ export const tombstone = sqliteTable(
   'tombstone',
   {
     householdId: ref('household_id').notNull(),
+    // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
+    listId: ref('list_id'),
     tableName: text('table_name').notNull(),
     id: ref('id').notNull(),
     seq: counter('seq').notNull(),
@@ -240,6 +259,7 @@ export const list = sqliteTable(
     id: id('id'),
     householdId: ref('household_id').notNull(),
     sealed: sealed('sealed').notNull(),
+    encrypted: sealed('encrypted'),
     position: position('position').notNull(),
     clearing: text('clearing').notNull().default('manual'),
     archivedAt: epochMs('archived_at'),
@@ -265,6 +285,7 @@ export const item = sqliteTable(
     listId: ref('list_id').notNull(),
     productId: ref('product_id').notNull(),
     sealed: sealed('sealed').notNull(),
+    encrypted: sealed('encrypted'),
     quantity: decimal('quantity').notNull(),
     unit: text('unit'),
     categoryId: ref('category_id'),
@@ -282,5 +303,114 @@ export const item = sqliteTable(
   (table) => [
     index('item_household_seq_idx').on(table.householdId, table.seq),
     index('item_list_idx').on(table.listId),
+  ],
+);
+
+/**
+ * What an account keeps for itself on the server (DESIGN.md §20.3), one row an account: the last list it used, so that a new device can start there
+ * (§16.3), and when it last looked at its notices (phase 2). `account_id` is better-auth's user id, by value. Deleted with the person
+ * (`People.deletePerson`).
+ */
+export const accountSettings = sqliteTable('account_settings', {
+  accountId: id('account_id'),
+  lastListId: ref('last_list_id'),
+  inboxSeenAt: epochMs('inbox_seen_at'),
+  createdAt: epochMs('created_at').notNull(),
+  updatedAt: epochMs('updated_at').notNull(),
+});
+
+/**
+ * The group's keys (RFC 0001, amendment 2; RFC 0004): its keyring (every epoch's key) wrapped under its own account's app key, which only that account's
+ * browser opens, and from which its lists' keys are derived. One row, the account's; replaced when the keyring grows. Deleted with the person
+ * (`People.deletePerson`) and the group.
+ */
+export const householdKey = sqliteTable(
+  'household_key',
+  {
+    householdId: ref('household_id').notNull(),
+    personId: ref('person_id').notNull(),
+    epoch: counter('epoch').notNull(),
+    record: text('record').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.householdId, table.personId] })],
+);
+
+/**
+ * A list's keys, for someone on it (RFC 0004, task 21.4): the list's keyring wrapped under their own app key, kept after joining by a link that carried
+ * it. The list's maker has none: their devices derive it from the group's. One row a person a list; deleted when they leave it or are removed, with the
+ * list, and with the person.
+ */
+export const listKey = sqliteTable(
+  'list_key',
+  {
+    listId: ref('list_id').notNull(),
+    personId: ref('person_id').notNull(),
+    householdId: ref('household_id').notNull(),
+    epoch: counter('epoch').notNull(),
+    record: text('record').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.listId, table.personId] }),
+    index('list_key_person_idx').on(table.personId),
+  ],
+);
+
+/**
+ * A device that takes Web Push (RFC 0002, `@sovereignfs/push`): an account's, at most ten. Its keys are sealed by the server (`src/crypto/`), which needs
+ * them to send; the endpoint is the push service's address for the device. Deleted with the person.
+ */
+export const pushDevice = sqliteTable(
+  'push_device',
+  {
+    // The push service's address for the device, which is the row's id.
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    sealed: sealed('sealed').notNull(),
+    savedAt: epochMs('saved_at').notNull(),
+  },
+  (table) => [index('push_device_account_idx').on(table.accountId, table.savedAt)],
+);
+
+/** A push waiting to be sent to one device, claimed by the outbox job with a lease. Goes with its device: every deletion here names both. */
+export const pushOutbox = sqliteTable(
+  'push_outbox',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    endpoint: ref('endpoint').notNull(),
+    message: text('message').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    dueAt: epochMs('due_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    expiresAt: epochMs('expires_at').notNull(),
+  },
+  (table) => [
+    index('push_outbox_due_idx').on(table.dueAt, table.claimedUntil),
+    index('push_outbox_endpoint_idx').on(table.endpoint),
+  ],
+);
+
+/**
+ * A list's people (RFC 0004): who may see and change a list, its items and its products. Admin (its owner, who made it or to whom it passed) or Member;
+ * joined by accepting an invitation to the list, and left or removed list by list. Active means `left_at` is null, and every statement says so.
+ */
+export const listMember = sqliteTable(
+  'list_member',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    personId: ref('person_id').notNull(),
+    role: text('role').notNull(),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('list_member_list_person_idx').on(table.listId, table.personId),
+    index('list_member_person_idx').on(table.personId),
+    index('list_member_household_seq_idx').on(table.householdId, table.seq),
   ],
 );

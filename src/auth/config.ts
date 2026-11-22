@@ -38,7 +38,10 @@ export interface SovereignSettings {
 /** The id Sovereign sign-in is known by: it is in the redirect address registered with core, and it is the `provider_id` of the account it makes. */
 export const SOVEREIGN_PROVIDER_ID = 'sovereign';
 
-/** What Shopper asks core for in 0.1.0. The manifest (`sovereign.manifest.json`) says the same, which a test holds it to (task 1.10). */
+/**
+ * What Shopper asks core for at sign-in. The manifest (`sovereign.manifest.json`) says the same, which a test holds it to (task 1.10). Core's key
+ * release is not a scope asked for here: the manifest's `encryption` gives the app the `keys` scope once the operator allows it (RFC 0001, 18.3).
+ */
 export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email'];
 
 export const MIN_SECRET_LENGTH = 32;

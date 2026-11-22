@@ -1,38 +1,51 @@
-# Encryption at rest
+# Encryption
 
-## What is sealed
+> **Not yet audited.** Shopper uses the Sovereign suite's encryption (`@sovereignfs/sdk`), whose design has not yet been reviewed by a cryptographer and
+> whose code has not been audited. Nothing here says your data is proven safe.
 
-Shopper's database holds what a household buys, where and who they are, so those are **sealed**: encrypted by the server under `SHOPPER_ENCRYPTION_KEY` before they are
-written, and opened when they are read. In 0.1.0 that is: the names of households, lists, items, products and categories; notes; and the name and email address
-Shopper keeps of each person on what they share (the `person` record).
+## What is encrypted, and by whom
 
-Each row is sealed on its own. It has a random **data key**, which is wrapped under the instance key and bound to that row, so a sealed value copied to another row will not
-open. Everything sealed in a row is one value, read and written only through one module (`src/crypto/sealed.ts`), which a test holds to the list of what is sealed.
+**What you write into Shopper is encrypted on your device, before it is sent,** with **keys of each list's own**, held only by the people on that list:
+the names of lists, items and products, and notes. The server stores and syncs what it cannot read, and merges changes without opening them. This is
+the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0004](rfcs/0004-lists-of-their-own.md) and `DESIGN.md` §13.
 
-**What is not sealed:** **each account's name and email address in the sign-in database** (`shopper_auth`, the `user` table), because signing in looks an account up by its address and a
-sealed value cannot be searched. Someone who copies that database learns who has an account and their addresses, though nothing about what they buy. Also ids, quantities, units, icons, positions, times, roles, counts and the structure that sorting, merging and counting need. Alone, without a name, they say
-little. **No sealed field is ever searched, sorted or indexed by the database**: suggestions and totals are worked out in memory, on the device. A product is found again in a
-household by a **name key** (a keyed hash of its normalised name, different in each household), which reveals only that two rows of one household share a name.
+- **A new account's lists are encrypted from their first item.** When you sign in, your device makes your keys and moves anything the server held
+  before (0.1.0's lists), once. Each of your lists has its own key, worked out on your devices from yours; nobody else holds yours.
+- **Sharing a list by a link** gives that list's key, and no other: it travels in the link itself, after `#`, which a browser never sends to a server.
+  Someone you share Groceries with cannot open anything of your other lists, even from a copy of the database. Send a link privately: whoever opens it
+  first can join.
+- **Lists that were shared before they could move are not encrypted yet** (a 0.1.0 household with more than one person in it): the others could not
+  be given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Encryption** says which of your lists
+  are which.
+- **Removing someone from a list does not change that list's key yet.** They stop receiving anything from the server at once, but someone who kept the
+  key and also got a copy of the database could read what is added to that list after. A new key for those who remain comes later.
+
+**Still readable by the server:** who is on which list, how many lists and items there are, quantities and units, when something was ticked, and
+sizes; a person's name and email address (mail and the invitation page need them); and an invitation's email. Those are sealed at rest with the
+server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted yet.
+
+## Your key
+
+- **With a password** (an account of Shopper's own): your keys are kept on the server wrapped, and only your password, turned into a key on your
+  device, opens them. **The server is never sent your password**: your browser sends a value derived from it. You are shown a **recovery kit** once,
+  after signing up. If you forget your password, the kit is the only way back to your lists; with neither, they are gone for good, unless someone you shared
+  a list with still has it.
+- **Through a Sovereign core:** core keeps your key, and its passkeys, recovery kit and owner recovery work for Shopper as for every encrypted app.
+- **On a device:** the key opens once per session and is kept wrapped by a secret only that session has; signing out forgets it. With no network, your
+  lists still open from what the device kept; what you change is sent, encrypted, once the key opens again.
 
 ## What it protects against, and what it does not
 
-**It protects what a household buys and where from** a copied database, a backup that leaves your control, a stolen disk, a volume snapshot, and someone who reads the tables. **It does not hide who has an account** (see above).
+- **It protects** what you write from someone who reads the server: a copied database, a backup, a stolen disk.
+- **It does not protect** against whoever runs the server, which sends the app your browser runs and could send a changed one. Nor the device: a
+  signed-in browser holds your lists as you see them until you sign out. Nor the people you share a list with: they see all of that list.
+- **Logs** hold ids and kinds of failure, never a name, a note or an address.
 
-**It does not protect against:**
+## The server's key
 
-- **Whoever controls the running server.** The server has the key and reads everything to do its work, so the person who runs it can read what it holds. This is not
-  end-to-end encryption, and Shopper does not claim it.
-- **The device.** A signed-in browser holds your households' lists in plain text (it has to, to work with no network) until you sign out, which deletes them.
-- **The people you share with.** Everyone in a household sees all of it.
-- **What logs say.** They hold ids and kinds of failure, never a name, a note or an address.
-
-## The key
-
-- **Make it once** (`openssl rand -base64 32`, 32 bytes) and keep it with your secrets, **apart from the database backups**. A backup without the key cannot be read, and the
-  key without the backup is of no use.
-- **A lost key means the sealed content cannot be read, and nothing can recover it.** There is no copy of it in the database, no recovery and no one to ask.
-- **To change it,** put the new key in `SHOPPER_ENCRYPTION_KEY` and the old one in `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, start the server once (it moves what is stored to the new
-  key), and then remove the old one. It works in short batches and can be stopped and run again.
-- A server with no key does not start, and one with a key that cannot open what is stored says so at start-up, naming the setting.
+`SHOPPER_ENCRYPTION_KEY` is still required: it seals what the server holds itself (names and emails of people, lists not encrypted yet, core's
+token). Make it once (`openssl rand -base64 32`) and keep it with your secrets, **apart from the database backups**. A lost key means what it seals
+cannot be read. To change it, put the new key in `SHOPPER_ENCRYPTION_KEY` and the old one in `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, start the server once
+(it moves what is stored to the new key), then remove the old one.
 
 The sessions' secret, `SHOPPER_AUTH_SECRET`, is a different thing: it signs sessions and tokens, and changing it only signs everyone out.

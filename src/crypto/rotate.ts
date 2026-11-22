@@ -34,6 +34,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
   { table: 'category' },
   { table: 'list' },
   { table: 'item' },
+  { table: 'push_device' },
   {
     // A product's name key is an HMAC under a key derived from the instance key, so it changes with the key and is recomputed with the row.
     table: 'product',
@@ -72,7 +73,7 @@ export async function keysInUse(
   for (const { table } of tables) {
     const rows = await dbAll<{ fp: string }>(
       database,
-      sql`SELECT DISTINCT SUBSTR(sealed, 4, 16) AS fp FROM ${appTable(database, table)} WHERE sealed IS NOT NULL`,
+      sql`SELECT DISTINCT SUBSTR(sealed, 4, 16) AS fp FROM ${appTable(database, table)} WHERE sealed IS NOT NULL AND sealed <> ''`,
     );
     for (const row of rows) found.add(row.fp);
   }

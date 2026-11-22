@@ -18,12 +18,18 @@ export const metadata: Metadata = {
     icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
   },
+  // Added to an iPhone's Home Screen from Safari, it opens as an app, without Safari's bars, under its own name.
+  appleWebApp: { capable: true, title: site.name, statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
   colorScheme: 'light dark',
-  // The colour of the browser's own bar around an installed app: the design system's grey 900, as the manifest and the icon.
-  themeColor: '#18181b',
+  // The colour of the browser's own bar: the page's own colour in each scheme, as the suite's other apps have it, so an installed app's bar
+  // matches the page under it in light and in dark.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

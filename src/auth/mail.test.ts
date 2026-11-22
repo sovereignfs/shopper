@@ -184,7 +184,7 @@ describe(`resetting a password (${leg})`, () => {
     expect((await second.get('/api/auth/get-session')).body).toBeNull();
   });
 
-  it('refuses a token that is not one, and a password that is too short', async () => {
+  it('refuses a token that is not one, and a password that the page did not derive', async () => {
     const { address } = await confirmed();
     const client = visitor();
     expect(
@@ -201,10 +201,12 @@ describe(`resetting a password (${leg})`, () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
     const token = await tokenOf(client, mailer.linkTo(address));
+    // The length of a password is the page's to check (RFC 0001): the server is sent only the derived value, and refuses anything else.
     expect(
-      (await client.post('/api/auth/reset-password', { newPassword: 'short', token })).status,
+      (await client.postRaw('/api/auth/reset-password', { newPassword: NEW_PASSWORD, token }))
+        .status,
     ).toBeGreaterThanOrEqual(400);
-    // A short password did not spend the link.
+    // A refused password did not spend the link.
     expect(
       (await client.post('/api/auth/reset-password', { newPassword: NEW_PASSWORD, token })).status,
     ).toBe(200);

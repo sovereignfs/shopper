@@ -8,22 +8,44 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--sv-space-3);
 }
 
+/* The list's name on one line, cut with an ellipsis rather than broken mid-word (its whole name is its title). */
 .header h1 {
   flex: 1;
   min-width: 0;
   margin: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
   font-size: var(--sv-font-size-2xl);
   font-weight: var(--sv-font-weight-semibold);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--sv-space-2);
+}
+
+.actionLabel {
+  margin-left: var(--sv-space-1);
 }
 
 @media (max-width: 720px) {
   .page {
     padding: var(--sv-space-4);
+  }
+
+  .header h1 {
+    font-size: var(--sv-font-size-xl);
+  }
+
+  /* On a phone Share is its icon alone, named for a screen reader by the button's label. */
+  .actionLabel {
+    display: none;
   }
 }
 
@@ -104,12 +126,11 @@
   border-radius: var(--sv-radius-md);
 }
 
-/* What a row says beside the name: the quantity, the first line of the note, and who added it. */
+/* What a row says under the name: the quantity, the first line of the note, and who added it. */
 .meta {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  justify-content: flex-end;
   gap: var(--sv-space-2);
   color: var(--sv-color-text-muted);
   font-size: var(--sv-font-size-sm);
@@ -227,30 +248,17 @@
   }
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sv-space-1);
-  min-height: 2.75rem;
-  padding: 0 var(--sv-space-2) 0 0;
-  color: var(--sv-color-text-muted);
-  font: inherit;
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-
-.back:focus-visible {
-  outline: 2px solid var(--sv-color-focus-ring);
-  outline-offset: 2px;
-}
-
 /* A finger needs more than a pointer does (DESIGN.md §16.11). */
 @media (pointer: coarse) {
   .edit {
     min-width: 2.75rem;
     min-height: 2.75rem;
   }
+}
+
+/* The drag handle stands level with the checkbox, however many lines the name and what is said of it take. */
+.handleRow {
+  align-items: center;
 }
 
 /* A row of a list (DESIGN.md §16.5): the checkbox, the item's icon and name, what is said of it, and the pencil. Only the checkbox ticks. */
@@ -262,10 +270,19 @@
   min-height: var(--sv-touch-target-min);
 }
 
-.name {
+.text {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  overflow-wrap: anywhere;
+  padding: var(--sv-space-1) 0;
+}
+
+/* A name wraps between words; only a word longer than the row is broken. */
+.name {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .ticked .name {

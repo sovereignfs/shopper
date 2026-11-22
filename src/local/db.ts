@@ -56,7 +56,11 @@ export interface LocalSchema extends DBSchema {
   item: { key: string; value: ItemRow; indexes: { byList: string; byProduct: string } };
   product: { key: string; value: ProductRow; indexes: { byHousehold: string } };
   category: { key: string; value: CategoryRow; indexes: { byHousehold: string } };
-  member: { key: [string, string]; value: MemberRow; indexes: { byHousehold: string } };
+  member: {
+    key: [string, string];
+    value: MemberRow;
+    indexes: { byHousehold: string; byList: string };
+  };
   shadow: { key: [string, string]; value: Shadow };
   outbox: { key: number; value: OutboxEntry };
   failed: { key: number; value: FailedEntry };
@@ -80,7 +84,7 @@ export const WRITE_STORES = [
 ] as const;
 
 /** The version of the stores. A change to them adds a step to `upgrade` and raises this; it never edits an earlier step. */
-export const LOCAL_VERSION = 2;
+export const LOCAL_VERSION = 3;
 
 /** The database for an account (DESIGN.md §12.1). */
 export const localName = (accountId: string): string => `shopper-${accountId}`;
@@ -90,7 +94,7 @@ export async function openLocal(
   name = localName(accountId),
 ): Promise<LocalDatabase> {
   return openDB<LocalSchema>(name, LOCAL_VERSION, {
-    upgrade(db, oldVersion) {
+    async upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         db.createObjectStore('household', { keyPath: 'id' });
         db.createObjectStore('list', { keyPath: 'id' }).createIndex('byHousehold', 'householdId');
@@ -105,16 +109,27 @@ export async function openLocal(
           'byHousehold',
           'householdId',
         );
-        db.createObjectStore('member', { keyPath: ['householdId', 'personId'] }).createIndex(
-          'byHousehold',
-          'householdId',
-        );
         db.createObjectStore('shadow', { keyPath: ['table', 'id'] });
         db.createObjectStore('outbox', { keyPath: 'n', autoIncrement: true });
         db.createObjectStore('meta');
       }
       // Version 2 (task 6.3): Couldn't sync. A database from version 1 keeps everything it has.
       if (oldVersion < 2) db.createObjectStore('failed', { keyPath: 'n', autoIncrement: true });
+      // Version 3 (RFC 0004, task 21.2): people are on a list, not a household, so the store is keyed by list. It is made again empty, and every cursor
+      // goes back to the start, so that the next pull brings the people of each list (and anything else) again.
+      if (oldVersion >= 1 && oldVersion < 3) {
+        db.deleteObjectStore('member');
+        let household = await transaction.objectStore('household').openCursor();
+        while (household) {
+          await household.update({ ...household.value, cursor: 0 });
+          household = await household.continue();
+        }
+      }
+      if (oldVersion < 3) {
+        const member = db.createObjectStore('member', { keyPath: ['listId', 'personId'] });
+        member.createIndex('byHousehold', 'householdId');
+        member.createIndex('byList', 'listId');
+      }
     },
     // Another tab is deleting this account's database (it signed out, or the account was deleted): this connection is in the way, so it lets go. Without it
     // the deletion waits for every tab to close, and a person who signed out would still have their lists on the device.

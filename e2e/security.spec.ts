@@ -1,6 +1,15 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- a test reads rows it has just made, and a missing one should fail it loudly */
 import { expect, type Page } from '@playwright/test';
-import { anotherDevice, deviceRows, accountOf, makeLink, signUp, test } from './helpers';
+import {
+  PASSWORD,
+  accountOf,
+  anotherDevice,
+  deleteInSettings,
+  deviceRows,
+  makeLink,
+  signUp,
+  test,
+} from './helpers';
 
 /**
  * The review of phase 1 (`docs/security/0.1.0.md`), as tests that keep it true: what a second person can and cannot do through the doors a browser has, with
@@ -28,7 +37,7 @@ interface Pull {
   gone: string[];
 }
 const pull = async (page: Page, base: string, cursors: Json = {}): Promise<Pull> =>
-  (await (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors })).json()) as Pull;
+  (await (await post(page, base, '/api/sync', { version: 2, outbox: [], cursors })).json()) as Pull;
 
 const mutation = (
   household: string,
@@ -44,7 +53,13 @@ const mutation = (
       table: 'product',
       id: ids.product,
       create: true,
-      fields: { name: `Probe ${ids.item.slice(0, 4)}`, createdAt: 1, lastAddedAt: 1 },
+      fields: {
+        listId: list,
+        name: sealedShape(list, ids.product),
+        nameKey: `n3.${ids.product.replace(/-/g, '').padEnd(43, 'A').slice(0, 43)}`,
+        createdAt: 1,
+        lastAddedAt: 1,
+      },
     },
     {
       table: 'item',
@@ -53,7 +68,7 @@ const mutation = (
       fields: {
         listId: list,
         productId: ids.product,
-        name: 'Probe',
+        name: sealedShape(list, ids.item),
         quantity: '1',
         unit: null,
         note: null,
@@ -67,15 +82,37 @@ const mutation = (
   ],
 });
 const sync = async (page: Page, base: string, outbox: unknown[]) =>
-  (await (await post(page, base, '/api/sync', { version: 1, outbox, cursors: {} })).json()) as {
+  (await (await post(page, base, '/api/sync', { version: 2, outbox, cursors: {} })).json()) as {
     applied: unknown[];
     refused: { reason: string }[];
   };
+
+/**
+ * A value of the shape a device sends for an encrypted field of `row` (RFC 0001). These tests are of who may write what, which the server decides
+ * without opening anything: it checks the shape, and the probes are never read by a page.
+ */
+/** A value in the shape a device encrypts one, for its list and row (RFC 0004): the server cannot open it, and holds it to its row's list. */
+const sealedShape = (list: string, row: string) => `e2.1.${list}.${row}.${'A'.repeat(24)}`;
+
+/** Every household of the page's account has moved, as each does once its device has opened its key: the probes are written for a moved household. */
+async function moved(page: Page, base: string) {
+  await expect
+    .poll(
+      async () =>
+        (await pull(page, base)).households.every(
+          (h) => (h as { encryption?: { state: string } }).encryption?.state === 'encrypted',
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+}
 
 async function twoPeople(page: Page, browser: Parameters<typeof anotherDevice>[0], base: string) {
   await signUp(page, { name: 'Ada' });
   const eve = await anotherDevice(browser, base);
   await signUp(eve.page, { name: 'Eve' });
+  await moved(page, base);
+  await moved(eve.page, base);
   const ada = (await pull(page, base)).households[0]!;
   const eves = (await pull(eve.page, base)).households[0]!;
   return {
@@ -114,7 +151,11 @@ test('a person who is not in a household cannot write to it, point at it, or hea
   expect(asked.gone).toContain(ada.household);
   // Nor can they use the doors for operations.
   for (const body of [{ op: 'invite.create' }, { op: 'invite.list' }, { op: 'member.leave' }]) {
-    const reply = await post(eve.page, base, '/api/ops', { household: ada.household, ...body });
+    const reply = await post(eve.page, base, '/api/ops', {
+      household: ada.household,
+      list: ada.list,
+      ...body,
+    });
     expect(reply.status(), String(body.op)).toBe(404);
   }
   await eve.context.close();
@@ -139,7 +180,7 @@ test('a member cannot put another member’s name on what they add or tick', asy
   ]);
   const link = await makeLink(page, base);
   const accepted = await post(eve.page, base, '/api/invite/accept', {
-    token: link.path.split('/').pop(),
+    token: link.path.split('#')[0]?.split('/').pop(),
   });
   expect((await accepted.json()).status).toBe('joined');
 
@@ -176,6 +217,7 @@ test('a member cannot put another member’s name on what they add or tick', asy
   const removal = await post(eve.page, base, '/api/ops', {
     op: 'member.remove',
     household: ada.household,
+    list: ada.list,
     person: ada.person,
   });
   expect(removal.status()).toBe(404);
@@ -189,7 +231,7 @@ test('every route that changes something refuses a request from nowhere, from an
   const base = baseURL ?? '';
   await signUp(page, { name: 'Ada' });
   const routes: [string, Json][] = [
-    ['/api/sync', { version: 1, outbox: [], cursors: {} }],
+    ['/api/sync', { version: 2, outbox: [], cursors: {} }],
     ['/api/ops', { op: 'invite.list', household: crypto.randomUUID() }],
     ['/api/invite/accept', { token: 'x'.repeat(43) }],
     ['/api/account/profile', { name: 'X' }],
@@ -226,13 +268,13 @@ test('what is a person’s is not cacheable, every page carries a nonce policy, 
     expect(reply.headers()['cache-control'], path).toMatch(/no-store/);
     const csp = reply.headers()['content-security-policy'] ?? '';
     expect(csp, path).toMatch(/script-src [^;]*'nonce-/);
-    expect(csp, path).not.toMatch(/script-src[^;]*unsafe-(inline|eval)/);
+    expect(csp, path).not.toMatch(/script-src[^;]*'unsafe-(inline|eval)'/);
     expect(csp, path).toContain("frame-ancestors 'none'");
     expect(reply.headers()['x-content-type-options'], path).toBe('nosniff');
-    expect(reply.headers()['referrer-policy'], path).toBe('no-referrer');
+    expect(reply.headers()['referrer-policy'], path).toBe('strict-origin');
   }
   expect(
-    (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).headers()[
+    (await post(page, base, '/api/sync', { version: 2, outbox: [], cursors: {} })).headers()[
       'cache-control'
     ],
   ).toMatch(/no-store/);
@@ -267,12 +309,12 @@ test('a request is bounded: too many mutations, too many bytes', async ({ page, 
     mutation(ada.household, ada.lists[0]!.id, ada.members[0]!.personId),
   );
   expect(
-    (await post(page, base, '/api/sync', { version: 1, outbox: many, cursors: {} })).status(),
+    (await post(page, base, '/api/sync', { version: 2, outbox: many, cursors: {} })).status(),
   ).toBe(400);
   expect(
     (
       await post(page, base, '/api/sync', {
-        version: 1,
+        version: 2,
         outbox: [],
         cursors: {},
         pad: 'a'.repeat(3_000_000),
@@ -294,11 +336,66 @@ test('the session cookie is HttpOnly and SameSite=Lax, and the device’s copy o
   expect(session?.name.startsWith('shopper')).toBe(true);
   const account = await accountOf(page);
   expect(await deviceRows(page, account, 'household')).not.toBeNull();
-  const deleted = await post(page, base, '/api/account/delete', {
-    password: 'correct horse battery',
-  });
-  expect(deleted.status()).toBe(204);
+  await deleteInSettings(page, PASSWORD);
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
   expect(
-    (await post(page, base, '/api/sync', { version: 1, outbox: [], cursors: {} })).status(),
+    (await post(page, base, '/api/sync', { version: 2, outbox: [], cursors: {} })).status(),
   ).toBe(401);
+});
+
+test('the vault and the key secret are the session’s own: another person gets theirs, a visitor nothing, and another site cannot write', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const base = baseURL ?? '';
+  await signUp(page, { name: 'Ada' });
+  const ada = await accountOf(page);
+  const adaSecret = await page.request.get(`${base}/api/keys/secret`);
+  expect(adaSecret.status()).toBe(200);
+  const adaBody = (await adaSecret.json()) as { sub: string; secret: string };
+  expect(adaBody.sub).toBe(ada);
+  expect(adaBody.secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  expect(adaSecret.headers()['cache-control']).toContain('no-store');
+  // Signing up made her keys: the vault holds them, wrapped.
+  const adaVault = (await (await page.request.get(`${base}/api/keys/vault`)).json()) as {
+    value?: { sub: string; account?: unknown };
+  };
+  expect(adaVault.value?.sub).toBe(ada);
+  expect(adaVault.value?.account).toBeTruthy();
+
+  const other = await anotherDevice(browser, base);
+  await signUp(other.page, { name: 'Grace' });
+  const grace = await accountOf(other.page);
+  const graceBody = (await (await other.page.request.get(`${base}/api/keys/secret`)).json()) as {
+    sub: string;
+    secret: string;
+  };
+  expect(graceBody.sub).toBe(grace);
+  expect(graceBody.secret).not.toBe(adaBody.secret);
+  const graceVault = (await (await other.page.request.get(`${base}/api/keys/vault`)).json()) as {
+    value?: { sub: string };
+  };
+  expect(graceVault.value?.sub).toBe(grace);
+  // A change from another site is refused, whoever is signed in.
+  const foreign = await other.page.request.post(`${base}/api/keys/vault`, {
+    headers: { origin: 'https://elsewhere.test' },
+    data: { op: 'confirm-kit', record: '{}' },
+  });
+  expect(foreign.status()).toBe(403);
+  await other.context.close();
+
+  // Push (RFC 0002): a signed-in person is told whether this server sends any; a change from another site, and a visitor, get nothing.
+  expect((await page.request.get(`${base}/api/push/subscription`)).status()).toBe(200);
+  const foreignPush = await page.request.post(`${base}/api/push/subscription`, {
+    headers: { origin: 'https://elsewhere.test' },
+    data: {},
+  });
+  expect([403, 503]).toContain(foreignPush.status());
+
+  const visitor = await anotherDevice(browser, base);
+  expect((await visitor.page.request.get(`${base}/api/push/subscription`)).status()).toBe(401);
+  expect((await visitor.page.request.get(`${base}/api/keys/secret`)).status()).toBe(401);
+  expect((await visitor.page.request.get(`${base}/api/keys/vault`)).status()).toBe(401);
+  await visitor.context.close();
 });

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  firstList,
   NOT_FOUND,
   TEST_RING,
   callAs,
@@ -10,7 +11,7 @@ import {
   type Someone,
 } from '../access/test-support';
 import type { Database } from '../db/client';
-import { dbAll } from '../db/exec';
+import { dbAll, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
@@ -49,6 +50,7 @@ afterAll(async () => database.close());
 const make = async (by: Someone, household = by.household, now = NOW) => {
   const made = await createInvitation(database, {
     household,
+    list: await firstList(database, household),
     accountId: by.accountId,
     personId: by.personId,
     now,
@@ -88,33 +90,40 @@ describe(`invitations by link (${leg})`, () => {
     const grace = await somebody(database, 'Grace2');
     const lin = await somebody(database, 'Lin2');
     const { token } = await make(ada);
-    expect(await accept(grace, token)).toEqual({ status: 'joined', household: ada.household });
-    const members = await membersOf(database, TEST_RING, ada.household, ada.accountId);
+    expect(await accept(grace, token)).toEqual({
+      status: 'joined',
+      household: ada.household,
+      list: ada.list,
+      person: grace.personId,
+      wrappedKey: null,
+    });
+    const members = await membersOf(database, TEST_RING, ada.list, ada.accountId);
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Ada2', 'admin'],
       ['Grace2', 'member'],
     ]);
     expect(await accept(lin, token)).toEqual({ status: 'invalid' });
     expect(await accept(grace, token)).toEqual({ status: 'invalid' });
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(2);
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(2);
     expect((await rows(sql`token_hash = ${hashToken(token)}`))[0]).toMatchObject({
       accepted_by: grace.personId,
     });
   });
 
-  it('shows the same nothing for an unknown, expired, revoked or used link, and the household and inviter for a live one', async () => {
+  it('shows the same nothing for an unknown, expired, revoked or used link, and who invited for a live one', async () => {
     const ada = await somebody(database, 'Ada3');
     const grace = await somebody(database, 'Grace3');
     const live = await make(ada);
     expect(await previewInvitation(database, TEST_RING, live.token, NOW + 1)).toEqual({
-      household: 'Ada3’s lists',
       invitedBy: 'Ada3',
+      encrypted: false,
     });
     const expired = await make(ada, ada.household, NOW - INVITATION_TTL_MS - 1);
     const revoked = await make(ada);
     expect(
       await revokeInvitation(database, {
         household: ada.household,
+        list: await firstList(database, ada.household),
         accountId: ada.accountId,
         personId: ada.personId,
         invitation: revoked.id,
@@ -135,8 +144,12 @@ describe(`invitations by link (${leg})`, () => {
     const grace = await somebody(database, 'Grace4');
     await join(database, ada.household, grace);
     const { token } = await make(ada);
-    expect(await accept(grace, token)).toEqual({ status: 'already', household: ada.household });
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(2);
+    expect(await accept(grace, token)).toEqual({
+      status: 'already',
+      household: ada.household,
+      list: ada.list,
+    });
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(2);
     expect(await previewInvitation(database, TEST_RING, token, NOW + 1)).not.toBeNull();
     // The link is still good for someone else.
     const lin = await somebody(database, 'Lin4');
@@ -153,8 +166,10 @@ describe(`invitations by link (${leg})`, () => {
     expect(full.status === 'refused' && full.message).toContain('at most 1 person');
     const tooMany = await accept(grace, token, { accountHouseholds: 1 });
     expect(tooMany).toMatchObject({ status: 'refused' });
-    expect(tooMany.status === 'refused' && tooMany.message).toContain('at most 1 household');
-    expect(await membersOf(database, TEST_RING, ada.household, ada.accountId)).toHaveLength(1);
+    expect(tooMany.status === 'refused' && tooMany.message).toContain(
+      'lists from at most 1 person',
+    );
+    expect(await membersOf(database, TEST_RING, ada.list, ada.accountId)).toHaveLength(1);
     expect(await previewInvitation(database, TEST_RING, token, NOW + 1)).not.toBeNull();
     expect((await accept(lin, token)).status).toBe('joined');
   });
@@ -165,14 +180,14 @@ describe(`invitations by link (${leg})`, () => {
     await join(database, ada.household, grace, 'admin');
     await leave(database, ada.household, grace);
     expect((await accept(grace, (await make(ada)).token)).status).toBe('joined');
-    const members = await membersOf(database, TEST_RING, ada.household, ada.accountId);
+    const members = await membersOf(database, TEST_RING, ada.list, ada.accountId);
     expect(members?.map((m) => [m.name, m.role])).toEqual([
       ['Ada6', 'admin'],
       ['Grace6', 'member'],
     ]);
     const mine = await dbAll<{ n: number | string }>(
       database,
-      sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'member')} WHERE household_id = ${ada.household} AND person_id = ${grace.personId}`,
+      sql`SELECT COUNT(*) AS n FROM ${appTable(database, 'list_member')} WHERE list_id = ${ada.list} AND person_id = ${grace.personId}`,
     );
     expect(Number(mine[0]?.n)).toBe(1);
   });
@@ -200,6 +215,7 @@ describe(`invitations by link (${leg})`, () => {
     for (let i = 0; i < MAX_LIVE_INVITATIONS; i++) tokens.push(await make(ada));
     const over = await createInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       now: NOW,
@@ -209,6 +225,7 @@ describe(`invitations by link (${leg})`, () => {
     if (!first) throw new Error('none');
     await revokeInvitation(database, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       personId: ada.personId,
       invitation: first.id,
@@ -229,9 +246,11 @@ describe(`invitations by link (${leg})`, () => {
     const eve = await somebody(database, 'Eve9');
     await join(database, ada.household, grace);
     await join(database, ada.household, lin);
+    const adaList = await firstList(database, ada.household);
     const revoke = (who: Someone, invitation: string) =>
       revokeInvitation(database, {
         household: ada.household,
+        list: adaList,
         accountId: who.accountId,
         personId: who.personId,
         invitation,
@@ -256,6 +275,7 @@ describe(`invitations by link (${leg})`, () => {
     await make(grace, ada.household, NOW + 1);
     const asGrace = await liveInvitations(database, TEST_RING, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: grace.accountId,
       now: NOW + 1,
     });
@@ -265,6 +285,7 @@ describe(`invitations by link (${leg})`, () => {
     ]);
     const asAda = await liveInvitations(database, TEST_RING, {
       household: ada.household,
+      list: await firstList(database, ada.household),
       accountId: ada.accountId,
       now: NOW + 1,
     });
@@ -273,6 +294,7 @@ describe(`invitations by link (${leg})`, () => {
     expect(
       await liveInvitations(database, TEST_RING, {
         household: ada.household,
+        list: await firstList(database, ada.household),
         accountId: eve.accountId,
         now: NOW + 1,
       }),
@@ -289,12 +311,17 @@ describe(`the operations, as a second person (${leg})`, () => {
     const made = await callAs(database, OPERATIONS, grace, {
       op: 'invite.create',
       household: ada.household,
+      list: ada.list,
     });
     expect(made.status).toBe(200);
     const result = made.body.result as { path: string; id: string };
     expect(result.path).toMatch(/^\/invite\/[A-Za-z0-9_-]{43}$/);
     expect(
-      await callAs(database, OPERATIONS, eve, { op: 'invite.create', household: ada.household }),
+      await callAs(database, OPERATIONS, eve, {
+        op: 'invite.create',
+        household: ada.household,
+        list: ada.list,
+      }),
     ).toEqual(NOT_FOUND);
     expect(await rows(sql`household_id = ${ada.household}`)).toHaveLength(1);
   });
@@ -309,12 +336,14 @@ describe(`the operations, as a second person (${leg})`, () => {
     const made = await callAs(database, OPERATIONS, grace, {
       op: 'invite.create',
       household: ada.household,
+      list: ada.list,
     });
     const id = (made.body.result as { id: string }).id;
     const attempt = (who: Someone) =>
       callAs(database, OPERATIONS, who, {
         op: 'invite.revoke',
         household: ada.household,
+        list: ada.list,
         invitation: id,
       });
     expect(await attempt(eve)).toEqual(NOT_FOUND);
@@ -331,6 +360,7 @@ describe(`the operations, as a second person (${leg})`, () => {
     const reply = await callAs(database, OPERATIONS, ada, {
       op: 'invite.revoke',
       household: ada.household,
+      list: ada.list,
       invitation: made.id,
     });
     expect(reply.status).toBe(409);
@@ -342,17 +372,123 @@ describe(`the operations, as a second person (${leg})`, () => {
     const grace = await somebody(database, 'GraceLs');
     const eve = await somebody(database, 'EveLs');
     await join(database, ada.household, grace);
-    await callAs(database, OPERATIONS, ada, { op: 'invite.create', household: ada.household });
+    await callAs(database, OPERATIONS, ada, {
+      op: 'invite.create',
+      household: ada.household,
+      list: ada.list,
+    });
     const listed = await callAs(database, OPERATIONS, grace, {
       op: 'invite.list',
       household: ada.household,
+      list: ada.list,
     });
     expect(listed.status).toBe(200);
     const links = listed.body.result as { by: string; canRevoke: boolean }[];
     expect(links.map((l) => [l.by, l.canRevoke])).toEqual([['AdaLs', false]]);
     expect(JSON.stringify(listed.body)).not.toMatch(/[A-Za-z0-9_-]{43}/);
     expect(
-      await callAs(database, OPERATIONS, eve, { op: 'invite.list', household: ada.household }),
+      await callAs(database, OPERATIONS, eve, {
+        op: 'invite.list',
+        household: ada.household,
+        list: ada.list,
+      }),
     ).toEqual(NOT_FOUND);
+  });
+});
+
+describe(`a link to an encrypted household (${testTarget().leg})`, () => {
+  const WRAPPED = 'lk1.AAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBB';
+  const encrypt = (who: Someone) =>
+    dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${who.household}`,
+    );
+
+  it('must carry the household’s keys, wrapped, and a sealed household’s must not', async () => {
+    const ada = await somebody(database, 'Ada');
+    const sealedLink = await createInvitation(database, {
+      household: ada.household,
+      list: await firstList(database, ada.household),
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+      wrappedKey: WRAPPED,
+    });
+    expect(sealedLink.ok).toBe(false);
+    await encrypt(ada);
+    const bare = await createInvitation(database, {
+      household: ada.household,
+      list: await firstList(database, ada.household),
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+    });
+    expect(bare.ok).toBe(false);
+  });
+
+  it('gives the wrapped keys to the one who joins, once, and keeps none of them after; a revoked link keeps none either', async () => {
+    const ada = await somebody(database, 'Ada');
+    const grace = await somebody(database, 'Grace');
+    await encrypt(ada);
+    const made = await createInvitation(database, {
+      household: ada.household,
+      list: await firstList(database, ada.household),
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+      wrappedKey: WRAPPED,
+    });
+    if (!made.ok) throw new Error(made.refused);
+    expect(await accept(grace, made.token)).toMatchObject({
+      status: 'joined',
+      wrappedKey: WRAPPED,
+    });
+    expect((await rows(sql`id = ${made.id}`))[0]?.wrapped_key).toBeNull();
+
+    const other = await createInvitation(database, {
+      household: ada.household,
+      list: await firstList(database, ada.household),
+      accountId: ada.accountId,
+      personId: ada.personId,
+      now: NOW,
+      wrappedKey: WRAPPED,
+    });
+    if (!other.ok) throw new Error(other.refused);
+    await revokeInvitation(database, {
+      household: ada.household,
+      list: await firstList(database, ada.household),
+      accountId: ada.accountId,
+      personId: ada.personId,
+      invitation: other.id,
+      now: NOW + 1,
+    });
+    expect((await rows(sql`id = ${other.id}`))[0]?.wrapped_key).toBeNull();
+  });
+});
+
+describe(`a push when someone joins (${testTarget().leg})`, () => {
+  it('is queued for the household’s other members’ devices, never the one who joined, and names no household', async () => {
+    const { pushStore } = await import('../push/store');
+    const ada = await somebody(database, 'Ada');
+    const grace = await somebody(database, 'Grace');
+    const store = pushStore(database, TEST_RING);
+    const device = (who: string) => ({
+      endpoint: `https://fcm.googleapis.com/fcm/send/${who}-${crypto.randomUUID()}`,
+      p256dh:
+        'BK3xhTb5gk1p7y4V6bW1i6p1Xq5e3l8Cq1x5yKZ7b3VQfQe1L7Z3Q8c4j9n2t0r6w1s5u9y3a7e1i5o9u3e7i1o5u9a',
+      auth: 'AAAAAAAAAAAAAAAAAAAAAA',
+    });
+    const adas = device('ada');
+    const graces = device('grace');
+    await store.saveDevice(ada.accountId, adas, NOW);
+    await store.saveDevice(grace.accountId, graces, NOW);
+    const made = await make(ada);
+    expect((await accept(grace, made.token)).status).toBe('joined');
+    const queued = await dbAll<{ endpoint: string; message: string }>(
+      database,
+      sql`SELECT endpoint, message FROM ${appTable(database, 'push_outbox')}`,
+    );
+    expect(queued.map((row) => row.endpoint)).toEqual([adas.endpoint]);
+    expect(JSON.parse(queued[0]?.message ?? '{}').title).toBe('Grace joined a list you share');
   });
 });

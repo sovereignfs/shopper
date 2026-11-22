@@ -7,6 +7,7 @@ import { useLocal } from '../local/react';
 import { callOperation } from '../local/ops';
 import type { MemberRow } from '../local/rows';
 import styles from './ShareDialog.module.css';
+import { newLinkSecret, wrapForLink } from '../keys/link';
 
 type Found = Extract<ListData, { found: true }>;
 
@@ -22,17 +23,18 @@ const day = (at: number): string =>
   new Date(at).toLocaleDateString(undefined, { dateStyle: 'medium' });
 
 /**
- * **Sharing** (DESIGN.md §16.9, §7.3): a dialog at `?share=1`, opened by **Share** on a list and from a household's section in the sidebar. It says first that
- * the people you share with see and edit every list here (sharing is not per list), then lists the people (an Admin marked; an address only where the
+ * **Sharing a list** (DESIGN.md §16.9, RFC 0004): a dialog at `?share=1`, opened by **Share** on a list. It says first that the people you share with see
+ * and edit this list and nothing else of yours, then lists the list's people (an Admin marked; an address only where the
  * reader may see it, which the device was given and no more). **Invite** makes a link, shown once with Copy, and says that anyone holding it can join and
  * that it expires in 14 days; the live links are listed with who made them and Revoke; a Member can Leave and the Admin can Remove, each after a
  * confirmation. The people are read from the device, so offline the dialog shows what it held; **every change is an online operation** (`/api/ops`) and
  * says so when there is no network, changing nothing.
  */
 export function ShareDialog({ data, onClose }: { data: Found; onClose: () => void }) {
-  const { client } = useLocal();
-  const { household, members, me } = data;
-  const admin = household.role === 'admin';
+  const { client, keysOf } = useLocal();
+  const { household, list, members, me } = data;
+  // The list's Admin, not the group's (RFC 0004): whoever made it, or whom it passed to.
+  const admin = members.some((member) => member.self && member.role === 'admin');
   const [links, setLinks] = useState<Link[] | null>(null);
   const [linksNote, setLinksNote] = useState<string | null>(null);
   const [fresh, setFresh] = useState<{ url: string; expiresAt: number } | null>(null);
@@ -43,7 +45,11 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
   >(null);
 
   const load = useCallback(async () => {
-    const answer = await callOperation({ op: 'invite.list', household: household.id });
+    const answer = await callOperation({
+      op: 'invite.list',
+      household: household.id,
+      list: list.id,
+    });
     if (answer.ok && Array.isArray(answer.result)) {
       setLinks(answer.result as Link[]);
       setLinksNote(null);
@@ -55,7 +61,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
           : `The links waiting are not shown. ${answer.message}`,
       );
     }
-  }, [household.id]);
+  }, [household.id, list.id]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -63,11 +69,34 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
   async function invite() {
     setBusy(true);
     setMessage(null);
-    const answer = await callOperation({ op: 'invite.create', household: household.id });
+    // An encrypted list's link carries its keys and no other list's (RFC 0001, RFC 0004): wrapped under a secret that goes in the link after `#`, which no
+    // browser sends.
+    const keys = await keysOf(household.id, list.id);
+    let secret: string | undefined;
+    let wrappedKey: string | undefined;
+    if (keys.encrypted) {
+      if (!keys.ring) {
+        setBusy(false);
+        return setMessage(
+          'Unlock Shopper first: this list is encrypted, and its link carries its key.',
+        );
+      }
+      secret = newLinkSecret();
+      wrappedKey = await wrapForLink(keys.ring, secret, list.id);
+    }
+    const answer = await callOperation({
+      op: 'invite.create',
+      household: household.id,
+      list: list.id,
+      ...(wrappedKey ? { wrappedKey } : {}),
+    });
     setBusy(false);
     if (!answer.ok) return setMessage(answer.message);
     const made = answer.result as { path: string; expiresAt: number };
-    setFresh({ url: `${window.location.origin}${made.path}`, expiresAt: made.expiresAt });
+    setFresh({
+      url: `${window.location.origin}${made.path}${secret ? `#${secret}` : ''}`,
+      expiresAt: made.expiresAt,
+    });
     void load();
   }
 
@@ -76,6 +105,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
     const answer = await callOperation({
       op: 'invite.revoke',
       household: household.id,
+      list: list.id,
       invitation: id,
     });
     if (!answer.ok) setMessage(answer.message);
@@ -88,10 +118,11 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
     setMessage(null);
     const answer =
       confirm.kind === 'leave'
-        ? await callOperation({ op: 'member.leave', household: household.id })
+        ? await callOperation({ op: 'member.leave', household: household.id, list: list.id })
         : await callOperation({
             op: 'member.remove',
             household: household.id,
+            list: list.id,
             person: confirm.member.personId,
           });
     setBusy(false);
@@ -100,7 +131,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
       return setMessage(answer.message);
     }
     if (confirm.kind === 'leave') {
-      // The household goes from this device at its next sync: start over from the front address, which opens a list that is still theirs.
+      // The list goes from this device at its next sync: start over from the front address, which opens a list that is still theirs.
       window.location.assign('/');
       return;
     }
@@ -114,7 +145,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
       onClose={onClose}
       size="md"
       title="Share"
-      aria-label={`Share ${household.label}`}
+      aria-label={`Share ${list.name}`}
       footer={
         <div className={styles.footer}>
           <Button variant="secondary" onClick={onClose}>
@@ -124,7 +155,9 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
       }
     >
       <div className={styles.body}>
-        <p className={styles.lead}>People you share with see and edit every list here.</p>
+        <p className={styles.lead}>
+          People you share this list with can see and change it, and nothing else of yours.
+        </p>
 
         <section aria-label="People">
           <h3 className={styles.heading}>People</h3>
@@ -171,8 +204,8 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
               />
               <CopyButton text={fresh.url} label="Copy link" />
               <p className={styles.note}>
-                Anyone holding this link can join, and it expires on {day(fresh.expiresAt)}. It is
-                shown once: make another to share again.
+                Anyone holding this link can join this list, and it expires on{' '}
+                {day(fresh.expiresAt)}. It is shown once: make another to share again.
               </p>
             </div>
           ) : null}
@@ -218,7 +251,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
             className={styles.quiet}
             onClick={() => setConfirm({ kind: 'leave' })}
           >
-            Leave {household.label}
+            Leave this list
           </button>
         ) : null}
       </div>
@@ -226,12 +259,12 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
       <ConfirmDialog
         open={confirm !== null}
         onClose={() => setConfirm(null)}
-        title={confirm?.kind === 'leave' ? `Leave ${household.label}?` : 'Remove this person?'}
+        title={confirm?.kind === 'leave' ? `Leave ${list.name}?` : 'Remove this person?'}
         message={
           confirm?.kind === 'leave'
-            ? 'You will no longer see these lists. What you added stays here under your name.'
+            ? 'You will no longer see this list. What you added stays on it under your name.'
             : confirm?.kind === 'remove'
-              ? `${confirm.member.name} will no longer see these lists. What they added stays here under their name.`
+              ? `${confirm.member.name} will no longer see this list. What they added stays on it under their name.`
               : null
         }
         confirmLabel={confirm?.kind === 'leave' ? 'Leave' : 'Remove'}

@@ -1,0 +1,1 @@
+ALTER TABLE `alias` ADD `carried` text;

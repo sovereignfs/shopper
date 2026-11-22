@@ -46,6 +46,22 @@ export async function dbRun(database: Database, query: SQL): Promise<void> {
   await database.db.execute(query);
 }
 
+/** Runs a statement and gives its rows and how many rows it changed, on either dialect: for a caller that needs both (the SDK's vault). */
+export async function dbExec(
+  database: Database,
+  query: SQL,
+): Promise<{ rows: Record<string, unknown>[]; rowsAffected: number }> {
+  if (database.dialect === 'sqlite') {
+    const result = await queued(database, () => database.db.run(query));
+    return {
+      rows: (result.rows as unknown as Record<string, unknown>[]).map((row) => ({ ...row })),
+      rowsAffected: result.rowsAffected,
+    };
+  }
+  const result = await database.db.execute(query);
+  return { rows: result.rows as Record<string, unknown>[], rowsAffected: result.rowCount ?? 0 };
+}
+
 /**
  * On a file, a statement that is not part of a transaction waits its turn behind the transactions and the statements before it, as a transaction does
  * (`transaction`, below): libSQL's driver waits for SQLite's write lock synchronously, on the one thread, so a write that waited for the lock while a
