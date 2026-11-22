@@ -6,6 +6,17 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.2.1] - 2026-11-22
+
+**If you sign in through a Sovereign core:** in 0.2.0 nothing of yours was encrypted on your device, and core never showed you a recovery kit. Open
+Shopper once after upgrading and choose **Unlock**: core shows your recovery kit the first time, and your lists are then encrypted as 0.2.0
+describes. Until then they stayed sealed by the server's key, as in 0.1.0. Accounts with a Shopper password were not affected.
+
+### Fixed
+
+- An account that signs in through a Sovereign core gets its key from core. 0.2.0 looked for the account's identity at core where it is never
+  recorded, so it asked core for no key and encrypted nothing.
+
 ## [0.2.0] - 2026-11-22
 
 **Before upgrading:** take a backup. Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted. Every person who signs in with a password

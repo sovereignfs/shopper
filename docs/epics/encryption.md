@@ -109,7 +109,7 @@ back-channel logout leaves nothing that opens.
 
 - **The manifest** declares `encryption: { "return": "/keys/return" }`. The `keys` scope is not in `signIn.scopes`, where manifest 5 refuses it: allowing `encryption` gives it, so the epic's and the RFC's words were corrected.
 - **The key source** is decided per account, server-side (`src/keys/server/source.ts`): a password account's is the vault, one that came through core alone is core's. The page is given core's address, the client id and the absolute return address for each request.
-- **`/api/keys/secret`** answers with the `sub` the keys are bound to: the account in the vault, `core_sub` for a released key (`receive()` refuses an answer for another person).
+- **`/api/keys/secret`** answers with the `sub` the keys are bound to: the account in the vault, core's `sub` for a released key (`receive()` refuses an answer for another person). Core's `sub` is read from the account's sign-in through core in the auth store (`subOfAccount`); 0.2.0 read `person.core_sub`, which nothing sets, so a core account had no key source and nothing of it was encrypted, fixed in 0.2.1 (`source.test.ts`).
 - **`/keys/return`** calls `receive()` and goes back, or says it could not unlock and offers to ask again. `coreKeys` (`src/keys/core-client.ts`) is `appKeys` with Shopper's secret route.
 - **The referrer policy** is now `strict-origin`, not `no-referrer`, so that core releases without asking each time. It sends the origin alone, never a path or a token.
 - **Tests:** a browser test calls both key routes as a second person, as a visitor and from another site. The manifest test holds `encryption` to a page that exists.
