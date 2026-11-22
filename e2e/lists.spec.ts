@@ -13,7 +13,7 @@ test('the sidebar shows the person’s own lists once the device has them, with 
 }) => {
   const violations = await recordViolations(page);
   await signUp(page);
-  await expect(sidebar(page).getByRole('heading', { name: 'My lists' })).toBeVisible({
+  await expect(sidebar(page).getByRole('heading', { name: 'Your lists' })).toBeVisible({
     timeout: 15_000,
   });
   await expect(sidebar(page).getByRole('link', { name: 'Groceries' })).toBeVisible();

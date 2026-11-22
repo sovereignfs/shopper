@@ -8,6 +8,7 @@ import {
   keepKit,
   makeLink,
   test,
+  signOutFromMenu,
 } from './helpers';
 import { PORTS } from './ports';
 
@@ -48,10 +49,8 @@ async function throughSovereign(page: Page) {
 }
 
 async function signOut(page: Page) {
-  await page.getByRole('button', { name: 'User menu' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   // Signed out when the signed-in area is gone: the address alone is `/` before and after.
-  await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
+  await signOutFromMenu(page);
 }
 
 const person = (label: string) => ({
@@ -92,7 +91,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
         timeout: 30_000,
       });
       await expect(
-        page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
+        page.getByRole('navigation', { name: 'Shopper' }).getByText('Your lists'),
       ).toBeVisible();
       await signOut(page);
     }
@@ -116,7 +115,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       timeout: 30_000,
     });
     await expect(
-      page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
+      page.getByRole('navigation', { name: 'Shopper' }).getByText('Your lists'),
     ).toHaveCount(1);
     await signOut(page);
   });
@@ -144,7 +143,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await expect(guest.page).toHaveURL(link.path.split('#')[0] ?? link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
-      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Host’s lists'),
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
     ).toBeVisible({ timeout: 30_000 });
     await guest.context.close();
   });
@@ -253,7 +252,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await guest.page.goto(link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
-      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Hostdel’s lists'),
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
     ).toBeVisible({ timeout: 30_000 });
 
     const deleted = await sendDeletion(page, await noticeFrom(page, 'account-deleted', leaver.sub));

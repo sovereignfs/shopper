@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { forgetSession, signUp, sessionOf, test, waitMoved } from './helpers';
+import { forgetSession, signOutFromMenu, signUp, sessionOf, test, waitMoved } from './helpers';
 
 /**
  * The working copy on the device (task 6.2), in a browser: after signing up the page opens an IndexedDB database of its own for the account and the sync
@@ -118,8 +118,7 @@ test('signing out ends the session and deletes the account’s working copy from
     .toBe(1);
   expect(await databases(page)).toContain(`shopper-${account}`);
 
-  await page.getByRole('button', { name: 'User menu' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await signOutFromMenu(page);
   await expect(page).toHaveURL('/');
   await expect.poll(async () => (await sessionOf(page)) === null).toBe(true);
   await expect.poll(async () => await databases(page)).not.toContain(`shopper-${account}`);

@@ -9,6 +9,7 @@ import {
   sessionOf,
   signUp,
   test,
+  signOutFromMenu,
 } from './helpers';
 import { PORTS } from './ports';
 
@@ -94,8 +95,7 @@ test('the front address is the landing page for a visitor and the signed-in area
   await page.goto('/home');
   await expect(page).toHaveURL('/');
 
-  await page.getByRole('button', { name: 'User menu' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await signOutFromMenu(page);
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
   expect(await sessionOf(page)).toBeNull();
 });
@@ -107,10 +107,10 @@ test('an account is deleted with its password, and nothing of it signs in again'
   const email = await signUp(page);
   const headers = { origin: new URL(page.url()).origin, 'x-forwarded-for': ip };
 
-  // What it would do, before it is done: the first household, with nobody else in it, would be deleted.
+  // What it would do, before it is done: the first list, with nobody else on it, would be deleted.
   const preview = await page.request.get('/api/account/delete', { headers });
   expect(preview.status()).toBe(200);
-  expect((await preview.json()).households).toMatchObject([{ own: true, outcome: 'deleted' }]);
+  expect((await preview.json()).lists).toMatchObject([{ own: true, outcome: 'deleted' }]);
 
   // The page derives the password (RFC 0001), so this is done as a person does it, from Settings.
   await deleteInSettings(page, 'not the password');
@@ -187,7 +187,7 @@ test('Settings: a name is changed, a password is changed, and the account is del
   await page.getByRole('button', { name: 'Data' }).click();
   await page.getByRole('button', { name: 'Delete my account…' }).click();
   const remove = page.getByRole('form', { name: 'Delete account' });
-  await expect(remove.getByText(/nobody else is in them, so they are deleted/)).toBeVisible();
+  await expect(remove.getByText(/1 list nobody else is on is deleted/)).toBeVisible();
   await remove.getByLabel('Your password').fill('another horse battery');
   await remove.getByRole('button', { name: 'Delete my account for good' }).click();
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();

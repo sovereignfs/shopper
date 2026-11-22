@@ -54,8 +54,9 @@ const mutation = (
       id: ids.product,
       create: true,
       fields: {
-        name: sealedShape(ids.product),
-        nameKey: `n2.${ids.product.replace(/-/g, '').padEnd(43, 'A').slice(0, 43)}`,
+        listId: list,
+        name: sealedShape(list, ids.product),
+        nameKey: `n3.${ids.product.replace(/-/g, '').padEnd(43, 'A').slice(0, 43)}`,
         createdAt: 1,
         lastAddedAt: 1,
       },
@@ -67,7 +68,7 @@ const mutation = (
       fields: {
         listId: list,
         productId: ids.product,
-        name: sealedShape(ids.item),
+        name: sealedShape(list, ids.item),
         quantity: '1',
         unit: null,
         note: null,
@@ -90,7 +91,8 @@ const sync = async (page: Page, base: string, outbox: unknown[]) =>
  * A value of the shape a device sends for an encrypted field of `row` (RFC 0001). These tests are of who may write what, which the server decides
  * without opening anything: it checks the shape, and the probes are never read by a page.
  */
-const sealedShape = (row: string) => `e1.1.${row}.${'A'.repeat(24)}`;
+/** A value in the shape a device encrypts one, for its list and row (RFC 0004): the server cannot open it, and holds it to its row's list. */
+const sealedShape = (list: string, row: string) => `e2.1.${list}.${row}.${'A'.repeat(24)}`;
 
 /** Every household of the page's account has moved, as each does once its device has opened its key: the probes are written for a moved household. */
 async function moved(page: Page, base: string) {
@@ -149,7 +151,11 @@ test('a person who is not in a household cannot write to it, point at it, or hea
   expect(asked.gone).toContain(ada.household);
   // Nor can they use the doors for operations.
   for (const body of [{ op: 'invite.create' }, { op: 'invite.list' }, { op: 'member.leave' }]) {
-    const reply = await post(eve.page, base, '/api/ops', { household: ada.household, ...body });
+    const reply = await post(eve.page, base, '/api/ops', {
+      household: ada.household,
+      list: ada.list,
+      ...body,
+    });
     expect(reply.status(), String(body.op)).toBe(404);
   }
   await eve.context.close();
@@ -211,6 +217,7 @@ test('a member cannot put another member’s name on what they add or tick', asy
   const removal = await post(eve.page, base, '/api/ops', {
     op: 'member.remove',
     household: ada.household,
+    list: ada.list,
     person: ada.person,
   });
   expect(removal.status()).toBe(404);

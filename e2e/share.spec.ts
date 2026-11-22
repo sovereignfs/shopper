@@ -55,14 +55,14 @@ async function joinThrough(
   await guest.page.getByRole('button', { name: 'Create account' }).click();
   await keepKit(guest.page);
   await guest.page.getByRole('button', { name: 'Join' }).click();
-  // Landed on the household just joined: its section is in the sidebar once the device has pulled it.
+  // Landed on the list just joined: it is under Shared with you once the device has pulled it.
   await expect(
-    guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Ada’s lists'),
+    guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
   ).toBeVisible({ timeout: 30_000 });
   return { ...guest, email };
 }
 
-test('the dialog says everyone sees every list, lists the people, and makes a link shown once with its terms', async ({
+test('the dialog says the list and nothing else is shared, lists its people, and makes a link shown once with its terms', async ({
   page,
   baseURL,
 }) => {
@@ -71,7 +71,9 @@ test('the dialog says everyone sees every list, lists the people, and makes a li
   await openShare(page);
   await expect(page).toHaveURL(/\?share=1$/);
   await expect(
-    dialog(page).getByText('People you share with see and edit every list here.'),
+    dialog(page).getByText(
+      'People you share this list with can see and change it, and nothing else of yours.',
+    ),
   ).toBeVisible();
   const people = dialog(page).getByRole('region', { name: 'People' });
   await expect(people).toContainText('Ada (you)');
@@ -106,6 +108,8 @@ test('a second person joins through the link, and the Admin sees them, with thei
   browser,
   baseURL,
 }) => {
+  // Three people sign up and two join: more than a test's usual time in WebKit.
+  test.slow();
   const base = baseURL ?? '';
   const adaEmail = await signUp(page, { name: 'Ada' });
   await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], base);
@@ -129,7 +133,7 @@ test('a second person joins through the link, and the Admin sees them, with thei
   // Grace, a Member: the Admin is marked, the Admin's address is not shown, there is no Remove, and she may leave.
   await expect(grace.page.getByRole('checkbox', { name: /Milk/ })).toBeVisible();
   await openShare(grace.page);
-  await expect(grace.page.getByRole('dialog', { name: 'Share Ada’s lists' })).toBeVisible();
+  await expect(grace.page.getByRole('dialog', { name: 'Share Groceries' })).toBeVisible();
   const gracePeople = dialog(grace.page).getByRole('region', { name: 'People' });
   await expect(gracePeople).toContainText('Ada');
   await expect(gracePeople).toContainText('Admin');
@@ -153,7 +157,7 @@ test('a second person joins through the link, and the Admin sees them, with thei
   await grace.context.close();
 });
 
-test('the Admin removes a Member after a confirmation, and the Member’s device drops the household', async ({
+test('the Admin removes a Member after a confirmation, and the Member’s device drops the list', async ({
   page,
   browser,
   baseURL,
@@ -171,7 +175,7 @@ test('the Admin removes a Member after a confirmation, and the Member’s device
   });
   await dialog(page).getByRole('button', { name: 'Remove Grace' }).click();
   // Asked first: cancelling changes nothing.
-  await expect(page.getByText(/will no longer see these lists/)).toBeVisible();
+  await expect(page.getByText(/will no longer see this list/)).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog(page).getByRole('region', { name: 'People' })).toContainText('Grace');
   await dialog(page).getByRole('button', { name: 'Remove Grace' }).click();
@@ -226,13 +230,15 @@ test('with no network the dialog shows the people it held and changes nothing, a
   await expect(dialog(page).getByRole('textbox', { name: 'Link to share' })).toBeVisible();
 });
 
-test('the household’s section in the sidebar opens it too', async ({ page }) => {
+test('the sidebar names lists, never a group, and Share is on a list (RFC 0004)', async ({
+  page,
+}) => {
   await signUp(page, { name: 'Ada' });
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
-  await page
-    .getByRole('navigation', { name: 'Shopper' })
-    .getByRole('button', { name: 'Share' })
-    .click();
-  await expect(dialog(page)).toBeVisible();
+  const sidebar = page.getByRole('navigation', { name: 'Shopper' });
+  await expect(sidebar.getByRole('heading', { name: 'Your lists' })).toBeVisible();
+  await expect(sidebar.getByRole('button', { name: 'Share' })).toHaveCount(0);
+  await expect(sidebar).not.toContainText(/household|group|My lists/i);
+  await openShare(page);
   await expect(page).toHaveURL(/\?share=1$/);
 });

@@ -291,10 +291,21 @@ async function withContent(
 async function listOfChange(
   change: Mutation['changes'][number],
   listOf: ListOf,
+  mutation: Mutation,
 ): Promise<string | undefined> {
   if (change.table === 'list') return change.id;
   const sent = change.fields.listId;
   if (typeof sent === 'string') return sent;
+  // A product made with an item, and not told its list, is the item's list's, as the server makes it (`apply.ts`).
+  if (change.table === 'product' && change.create) {
+    const item = mutation.changes.find(
+      (other) =>
+        other.table === 'item' &&
+        other.fields.productId === change.id &&
+        typeof other.fields.listId === 'string',
+    );
+    if (item) return String(item.fields.listId);
+  }
   return listOf(change.table, change.id);
 }
 
@@ -313,7 +324,7 @@ export async function encryptMutation(
     const content = CONTENT[change.table].filter((field) => typeof fields[field] === 'string');
     const naming = change.table === 'product' && typeof change.fields.name === 'string';
     if (content.length > 0 || naming) {
-      const list = await listOfChange(change, listOf);
+      const list = await listOfChange(change, listOf, mutation);
       const ring = list ? await ringOf(list) : undefined;
       if (!list || !ring) return undefined;
       for (const field of content)

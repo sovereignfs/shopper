@@ -245,7 +245,14 @@ export async function seedItems(page: Page, items: Seed[], _baseURL: string): Pr
           table: 'product',
           id: product,
           create: true,
-          fields: { name: seed.name, categoryId, createdAt: now, lastAddedAt: now },
+          // A product is its list's (RFC 0004): an encrypted one is encrypted under that list's keys.
+          fields: {
+            listId: list?.id,
+            name: seed.name,
+            categoryId,
+            createdAt: now,
+            lastAddedAt: now,
+          },
         },
         {
           table: 'item',
@@ -346,8 +353,8 @@ export async function serverItems(
 }
 
 /**
- * Makes a link to the person's own household **through the Share dialog**, as a person does (8.7), and returns its path and id. An encrypted household's
- * link carries its keys after `#` (RFC 0001), which only the page can make, so a test cannot ask the operation for one itself.
+ * Makes a link to a list of the person's **through the Share dialog**, as a person does (8.7), and returns its path and id. An encrypted list's link
+ * carries its keys after `#` (RFC 0001, RFC 0004), which only the page can make, so a test cannot ask the operation for one itself.
  */
 export async function makeLink(page: Page, baseURL: string): Promise<{ path: string; id: string }> {
   const account = await accountOf(page);
@@ -355,6 +362,9 @@ export async function makeLink(page: Page, baseURL: string): Promise<{ path: str
     .poll(async () => (await deviceRows(page, account, 'household')).length, { timeout: 15_000 })
     .toBeGreaterThan(0);
   const [household] = await deviceRows<{ id: string }>(page, account, 'household');
+  // The list the dialog is about (RFC 0004): the one open, by its address, else the first.
+  const open = /\/l\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  const list = open ?? (await deviceRows<{ id: string }>(page, account, 'list'))[0]?.id;
   const dialog = page.getByRole('dialog', { name: /^Share / });
   if (!(await dialog.isVisible()))
     await page.getByRole('button', { name: 'Share', exact: true }).last().click();
@@ -365,7 +375,7 @@ export async function makeLink(page: Page, baseURL: string): Promise<{ path: str
   await page.keyboard.press('Escape');
   const listed = await page.request.post('/api/ops', {
     headers: { origin: baseURL, 'content-type': 'application/json' },
-    data: { op: 'invite.list', household: household?.id },
+    data: { op: 'invite.list', household: household?.id, list },
   });
   const links = ((await listed.json()).result ?? []) as { id: string; createdAt?: number }[];
   const newest = [...links].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
@@ -393,4 +403,22 @@ export async function waitMoved(page: Page, baseURL: string): Promise<void> {
       { timeout: 30_000 },
     )
     .toBe(true);
+}
+
+/**
+ * Signs out from the avatar's menu, as a person does. Right after signing up the page is still settling (its lists move to the device's encryption and the
+ * key opens again, which draws the header anew), and a click on a menu that is being drawn again is lost: WebKit shows it most. So the menu is opened and
+ * Sign out chosen again until the signed-in area is gone.
+ */
+export async function signOutFromMenu(page: Page): Promise<void> {
+  await expect(async () => {
+    const menu = page.getByRole('button', { name: 'User menu' });
+    if ((await menu.count()) > 0) {
+      await menu.click({ timeout: 2_000 });
+      await page.getByRole('menuitem', { name: 'Sign out' }).click({ timeout: 2_000 });
+    }
+    await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0, {
+      timeout: 5_000,
+    });
+  }).toPass({ timeout: 30_000 });
 }
