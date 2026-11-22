@@ -116,7 +116,13 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
     <>
       {encrypted ? <KeyPrompt /> : null}
       {error ? <AuthError>{error}</AuthError> : null}
-      <AuthButton type="button" loading={busy} onClick={() => void accept()}>
+      {/* An encrypted list opens only with this person's key, which is still being opened right after signing up or in: Join waits for it rather than
+          saying to unlock what is about to open. */}
+      <AuthButton
+        type="button"
+        loading={busy || (encrypted && keys.current.state === 'checking')}
+        onClick={() => void accept()}
+      >
         Join
       </AuthButton>
     </>
