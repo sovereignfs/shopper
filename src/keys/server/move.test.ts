@@ -134,6 +134,32 @@ describe(`moving a household (${leg})`, () => {
     expect(await moveManifest(deps(), lin.household, lin.accountId)).toBeUndefined();
   });
 
+  it('waits while a link to one of its lists is waiting, which carries no keys, so that whoever uses it can open the list (RFC 0004)', async () => {
+    const solo = await somebody(database, 'Solo-link');
+    expect(await moveManifest(deps(), solo.household, solo.accountId)).toBeDefined();
+    const { createInvitation, revokeInvitation } = await import('../../households/invitations');
+    const made = await createInvitation(database, {
+      household: solo.household,
+      list: solo.list,
+      accountId: solo.accountId,
+      personId: solo.personId,
+      now: Date.now(),
+    });
+    if (!made.ok) throw new Error(made.refused);
+    expect(await moveManifest(deps(), solo.household, solo.accountId)).toBeUndefined();
+    expect(
+      await revokeInvitation(database, {
+        household: solo.household,
+        list: solo.list,
+        accountId: solo.accountId,
+        personId: solo.personId,
+        invitation: made.id,
+        now: Date.now(),
+      }),
+    ).toBe(true);
+    expect(await moveManifest(deps(), solo.household, solo.accountId)).toBeDefined();
+  });
+
   it('refuses what does not answer for every row, or comes after a change, and changes nothing', async () => {
     const ring = newKeyring();
     const key = await appKey();

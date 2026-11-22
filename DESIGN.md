@@ -852,7 +852,7 @@ Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping those only. `docs/enc
 **A group starts as the server seals it** (each new account's), and **moves** once its device has the key (RFC 0001, amendment 2): `GET
 /api/keys/move` opens its rows one last time for its account, each with its list; the device makes the group's keyring, derives each list's, encrypts
 every row under its list's keys, and `POST` writes them all, empties the sealed content, keeps the keyring and marks the group encrypted, in one
-transaction, only if its `seq` has not moved and every value is for its own row and list. **A group with anyone else on one of its lists does not move**
+transaction, only if its `seq` has not moved and every value is for its own row and list. **A group with anyone else on one of its lists, or a link to one of them waiting** (made while it was sealed, so carrying no keys), **does not move**
 (they could not be given keys without a link): it stays sealed by the server, and loses nothing. Lists shared after the move carry their keys in their
 links.
 

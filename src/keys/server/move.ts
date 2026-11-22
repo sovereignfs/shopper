@@ -45,7 +45,8 @@ const listOfRow = (table: SyncedTable, row: { id: string; list_id?: string | nul
   table === 'list' ? row.id : (row.list_id ?? '');
 
 /**
- * The group, if it is this account's own, nobody else is on any of its lists (RFC 0004), and it is still sealed: its `seq` and the account's person.
+ * The group, if it is this account's own, nobody else is on any of its lists (RFC 0004), no link to one of them is waiting, and it is still sealed: its
+ * `seq` and the account's person.
  * A group with a shared list stays sealed by the server until each list has keys of its own (task 21.4).
  */
 async function movable(
@@ -64,7 +65,11 @@ async function movable(
                WHERE o.household_id = h.id AND o.left_at IS NULL AND o.person_id <> me.id) AS others
         FROM ${h} h, ${p} me
         WHERE h.id = ${household} AND h.encryption = 'sealed' AND me.account_id = ${accountId}
-          AND ${ownerOf(database, household, accountId)}`,
+          AND ${ownerOf(database, household, accountId)}
+          -- A link waiting to one of its lists was made sealed and carries no keys: moved under it, whoever used it could open nothing. It waits until
+          -- the link is used, revoked or expired.
+          AND NOT EXISTS (SELECT 1 FROM ${appTable(database, 'invitation')} wi WHERE wi.household_id = h.id
+            AND wi.accepted_at IS NULL AND wi.revoked_at IS NULL AND wi.expires_at > ${Date.now()})`,
   );
   if (!found || Number(found.others) > 0) return undefined;
   return { seq: Number(found.seq), person: found.person };
