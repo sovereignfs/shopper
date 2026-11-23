@@ -17,7 +17,7 @@ every page has a title; and the frame (header, sidebar, phone's footer) is the d
 
 ## Tasks
 
-#### 📋 22.1 — The design
+#### ✅ 22.1 — The design
 
 **Goal:** `DESIGN.md` says what RFC 0005 builds. **Depends on:** 12.7.
 
@@ -28,6 +28,30 @@ export), §13.1 (a list's icon and colour); `AGENTS.md`'s "or both" and words; `
 marked settled by this RFC; workstream 0001's export row pointing here.
 
 **Accepts when:** no document says an instance signs people in both ways, that Settings is a page, or that a person's own export is ciphertext only.
+
+**Done as:** `DESIGN.md` says what RFC 0005 builds:
+
+- A new **§2.3** (what workstream 0002 changes, area by area) in place of "what 0.3 holds", since 0.3.0 was already written up; linking taken out of
+  §2 and §2.2's phase 2.
+- §4's **suite mode** and **standalone mode**; §6.1 (the name kept in step from core), §6.2 (core's picture), §6.3 (the sign-up policy is standalone's),
+  §7.3 (the invitation page by mode), §7.4 (_My lists_, _Shared with me_).
+- §9.1 a list's **icon and colour**, encrypted; §11.1 **shopping mode** (the list's header, _+ Add item_, _Put it straight in the basket_, the fixed
+  _Finish shopping_); §12.5 and §12.6 (This device under Preferences); §13.1 (a list's icon and colour) and §13.2 (the key follows the mode).
+- §15.1 rewritten (**one way in per instance**, the redirects, the error page, the design system's forms, both configured starting in suite mode, no
+  linking); §14.3 and §15.4 by mode.
+- §16.2 rewritten as **the frame** (`Header`, the launcher, `AppSidebar` in two blocks, `AppFrame`); §16.3 (`/settings/<section>`, `?settings=`,
+  `/l/<id>/settings` redirecting); §16.5 (the header's Shop, Share and menu; the row's tap; `square-pen`; the list's settings); §16.7 (**the item's
+  column**); §16.10 (what 16.18 to 16.24 build); §16.11 (**the phone's footer**); §16.12's lessons; a new **§16.13 page titles**.
+- §17 rewritten (**`SettingsDialog`**, each section at its address, the table by mode); §18.1 (**the readable export**) and §18.2 (import reads both);
+  §19 (deleting is core's in suite mode); §20.3 (`list`'s icon and colour); §21 (`img-src` for core's address; hosted is suite mode); §22.1; §25 (two
+  points for the owner's review); §26 (three rows of 2026-11-23).
+- `AGENTS.md`: "or both" in what Shopper is, and core as the way in, in its rules. `docs/encryption.md`: the titles' caveat, as coming.
+  `README.md`: its sign-in marked as changing, as 18.1 did, since it describes the running app. RFC 0001's open question 2 and RFC 0003's text marked
+  settled. Workstream 0001's export row already pointed here.
+- `src/crypto/sealed.test.ts` finds §13.1's table by `| Household: name; list:` (it matched `list: name;`, which the list's icon and colour change).
+
+Changed from the RFC: **a list's default icon and colour are not written by a migration,** since the server cannot encrypt them and a plain value
+would say what they are: a list with neither is shown with the cart and blue (§9.1, 22.3's technical changed to match; §25 asks the owner).
 
 #### 📋 22.2 — Sign-in by mode
 
@@ -46,7 +70,8 @@ instance configured both ways starts in suite mode and logs it once.
 
 **Goal:** every list has an icon and a colour, encrypted, shown wherever the list is. **Design:** RFC 0005, "A list". **Depends on:** 22.1, 16.18.
 
-**Technical:** `icon` and `color` on `list`, encrypted in the browser, a migration on both dialects giving existing lists the cart and blue; each a
+**Technical:** `icon` and `color` on `list`, two fields of its `encrypted`, written by the browser; a list with neither (every existing one) is shown
+with the cart and blue, since no migration can encrypt a default (`DESIGN.md` §9.1); each a
 field of the one write path (merged by field); `IconPicker` and `ColorPicker` (Tally's `src/groups/colors.ts` copied, and said); shown in the list's
 header, the sidebar (the rail's icon in place of the letter), the drawer and Shop mode (Home's tiles take them in 23.2); the export and import carry both; §13.1's
 registry test.

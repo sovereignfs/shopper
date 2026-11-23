@@ -27,8 +27,7 @@ superseded; 11.3 (the plugin) moves to the browser.
 
 Under RFC 0001 the server holds ciphertext. As the contract says, end-to-end encrypted data is exported **as its ciphertext**, marked as envelopes in
 `contents.json`, with the person's sealed household-key records beside it, so that their keys open it again and nothing is in plain text on the way.
-**Settled (2026-11-23)** by [RFC 0005](0005-the-frame-settings-and-screens.md): a person's own export from Shopper is readable, one JSON file made by their browser (22.8); core's export of a person keeps Shopper's part as ciphertext. Whether the person's browser also adds a readable copy, made after they unlock, is RFC 0001's open question 2; until it is settled, the
-person's page says that the file opens with their keys.
+**Settled (2026-11-23)** by [RFC 0005](0005-the-frame-settings-and-screens.md): a person's own export from Shopper is readable, one JSON file made by their browser (22.8); core's export of a person keeps Shopper's part as ciphertext. RFC 0001's open question 2 is settled with it.
 
 The things the contract forbids are never in it: a password's hash, a session, a token, a refresh token, another person's email.
 
@@ -50,8 +49,8 @@ waits on `sovereign`'s milestone 2 of RFC 0008, so that a destination is the sui
 
 ## Alternatives considered
 
-| Alternative                              | Why not                                                                                                      |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Shopper's own JSON file (§18 as written) | A second format to keep, and core's export of a person would leave Shopper out                               |
-| A backup endpoint core calls             | Core has none and plans none: an app's backup is its database and data, taken by the instance                |
-| Plain text in every export               | The server cannot write it (RFC 0001), and a readable copy is the browser's, to be decided (open question 2) |
+| Alternative                              | Why not                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Shopper's own JSON file (§18 as written) | A second format to keep, and core's export of a person would leave Shopper out                    |
+| A backup endpoint core calls             | Core has none and plans none: an app's backup is its database and data, taken by the instance     |
+| Plain text in every export               | The server cannot write it (RFC 0001); a person's readable copy is the browser's (RFC 0005, 22.8) |

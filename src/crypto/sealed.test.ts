@@ -118,7 +118,7 @@ describe('the registry and the design', () => {
 
   /** What §13.1's table says is sealed: table name to the fields, in the words of the design. */
   function sealedInDesign(): Map<string, Set<string>> {
-    const line = design.split('\n').find((l) => l.startsWith('| Household: name; list: name;'));
+    const line = design.split('\n').find((l) => l.startsWith('| Household: name; list: '));
     if (!line) throw new Error('DESIGN.md §13.1 no longer has its table of sealed fields');
     const cell = line.split('|')[1] ?? '';
     const out = new Map<string, Set<string>>();

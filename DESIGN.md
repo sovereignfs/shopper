@@ -2,10 +2,11 @@
 
 **Status:** draft, written on 2026-11-09 from the legacy `sovereign-plugin-shopper` (manifest 0.6.1, its `SPEC.md` 0.2, `UI.md` and roadmap), Tusk's,
 Tally's and Roam's designs, and the owner's direction in planning. **Phase 1 is built and released as 0.1.0 (2026-11-11).** Before phase 2, workstream
-0001 moves Shopper onto the suite's encryption, push and exports (`docs/rfcs/` 0001 to 0003), and until its task 18.1 rewrites this file, those
-RFCs say what changes. **Phase 1 was cut to a minimum viable product on 2026-11-10 (§2.2);** this file still describes the whole design, and each
-section says where something comes later. Where this file and a contract Sovereign publishes disagree, the
-contract wins (`AGENTS.md`, Source of truth). §25 holds what is still waiting on a decision (nothing, for now), and §26 what has been decided and why.
+0001 moved Shopper onto the suite's encryption, push and exports (`docs/rfcs/` 0001 to 0003, released as 0.2.0), and **workstream 0002** gives it the
+suite's frame, Settings as a dialog, Home, Inventory and loyalty cards (`docs/rfcs/` 0005 to 0007, §2.3); this file says what both build. **Phase 1
+was cut to a minimum viable product on 2026-11-10 (§2.2);** this file still describes the whole design, and each section says where something comes
+later. Where this file and a contract Sovereign publishes disagree, the contract wins (`AGENTS.md`, Source of truth). §25 holds what is still waiting
+on a decision, and §26 what has been decided and why.
 
 [`ROADMAP.md`](ROADMAP.md) puts the work in order, and [`docs/epics/`](docs/epics/) holds each task's detail.
 
@@ -45,7 +46,7 @@ It never talks to a shop.
 | Phase                  | What it delivers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1, the MVP** (0.1.0) | On the web, responsive, installable and **working offline**: sign-in with an email and a password, or through a Sovereign core; lists of one's own, each shared on its own by a link, with a first list; items with quantity, unit, category, icon and note; a catalog that learns what is bought on each list, a starter catalog, and suggestions as one types; ticking off, a Bought section and _Clear bought_; a light shopping mode; **sharing by a link**, so that anyone invited sees and edits every list; background sync with Couldn't sync; **everything sealed at rest**; deleting an account. Runs alone or hosted. §2.2 is the exact list. |
-| **2**                  | What the first design put in phase 1 and 0.1.0 leaves out: kinds of group (a household, a group of friends), roles, invitations by email; trips, shops, prices and totals, shopping mode with them, the trips history; notices, the bell and mail; live updates and a freshness setting; passkeys, the authenticator app and linking; reading "2 oat milk"; editing categories and products; All lists and the catalog screen; a larger starter catalog; export, import and import from the plugin; core's bell, email, activity and directory. §22.1.                                                                                                   |
+| **2**                  | What the first design put in phase 1 and 0.1.0 leaves out: kinds of group (a household, a group of friends), roles, invitations by email; trips, shops, prices and totals, shopping mode with them, the trips history; notices, the bell and mail; live updates and a freshness setting; passkeys and the authenticator app; reading "2 oat milk"; editing categories and products; All lists and the catalog screen; a larger starter catalog; export, import and import from the plugin; core's bell, email, activity and directory. §22.1.                                                                                                            |
 | **3**                  | The pantry (what is at home, low-stock flags), staples, repeating items, list templates, shops with their own aisle order learned from ticking, insights with charts, Push notifications. §22.2 outlines each.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **4**                  | Capture: barcode scanning decoded on the device, product lookup by barcode through the server, photos on products and items, receipt images on trips. §22.3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Later**              | Candidates, none committed: encrypted backup to Git, sending a trip to Ledger or Tally as a link, AI features through the instance's model provider. §22.4.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -60,7 +61,7 @@ The plugin's requirement numbers (`SHP-*`) and task numbers (`T-*`) are not used
 | Per-list sharing with one user as editor or viewer (SHP-09)                                    | **Kept, by a link:** a list's people are Admin and Member (§7); there is no viewer role (§26)                                                           |
 | Households, owner and member roles, invites, a default shared list (SHP-20–23)                 | §7: **a list's people**, Admin and Member, by a link to the list, and a first list; kinds of group, changing roles and invitations by email are phase 2 |
 | Moving a list from a person to a household (SHP-24) and its unsolved migration                 | **Dropped:** a list is shared by its link, never moved (§9.1)                                                                                           |
-| Own lists, shared with me, read-only combined view (SHP-02)                                    | §7.4: **Your lists** and **Shared with you**; §9.7: **All lists**, editable (phase 2)                                                                   |
+| Own lists, shared with me, read-only combined view (SHP-02)                                    | §7.4: **My lists** and **Shared with me**; §9.7: **All lists**, editable (phase 2)                                                                      |
 | Last-used list as the landing page (SHP-03)                                                    | §16.4                                                                                                                                                   |
 | Type-ahead suggestions from the owner's catalog and history (SHP-04), learned ranking (SHP-32) | §8.5, from every catalog of the person's lists, learned from the first release                                                                          |
 | Curated icons with a category fallback (SHP-05)                                                | §8.4, `IconPicker`; 0.1.0 uses the icon set as it is, and more grocery icons are added to the design system for phase 2 (§16.10)                        |
@@ -90,7 +91,7 @@ column, an operation or a screen.
 
 | Area             | 0.1.0 holds                                                                                                                                                      | Waits (phase)                                                                            |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Sign-in          | Email and password; a Sovereign core, with its back-channel logout and account-deleted notices                                                                   | Passkeys, authenticator app, linking (2); core's directory, bell, email, activity (2)    |
+| Sign-in          | Email and password; a Sovereign core, with its back-channel logout and account-deleted notices                                                                   | Passkeys, authenticator app (2); core's directory, bell, email, activity (2)             |
 | Sign-up          | `open` (the default) or `closed` (§6.3)                                                                                                                          | `invite`, the default (2)                                                                |
 | Sharing          | **A list, shared by a link** (RFC 0004): everyone invited sees and changes that list and nothing else; leave and remove, list by list                            | Kinds of group, naming them, several a person; changing roles; invitations by email (2)  |
 | Lists and items  | Lists (make, rename, reorder, archive, delete for good); items with quantity, unit, category, icon, note; tick, untick, Bought, _Clear bought_; undo; fold       | Prices (2); reading "2 oat milk" (2); clearing rules (2)                                 |
@@ -109,13 +110,29 @@ alone. The group that holds a person's lists is never shown (§7.1).
 **Journeys** (§3) in 0.1.0: 1, 2, 4, 5 and 12 as written; 3 by a link with sign-up open; 6 to 8 without the shop, prices, total or notice; 9, 10 and
 11 are phase 2.
 
+### 2.3 Before phase 2: the suite's frame (workstream 0002)
+
+After workstream 0001's release (0.2.0) and before phase 2, Shopper is made to look and behave as the suite's apps do, and gains places phase 2 would
+otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens wait on releases of
+`@sovereignfs/ui` and core (16.18 to 16.25); each section says what it builds.
+
+| Area            | What changes                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in         | **Core's or Shopper's, never both** (§15.1): in a suite, `/sign-in` goes to core at once; alone, the design system's forms                     |
+| A list          | An icon and a colour, encrypted (§9.1); the header's Shop, Share and menu (§16.5); its settings in the settings dialog; a row's tap opens it   |
+| An item         | Opens in a column beside its list, a page of its own on a phone, saving as it is left (§16.7)                                                  |
+| Shopping mode   | The list's header, _+ Add item_, _Put it straight in the basket_, and _Finish shopping_ fixed at the bottom (§11.1)                            |
+| Settings        | `SettingsDialog`, each section at its own address; what each says by mode (§17)                                                                |
+| A person's data | **A readable export,** one JSON file made in the browser after confirming it is them (§18.1)                                                   |
+| The frame       | The header, the sidebar and the phone's footer are `@sovereignfs/ui`'s; an app launcher in a suite (§16.2, §16.11); every page titled (§16.13) |
+
 ## 3. User journeys
 
 1. **First visit, alone.** Someone runs the image (§21). They make the first account and land on their first list, _Groceries_, in their own lists, with the
    cursor in the add field.
 2. **First visit, on an instance.** They open Shopper from the launcher and sign in through core. The same.
 3. **Sharing.** Kasun presses _Share_ on _Groceries_, makes a link and sends it to Thulana any way he likes. Thulana opens it, makes an account
-   (sign-up is open on this server, §6.3), and finds _Groceries_ under _Shared with you_, and nothing else of Kasun's. _(From phase 2 Kasun can also
+   (sign-up is open on this server, §6.3), and finds _Groceries_ under _Shared with me_, and nothing else of Kasun's. _(From phase 2 Kasun can also
    invite Thulana by email.)_
 4. **Through the week.** Thulana types "oa" and Shopper offers _Oat milk_, which Kasun added last week, with its carton icon, Dairy & eggs, and 1 L.
    One tap. Kasun, on the bus, adds _bread_ and _coffee_. Both see the other's items within seconds (§12.6).
@@ -139,11 +156,13 @@ alone. The group that holds a person's lists is never shown (§7.1).
 | Term                | Meaning                                                                                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Account**         | Someone who can sign in. In code, `account_id` is the better-auth user id (as in Tusk)                                                                       |
+| **Suite mode**      | An instance with a Sovereign core configured: everyone signs in through core (§15.1)                                                                         |
+| **Standalone mode** | An instance with no core: everyone signs in with Shopper's own accounts (§15.1)                                                                              |
 | **Person**          | Shopper's record of someone who appears on shared rows: every account has one, which keeps the name after the account is deleted (§6.1). `person_id` in code |
 | **Group**           | The one each account is made with, holding the lists it makes, its categories and their order (§7.1). Never shown. In code `household`                       |
 | **List's people**   | Who is on a list, each with a role, **Admin** (who made it, or to whom it passed) or **Member** (§7.2). In code `list_member`                                |
 | **Invitation**      | A single-use link that lets someone join one list (§7.3)                                                                                                     |
-| **List**            | A shopping list, shared on its own: _Groceries_, _Pharmacy_ (§9.1)                                                                                           |
+| **List**            | A shopping list, shared on its own, with its icon and colour: _Groceries_, _Pharmacy_ (§9.1)                                                                 |
 | **Item**            | One thing on a list: _Oat milk, 2 L_ (§9.2). It is **open** until ticked, then **bought**, then **cleared** from the list                                    |
 | **Product**         | An entry in a list's **catalog**: what Shopper remembers about something bought on it (§8.2)                                                                 |
 | **Starter catalog** | The common groceries Shopper ships with, offered until a list has its own entry (§8.6)                                                                       |
@@ -255,7 +274,8 @@ same group's, in the same statement, and **an item's product is always on the it
 ### 6.1 A person
 
 `person` is Shopper's record of someone who appears on shared rows: their name, their email, and the account. **Every account has exactly one
-person,** made with the account, its name and email copied from sign-in and kept in step when the person changes them in Settings. Shopper has no
+person,** made with the account, its name and email copied from sign-in and kept in step: from core at each sign-in in suite mode, from Settings when the
+person changes them standalone (§15.1, §17). Shopper has no
 placeholders: everyone on a list has an account, since a list is shared by people who all shop (§26).
 
 As in Tally, the person exists so that **a name outlives an account** (§19) and **no feature depends on core for who someone is:** core's directory is
@@ -266,11 +286,14 @@ one more way to find a person to invite (§7.3), never where their name lives.
 
 ### 6.2 Avatars
 
-Initials, from the name, in a colour derived from the person's id. No picture is loaded from anywhere else.
+Initials, from the name, in a colour derived from the person's id. **In suite mode** the header's avatar and its menu show core's picture of the
+person (the SDK session's `picture`), loaded from core's own address, the one place an image comes from beyond Shopper (§21); everyone else on a list
+still sees initials. A photo of one's own, uploaded to Shopper, is later.
 
 ### 6.3 Who may sign up
 
-`SHOPPER_AUTH_SIGNUP` decides who may make a local account, one policy in better-auth's user-creation hook, as Tally's:
+In standalone mode (§15.1), `SHOPPER_AUTH_SIGNUP` decides who may make an account, one policy in better-auth's user-creation hook, as Tally's. In suite
+mode it has nothing to decide: who may sign up is core's.
 
 | Value                                         | Local sign-up                                                                                      |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -322,16 +345,16 @@ directory and the bell are phase 2.
 - **An invitation** is a random token of 32 bytes, stored only as its hash, compared in constant time, valid for 14 days, single-use, revocable by
   whoever made it or the list's Admin. At most 20 live links a list. Deleting a list revokes its links.
 - **`/invite/<token>`** says who invited, and nothing else (a list's name may be one the server cannot read). It offers to sign in or to create an
-  account (as the sign-up policy allows, §6.3), and through core when core is set. **Whoever holds the link can accept it,** whatever address it was
+  account: in suite mode, through core; standalone, with Shopper's forms, as the sign-up policy allows (§6.3). **Whoever holds the link can accept it,** whatever address it was
   sent to.
 - **Accepting** puts the person on that list as a Member, in one transaction, re-stamps the list's rows so that their devices pull them (§12.3), and
   tells the list's other people's devices (RFC 0002). **A link to an encrypted list carries that list's keys in its fragment**, which the server never
   sees (§13.5).
 
-### 7.4 Your lists, and those shared with you
+### 7.4 My lists, and those shared with me
 
-- **Your lists** are the ones you made, in your group, with _New list_. **Shared with you** are the lists others shared with you, whoever's they are,
-  each with its Admin's name under it. That is all the sidebar says (§16.2).
+- **My lists** are the ones you made, in your group, with _New list_. **Shared with me** are the lists others shared with you, whoever's they are,
+  each with its Admin's name under it. That is all the sidebar says of lists (§16.2).
 - **Sharing is a list's own:** sharing Groceries shares nothing of Hardware store. To keep a list to yourself, do not share it.
 
 ### 7.5 Lifecycle
@@ -430,8 +453,18 @@ reviewed in its own task (4.3) and can grow in any release; other languages are 
 
 ### 9.1 A list
 
-A name, its position among its maker's lists, its **clearing rule** (§9.5; `manual` in phase 1), whether it is archived, its people (§7.2) and its
-catalog (§8). It is in its maker's group.
+A name, an **icon** and a **colour**, its position among its maker's lists, its **clearing rule** (§9.5; `manual` in phase 1), whether it is archived,
+its people (§7.2) and its catalog (§8). It is in its maker's group.
+
+- **The icon and the colour** (RFC 0005): the icon one of the design system's, chosen with `IconPicker` (people choose from the set and never upload
+  their own; more icons are added there, 16.18); the colour any `#rrggbb`, chosen with `ColorPicker`, which suggests the nine colours Tusk and Tally
+  suggest (copied from Tally's `src/groups/colors.ts`). A new list has the cart and blue, and **a list with neither** (every list made before them) **is shown with the cart and blue** until someone on it
+  chooses: the server cannot encrypt a default for it, and writing one in plain would say it.
+  **Both are encrypted in the browser, as the name is** (§13.1), since an icon says what a list is for; each is its own field, merged as every field
+  is, and both are exported and imported.
+- **Shown** before the list's name in its header, in the sidebar (the rail shows the icon), in the phone's drawer, on Home and in shopping mode. The
+  icon is drawn in the list's colour on the ordinary surface; the colour is never a background or the colour of text (Tally's rule), so light and
+  dark stay readable.
 
 - **Make** (its maker, in their own group), **rename, reorder, archive and restore** (anyone on it) are synced changes, offline as well. **Delete for
   good** (its Admin) is offered only for an
@@ -457,7 +490,7 @@ added it and when, and once ticked, when and by whom (and, from phase 2, in whic
 
 ### 9.4 Editing
 
-Anyone on its list can change any field of an item, from its dialog (§16.7): name, quantity and unit, category, icon, note, price (phase 2), and which list
+Anyone on its list can change any field of an item, from its panel (§16.7): name, quantity and unit, category, icon, note, price (phase 2), and which list
 it is on (another of the person's lists: **it takes that list's product of its name, or one made there**, so that an item's product is always on its
 list, and its name and note are encrypted again for it, §13.1). "Remember for next time" (on by default) writes the category, icon and unit to the product (§8.2). **Delete** removes the item at
 once, with _Undo_ in a toast for a few seconds; it is kept as deleted until pruned (§12.9).
@@ -552,10 +585,11 @@ with a _Finish shopping_ that offers to clear what was bought (§11.3). Each is 
 
 ```
 ┌─────────────────────────────────────┐
-│ ‹  Groceries          Lidl ▾    ⋯  │  ← back, the list(s), the shop, menu
-│ 12 to get · 3 in basket · €8.70     │  ← progress and running total
+│ ‹  🛒 Groceries             Lidl ▾  │  ← back, the list's icon and name; the shop (phase 2)
+│    12 to get · 3 in basket · €8.70  │  ← progress and running total
 │ Sam is shopping too                 │  ← only when another member's trip is open
 ├─────────────────────────────────────┤
+│ [ + Add item ]                      │  ← opens the add field
 │ PRODUCE                             │
 │  ○ 🥬  Spinach            1 bag     │  ← large rows, the whole row ticks
 │  ○ 🍌  Bananas            6 pcs     │
@@ -565,18 +599,24 @@ with a _Finish shopping_ that offers to clear what was bought (§11.3). Each is 
 ├─────────────────────────────────────┤
 │ IN BASKET (3)                     ⌄ │  ← ticked items drop here, undoable
 ├─────────────────────────────────────┤
-│ [ + Add ]       [ Finish shopping ] │
+│ 3 in basket   [ Finish shopping ]   │  ← fixed to the bottom, always visible
 └─────────────────────────────────────┘
 ```
 
-In 0.1.0 the shop picker, the total and the "shopping too" line are absent, and the line under the title reads "12 to get · 3 in basket".
+Before phase 2 the shop picker, the total and the "shopping too" line are absent, and the line under the title reads "12 to get · 3 in basket".
 
-- **Large rows,** at least 56 px, the whole row ticking (`CheckableListRow`), in the aisle order. A ticked row drops into **In basket** with a short
-  animation, and a toast offers _Undo_.
+- **The header is the list's** (RFC 0005): back, the list's icon and name, and the progress under them. Nothing else is on the right but what a
+  feature adds there: the shop (phase 2).
+- **Large rows,** at least 56 px, **the whole row ticking** (`CheckableListRow`), in the aisle order. A ticked row drops into **In basket** with a
+  short animation, and a toast offers _Undo_.
 - **The screen stays on** (the Screen Wake Lock API, where the browser has it; where it does not, nothing is said).
-- **Long-press a row** for its price and quantity, in a small sheet sized for a thumb, so a price is typed where it is picked up (0.1.0: a long press opens the item's dialog).
-- **Add** is the same add field, for what is seen and wanted; it goes on the list being shopped and straight into the basket if chosen with "Already
-  in basket".
+- **Long-press a row** for its price and quantity, in a small sheet sized for a thumb, so a price is typed where it is picked up (phase 2; until then
+  a long press opens the item, §16.7).
+- **Adding** is behind **+ Add item**, which opens the same add field (§16.6), for what is seen and wanted; it closes after adding or on Escape. What
+  is added goes on the list being shopped, and straight into the basket with the toggle **Put it straight in the basket** (off by default), for what
+  was picked up and was not on the list.
+- **Finish shopping** is a bar fixed to the bottom of the content, above the phone's safe area, always visible, with the basket's count
+  ("3 in basket · _Finish shopping_"); the list has room beneath it so that its last row is never under the bar.
 - **The running total** (phase 2) is the trip's, from the lines with a price.
 - **Freshness** is the fastest the operator allows (§12.6), whatever the person's setting, while the screen is open (0.1.0: every 10 seconds, or the operator's interval if that is shorter).
 
@@ -699,7 +739,7 @@ server cannot read (§13): it keeps the later item's note, still encrypted, on t
 
 The server re-checks everything, whatever the device said: the account is on the list a change is for; every row a change points at is the group's,
 and an item's product is on its list; a value is encrypted for its row's list (§13.1); the list is not deleted for good; the limits (§7.6); the sizes; a quantity is positive and well-formed; a unit is known; a category is
-the group's. **A refused change is not thrown away:** it goes to **Couldn't sync** (Settings, and a quiet mark on the avatar) with the reason in a
+the group's. **A refused change is not thrown away:** it goes to **Couldn't sync** (Settings › Preferences › This device, and a quiet mark on the avatar) with the reason in a
 sentence ("That list is not shared with you any more", "Groceries was deleted", "Groceries has 500 items, the most it can hold"), from where it can be moved to another
 list, or discarded. A refused tick is undone with a toast that says why.
 
@@ -717,7 +757,7 @@ How soon a device sees another member's change is **a setting**, chosen per devi
 | `SHOPPER_SYNC_INTERVAL_MIN_SECONDS` | `10`    | The shortest interval anyone may choose (10 to 600)                    |
 | `SHOPPER_SYNC_LIVE_MAX_CONNECTIONS` | `10`    | Live connections an account may hold at once (one per open tab or app) |
 
-In **Settings > This device > Updates from others**: **Live** (the default where offered), **Every 10 seconds**, **Every 30 seconds**, **Every 2
+In **Settings › Preferences › This device › Updates from others**: **Live** (the default where offered), **Every 10 seconds**, **Every 30 seconds**, **Every 2
 minutes**, or **Only when I open Shopper**, with the choices below the operator's minimum not offered. It is kept on the device, not the account: a
 laptop and a phone may want different things. **Shopping mode always uses the fastest choice offered** while it is open (§11.1).
 
@@ -773,9 +813,9 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 
 ### 13.1 What is encrypted
 
-| Encrypted in the browser, under the list's keys                                                                                                                                                                                       | Readable by the server                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Household: name; list: name; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, icons, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
+| Encrypted in the browser, under the list's keys                                                                                                                                                                                                     | Readable by the server                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
 
 - **Each field is its own ciphertext** (`encryptBytes` under the list's content key, `importDocumentKey`), bound to list, table, row, field and epoch,
   and stored as `e2.<epoch>.<list>.<row>.<ciphertext>`, so a value moved to another row, field or list does not open, and the server, which cannot
@@ -794,7 +834,7 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 - **An account's key comes from how it signs in.** Through core: core releases the app key (`appKeys` from `@sovereignfs/sdk/keys`), and its
   passkeys, recovery kit and escrow are core's. With a password: Shopper's own vault (`AppVault` and `vaultRoute` from `@sovereignfs/sdk/vault`,
   `localVault` from `/local-vault`) keeps the keys, unlocked at sign-in from the password, which never reaches the server (the browser sends the value
-  it derives), and the recovery kit is shown by Shopper once after sign-up. Never decided by the instance or the viewport. `src/keys/` is one
+  it derives), and the recovery kit is shown by Shopper once after sign-up. Which it is follows from the instance's mode (§15.1), never from the viewport. `src/keys/` is one
   interface over both.
 - **A group has a keyring** (every epoch's key, 32 random bytes each), made in the browser of its account when it **moves** (§13.7), and kept by that
   account alone, **wrapped under its app key** in `household_key` (WebCrypto's AES-GCM, `src/keys/household.ts`, until the SDK has a call, 16.15). The
@@ -890,7 +930,7 @@ the table's.
 
 ### 14.3 Delivery
 
-| Channel            | Alone                             | Hosted, person signed in through core                    | Default on for                                                       |
+| Channel            | Standalone                        | Suite mode                                               | Default on for                                                       |
 | ------------------ | --------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
 | **Shopper's bell** | Always                            | Always                                                   | Every kind that is on                                                |
 | **Email**          | Shopper's mail (`SHOPPER_SMTP_*`) | Core's email (`email:send`), or Shopper's if not granted | Invitations (always by email when an address is given) and `invited` |
@@ -908,19 +948,31 @@ the table's.
 ### 15.1 Sign-in
 
 **On `@sovereignfs/auth`** ([ADR 0001](docs/adrs/0001-sign-in-on-sovereignfs-auth.md), `sovereign`'s auth.md): better-auth on the package's
-preset in a store of its own (`shopper_auth`), its tables the package's; local accounts (a password; **passkeys and an authenticator app with backup
-codes are phase 2**, 2.8) when `SHOPPER_AUTH_LOCAL=1`; a Sovereign core through the package's `./core` on the SDK's steps (PKCE, matched by `sub`)
-when `SHOPPER_CORE_*` are set, `SHOPPER_CORE_URL` being the instance's own address; either or both, from one image, and **both may be on when
-hosted**, so people not on the instance can join a list. Email is verified and passwords reset only with mail set up; signing in unverified sends
-no link, and the sign-in page offers a new one. The server is sent the sign-in value the page derives, never the password, and a 0.1.0 password
-moves at its next sign-in for 90 days after the upgrade (auth.md §8.1). A session that came from core is checked against it every hour, and
-signing out of one goes through core's sign-out, which decides what else it ends.
+preset in a store of its own (`shopper_auth`), its tables the package's. **An instance signs people in one way, never both** (RFC 0005):
 
+| Mode                                      | Who signs in, and how                                                                                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Suite mode** (`SHOPPER_CORE_*` are set) | Everyone, through core: the package's `./core` on the SDK's steps (PKCE, matched by `sub`), `SHOPPER_CORE_URL` being the instance's own address       |
+| **Standalone mode** (no core)             | Everyone, with Shopper's own accounts (`SHOPPER_AUTH_LOCAL=1`): a password; **passkeys and an authenticator app with backup codes are phase 2** (2.8) |
+
+- **In suite mode `/sign-in` and `/sign-up` show nothing:** someone with a session goes to `next` (or `/`), anyone else straight to
+  `/api/auth/sign-in/sovereign?returnTo=…`, keeping an invitation's `next` through the round trip. Coming back from core with `?error=` shows a small
+  page with the reason and _Try again_, and does not redirect, so that a failure at core cannot loop. `/sign-up` lands on core's sign-in, one click
+  from _Create account_, until core can be asked to open on its sign-up page (`prompt=create`, 16.17). The landing page's button says _Sign in with
+  Sovereign_.
+- **Standalone, the forms are the design system's** (`SignInForm`, `SignUpForm` and the reset pair of `@sovereignfs/ui`, as core renders them).
+  Shopper keeps only what is its own: deriving the password, opening the vault, the recovery kit after a reset (in the same `AuthCard`), and where the
+  person goes next. Email is verified and passwords reset only with mail set up; signing in unverified sends no link, and the sign-in page offers a
+  new one. The server is sent the sign-in value the page derives, never the password, and a 0.1.0 password moves at its next sign-in for 90 days
+  after the upgrade (auth.md §8.1).
+- **An instance configured with both** (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=1`) **starts in suite mode** and logs, once at start-up, that its
+  local sign-in is off and which setting to remove; nothing else changes, so an instance upgraded with both keeps running. Its password accounts
+  cannot sign in while it is in suite mode; giving them a way across to core is a candidate (15.5), not designed.
+- A session that came from core is checked against it every hour, and signing out of one goes through core's sign-out, which decides what else it
+  ends.
 - **Making an account makes its person and its own group, with a first list** (§6.1, §7.1), or, through an invitation, also joins that list.
-- **No implicit linking**, as Tusk's: a core login whose email is a local account's is refused until the person links the two from a signed-in
-  session, and only when the addresses match. Unlinking can never remove an account's last way in. In 0.1.0 such a login is refused with a sentence that says to sign in with the
-  password; linking is 2.9.
-- Name and email from core are copied when the account is made and not overwritten after; the person changes their own in Settings.
+- **There is no linking** of a core account and a local one: an instance has one kind (task 2.9 is superseded). Name, email and picture from core are
+  read from the session at each sign-in, and shown read only (§17).
 
 ### 15.2 Core's notices
 
@@ -973,13 +1025,13 @@ refresh token dropped. Shopper keeps a bounded form and one rate limit in front 
 
 ### 15.4 Core's services
 
-| What                            | Hosted                                                             | Alone                        |
-| ------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
-| Sign-in                         | Core, and local accounts if `SHOPPER_AUTH_LOCAL=1`                 | Local accounts               |
-| Finding people to invite        | An email address, and core's directory by name (§7.3)              | An email address             |
-| Notices                         | Shopper's bell, and core's bell (`notifications:send`)             | Shopper's bell               |
-| Email                           | Core's (`email:send`) for linked accounts; Shopper's for addresses | Shopper's (`SHOPPER_SMTP_*`) |
-| Export, import, account deleted | A line on the person's activity page (`activity:write`)            | Nothing                      |
+| What                            | Hosted                                                      | Alone                        |
+| ------------------------------- | ----------------------------------------------------------- | ---------------------------- |
+| Sign-in                         | Core only (suite mode, §15.1)                               | Local accounts               |
+| Finding people to invite        | An email address, and core's directory by name (§7.3)       | An email address             |
+| Notices                         | Shopper's bell, and core's bell (`notifications:send`)      | Shopper's bell               |
+| Email                           | Core's (`email:send`) for accounts; Shopper's for addresses | Shopper's (`SHOPPER_SMTP_*`) |
+| Export, import, account deleted | A line on the person's activity page (`activity:write`)     | Nothing                      |
 
 In phase 2 the operator grants the three app scopes when hosting; 0.1.0 needs none, and uses only the first row of this table, sign-in. **An instance without SMTP for Shopper** can still invite by link; the invitation dialog says
 email to new people is not set up.
@@ -996,55 +1048,63 @@ skeleton. Every surface has an empty state that says what to do next. An item no
 home;** everything else is one step away. Prices are tabular figures with their currency. Bought is shown by a tick, strikethrough and a
 muted row, never by colour alone.
 
-### 16.2 The shell
+### 16.2 The frame
 
-Two rows, as Tusk's and Tally's: the header, and the sidebar beside the content. The sidebar holds _Add item_, **Your lists** with open counts and
-_New list_, and **Shared with you**, the lists others shared, each with whose it is under its name (RFC 0004); no group is named. On a phone the same
-lists are in a sheet from the bottom. All lists, Trips, Catalog and the bell join in phase 2.
+The frame around every signed-in page is **`@sovereignfs/ui`'s** (RFC 0005, 16.20 to 16.24), not Shopper's own: `AppFrame` wires the header, the
+sidebar, the content and an optional right column on a desktop, and `MobileHeader`, the content, `MobileFooter` and a `Drawer` on a phone (§16.11).
+The same routes on both; only what is drawn differs. Shopper adopts it first; Tusk and Tally follow in their own repositories.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│ ☰  shopper.                                                  (bell) (avatar) │
-├────────────────────────┬──────────────────────────────────────────────────────┤
-│ [ + Add item ]         │                                                      │
-│ ≡ All lists            │                                                      │
-│ ⌘ Trips                │                      content                         │
-│ ⊞ Catalog              │                                                      │
-│                        │                                                      │
-│ YOUR LISTS             │                                                      │
-│    Groceries      12   │                                                      │
-│    Hardware store  4   │                                                      │
-│    + New list          │                                                      │
-│ SHARED WITH YOU        │                                                      │
-│    Groceries       3   │                                                      │
-│    Thulana             │                                                      │
-│                    ⇤   │                                                      │
-└────────────────────────┴──────────────────────────────────────────────────────┘
+│ ☰  shopper.                                       (apps) (bell) (avatar)     │
+├────────────────────────┬──────────────────────────────────┬───────────────────┤
+│ ⌂ Home                 │                                  │                   │
+│ ▦ Inventory            │                                  │  an item (§16.7), │
+│ ▭ Loyalty cards        │            content               │  when one is open │
+│                        │                                  │                   │
+│ MY LISTS               │                                  │                   │
+│ 🛒 Groceries      12   │                                  │                   │
+│ 🔧 Hardware store  4   │                                  │                   │
+│    + New list          │                                  │                   │
+│ SHARED WITH ME         │                                  │                   │
+│ 🛒 Groceries       3   │                                  │                   │
+│    Thulana             │                                  │                   │
+│                    ⇤   │                                  │                   │
+└────────────────────────┴──────────────────────────────────┴───────────────────┘
 ```
 
-- **Header:** the sidebar's toggle and the wordmark on the left; the bell and the avatar on the right. The avatar opens `UserMenu`: name and email,
-  Settings, Notifications, Sign out, and a way back to core when one is set. Couldn't sync, when anything is there, shows as a mark on the avatar and
-  an entry in its menu.
-- **Sidebar:** _Add item_ first (to the current list, or asking which); All lists, Trips, Catalog (phase 2); then **Your lists**, with their open
-  counts, _New list_ and their archived ones behind a toggle, and **Shared with you**, with whose each is under its name. Full or a rail of icons,
-  remembered on the device.
+- **Header** (`Header`, with the app's own brand, 16.20): on the left the sidebar's toggle and the wordmark; on the right, in this order, **the app
+  launcher, the bell and the avatar**, the launcher and the bell drawn only when there is something to give them. The avatar opens `UserMenu`: name
+  and email (and core's picture in suite mode, §6.2), Settings, Notifications, Sign out, and a way back to core in suite mode. Couldn't sync, when
+  anything is there, shows as a mark on the avatar and an entry in its menu.
+- **The launcher** (`AppsLauncher`), **suite mode only:** the apps the person may open on the instance, from core's endpoint for them (name,
+  description, icon and launch address from each app's manifest, for the person signed in, 16.23) through the SDK with the app's token; kept on the
+  device so that it opens offline; its icons loaded from core's own address. Standalone, there is none.
+- **Sidebar** (`AppSidebar`, 16.21): **full, a rail of icons, or hidden**, with its toggle, remembered on the device per kind of page (the rules
+  Shopper's `sidebar.ts` had). Its content is **two blocks** of `NavList`:
+  1. **Home** (§16.4), **Inventory** (§16.8) and **Loyalty cards** (§16.14);
+  2. **My lists**, the lists the person made, with their icons and open counts, their archived ones behind a toggle and _+ New list_; and **Shared
+     with me**, the lists others shared, each with whose it is under its name (RFC 0004). No group is named. The rail shows each list's icon.
+- **Phase 2's _All lists_ and _Trips_ are parts of Home, and _Catalog_ is Inventory** (RFC 0006), not rows of the sidebar.
 
 ### 16.3 Screens and addresses
 
-| Address                             | What                                                                                   |
-| ----------------------------------- | -------------------------------------------------------------------------------------- |
-| `/`                                 | The landing page for a visitor; for someone signed in, the last list they used (§16.4) |
-| `/l/<id>`                           | A list (§16.5); `?view=added` for the order added                                      |
-| `/l/<id>/settings`                  | The list's name, archive, delete; its clearing rule (phase 2)                          |
-| `/shop?h=<id>&l=<id>,…`             | Shopping mode (§11); one list in phase 1 (`h` is the list's group)                     |
-| `/all`                              | All lists (§9.7), phase 2                                                              |
-| `/trips`, `/trips/<id>`, `/catalog` | Trips (§10.5) and the catalogs and categories (§16.8), phase 2                         |
-| `/notifications`                    | Every notice (§14.1), phase 2                                                          |
-| `/settings`                         | Settings (§17)                                                                         |
-| `/invite/<token>`                   | An invitation (§7.3), for anyone                                                       |
-| `/sign-in`, `/sign-up`              | As Tusk's                                                                              |
+| Address                             | What                                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `/`                                 | The landing page for a visitor; for someone signed in, the last list they used (§16.4)        |
+| `/l/<id>`                           | A list (§16.5); `?view=added` for the order added                                             |
+| `/l/<id>?settings=<section>`        | The list's settings, in the settings dialog over the list (§16.5)                             |
+| `/l/<id>/settings`                  | Redirects to `?settings=general`; there is no page                                            |
+| `/shop?h=<id>&l=<id>,…`             | Shopping mode (§11); one list in phase 1 (`h` is the list's group)                            |
+| `/all`                              | All lists (§9.7), phase 2                                                                     |
+| `/trips`, `/trips/<id>`, `/catalog` | Trips (§10.5) and the catalogs and categories (§16.8), phase 2                                |
+| `/notifications`                    | Every notice (§14.1), phase 2                                                                 |
+| `/settings/<section>`               | Settings (§17): `profile`, `security`, `preferences`, `data`; `/settings?section=…` redirects |
+| `/invite/<token>`                   | An invitation (§7.3), for anyone                                                              |
+| `/sign-in`, `/sign-up`              | Standalone, the forms; in suite mode, straight to core (§15.1)                                |
 
-An item's dialog opens over its list (`?item=<id>`), so that a link and the back button behave. The sharing dialog opens the same way, at `?share=1`.
+An item opens beside its list at `?item=<id>` (§16.7), so that a link and the back button behave. The sharing dialog opens the same way, at
+`?share=1`, and a list's settings at `?settings=<section>`, so that Back closes them and a link opens them, offline too.
 
 ### 16.4 Landing
 
@@ -1054,16 +1114,24 @@ shop with others, press Share." A person who arrived by an invitation lands on t
 
 ### 16.5 A list
 
-- **Header:** the list's name, on one line; **Share** (its icon alone on a phone); **Shop** (primary); the menu: Shop several lists, Clear bought, view by aisle or order added,
-  list settings. A banner when the person has an open trip (§11.3).
+- **Header:** the list's icon and name, on one line; then, in this order, **Shop** (the primary button, the only one on the screen, with the cart icon
+  and its label, on a phone too; shown only when the list has something to buy), **Share** (secondary; its label hidden on a phone) and **the list's
+  menu** (a ghost button with no border, pulled right by its own padding so that its dots line up with the content's right edge). Every icon in the
+  row is at the small size, so the two labelled buttons are the same height. The menu: Shop several lists (phase 2), Clear bought, view by aisle or
+  order added, and Settings. A banner when the person has an open trip (§11.3).
 - **The add field** at the top, always (§16.6).
 - **Open items** grouped by category in aisle order, each row a checkbox, then icon, name, quantity and unit, a note's first line muted, the price
-  if set, and who added it when that is not the reader (on a shared list). **Only the checkbox ticks** (a tap anywhere else on the row does nothing, so that scrolling or aiming at the pencil buys nothing by mistake; shopping mode, §11.1, keeps the whole row as its target); a pencil, or a long press on a phone, opens the
-  item. Dragging reorders within a category.
+  if set, and who added it when that is not the reader (on a shared list). **The checkbox ticks; a tap anywhere else on the row opens the item**
+  (§16.7): opening a panel changes nothing, so a stray tap while scrolling costs nothing. The edit icon (`square-pen`, 16.18) stays on the row, as the
+  visible sign and for a keyboard and a screen reader; there is no long press. Shopping mode keeps the whole row as the tick's target (§11.1).
+  Dragging reorders within a category.
 - **Bought (n)**, collapsed under the open items, each with who ticked it; _Clear bought_ beside it.
 - **Empty:** "Nothing on Groceries. Add something above, or pick from Often bought," with the often-bought products as chips.
+- **The list's settings** open as the settings dialog (§17) over the list, at `?settings=general`, from the menu: **General** (name, icon and colour,
+  and from phase 2 the clearing rule) and **Archive and delete** (archive or restore; delete for good, the list's Admin only, an archived list, with a
+  confirmation). **Share stays a button and a dialog of its own** (§16.9).
 
-**In phase 1** the menu has no "Shop several lists"; there is no trip banner and no price on a row.
+**Before phase 2** the menu has no "Shop several lists"; there is no trip banner and no price on a row.
 
 ### 16.6 Adding
 
@@ -1078,10 +1146,15 @@ The field at the top of a list (and in shopping mode), built on `SuggestionInput
 
 ### 16.7 An item
 
-A `Dialog` (full-screen on a phone, as the design system adapts it), as the plugin learned (§16.12): name; quantity with `QuantityStepper` and the
-unit `Select`; category; icon (`IconPicker`); note; price (phase 2; `CurrencyInput`, with the unit price under it once there is a quantity); list (to move it to another of the
-person's lists: it takes that list's product of its name, or one made there, and its name and note are encrypted again for it, §13.1); "Remember for next time" (§9.4). **Save**, and **Delete** as a quiet text action. Who added it and when, and if bought, who and
-in which trip, at the foot.
+**A column beside its list** (RFC 0005): `ThreeColumnLayout`'s right column, 360 px, there only while an item is open, as a card opens in Tusk. The
+list grows narrower and stays usable, so another item can be opened from it in the same column. **On a phone it is a page of its own** in place of
+the list, with a back arrow. The address stays `?item=<id>` either way.
+
+Its fields: name; quantity with `QuantityStepper` and the unit `Select`; category; icon (`IconPicker`); note; price (phase 2; `CurrencyInput`, with
+the unit price under it once there is a quantity); list (to move it to another of the person's lists: it takes that list's product of its name, or
+one made there, and its name and note are encrypted again for it, §13.1); "Remember for next time" (§9.4). **Each field saves as it is left,** with
+no Save, as Tusk's card; **Delete** is a quiet text action, with _Undo_ (§12.7). Who added it and when, and if bought, who and in which trip, at the
+foot.
 
 ### 16.8 The catalog (phase 2)
 
@@ -1106,11 +1179,19 @@ it and that it expires in 14 days; live links are listed with _Revoke_; a Member
 
 Available and used: layouts, `Header`, `UserMenu`, `NotificationsPanel`, `Dialog`, `ConfirmDialog`, `Sheet`, `Drawer`, `Tabs`, `SegmentedControl`,
 `SuggestionInput`, `QuantityStepper`, `CheckableListRow`, `IconPicker`, `DragHandleRow`, `CurrencyInput`, `Select`, `Combobox`, `Avatar`, `Badge`,
-`StatusBadge`, `EmptyState`, `Toast`, `Menu`, `CopyButton`, `Collapsible`, `NavList`, `MobileFooter`, `MobileHeader`, `MobileAppsDrawer`, `Auth`. The
+`StatusBadge`, `EmptyState`, `Toast`, `Menu`, `CopyButton`, `Collapsible`, `NavList`, `MobileFooter`, `MobileHeader`, `MobileAppsDrawer`, `Auth` and
+its whole forms (`SignInForm`, `SignUpForm`, the reset pair), `ThreeColumnLayout`, `ColorPicker`, `AppsLauncher`, `QrCode`, `ExportPanel`. The
 four the plugin added (`SuggestionInput`, `QuantityStepper`, `CheckableListRow`, `IconPicker`) are already in `@sovereignfs/ui`; each is checked
 against what this design asks of it in the task that first uses it, and a gap goes to `sovereign` (epic 16).
 
 **Missing, and built in `@sovereignfs/ui` in `sovereign` first, released, then used** (epic 16):
+
+- **For workstream 0002** (§2.3): the edit icon `square-pen` and more icons for lists (16.18); **`SettingsDialog`** (16.19), on `Dialog`'s fixed-size
+  `lg` frame: a title row across the whole width, sections on the left in groups with a divider between them, each with an icon, an optional search
+  box (off by default), the section's content on the right with no repeated heading, scrolling inside a frame that does not change size, and on a
+  phone the whole screen, the sections first and then one with a back arrow; **`Header` with the app's own brand** (16.20), which must not change
+  core's own header; **`AppSidebar`** (16.21) and **`AppFrame`** (16.22), §16.2; core's endpoint of **the apps a person can open** and the SDK's call
+  to it (16.23); **`MobileFooter`'s middle button named** by the app (16.24, "Apps" today). None of them needs Shopper's data or words to work.
 
 - **Grocery icons** (phase 2): about 80, enough for the starter catalog's categories and common products (task 16.4).
 - **`AvatarStack`** (who is on a list; phase 2) and **a floating action button** (the phone's Add), the same parts Tally and Roam wait on: whichever app
@@ -1123,41 +1204,69 @@ against what this design asks of it in the task that first uses it, and a gap go
 
 **One responsive tree:** the same routes and decisions at every width, only rendering forked (the guide's rule).
 
-- **`MobileFooter`:** Lists (Your lists and Shared with you, in a sheet) and All lists left of the launcher, Trips and Catalog right. **Add** is a floating button
-  above it on a list, opening the add field (phase 2; in phase 1 the footer has Lists left of the launcher and Settings right, and the add field sits at
-  the top of a list). Notifications and Settings are in the avatar menu; the bell stays in the header.
+- **`MobileFooter`** (RFC 0005): the left icon opens **Home** (§16.4, which links to Inventory); the middle button opens **the lists drawer**, every
+  list, own then shared, with its icon, colour and open count, and _New list_; the right icon opens **Loyalty cards** (§16.14). The header's menu
+  button opens the same drawer. **There is no app launcher on a phone** for now. Settings and Notifications are in the avatar's menu, as on a desktop;
+  the bell stays in the header. **Add** is a floating button above the footer on a list, opening the add field (phase 2; until then the add field
+  sits at the top of a list).
 - A list is full-width; its name keeps to one line, and an item's quantity and note sit under its name. Shopping mode hides the footer.
 - **Installable as a PWA,** with the suite's worker, `@sovereignfs/pwa`'s (17.2): it keeps the shell by allow-list and the one shell page, which holds
   nothing of a person; with no network, every address is answered with the kept shell, which reads the device's store and shows a signed-in screen (a
-  list, shopping mode, all lists, the catalog, recent trips) or says that the page needs a connection. **No data is ever in a cache;** it lives in
+  list, shopping mode, Home, Inventory, the cards, recent trips) or says that the page needs a connection. **No data is ever in a cache;** it lives in
   IndexedDB, named per account and deleted at sign-out. Shopper adds Background Sync (§12.3) after the package's worker, until the package has it
   (16.12).
 
 ### 16.12 What the plugin paid to learn
 
-- **An item's editor is a `Dialog`, not a `Sheet`:** `Sheet` has no desktop form; `Dialog` adapts to a full-screen overlay on a phone.
-- **Ticking and editing are separate targets:** the checkbox ticks; a pencil opens the item. Sharing one target made both unreliable.
+- **An item's editor is never a `Sheet`:** `Sheet` has no desktop form. It was a `Dialog`; it is now a column beside the list, and a page on a phone
+  (§16.7).
+- **Ticking and editing are separate targets:** the checkbox ticks; the rest of the row, and its edit icon, open the item. Sharing one target made both
+  unreliable.
 - **Reordering is drag-and-drop within a category,** not up and down buttons, which proved unreliable.
 - **A list name typed in a quick-add field is kept on blur,** not only on Enter.
 - **A mutation that matches no row because of its permission must read as not found,** never as a silent success: the plugin's rename and archive did,
   and the hardening pass found it. Here the permission is in every statement (§5.2) and a test calls each as a second person.
 
+### 16.13 Page titles
+
+Every page says what it is in its title. A list's name is encrypted, so the server cannot put it there: **the browser sets the title** (one hook,
+from the opened name), and until the name is open it is `Shopper`.
+
+| Page              | Title                            |
+| ----------------- | -------------------------------- |
+| Home              | `Home · Shopper`                 |
+| A list            | `<list> · Shopper`               |
+| Shopping mode     | `Shopping <list> · Shopper`      |
+| Settings          | `<section> · Settings · Shopper` |
+| A list's settings | `Settings · <list> · Shopper`    |
+| Inventory         | `Inventory · Shopper`            |
+| Loyalty cards     | `Loyalty cards · Shopper`        |
+
+**A title is kept in the browser's history,** and a history the browser syncs leaves the device with it: the one way an opened name leaves Shopper.
+Accepted (RFC 0005), and said in `docs/encryption.md`.
+
 ## 17. Settings
 
-`/settings`, also from the avatar menu. **0.1.0 has** Profile, This device (when it last synced, persistent storage, Couldn't sync, Reset this
-device; not the freshness choice), Sign-in (change the password) and Data (delete the account); the freshness choice, Notifications, passkeys, two-factor,
-linking core, export and import are phase 2.
+**One dialog with a side navigation,** `SettingsDialog` (§16.10, 16.19), over the page it was opened from, from the avatar's menu. Every section has
+an address (`/settings/profile`, `/settings/security`, `/settings/preferences`, `/settings/data`), through Next's intercepting routes: opened from a
+page, the dialog is over that page; loaded directly, the same address shows Home with the dialog open, so Settings always looks the same.
+`/settings?section=…` redirects. A list's settings are the same dialog with the list's sections (§16.5). What each section says depends on the mode
+(§15.1); in suite mode, core owns the person's profile, security, appearance and notifications, and Shopper links there rather than copying them.
 
-- **Profile:** name (the person's name everywhere, §6.1) and email.
-- **This device:** **Updates from others** (§12.6); when it last synced; whether persistent storage was granted; **Couldn't sync** (§12.5); "Reset
-  this device" (sends the outbox, then reloads every list).
-- **Encryption:** "Each list is encrypted with keys of its own, held only by the people on it. Not yet audited.", and which lists are not yet
-  (§13.7). With a password, the recovery kit (§13.2); through
-  core, a line that the kit and passkeys that unlock are core's.
-- **Notifications:** notifications on this device (`PushControl`, RFC 0002); each kind (§14.1) by channel, with what is not available said plainly.
-- **Sign-in:** the account sections Tusk has: password, passkeys, two-factor, linking core.
-- **Your data:** the person's export, import, import from the old Shopper plugin (§18), delete account (§19); and, alone, for the first account, the
-  app's export (**Data**).
+| Section         | Suite mode                                                                                                                             | Standalone                                                                                             |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Profile**     | Name, email and picture from core (the SDK session's `name`, `email`, `picture`), read only, refreshed at sign-in; _Edit in Sovereign_ | Name (editable; the person's name everywhere, §6.1) and email; initials, a photo of one's own later    |
+| **Security**    | Links to core's sign-in and security, and to its keys and recovery kit                                                                 | Change the password (through `@sovereignfs/auth`, as core does); passkeys and two-factor (phase 2)     |
+| **Preferences** | How a list shows its items by default; **This device**; "Appearance, language and notifications are in Sovereign"                      | The same, with appearance, time zone, language and region; **Notifications**, "coming later" until 9.4 |
+| **Data**        | Shopper's readable export (§18.1); a line that core's export holds Shopper's part, encrypted; deleting the account is core's           | The readable export; delete the account (§19); for the first account, the app's export (§18.1)         |
+
+- **Security** also holds **Encryption:** "Each list is encrypted with keys of its own, held only by the people on it. Not yet audited.", and which
+  lists are not yet (§13.7). Standalone, the recovery kit (§13.2); in suite mode, a line that the kit and passkeys that unlock are core's.
+- **This device** (in Preferences): **Updates from others** (§12.6, phase 2); when it last synced; whether persistent storage was granted;
+  **Couldn't sync** (§12.5); "Reset this device" (sends the outbox, then reloads every list).
+- **Notifications** (in Preferences, from 9.4): notifications on this device (`PushControl`, RFC 0002); each kind (§14.1) by channel, with what is not
+  available said plainly.
+- **Import,** and import from the old Shopper plugin (§18.2, §18.3), join Data when they are built.
 
 ## 18. Export and import
 
@@ -1165,18 +1274,25 @@ The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), 
 
 ### 18.1 Export
 
-- **Hosted:** core asks Shopper for its part of a person's export (`signIn.export`, the SDK's `onExport`): the person, and **every list they are on,
-  whole** (its people by name only), with its items, catalog and its group's categories, and what phase 2 adds, under `apps/shopper/records/`. Shopper offers no
-  file of its own.
-- **Alone:** a person takes the same on **Settings > Your data** (`ExportPanel`, `ExportJobs`, downloaded once), and the first account, Shopper's
-  operator, takes the app's export on **Data**, encrypted with age to recipients they save.
-- **Encrypted fields are exported as their ciphertext,** marked as envelopes, with the person's own wrapped keys beside them (the group's for their own lists, their copies for lists shared with them), so that their keys
-  open it and nothing is in plain text on the way. Other people's emails, passwords, sessions and tokens are never in it.
+- **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, and **every list
+  they are on, whole** (its people by name only), with its items, catalog and its group's categories, and what phase 2 adds, under
+  `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
+  own wrapped keys beside them (the group's for their own lists, their copies for lists shared with them), so that their keys open it.
+- **A person's own export, readable** (RFC 0005, 22.8), in both modes, from **Settings › Data**: **one JSON file**, `shopper-export-<date>.json`,
+  **made in the browser,** which holds the keys. The server checks who is asking and serves the person's records as it holds them (the same records as
+  core's export); the browser opens them and writes the file, so the server never reads a name to make it. **Confirmed first, as core's export is:**
+  standalone, the password again (the value the browser derives, through `ExportPanel`, as core does); in suite mode, a fresh sign-in at core
+  (`prompt=login`). The file has the contract's head (`format`, `kind: "person"`, `producer`, `takenAt`) and the same kinds and fields of record,
+  opened. It is not the contract's zip, whose writer needs Node; when `@sovereignfs/export` can write one in the browser (16.26) the file becomes it.
+- **The app's export,** standalone, for the first account, Shopper's operator, on **Settings › Data**, encrypted with age to recipients they save
+  (20.3).
+- **Never in any export:** another person's email, passwords, sessions and tokens.
 - **Backups are not exports:** hosted, `sv backup`; alone, the operator's backup of the database and `SHOPPER_ENCRYPTION_KEY` (`deploy/README.md`).
 
 ### 18.2 Import
 
-Import reads a person's export (`readExport`), opens it in the browser with the person's keys, and makes **new lists**, with new keys, with the
+Import reads either kind of a person's export, the contract's (`readExport`, opened in the browser with the person's keys) or the readable file
+(§18.1), and makes **new lists**, with new keys, with the
 importer as Admin; every other member named in it becomes an **imported person** (a name with no account, shown "Sam (imported)") so that trips still
 say who bought what, and nobody else is joined without asking. The exporter's own lists are added to the importer's own:
 their products folded by name key on each list, categories matched by name, trips added. Everything is written through the one path,
@@ -1219,8 +1335,8 @@ shared record. One routine, safe to run again; the `sub` link goes last.
 A test seeds one row of every table, for the person and for a second person on a list with them, and finds nothing personal of the first after (the
 name aside), the second's list intact. A new table that holds something of a person fails it until it is decided.
 
-It is reached from **Settings > Data**, after the password or, for a Sovereign-only account, a fresh session, saying what goes and what stays; and
-from **core's account-deleted notice** (§15.2), answered `200` only once done. The device's database is deleted; other devices find out at their next
+Standalone, it is reached from **Settings › Data**, after the password, saying what goes and what stays. In suite mode deleting the account is
+core's: it is reached from **core's account-deleted notice** (§15.2), answered `200` only once done. The device's database is deleted; other devices find out at their next
 sync.
 
 ## 20. Data model and database
@@ -1251,7 +1367,8 @@ Beyond better-auth's, in the auth store.
 vault tables and the export package's jobs (their own migrations, recorded apart), without these columns, which arrive with the phase that needs them:
 `household` has no `color` or `currency`, and its sealed name is empty; `invitation` has no email; `product` has no barcode, last unit price or
 `price_unit`; `item` has no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`,
-`notice_digest`, `notice_pref`, `mail_outbox` and `credential`, and those columns. **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
+`notice_digest`, `notice_pref`, `mail_outbox` and `credential`, and those columns. **Workstream 0002 adds** (§2.3) a list's icon and colour, two
+fields of its `encrypted` and no column, so a list made before them has neither and is shown with the defaults (§9.1). **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
 account tables, the core sign-in's, the session's key secret (`sv_key_secrets`) and the SDK's stores, moved there from 0.2.x's better-auth tables at
 start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` columns are left in place and read by nothing but the move.
 
@@ -1264,7 +1381,7 @@ start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` colum
 | `invitation`       | `id`, `household_id`, `list_id`, `token_hash` (unique), `wrapped_key` (the list's keyring under the link's secret, §13.5), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                                     |
 | `category`         | `id`, `household_id`, `starter_key`, `sealed` (name, when renamed or added), `icon`, `position`, `hidden`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                         |
 | `product`          | `id`, `household_id`, `list_id`, `name_key` (unique with `household_id` and `list_id`), `sealed` (name, note, barcode, last unit price), `category_id`, `icon`, `default_quantity`, `default_unit`, `price_unit`, `times_bought`, `last_bought_at`, `last_added_at`, `deleted_at`, `seq`, `fseq`, `created_at` |
-| `list`             | `id`, `household_id`, `sealed` or `encrypted` (name), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                                    |
+| `list`             | `id`, `household_id`, `sealed` or `encrypted` (name, icon, colour), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                      |
 | `item`             | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                                                     |
 | `shop`             | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                             |
 | `trip`             | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                               |
@@ -1296,7 +1413,8 @@ last-synced unread count, and view choices. Nothing else.
 
 ### Security
 
-As Tusk's §24: a strict CSP with a per-request nonce, `connect-src 'self'`, no `'unsafe-inline'`; nothing third-party loads; what people write is
+As Tusk's §24: a strict CSP with a per-request nonce, `connect-src 'self'`, no `'unsafe-inline'`; nothing third-party loads, and in suite mode
+`img-src` adds core's own address alone, for the person's picture (§6.2) and the launcher's icons (§16.2); what people write is
 rendered as text, never as HTML. **Logs hold no item, product, list, shop or person names, notes, prices or addresses:** an id and a kind
 of failure. Every route, operation and mutation finds the session and carries the permission in its statement (§5.2); a route that changes something
 checks `Origin`; `/api/live` checks the session on connect and closes when it ends. An invitation token is random, stored hashed, compared in constant
@@ -1322,7 +1440,8 @@ docker run -v shopper:/data -e SHOPPER_DB_DIALECT=sqlite -e SHOPPER_SQLITE_URL=f
   `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, the sync interval (§12.6; the live settings are phase 2) and the limits (§7.6). Each declared once in `@sovereignfs/config`, in
   `.env.example` and in the README.
 - **Hosted:** `sv app add shopper`, from the manifest; the operator (from phase 2) grants the three app scopes, sets `SHOPPER_SMTP_*` in `suite.yml` to email people
-  who are not on the instance, and `SHOPPER_AUTH_LOCAL=1` to let them make an account.
+  who are not on the instance. Hosted is suite mode: `SHOPPER_AUTH_LOCAL` is not set, and someone invited who has no account signs up at core, as core's
+  sign-up allows (§15.1).
 - **A proxy in front** (from phase 2) must not buffer `/api/live` (Caddy, which the instance uses, does not for `text/event-stream`); the README says so for anyone
   running another.
 - **Releases** as every app's: a promotion titled `Release vX.Y.Z` tags and publishes amd64 and arm64 to `ghcr.io` on merge (`RELEASING.md`); a patch has no migration.
@@ -1365,7 +1484,8 @@ Everything the first design put in phase 1 that 0.1.0 leaves out (§2.2). Each i
   several lists; the trips history; the clearing rules (§10, §11).
 - **Notices and mail:** the mail outbox, notices and the bell, the items-added digest, preferences and delivery (§14).
 - **Fresher:** live updates and a freshness choice per device; pruning the history (§12.6, §12.9).
-- **Sign-in:** the `invite` sign-up policy, passkeys, the authenticator app, linking a core account to a local one (§6.3, §15.1).
+- **Sign-in:** the `invite` sign-up policy, passkeys and the authenticator app (§6.3, §15.1); linking a core account to a local one is superseded by
+  one way in per instance (2.9, RFC 0005).
 - **The suite:** core's bell, email and activity; inviting from the directory (§15.4).
 - **A person's data:** export, import, and import from the legacy plugin (§18).
 - **The phone:** the floating Add button (§16.11).
@@ -1429,7 +1549,13 @@ rows are at least 56 px high and its text follows the person's font size. Toasts
 
 ## 25. Open questions
 
-None. Every question raised in planning was settled on 2026-11-09 or 2026-11-10 and is in §26.
+Every question raised in planning was settled on 2026-11-09 or 2026-11-10, and RFC 0005 to 0007's on 2026-11-23, and is in §26. Writing them into
+this file (22.1, 23.1, 24.1) found these, each written here as proposed and waiting on the owner's review of the design (workstream 0002, leg 1):
+
+1. **A list's default icon and colour** (§9.1): RFC 0005 gives existing lists the cart and blue by a migration, but the server cannot encrypt them and
+   a plain default would say what it is. Proposed: a list with neither is shown with the defaults, and nothing is written for it.
+2. **The sidebar's words** (§7.4, §16.2): RFC 0005 says _My lists_ and _Shared with me_; 0.3.0 says _Your lists_ and _Shared with you_. Proposed:
+   RFC 0005's, changed with the frame (22.11).
 
 ## 26. Decision log
 
@@ -1480,3 +1606,6 @@ None. Every question raised in planning was settled on 2026-11-09 or 2026-11-10 
 | 2026-11-22 | **No compatibility with 0.1.0's shared households is designed for** (the owner): this design describes lists of their own only                                                                                                                                                             |
 | 2026-11-21 | **Sign-in on `@sovereignfs/auth`** (ADR 0001, proposed), before Shopper's vault                                                                                                                                                                                                            | One sign-in for the suite; the vault's hooks are the package's                                                                                      |
 | 2026-11-22 | **Sign-in on `@sovereignfs/auth`, built** (ADR 0001 accepted, task 17.5): the auth store moves onto the package's tables at start; everyone signs in once more after the upgrade, under the package's cookie                                                                               | What the ADR's fallback waited on was released in `@sovereignfs/auth` 0.6.0                                                                         |
+| 2026-11-23 | **One way in per instance** (RFC 0005): suite mode signs in through core only, standalone through Shopper's own accounts only; an instance configured with both starts in suite mode. Supersedes "locally, through core, or both" and linking (2.9)                                        | A suite signs in through core; a standalone app has no core to offer                                                                                |
+| 2026-11-23 | **The suite's frame, Settings as `SettingsDialog`, an item beside its list, a list's icon and colour (encrypted), page titles set by the browser** (RFC 0005); the frame and the dialog are built in `@sovereignfs/ui` first                                                               | Shopper looks and behaves as the suite's apps do, and reusable UI is the design system's                                                            |
+| 2026-11-23 | **A person's own export is readable,** one JSON file made in the browser after confirming it is them (RFC 0005); core's export keeps Shopper's part as ciphertext. Supersedes 20.2 as written                                                                                              | The owner's decision: people get their data readable now                                                                                            |

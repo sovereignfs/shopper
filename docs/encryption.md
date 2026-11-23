@@ -40,6 +40,8 @@ server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted
 - **It does not protect** against whoever runs the server, which sends the app your browser runs and could send a changed one. Nor the device: a
   signed-in browser holds your lists as you see them until you sign out. Nor the people you share a list with: they see all of that list.
 - **Logs** hold ids and kinds of failure, never a name, a note or an address.
+- **Page titles** (in a coming release): a page's title will carry a list's name, set by your browser once it has opened it. Your browser keeps
+  titles in its history, and a history your browser syncs leaves the device with them: the one way an opened name leaves Shopper.
 
 ## The server's key
 

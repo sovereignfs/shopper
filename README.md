@@ -11,7 +11,9 @@ instance.
   ([what that does and does not do](#encryption)). Not yet audited.
 
 It is a web app that installs like any other (a PWA), with its own database (an sqld service, a SQLite file or PostgreSQL), and people sign in with an email and a
-password, through a Sovereign instance, or both. It needs no Sovereign instance: it runs fully on its own.
+password, through a Sovereign instance, or both. It needs no Sovereign instance: it runs fully on its own. **Changing in a coming release:** an instance
+will sign people in one way only, through Sovereign when it is hosted and with its own accounts when it is alone; one set up with both will sign in
+through Sovereign only, and say so when it starts.
 
 ## What it does, and does not do yet
 
@@ -66,7 +68,8 @@ docker compose -f compose.yaml -f compose.postgres.yaml up -d --build          #
 ### Hosted by a Sovereign instance
 
 `sv app add shopper` hosts it from `sovereign.manifest.json`, which is also the image's label. The instance gives it a database and its settings, and people sign in
-through it. Set `SHOPPER_AUTH_LOCAL=1` as well and people who are not on the instance can make an account, which is what lets them accept a link you send. See
+through it. Set `SHOPPER_AUTH_LOCAL=1` as well and people who are not on the instance can make an account, which is what lets them accept a link you send (until a
+coming release, from which a hosted Shopper signs in through the instance only, and someone you send a link to makes an account there). See
 [`deploy/README.md`](deploy/README.md).
 
 ## Settings

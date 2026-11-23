@@ -208,6 +208,8 @@ As `encrypting-an-app.md` sets out, in Shopper's words for `docs/encryption.md`:
 
 1. Whether `auth.keySecret` and `/auth/key-secret` work over Shopper's own better-auth session, not only the SDK's `nextAuth` (raised as 16.10).
 2. Whether a person's export should carry a readable copy made in their browser, beside the ciphertext the export contract requires (RFC 0003).
+   **Settled (2026-11-23)** by [RFC 0005](0005-the-frame-settings-and-screens.md): a person's own export is readable, one JSON file made by their
+   browser (22.8); core's export keeps Shopper's part as ciphertext.
 3. Whether better-auth's `user` table, which keeps name and email in plain text (finding 2 of `docs/security/0.1.0.md`), should move to
    `@sovereignfs/auth` (17.3) and whether that changes it.
 

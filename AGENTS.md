@@ -17,8 +17,8 @@ people, catalog and keys), a catalog that learns what is bought, ticking things 
 syncing in the background, with others' changes arriving as fast as each person chooses (up to live, from phase 2). A Sovereign instance can host it, and **it runs fully on its
 own, with every feature, needing no instance**: its own accounts, people, mail and notices. It replaces the legacy plugin
 `sovereignfs/sovereign-plugin-shopper`, whose behaviour is the starting point and none of whose code or interface is carried over; its export can be
-imported. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL), signing people in locally, through a Sovereign core, or
-both, from one image.
+imported. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL), signing people in through a Sovereign core in a suite
+or with its own accounts alone, never both, from one image.
 
 **Nothing is built yet.** `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A starts by copying Tusk's infrastructure (`DESIGN.md`
 §5.1).
@@ -123,7 +123,7 @@ and security reviews (`docs/security/`) are used as Sovereign and Tusk use them.
 
 Tusk's rules, as they apply here, and Shopper's own. They describe the app as `DESIGN.md` designs it.
 
-- **Every feature works with no Sovereign instance.** Core adds a way in, a directory, a bell and email; a feature that only works with core is not
+- **Every feature works with no Sovereign instance.** In a suite, core is the way in (never beside Shopper's own, `DESIGN.md` §15.1) and adds a directory, a bell and email; a feature that only works with core is not
   done. A call to core that fails, is refused or is not supported changes nothing but that call (`DESIGN.md` §15.4).
 - **An account is known by its better-auth user id (`account_id`); someone on a shared row is a `person`.** Every account has exactly one person and
   exactly one group (`household`, `own_of`) made with it, holding the lists it makes and **never shown** (RFC 0004): others are invited to a list,
