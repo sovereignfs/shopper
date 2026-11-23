@@ -983,7 +983,8 @@ Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping those only. `docs/enc
 /api/keys/move` opens its rows one last time for its account, each with its list; the device makes the group's keyring, derives each list's, encrypts
 every row under its list's keys, and `POST` writes them all, empties the sealed content, keeps the keyring and marks the group encrypted, in one
 transaction, only if its `seq` has not moved and every value is for its own row and list. **A group with anyone else on one of its lists, or a link to one of them waiting** (made while it was sealed, so carrying no keys), **does not move**
-(they could not be given keys without a link): it stays sealed by the server, and loses nothing. Lists shared after the move carry their keys in their
+(they could not be given keys without a link): it stays sealed by the server, and loses nothing. **Its Inventory and its account's own categories**
+(§8.8) are sealed by the server too, as the rest of its content is, and move with it. Lists shared after the move carry their keys in their
 links.
 
 ## 14. Notices (phase 2)
@@ -1682,35 +1683,8 @@ rows are at least 56 px high and its text follows the person's font size. Toasts
 
 ## 25. Open questions
 
-Every question raised in planning was settled on 2026-11-09 or 2026-11-10, and RFC 0005 to 0007's on 2026-11-23, and is in §26. Writing them into
-this file (22.1, 23.1, 24.1) found these, each written here as proposed and waiting on the owner's review of the design (workstream 0002, leg 1):
-
-1. **A list's default icon and colour** (§9.1): RFC 0005 gives existing lists the cart and blue by a migration, but the server cannot encrypt them and
-   a plain default would say what it is. Proposed: a list with neither is shown with the defaults, and nothing is written for it.
-2. **The sidebar's words** (§7.4, §16.2): RFC 0005 says _My lists_ and _Shared with me_; 0.3.0 says _Your lists_ and _Shared with you_. Proposed:
-   RFC 0005's, changed with the frame (22.11).
-3. **Limits for Inventory** (§7.6): RFC 0006 sets none, and every limit is a setting. Proposed: `SHOPPER_LIMIT_INVENTORY_ITEMS`, 5000, as a group's
-   products; a person's own categories count against `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`.
-4. **Inventory in a group still sealed by the server** (§13.7): a group that could not move has no keyring to derive Inventory keys from. Proposed:
-   its Inventory and own categories are sealed by the server as the rest of its content is, and move with it.
-5. **An item's category on a shared list** (§8.3): RFC 0006 makes a list's copy of a person's category; proposed that an item then points at the
-   copy (`list_category`), so that nothing a change points at is another group's.
-6. **All lists** (§9.7): RFC 0006 makes _All lists_ Home's tiles; proposed that phase 2's view of every open item in one place is not built, rather
-   than kept as a page beside Home.
-7. **Where a card's invitation is kept** (§20.3): RFC 0007 does not say. Proposed: `invitation` with a `card_id` in place of its `list_id`, so that
-   one token store, one page and one set of rules serve both.
-8. **A card's keys when someone leaves** (§13.2): 24.5 asks for a new key; a list makes none until 16.8. Proposed: a card follows a list, and both get
-   new epochs together when 16.8 is released.
-9. **Where a list's cards are linked** (§16.5): RFC 0007 says "from the list's settings", which have two sections. Proposed: a third, **Cards**.
-10. **Limits for cards** (§7.6): proposed `SHOPPER_LIMIT_ACCOUNT_CARDS`, 100, with a card's people and links as a list's.
-11. **Who is handed a card's link to a list** (§7.7, §12.3): proposed only someone on both, so that a person on the list learns nothing of a card they
-    are not on, not even that it exists.
-12. **Shopping mode's header** (§11.1): RFC 0005 leaves nothing on the right; RFC 0007 puts the card button there. Proposed: the card button, and
-    phase 2's shop beside it.
-13. **Joining a list in a suite with no account there** (§15.1, §21): with one way in, someone sent a link who has no account on the instance can join
-    only if core lets them sign up; until now a hosted Shopper could keep its own sign-in on for them. Proposed: accepted, as core's sign-up decides.
-14. **Who may invite to a card** (§7.7): RFC 0007 says a Member sees and shows it, where a list's Member may also invite. Proposed: RFC 0007's, its
-    Admin alone invites.
+None. Every question raised in planning was settled on 2026-11-09 or 2026-11-10, RFC 0005 to 0007's on 2026-11-23, and the fourteen points that
+writing them into this file found were settled with the owner the same day, as proposed (§26, "Settled at leg 1's review").
 
 ## 26. Decision log
 
@@ -1767,3 +1741,35 @@ this file (22.1, 23.1, 24.1) found these, each written here as proposed and wait
 | 2026-11-23 | **Inventory, a person's own library of what they buy,** never shared, with the starter catalog layered under it and their own categories, copied per list as a list uses them (RFC 0006). The catalog screen is Inventory; the pantry, staples and repeating items are Inventory's         | Sharing it would break RFC 0004; copying the starter into every account would freeze it                                                             |
 | 2026-11-23 | **Loyalty cards in Shopper, shop cards only,** each with its own people and keys, shared by a link as a list is, linked to lists for shopping mode; six kinds of code; scanning on the device brought forward from phase 4 (RFC 0007)                                                      | Shopper alone would otherwise have none, and sharing with the people one shops with would wait on Wallet; Wallet stays for what is private          |
 | 2026-11-23 | **A person's own export is readable,** one JSON file made in the browser after confirming it is them (RFC 0005); core's export keeps Shopper's part as ciphertext. Supersedes 20.2 as written                                                                                              | The owner's decision: people get their data readable now                                                                                            |
+
+### Settled at leg 1's review (2026-11-23)
+
+Writing RFC 0005 to 0007 into this file (22.1, 23.1, 24.1) found these, where the RFCs were silent, disagreed or could not be built as written. The
+owner settled each as written here, in workstream 0002's leg 1 review:
+
+1. **A list's default icon and colour** (§9.1): RFC 0005 gives existing lists the cart and blue by a migration, but the server cannot encrypt them and
+   a plain default would say what it is. Decided: a list with neither is shown with the defaults, and nothing is written for it.
+2. **The sidebar's words** (§7.4, §16.2): RFC 0005 says _My lists_ and _Shared with me_; 0.3.0 says _Your lists_ and _Shared with you_. Decided:
+   RFC 0005's, changed with the frame (22.11).
+3. **Limits for Inventory** (§7.6): RFC 0006 sets none, and every limit is a setting. Decided: `SHOPPER_LIMIT_INVENTORY_ITEMS`, 5000, as a group's
+   products; a person's own categories count against `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`.
+4. **Inventory in a group still sealed by the server** (§13.7): a group that could not move has no keyring to derive Inventory keys from. Decided:
+   its Inventory and own categories are sealed by the server as the rest of its content is, and move with it.
+5. **An item's category on a shared list** (§8.3): RFC 0006 makes a list's copy of a person's category; decided that an item then points at the
+   copy (`list_category`), so that nothing a change points at is another group's.
+6. **All lists** (§9.7): RFC 0006 makes _All lists_ Home's tiles; decided that phase 2's view of every open item in one place is not built, rather
+   than kept as a page beside Home.
+7. **Where a card's invitation is kept** (§20.3): RFC 0007 does not say. Decided: `invitation` with a `card_id` in place of its `list_id`, so that
+   one token store, one page and one set of rules serve both.
+8. **A card's keys when someone leaves** (§13.2): 24.5 asks for a new key; a list makes none until 16.8. Decided: a card follows a list, and both get
+   new epochs together when 16.8 is released.
+9. **Where a list's cards are linked** (§16.5): RFC 0007 says "from the list's settings", which have two sections. Decided: a third, **Cards**.
+10. **Limits for cards** (§7.6): decided, `SHOPPER_LIMIT_ACCOUNT_CARDS`, 100, with a card's people and links as a list's.
+11. **Who is handed a card's link to a list** (§7.7, §12.3): decided, only someone on both, so that a person on the list learns nothing of a card they
+    are not on, not even that it exists.
+12. **Shopping mode's header** (§11.1): RFC 0005 leaves nothing on the right; RFC 0007 puts the card button there. Decided: the card button, and
+    phase 2's shop beside it.
+13. **Joining a list in a suite with no account there** (§15.1, §21): with one way in, someone sent a link who has no account on the instance can join
+    only if core lets them sign up; until now a hosted Shopper could keep its own sign-in on for them. Decided: accepted, as core's sign-up decides.
+14. **Who may invite to a card** (§7.7): RFC 0007 says a Member sees and shows it, where a list's Member may also invite. Decided: RFC 0007's, its
+    Admin alone invites.

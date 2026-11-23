@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 written on 2026-11-23 and waiting on the owner's review; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 written on 2026-11-23, its open points settled, the design's review open; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -160,7 +160,7 @@ server route asks for the session and the confirmation and serves records; the b
 **Epic tasks:** 22.3, 22.4, 22.5, 22.6, 22.9, 22.10
 
 **Technical notes:** the icon and colour are two encrypted fields on `list`; a list with neither is shown with the defaults, in place of a migration
-giving every list them (proposed, `DESIGN.md` §25.1). The item
+giving every list them (`DESIGN.md` §9.1, settled with the owner). The item
 column is `ThreeColumnLayout`'s, as Tusk's `Frame`. Titles are set by one hook from the opened name.
 
 **Do not proceed if:** a list's icon or colour is readable in any table.
@@ -208,8 +208,9 @@ started with 12.7's release published as v0.2.0 and its roadmap row still open, 
 
 **What waits:**
 
-- **The owner's review of the design,** the leg's gate, and with it **the fourteen points in `DESIGN.md` §25**, each written as proposed where the RFCs
-  were silent or disagreed: the defaults of a list's icon and colour with no migration; the sidebar's words; Inventory's limit, its keys in a group
-  still sealed by the server, an item pointing at a list's copy of a category, and no view of every open item; a card's invitation, its keys when
-  someone leaves, the list's settings' Cards section, its limit, who is handed its link to a list, its button in shopping mode's header, and who may invite to it; and joining a list in a suite with no account at core.
+- **The owner's review of the design as a whole,** the leg's gate. **The fourteen points it raised are settled** (2026-11-23, all as proposed; `DESIGN.md`
+  §26, "Settled at leg 1's review"): the defaults of a list's icon and colour with no migration; the sidebar's words; Inventory's limit, its sealing
+  in a group not yet moved, an item pointing at a list's copy of a category, and no view of every open item; a card's invitation in `invitation`, its
+  keys following a list's until 16.8, the list's settings' Cards section, its limit, its link handed only to someone on both, its button in shopping
+  mode's header, and its Admin alone inviting; and joining a list in a suite only as core's sign-up allows.
 - **Leg 2** (16.17 to 16.26, in `sovereign`): nothing released yet; legs 3, 4, 5 and 7 wait on it as the table says.

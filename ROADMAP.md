@@ -268,7 +268,7 @@ take theirs, and an export imports into a second account.
 
 [Workstream 0002](docs/workstreams/0002-frame-home-cards.md): RFC [0005](docs/rfcs/0005-the-frame-settings-and-screens.md),
 [0006](docs/rfcs/0006-home-and-inventory.md) and [0007](docs/rfcs/0007-loyalty-cards.md), after 12.7 and before phase 2. `DESIGN.md` says what these rows
-build (22.1, 23.1, 24.1), with the points its §25 asks the owner. **Done when** its release (12.8) is published: Shopper's frame and Settings are the design
+build (22.1, 23.1, 24.1), reviewed by the owner. **Done when** its release (12.8) is published: Shopper's frame and Settings are the design
 system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite.
 
 ### Milestone W — The design, and what `sovereign` builds

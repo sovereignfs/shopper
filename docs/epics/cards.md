@@ -29,8 +29,7 @@ private.
 
 **Done as:** `DESIGN.md` says what RFC 0007 builds:
 
-- §2.3's row; §4 (**loyalty card**, and "card" among the words); §5.2 (**a card is a list's equal**, `onCard`, and a link needing both); §7.6 (a limit,
-  proposed); a new **§7.7 Loyalty cards** (what a card holds, adding and showing it, its people and keys, online operations, cards on a list, and
+- §2.3's row; §4 (**loyalty card**, and "card" among the words); §5.2 (**a card is a list's equal**, `onCard`, and a link needing both); §7.6 (a limit); a new **§7.7 Loyalty cards** (what a card holds, adding and showing it, its people and keys, online operations, cards on a list, and
   **sharing a list shares no card**).
 - §11.1 (the card button in shopping mode's header); §12.1 to §12.3 and §12.8 (the store, what syncs, the pull hands a card and its links only to its
   people, the online operations); §13.1 (a card's fields, under its own keys), §13.2 (a card's keyring and `card_key`), §13.5 (a link to a card) and
@@ -41,7 +40,7 @@ private.
 - `AGENTS.md`: joining a card only by accepting, its operations online, `onCard`, the one path's tables, the device's store and the words.
   `docs/sharing.md`: cards and Inventory, as coming. 14.1 already pointed here.
 
-Beyond the RFC, each in §25 for the owner: a card's invitation kept in `invitation`; a card's keys following a list's until 16.8 (24.5 asks for a new
+Beyond the RFC, each settled with the owner at the leg's review (§26): a card's invitation kept in `invitation`; a card's keys following a list's until 16.8 (24.5 asks for a new
 key when someone leaves); a third section of the list's settings for its cards; a limit; the link handed only to someone on both; the card button on
 the right of shopping mode's header; its Admin alone inviting, as RFC 0007 says (a list's Member may).
 
@@ -80,7 +79,8 @@ scanning.
 **Goal:** a card shared by a link, as a list is. **Design:** RFC 0007, "Sharing a card". **Depends on:** 24.2.
 
 **Technical:** invitations to a card (token hashed, single-use, expiring; the card's keys in the link's fragment), accepting, leaving and removing, as
-for a list; a removed person's device forgets the card; a new key when someone leaves.
+for a list; a removed person's device forgets the card; a new key when someone leaves only when lists get one, with 16.8 (`DESIGN.md` §13.2,
+settled with the owner).
 
 **Accepts when:** Grace accepts Ada's card and shows it offline, and sees none of Ada's lists or other cards; removed, the card leaves her device.
 

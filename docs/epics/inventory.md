@@ -32,7 +32,7 @@ to 13.3 pointing here.
 
 - §2.1 (the landing page, light inventory and recurring items carried as Home and Inventory), §2.3's rows, §3's first journey (Home), §4 (**Home**,
   **Inventory**, the starter catalog and categories, and the words).
-- §5.2 (**Inventory is its account's alone**, `ownerOf` in the statement), §7.1 (the group holds it), §7.6 (a limit for it, proposed).
+- §5.2 (**Inventory is its account's alone**, `ownerOf` in the statement), §7.1 (the group holds it), §7.6 (a limit for it).
 - §8.1 (a person's Inventory beside a list's catalog), §8.2 (a list's product made from the Inventory item; tidied from an item's panel), §8.3
   rewritten (a person's own categories, encrypted under keys nobody else holds; `list_category`, a list's copy), §8.5 (Inventory first; a hidden
   entry never offered; recurring items first in the empty field), §8.6 (the starter as a layer), §8.7 (an Inventory item's name key) and a new
@@ -46,7 +46,7 @@ to 13.3 pointing here.
 - `AGENTS.md`: Inventory's rule of access, the one path's tables, the device's store and the words. 8.5, 8.6, 4.7 and 13.1 to 13.3 already pointed
   here.
 
-Beyond the RFC, each in §25 for the owner: a limit for Inventory; Inventory in a group still sealed by the server; an item on a shared list pointing at
+Beyond the RFC, each settled with the owner at the leg's review (§26): a limit for Inventory; Inventory in a group still sealed by the server; an item on a shared list pointing at
 the list's copy of a category; phase 2's view of every open item not built.
 
 #### 📋 23.2 — Home
