@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; legs 3 to 8 to go; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 under way (22.2 done; 22.8 next; 22.7 waits for `@sovereignfs/ui` 0.107.0); legs 4 to 8 to go; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\

@@ -54,7 +54,7 @@ Changed from the RFC: **a list's default icon and colour are not written by a mi
 would say what they are: a list with neither is shown with the cart and blue (§9.1, 22.3's technical changed to match; settled with the owner, §26). And with one way in, someone sent a link with no account at core can join only if
 core lets them sign up (settled with the owner, §26).
 
-#### 📋 22.2 — Sign-in by mode
+#### ✅ 22.2 — Sign-in by mode
 
 **Goal:** in a suite, Shopper's sign-in pages are the way to core; alone, they are core's forms. **Design:** RFC 0005, "Sign-in". **Depends on:** 22.1.
 
@@ -66,6 +66,26 @@ Shopper's recovery-kit screen kept in `AuthCard`. With 16.17, `/sign-up` asks co
 **Accepts when:** in a suite, visiting `/sign-in` signed out arrives at core's sign-in with Shopper's return, an invitation's `next` survives the round
 trip, and a refused sign-in at core shows the page once with no loop; alone, the forms render as core's, and every existing auth test passes; an
 instance configured both ways starts in suite mode and logs it once.
+
+**Done as (0.4.0, 2026-11-23):** `resolveAuth` makes suite mode win: with a core, `local` is off wherever it is read (so `@sovereignfs/auth`'s
+password routes are not mounted) and `localIgnored` names the settings set beside it, which `instrumentation-node.ts` says once at start, names
+only; the proxy's `edgeSettings` agrees and keeps `/sign-in` and `/sign-up` in suite mode. Those two pages are `SuitePage`
+(`src/auth/suite-page.tsx`, its three outcomes pure in `src/auth/suite.ts`): a session goes to `next`, `?error=` shows the reason and _Try again_
+once, anyone else goes to `/api/auth/sign-in/sovereign?returnTo=…`. **The proxy makes that last redirect** for a visitor with no session cookie
+and no `?error=` (a 307 from the server): a page's own `redirect()` comes after the root loading state has sent a 200, which a browser follows
+but which is no redirect, as the deploy check found; the destination is Shopper's `next` or the package's `returnTo`, only ever an
+invitation's page. Core unreachable when a sign-in starts (an error answered or thrown by the package's start route) becomes
+`/sign-in?error=sovereign_unreachable`, said in a sentence, in `app/api/auth/[...all]/route.ts`. The landing's button says _Sign in with
+Sovereign_ in a suite, and offers no sign-up there. Standalone, `SignInForm`, `SignUpForm`, `ForgotPasswordForm` and `ResetPasswordForm` from
+`@sovereignfs/ui` 0.105.0 (already pinned: it has all four), with Shopper's derivation, vault, kit and _Send the link again_ around them; the
+reset page reads its token when the form is sent, no longer while rendering. **Behaviour that changed:** sign-up and a new password ask for the
+password twice; `/sign-up`'s own footer is the form's. Tests: `suite.test.ts`, the config, proxy and route tests (three seen to fail without the
+change); the browser tests rewritten for suite mode (`e2e/sovereign.spec.ts`: `/sign-in` and `/sign-up` go through core, the both-ways instance
+has no password form and its sign-up route is 404, core's logout checked by the session, as a fresh `/sign-in` signs straight in again), and
+the sign-up helper fills the confirmation; `scripts/deploy-check.sh`'s `sovereign` setup checks that `/sign-in` and `/sign-up` answer 307 to
+core, and that a core that cannot be reached ends on the sign-in page saying so, with no password field. **Left out:** `prompt=create` (16.17 is not released; Shopper's `@sovereignfs/auth` 0.6.0 would drop
+it, and a core before 0.86.0 would send the person back to its sign-up after the account was made, so it waits for both); the `Sovereign beside
+local` unit test in `sovereign.test.ts` stays, since it holds the package to never matching by email, which is what protects those accounts now.
 
 #### 📋 22.3 — A list's icon and colour
 

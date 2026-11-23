@@ -20,6 +20,13 @@ export async function start(): Promise<void> {
     for (const problem of result.problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
+  const ignored = result.config.auth?.localIgnored;
+  if (ignored) {
+    // Once, at start-up: an instance with both ways in runs in suite mode (RFC 0005). Names only, never a value.
+    console.warn(
+      `Shopper signs people in through Sovereign only: a core is set, so local sign-in is off. Remove ${ignored.join(', ')}.`,
+    );
+  }
 
   try {
     const { getStores } = await import('./src/db/boot');

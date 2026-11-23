@@ -1,26 +1,16 @@
 import { expect, type Page } from '@playwright/test';
-import {
-  PASSWORD,
-  accountOf,
-  anotherDevice,
-  deviceRows,
-  fillSignUp,
-  keepKit,
-  makeLink,
-  test,
-  signOutFromMenu,
-} from './helpers';
+import { accountOf, anotherDevice, deviceRows, makeLink, test, signOutFromMenu } from './helpers';
 import { PORTS } from './ports';
 
 /**
  * Signing in through Sovereign (task 2.3, DESIGN.md §15.1), a fake one (`e2e/fake-sovereign-server.ts`), on two instances of their own, **both with sign-up
- * closed**: one that takes only Sovereign, and one that takes both ways. A sign-in through core is not refused by the sign-up setting; one whose address is a
- * local account's is refused with a sentence and makes and touches nothing. The instances keep their accounts between the two browsers, so each test is the
- * same whichever runs first.
+ * closed**: one set up with Sovereign only, and one set up both ways, which runs in suite mode all the same (RFC 0005). In suite mode `/sign-in` and
+ * `/sign-up` send the browser to core at once, and the fake signs in whoever it was told to, so arriving at either is coming back signed in. A sign-in
+ * through core is not refused by the sign-up setting. The instances keep their accounts between the two browsers, so each test is the same whichever
+ * runs first.
  */
 const SOVEREIGN = `http://localhost:${PORTS.sovereign}`;
 const BOTH = `http://localhost:${PORTS.both}`;
-const LOCAL = { email: 'local-owner@both.test', name: 'Local Owner' };
 
 async function nextPersonIs(page: Page, who: { sub: string; email: string; name?: string }) {
   const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/sign-in-as`, {
@@ -30,14 +20,13 @@ async function nextPersonIs(page: Page, who: { sub: string; email: string; name?
 }
 
 /**
- * Starts the sign-in at Sovereign. Sign-in is rate-limited, three tries in ten seconds from one address, and both browsers reach these instances from the same
- * one: when told so, wait it out and go again, as a person would.
+ * Signs in at Sovereign by opening `/sign-in` (or `path`), which in suite mode goes to core and back. Sign-in is rate-limited, three tries in ten seconds
+ * from one address, and both browsers reach these instances from the same one: when told so, wait it out and go again, as a person would.
  */
-async function throughSovereign(page: Page) {
-  const button = page.getByRole('button', { name: 'Sign in with Sovereign' });
+async function throughSovereign(page: Page, path = '/sign-in') {
   const limited = page.getByText(/Too many tries/);
   for (let attempt = 0; attempt < 3; attempt++) {
-    await button.click();
+    await page.goto(path);
     await expect(
       limited
         .or(page.getByRole('button', { name: 'User menu' }))
@@ -63,15 +52,20 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   test.use({ baseURL: SOVEREIGN, viewport: { width: 1280, height: 800 } });
   test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
-  test('offers Sovereign and nothing of the local ways, which are not there to find', async ({
+  test('sends sign-in and sign-up to core at once, and has nothing of the local ways, which are not there to find', async ({
     page,
   }) => {
-    await page.goto('/sign-in');
-    await expect(page.getByRole('button', { name: 'Sign in with Sovereign' })).toBeVisible();
-    await expect(page.getByLabel('Password')).toHaveCount(0);
-    for (const path of ['/sign-up', '/forgot-password', '/reset-password']) {
+    for (const path of ['/forgot-password', '/reset-password']) {
       expect((await page.goto(path))?.status(), path).toBe(404);
     }
+    await page.goto('/');
+    await expect(page.getByRole('link', { name: 'Sign in with Sovereign' })).toBeVisible();
+    // Sign-up has no form of its own: it is core's, so the page sends the browser there and back.
+    await nextPersonIs(page, person('signup'));
+    await throughSovereign(page, '/sign-up');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await signOut(page);
   });
 
   test('anyone Sovereign signs in gets an account, as who Sovereign says they are, with their first household, though sign-up is closed', async ({
@@ -79,7 +73,6 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   }) => {
     for (const who of [person('first'), person('second')]) {
       await nextPersonIs(page, who);
-      await page.goto('/sign-in');
       await throughSovereign(page);
       await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
       await page.getByRole('button', { name: 'User menu' }).click();
@@ -102,13 +95,11 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   }) => {
     const who = person('again');
     await nextPersonIs(page, who);
-    await page.goto('/sign-in');
     await throughSovereign(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
       timeout: 30_000,
     });
     await signOut(page);
-    await page.goto('/sign-in');
     await throughSovereign(page);
     // The same account: its household is still the one list, not a second.
     await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
@@ -125,7 +116,6 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     browser,
   }) => {
     await nextPersonIs(page, person('host'));
-    await page.goto('/sign-in');
     await throughSovereign(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
       timeout: 30_000,
@@ -138,7 +128,6 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     // Nothing warns of a closed instance: Sovereign is a way in whatever sign-up says.
     await expect(guest.page.getByText(/not taking new ones/)).toHaveCount(0);
     await guest.page.getByRole('link', { name: 'Sign in' }).click();
-    await guest.page.getByRole('button', { name: 'Sign in with Sovereign' }).click();
     // Back at the invitation, signed in.
     await expect(guest.page).toHaveURL(link.path.split('#')[0] ?? link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
@@ -170,7 +159,6 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     page.request.post('/api/sovereign/account-deleted', { form: { account_deleted_token: token } });
   async function signInAs(page: Page, who: { sub: string; email: string; name?: string }) {
     await nextPersonIs(page, who);
-    await page.goto('/sign-in');
     await throughSovereign(page);
     await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
   }
@@ -187,9 +175,10 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
 
     const reply = await sendLogout(page, await noticeFrom(page, 'logout', who.sub));
     expect(reply.status()).toBe(200);
+    // Signed out on both: no session is left. (Sent to sign in, suite mode would go straight to core, which the fake answers by signing in again.)
     for (const tab of [page, elsewhere]) {
-      await tab.goto('/home');
-      await expect(tab).toHaveURL(/\/sign-in/);
+      const session = await tab.request.get('/api/auth/get-session');
+      expect(await session.json()).toBeNull();
     }
     await other.close();
     // And they can sign in again: the account is theirs still.
@@ -307,62 +296,26 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   });
 });
 
-test.describe('an instance that takes both ways, with sign-up closed', () => {
+test.describe('an instance set up both ways, which runs in suite mode', () => {
   test.use({ baseURL: BOTH, viewport: { width: 1280, height: 800 } });
   test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
-  /** The local account, made once by whichever browser gets here first: sign-up takes the first account and then closes. */
-  async function localAccountExists(page: Page) {
-    await page.goto('/sign-up');
-    if (await page.getByRole('heading', { name: 'Create your account' }).isVisible()) {
-      await fillSignUp(page, { name: LOCAL.name, email: LOCAL.email, password: PASSWORD });
-      await page.getByRole('button', { name: 'Create account' }).click();
-      await keepKit(page);
-      await expect(page).toHaveURL(/\/$/);
-      await signOut(page);
-    } else {
-      await expect(page.getByRole('heading', { name: 'Sign-up is closed' })).toBeVisible();
-    }
-  }
-
-  test('offers both ways, and the local one still works', async ({ page }) => {
-    await localAccountExists(page);
-    await page.goto('/sign-in');
-    await expect(page.getByRole('button', { name: 'Sign in with Sovereign' })).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
-    await page.getByLabel('Email').fill(LOCAL.email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
-    await signOut(page);
-  });
-
-  test('a stranger signs in through Sovereign though local sign-up is closed', async ({ page }) => {
-    await localAccountExists(page);
-    await nextPersonIs(page, person('stranger'));
-    await page.goto('/sign-in');
-    await throughSovereign(page);
-    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
-    await signOut(page);
-  });
-
-  test('a Sovereign login whose address is a local account’s is refused with a sentence, and the local account is as it was', async ({
+  test('signs in through Sovereign only: no password form, and the local routes are not there', async ({
     page,
+    request,
   }) => {
-    await localAccountExists(page);
-    await nextPersonIs(page, { sub: `e2e-impostor-${process.pid}`, ...LOCAL });
-    await page.goto('/sign-in');
+    for (const path of ['/forgot-password', '/reset-password']) {
+      expect((await page.goto(path))?.status(), path).toBe(404);
+    }
+    const reply = await request.post(`${BOTH}/api/auth/sign-up/email`, {
+      headers: { origin: BOTH },
+      data: { name: 'Mallory', email: 'mallory@both.test', password: 'x'.repeat(43) },
+    });
+    expect(reply.status()).toBe(404);
+    await nextPersonIs(page, person('stranger'));
     await throughSovereign(page);
-    await expect(page).toHaveURL(/\/sign-in/);
-    await expect(page.getByText(/Sign in with your password/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
-    // The local account still signs in with its password, as itself.
-    await page.getByLabel('Email').fill(LOCAL.email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await page.getByRole('button', { name: 'User menu' }).click();
-    await expect(page.getByText(LOCAL.name, { exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
     await signOut(page);
   });
 });

@@ -12,7 +12,10 @@ import type { Problem } from '../config';
  *   SHOPPER_AUTH_PASSWORD_MIN_LENGTH   the shortest password, 10 by default.
  *   SHOPPER_URL                        the address people use; required with either way (links, cookies and the redirect are made from it).
  *   SHOPPER_CORE_URL, SHOPPER_CORE_CLIENT_ID, SHOPPER_CORE_CLIENT_SECRET[_FILE]
- *                                      Sovereign sign-in, through a core: all three or none. Either way, or both, can be on.
+ *                                      Sovereign sign-in, through a core: all three or none.
+ *
+ * **One way in, never both** (RFC 0005): with a core it is suite mode, through core only; without, standalone, Shopper's own accounts. An instance
+ * that sets both starts in suite mode, with local sign-in off, and says so once at start-up (`localIgnored`), naming the settings to remove.
  *
  * With none of the ways on there is no sign-in at all, and the other settings here are not read.
  */
@@ -22,8 +25,10 @@ export interface AuthSettings {
   readonly secret: string;
   readonly signUp: 'open' | 'closed';
   readonly passwordMinLength: number;
-  /** Email and password are on. Off means off: their pages and routes answer 404. */
+  /** Email and password are on (standalone mode). Off means off: their pages and routes answer 404. Never on with `sovereign`. */
   readonly local: boolean;
+  /** `SHOPPER_AUTH_LOCAL` was on beside a core, and is off: suite mode wins. The settings that do nothing now, to say once at start-up. */
+  readonly localIgnored?: readonly string[];
   /** Sign-in through a core, or `undefined` when it is not set up. */
   readonly sovereign: SovereignSettings | undefined;
 }
@@ -63,9 +68,17 @@ export function resolveAuth(
   url: string | undefined,
   problems: Problem[],
 ): AuthSettings | undefined {
-  const local = readFlag(read, 'SHOPPER_AUTH_LOCAL', problems);
+  const asked = readFlag(read, 'SHOPPER_AUTH_LOCAL', problems);
   const sovereign = resolveSovereign(read, problems);
-  if (!local && !sovereign) return undefined;
+  if (!asked && !sovereign) return undefined;
+  // Suite mode wins: a core is the way in, never beside Shopper's own accounts.
+  const local = asked && !sovereign;
+  const localIgnored =
+    asked && sovereign
+      ? ['SHOPPER_AUTH_LOCAL', 'SHOPPER_AUTH_SIGNUP', 'SHOPPER_AUTH_PASSWORD_MIN_LENGTH'].filter(
+          (name) => read(name) !== undefined,
+        )
+      : undefined;
   const why = local ? 'SHOPPER_AUTH_LOCAL is on' : 'Sovereign sign-in is set';
 
   if (url === undefined && read('SHOPPER_URL') === undefined) {
@@ -103,7 +116,15 @@ export function resolveAuth(
   if (secret.length < MIN_SECRET_LENGTH || (rawSignUp !== 'open' && rawSignUp !== 'closed')) {
     return undefined;
   }
-  return { url, secret, signUp: rawSignUp, passwordMinLength, local, sovereign };
+  return {
+    url,
+    secret,
+    signUp: rawSignUp,
+    passwordMinLength,
+    local,
+    ...(localIgnored ? { localIgnored } : {}),
+    sovereign,
+  };
 }
 
 /**

@@ -59,7 +59,8 @@ export async function fillSignUp(
   const fields = [
     [page.getByLabel('Name'), name],
     [page.getByLabel('Email'), email],
-    [page.getByLabel('Password'), password],
+    [page.getByLabel('Password', { exact: true }), password],
+    [page.getByLabel('Confirm password'), password],
   ] as const;
   await expect(async () => {
     for (const [field, value] of fields) await field.fill(value);

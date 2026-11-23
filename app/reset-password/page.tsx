@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { AuthShell } from '@/src/auth/screens/AuthShell';
 import { ResetForm } from '@/src/auth/screens/ResetForm';
 import { authSettings, mailAvailable } from '@/src/auth/server';
-import { AuthLink } from '@sovereignfs/ui';
 import { resetAddress } from '@/src/auth/reset';
 import { getVaultId } from '@/src/keys/server/vault';
 
@@ -20,10 +19,7 @@ export default async function ResetPasswordPage({
   if (!settings || !mailAvailable()) notFound();
   const { token } = await searchParams;
   return (
-    <AuthShell
-      title="Choose a new password"
-      footer={<AuthLink href="/sign-in">Back to sign in</AuthLink>}
-    >
+    <AuthShell title="Choose a new password">
       <ResetForm
         minLength={settings.passwordMinLength}
         vaultId={await getVaultId()}

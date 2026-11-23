@@ -51,12 +51,26 @@ describe('the proxy', () => {
     for (const path of ['/sign-in', '/sign-up']) expect(rewrite(proxy(request(path)))).toBeNull();
   });
 
-  it('keeps the sign-in page for a Sovereign-only instance, and not the local pages', () => {
+  it('keeps sign-in and sign-up in suite mode, which send a person to core, and not the reset pages, even with local sign-in also set', () => {
     const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
-    vi.stubEnv('SHOPPER_AUTH_LOCAL', '');
     vi.stubEnv('SHOPPER_CORE_URL', 'https://sovereign.example.com');
-    expect(rewrite(proxy(request('/sign-in')))).toBeNull();
-    expect(rewrite(proxy(request('/sign-up')))).toMatch(/\/not-found$/);
+    const invite = `/invite/${'a'.repeat(43)}`;
+    for (const local of ['', '1']) {
+      vi.stubEnv('SHOPPER_AUTH_LOCAL', local);
+      // A visitor goes to core by a redirect the server makes, keeping an invitation's page.
+      for (const path of ['/sign-in', '/sign-up']) {
+        const sent = proxy(request(`${path}?next=${encodeURIComponent(invite)}`));
+        expect(sent.status, path).toBe(307);
+        expect(sent.headers.get('location'), path).toBe(
+          `https://shopper.example.com/api/auth/sign-in/sovereign?returnTo=${encodeURIComponent(invite)}`,
+        );
+      }
+      // A return from core with a failure, and someone with a session, are the page's to answer.
+      expect(proxy(request('/sign-in?error=sovereign')).status).toBe(200);
+      expect(rewrite(proxy(request('/sign-in?error=sovereign')))).toBeNull();
+      for (const path of ['/forgot-password', '/reset-password'])
+        expect(rewrite(proxy(request(path))), path).toMatch(/\/not-found$/);
+    }
   });
 
   it('answers the front address with the signed-in area for someone with a session cookie, and keeps the address', () => {

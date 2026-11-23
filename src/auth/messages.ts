@@ -51,6 +51,7 @@ const BY_OAUTH_ERROR: Record<string, string> = {
   sovereign: 'Signing in with Sovereign did not complete. Try again.',
   sovereign_email: 'Sovereign did not share an email address, which this app needs.',
   sovereign_refused: 'This account cannot sign in here. Ask whoever runs this instance.',
+  sovereign_unreachable: 'Sovereign could not be reached. Try again in a moment.',
   account_not_linked:
     'There is already an account here with that email address. Sign in with your password.',
 };

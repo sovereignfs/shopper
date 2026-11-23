@@ -26,6 +26,7 @@ export const landing = {
     },
   ] satisfies Feature[],
   signIn: 'Sign in',
+  signInSuite: 'Sign in with Sovereign',
   signUp: 'Create an account',
   noSignIn: 'Signing in is not set up on this server.',
 } as const;

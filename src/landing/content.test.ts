@@ -7,6 +7,7 @@ describe('what the landing page says', () => {
       landing.heading,
       landing.lead,
       landing.signIn,
+      landing.signInSuite,
       landing.signUp,
       landing.noSignIn,
     ])

@@ -67,7 +67,7 @@ test('the form asks for the length, and the server, which is never sent a passwo
   ip,
 }) => {
   await page.goto('/sign-up');
-  await expect(page.getByLabel('Password')).toHaveAttribute('minlength', '10');
+  await expect(page.getByText('At least 10 characters.', { exact: false })).toBeVisible();
   // The page derives what it sends (RFC 0001): a password sent as itself is refused.
   const reply = await request.post('/api/auth/sign-up/email', {
     headers: { origin: new URL(page.url()).origin, 'x-forwarded-for': ip },

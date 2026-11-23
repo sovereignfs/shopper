@@ -138,6 +138,22 @@ describe('loading the settings', () => {
     expect(partial.join()).not.toContain('core-secret');
   });
 
+  it('starts in suite mode when both ways in are set: local sign-in off, and the settings to remove named', () => {
+    const both = {
+      ...alone,
+      SHOPPER_AUTH_SIGNUP: 'closed',
+      SHOPPER_CORE_URL: 'https://sovereign.example.com',
+      SHOPPER_CORE_CLIENT_ID: 'shopper',
+      SHOPPER_CORE_CLIENT_SECRET: 'core-secret',
+    };
+    expect(ok(both).auth).toMatchObject({
+      local: false,
+      localIgnored: ['SHOPPER_AUTH_LOCAL', 'SHOPPER_AUTH_SIGNUP'],
+      sovereign: { issuer: 'https://sovereign.example.com' },
+    });
+    expect(ok(alone).auth?.localIgnored).toBeUndefined();
+  });
+
   it('takes core at its own address only: an address with a path, as core’s issuer once was, stops the start', () => {
     const { SHOPPER_AUTH_LOCAL: _local, ...base } = alone;
     expect(

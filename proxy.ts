@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { hasSessionCookie } from './src/auth/cookie';
 import { HSTS, contentSecurityPolicy, newNonce } from './src/security/csp';
 import { edgeSettings } from './src/config/edge';
+import { destination, toCore } from './src/auth/suite';
 
 /**
  * **Every page is sent with a Content-Security-Policy** with a nonce of its own (`src/security/csp.ts`), so every page is rendered per request, the
@@ -20,8 +21,8 @@ const SIGN_IN_PAGES = new Set(['/sign-in', '/sign-up', '/forgot-password', '/res
 /** Set on the request the proxy rewrites `/` into, so that the page it is rewritten to is not sent back to `/` (which would be a loop). */
 const HOME_MARK = 'x-shopper-home';
 
-/** What a Sovereign-only instance has of them: the page that takes a person away to sign in there. Sign-up, and resetting a password, are local. */
-const SOVEREIGN_PAGES = new Set(['/sign-in']);
+/** What an instance in suite mode has of them: sign-in and sign-up, which send a person to core (RFC 0005). Resetting a password is local. */
+const SOVEREIGN_PAGES = new Set(['/sign-in', '/sign-up']);
 
 export function proxy(request: NextRequest) {
   const { secure, development, authLocal, authSovereign } = edgeSettings();
@@ -45,6 +46,16 @@ export function proxy(request: NextRequest) {
   // looked at: it cannot be checked here, and the page checks it and sends a forged one to sign in. The page's own address, `/home`, goes to `/`, so that
   // there is one.
   const cookie = hasSessionCookie(request.cookies);
+  // Suite mode (RFC 0005): sign-in and sign-up are core's, so a visitor with no session cookie is sent there at once, by a redirect the server
+  // makes (a page's own would come after the loading state's 200). A session, or a return from core with `?error=`, is the page's to answer.
+  const query = request.nextUrl.searchParams;
+  if (authSovereign && !cookie && SOVEREIGN_PAGES.has(path) && !query.has('error')) {
+    const next = destination({
+      next: query.get('next') ?? undefined,
+      returnTo: query.get('returnTo') ?? undefined,
+    });
+    return NextResponse.redirect(new URL(toCore(next), request.url), 307);
+  }
   if (cookie && path === '/home' && !request.headers.has(HOME_MARK))
     return NextResponse.redirect(new URL('/', request.url), 308);
   const signedIn = path === '/' && cookie;

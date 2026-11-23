@@ -6,6 +6,23 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.4.0] - 2026-11-23
+
+**Before upgrading:** an instance set up with both a Sovereign core and its own accounts (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=1`) now signs
+people in through Sovereign only, and says so once when it starts, naming the settings to remove. A person who signed in there with a password
+cannot any more: a Sovereign sign-in is never matched to a password account by its email, so through Sovereign they get a new, empty account.
+Before upgrading such an instance, have each of them move what they keep to an account they reach through Sovereign. An instance set up one way
+changes nothing.
+
+### Changed
+
+- **One way in** (RFC 0005): hosted by a Sovereign instance, Shopper signs people in through it only, and its `/sign-in` and `/sign-up` send the
+  browser there at once, keeping an invitation's page through the round trip. Coming back from Sovereign with a failure shows the reason and
+  **Try again**, once, and Sovereign that cannot be reached is said so, not shown as an error. The front page's button says **Sign in with
+  Sovereign**.
+- Running alone, sign-in, sign-up and the password reset are the design system's forms, as Sovereign's own are; sign-up and a new password ask for
+  the password twice. The recovery kit after a reset is still Shopper's, in the same card.
+
 ## [0.3.0] - 2026-11-22
 
 **Before upgrading:** take a backup. Every session open at the upgrade ends, and each person signs in once more: with a password, which opens

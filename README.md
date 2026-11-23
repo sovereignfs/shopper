@@ -10,10 +10,9 @@ instance.
 - **Private:** names, notes and the like are encrypted on your device, under keys of each list's own, before they reach the server
   ([what that does and does not do](#encryption)). Not yet audited.
 
-It is a web app that installs like any other (a PWA), with its own database (an sqld service, a SQLite file or PostgreSQL), and people sign in with an email and a
-password, through a Sovereign instance, or both. It needs no Sovereign instance: it runs fully on its own. **Changing in a coming release:** an instance
-will sign people in one way only, through Sovereign when it is hosted and with its own accounts when it is alone; one set up with both will sign in
-through Sovereign only, and say so when it starts.
+It is a web app that installs like any other (a PWA), with its own database (an sqld service, a SQLite file or PostgreSQL), and people sign in one way: through the
+Sovereign instance when it is hosted (suite mode), or with an email and a password when it runs alone (standalone). It needs no Sovereign instance: it runs
+fully on its own. One set up both ways signs in through Sovereign only, and says so when it starts.
 
 ## What it does, and does not do yet
 
@@ -68,8 +67,9 @@ docker compose -f compose.yaml -f compose.postgres.yaml up -d --build          #
 ### Hosted by a Sovereign instance
 
 `sv app add shopper` hosts it from `sovereign.manifest.json`, which is also the image's label. The instance gives it a database and its settings, and people sign in
-through it. Set `SHOPPER_AUTH_LOCAL=1` as well and people who are not on the instance can make an account, which is what lets them accept a link you send (until a
-coming release, from which a hosted Shopper signs in through the instance only, and someone you send a link to makes an account there). See
+through it only: `/sign-in` and `/sign-up` go straight to the instance, and someone you send a link to makes an account there. `SHOPPER_AUTH_LOCAL` does
+nothing beside a core (Shopper says so when it starts, naming what to remove), and password accounts made before cannot sign in: a Sovereign sign-in is never
+matched to one by its email. See
 [`deploy/README.md`](deploy/README.md).
 
 ## Settings
@@ -84,7 +84,7 @@ instead of `NAME=value`, so that it is never in the process list. The server sto
 | `SHOPPER_AUTH_SECRET`                                                                                       | 32 characters or more, to sign sessions and tokens (`openssl rand -base64 48`). Changing it signs everyone out                                                                                |
 | `SHOPPER_AUTH_SIGNUP`                                                                                       | `open` (the default) or `closed`: see below                                                                                                                                                   |
 | `SHOPPER_AUTH_PASSWORD_MIN_LENGTH`                                                                          | The shortest password, 8 to 128. Default 10                                                                                                                                                   |
-| `SHOPPER_CORE_URL`, `SHOPPER_CORE_CLIENT_ID`, `SHOPPER_CORE_CLIENT_SECRET`                                  | Sign-in through a Sovereign core: all three or none. Register the client at core with the redirect `<SHOPPER_URL>/api/auth/callback/sovereign`. Either way, or both, can be on                |
+| `SHOPPER_CORE_URL`, `SHOPPER_CORE_CLIENT_ID`, `SHOPPER_CORE_CLIENT_SECRET`                                  | Sign-in through a Sovereign core: all three or none. Register the client at core with the redirect `<SHOPPER_URL>/api/auth/callback/sovereign`. With it, sign-in is core's alone              |
 | `SHOPPER_DB_DIALECT`                                                                                        | `sqld` (the default), `sqlite` or `postgres`. Nothing guesses it from an address                                                                                                              |
 | `SHOPPER_SQLD_URL`, `SHOPPER_SQLD_ADMIN_URL`                                                                | An sqld service (default `http://sqld:8080`) and its admin address, which makes the namespaces (default `http://sqld:8081`)                                                                   |
 | `SHOPPER_SQLITE_URL`                                                                                        | `file:/path/shopper.db`: a database file, for one container. Required with `sqlite`. The sign-in database, `shopper_auth.db`, is beside it                                                    |

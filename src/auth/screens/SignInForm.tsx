@@ -7,36 +7,30 @@ import { authClient, deriveWith, passwordMoveWhile } from '../client';
 import { nextQuery } from '../next';
 import {
   AuthButton,
-  AuthDivider,
   AuthError,
   AuthField,
-  AuthFooter,
   AuthForm,
-  AuthLink,
   Input,
+  SignInForm as DesignSystemSignInForm,
 } from '@sovereignfs/ui';
 
 /**
- * Email and password (`local`), and/or Sovereign, which takes the person away to sign in there and back (DESIGN.md §15). No message says whether an address
- * has an account: a wrong address and a wrong password read the same. `failure` is what went wrong on the way back from Sovereign, if anything.
+ * Standalone mode's sign-in (RFC 0005): the design system's `SignInForm`, as core renders it, with what is Shopper's own around it: deriving the
+ * password (it is never sent), opening the vault, and, after a reset, the recovery kit, in the same card. No message says whether an address has
+ * an account: a wrong address and a wrong password read the same. Suite mode has no form: its `/sign-in` sends the browser to core.
  */
 export function SignInForm({
   local,
-  sovereign,
   failure: returned = null,
   next = null,
 }: {
-  /** With local sign-in: the vault's id, which the password is derived with, and whether 0.1.0 passwords can still move (auth.md §8.1). */
-  local: { canSignUp: boolean; canReset: boolean; vaultId: string; moving: boolean } | undefined;
-  sovereign: boolean;
+  /** The vault's id, which the password is derived with, and whether 0.1.0 passwords can still move (auth.md §8.1). */
+  local: { canSignUp: boolean; canReset: boolean; vaultId: string; moving: boolean };
   failure?: string | null;
   /** Where to go once signed in: an invitation's page (`src/auth/next.ts`), kept through the round trip. */
   next?: string | null;
 }) {
-  const canSignUp = local?.canSignUp ?? false;
-  const canReset = local?.canReset ?? false;
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { canSignUp, canReset } = local;
   const [error, setError] = useState<string | null>(returned);
   const [busy, setBusy] = useState(false);
   /** Signed in with an address not yet confirmed: the page offers a new link, which signing in never sends (auth.md §4). */
@@ -49,9 +43,7 @@ export function SignInForm({
   // A full navigation, not a client-side one: `/` is a different page now that there is a session, and the server decides which.
   const go = (to: string) => window.location.assign(to);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!local) return;
+  async function onSubmit({ email, password }: { email: string; password: string }) {
     setBusy(true);
     setError(null);
     const vault = shopperVault(local.vaultId);
@@ -68,6 +60,8 @@ export function SignInForm({
       setBusy(false);
       setUnconfirmed(result.outcome === 'unverified');
       setResent(false);
+      // An address not yet confirmed is said by the form itself, beside the way to send the link again.
+      if (result.outcome === 'unverified' && canReset) return setError(null);
       setError(
         result.outcome === 'refused'
           ? result.message
@@ -88,7 +82,7 @@ export function SignInForm({
     go(opened === 'set-up' || (await vault.kitPending()) ? kitPath(next) : (next ?? '/'));
   }
 
-  async function onResend() {
+  async function onResend(email: string) {
     setBusy(true);
     // The same answer whether or not the address has an account, so nothing is told here either way.
     await authClient
@@ -100,7 +94,7 @@ export function SignInForm({
 
   async function onKit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!local || !locked) return;
+    if (!locked) return;
     setBusy(true);
     setError(null);
     const vault = shopperVault(local.vaultId);
@@ -113,35 +107,6 @@ export function SignInForm({
         : 'That kit does not open your lists.',
     );
   }
-
-  function onSovereign(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    setBusy(true);
-    setError(null);
-    // The browser goes to Sovereign through the package's route (auth.md §8); a person who comes back with a failure lands on this page
-    // again with the reason.
-    go(`/api/auth/sign-in/sovereign?returnTo=${encodeURIComponent(next ?? '/')}`);
-  }
-
-  const sovereignButton = (
-    <AuthButton
-      type={local ? 'button' : 'submit'}
-      variant={local ? 'secondary' : 'primary'}
-      onClick={local ? () => onSovereign() : undefined}
-      loading={busy}
-      disabled={busy}
-    >
-      Sign in with Sovereign
-    </AuthButton>
-  );
-
-  if (!local)
-    return (
-      <AuthForm onSubmit={(event) => onSovereign(event)}>
-        {error ? <AuthError>{error}</AuthError> : null}
-        {sovereignButton}
-      </AuthForm>
-    );
 
   if (locked)
     return (
@@ -173,67 +138,24 @@ export function SignInForm({
     );
 
   return (
-    <>
-      <AuthForm onSubmit={(event) => void onSubmit(event)}>
-        <AuthField label="Email">
-          {(field) => (
-            <Input
-              {...field}
-              type="email"
-              name="email"
-              autoComplete="username"
-              required
-              disabled={busy}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          )}
-        </AuthField>
-        <AuthField label="Password">
-          {(field) => (
-            <Input
-              {...field}
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              required
-              disabled={busy}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          )}
-        </AuthField>
-        {error ? <AuthError>{error}</AuthError> : null}
-        <AuthButton type="submit" loading={busy}>
-          Sign in
+    <DesignSystemSignInForm
+      appName="Shopper"
+      error={error ?? undefined}
+      pending={busy}
+      unverified={unconfirmed && canReset}
+      renderUnverified={(email) => (
+        <AuthButton
+          type="button"
+          variant="secondary"
+          disabled={busy || resent}
+          onClick={() => void onResend(email)}
+        >
+          {resent ? 'A new link is on its way' : 'Send the link again'}
         </AuthButton>
-        {unconfirmed && canReset ? (
-          <AuthButton
-            type="button"
-            variant="secondary"
-            disabled={busy || resent}
-            onClick={() => void onResend()}
-          >
-            {resent ? 'A new link is on its way' : 'Send the link again'}
-          </AuthButton>
-        ) : null}
-      </AuthForm>
-      {sovereign ? (
-        <>
-          <AuthDivider />
-          {sovereignButton}
-        </>
-      ) : null}
-      {canReset ? (
-        <AuthFooter>
-          <AuthLink href="/forgot-password">Forgot your password?</AuthLink>
-        </AuthFooter>
-      ) : null}
-      {canSignUp ? (
-        <AuthFooter>
-          New here? <AuthLink href={`/sign-up${nextQuery(next)}`}>Create account</AuthLink>
-        </AuthFooter>
-      ) : null}
-    </>
+      )}
+      onSubmit={(values) => void onSubmit(values)}
+      forgotPasswordHref={canReset ? '/forgot-password' : undefined}
+      signUpHref={canSignUp ? `/sign-up${nextQuery(next)}` : undefined}
+    />
   );
 }
