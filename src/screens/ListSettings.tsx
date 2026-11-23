@@ -2,11 +2,22 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
-import { Alert, Button, ConfirmDialog, EmptyState, FormField, Input } from '@sovereignfs/ui';
-import { archiveList, renameList, restoreList } from '../actions/lists';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Button,
+  ColorPicker,
+  ConfirmDialog,
+  EmptyState,
+  FormField,
+  IconPicker,
+  Input,
+} from '@sovereignfs/ui';
+import { archiveList, renameList, restoreList, styleList } from '../actions/lists';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
+import type { ListRow } from '../actions/rows';
 import { listViewOf } from '../local/listview';
+import { LIST_ICONS, LIST_SWATCHES, listColorOf, listIconOf } from '../lists/appearance';
 import { callOperation } from '../local/ops';
 import { useLocal, useLocalQuery } from '../local/react';
 import { useTitle } from './title';
@@ -28,6 +39,32 @@ export function ListSettings({ id }: { id: string }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   useTitle(found?.found ? ['Settings', found.list.name] : []);
+
+  // A colour is chosen by dragging, which says every colour on the way: it is shown at once and written once it has been still for a moment (and when the
+  // page is left), so that one pick is one change and not a hundred.
+  const [color, setColor] = useState<string | null | undefined>(undefined);
+  const latest = useRef<{ list: ListRow | null; color: string | null | undefined }>({
+    list: null,
+    color: undefined,
+  });
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  latest.current.list = found?.found ? found.list : null;
+  const flushColor = useCallback(() => {
+    clearTimeout(timer.current);
+    const { list: current, color: value } = latest.current;
+    latest.current.color = undefined;
+    if (value === undefined || !current || !client) return;
+    const mutation = styleList(env(), current, { color: value });
+    if (mutation) void client.commit(mutation);
+    setColor(undefined);
+  }, [client]);
+  useEffect(() => flushColor, [flushColor]);
+  const chooseColor = (value: string | null) => {
+    setColor(value);
+    latest.current.color = value;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(flushColor, 400);
+  };
 
   if (!found) return <div className={styles.page} aria-busy="true" />;
   if (!found.found)
@@ -99,6 +136,39 @@ export function ListSettings({ id }: { id: string }) {
           </Button>
         </div>
       </form>
+
+      <section className={styles.group} aria-label="Appearance">
+        <h2>Appearance</h2>
+        <p className={styles.muted}>
+          The icon and colour that stand for this list in its header, the sidebar and the drawer.
+          They are encrypted as its name is.
+        </p>
+        {/* The picker's panel opens to the left of its button, so the button is at the right of its row, where the panel has room. */}
+        <div className={styles.between}>
+          <span>Icon</span>
+          <IconPicker
+            aria-label="Icon"
+            value={listIconOf(list.icon)}
+            options={LIST_ICONS}
+            onChange={(icon) => {
+              const mutation = styleList(env(), list, { icon });
+              if (mutation) void client?.commit(mutation);
+            }}
+          />
+        </div>
+        <span>Colour</span>
+        <ColorPicker
+          aria-label="Colour"
+          customLabel="Choose another colour"
+          allowNone
+          noneLabel="Default colour"
+          swatches={LIST_SWATCHES}
+          value={
+            color === undefined ? (list.color === null ? null : listColorOf(list.color)) : color
+          }
+          onChange={chooseColor}
+        />
+      </section>
 
       <section className={styles.group} aria-label="Archive">
         <h2>{archived ? 'Archived' : 'Archive'}</h2>

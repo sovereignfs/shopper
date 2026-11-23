@@ -10,6 +10,10 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Added
 
+- **A list's icon and colour** (RFC 0005): choose them in a list's settings, under Appearance. The icon is drawn in the colour before the list's name in
+  its header, in the sidebar (the narrow sidebar shows it in place of the letter) and in the phone's drawer. Both are encrypted on your device as the
+  list's name is, and a list you never gave either looks as before, with a basket and blue. Clearing the colour puts the blue back. The set of icons grows
+  with a coming release.
 - **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, a list's settings `Settings ·
 <list> · Shopper` and Settings `<section> · Settings · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the
   name, and until then it is `Shopper`. A browser keeps titles in its history, and a history it syncs leaves the device with them: the one way an

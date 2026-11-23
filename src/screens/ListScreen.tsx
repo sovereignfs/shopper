@@ -38,6 +38,7 @@ import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors }
 import styles from './ListScreen.module.css';
 import { AddField } from './AddField';
 import { EditedItem, useItemParam, useQueryParam } from './ItemEditor';
+import { ListGlyph } from './ListGlyph';
 import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
 import { useTitle } from './title';
@@ -140,6 +141,7 @@ function Loaded({ data }: { data: Found }) {
     <div className={styles.page}>
       <Header
         name={list.name}
+        appearance={list}
         id={list.id}
         householdId={list.householdId}
         share={() => sharing.open('1')}
@@ -187,6 +189,7 @@ function Loaded({ data }: { data: Found }) {
 
 function Header({
   name,
+  appearance,
   id,
   householdId,
   share,
@@ -197,6 +200,8 @@ function Header({
   clear,
 }: {
   name: string;
+  /** The list's icon and colour (RFC 0005), drawn before its name. */
+  appearance: { icon: string | null; color: string | null };
   id: string;
   householdId: string;
   share: () => void;
@@ -210,6 +215,7 @@ function Header({
   const router = useRouter();
   return (
     <header className={styles.header}>
+      <ListGlyph list={appearance} size="lg" />
       <h1 title={name}>{name}</h1>
       <div className={styles.actions}>
         <Button variant="secondary" size="sm" onClick={share} aria-label="Share">

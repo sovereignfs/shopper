@@ -87,7 +87,7 @@ core, and that a core that cannot be reached ends on the sign-in page saying so,
 it, and a core before 0.86.0 would send the person back to its sign-up after the account was made, so it waits for both); the `Sovereign beside
 local` unit test in `sovereign.test.ts` stays, since it holds the package to never matching by email, which is what protects those accounts now.
 
-#### 📋 22.3 — A list's icon and colour
+#### ⏳ 22.3 — A list's icon and colour
 
 **Goal:** every list has an icon and a colour, encrypted, shown wherever the list is. **Design:** RFC 0005, "A list". **Depends on:** 22.1, 16.18.
 
@@ -99,6 +99,22 @@ registry test.
 
 **Accepts when:** a new list has the defaults; a changed icon and colour reach a second device and survive offline edits by field; the marker test
 finds neither in any table.
+
+**Done as, against `@sovereignfs/ui` 0.105.0 (0.5.0, 2026-11-23); what waits is below:** `icon` and `color` are fields of a list's sealed content, in `CONTENT`
+(`src/actions/format.ts`), the sealed registry and `src/sync/tables.ts`, so **no migration**: encrypted in the browser once a household has moved, sealed by the
+server before, in no column. Validated as typed (a colour is exactly `#rrggbb`, an icon a name's shape) and, on reading, held to `src/lists/appearance.ts`
+(its swatches **copied from Tally's `src/groups/colors.ts`**), where a value this build does not know is the default; `ListGlyph` draws the icon in the colour
+on the ordinary surface, as a style no value but a checked one reaches. A default is never written, so a list that has neither is shown the defaults; `styleList`
+writes each by field, and `null` puts the defaults back. Shown in the list's header, the sidebar's rows (the rail's icon in place of the letter) and the
+phone's drawer, which are one component. Chosen in today's list settings (`IconPicker`, `ColorPicker` with the default as _none_, the colour written once
+it has been still for 400 ms); 22.5 moves them into the dialog's General. The readable export carries both with every sealed field. Tests: `actions.test.ts`,
+`apply.test.ts` and `encrypted.test.ts` (merged by field, the marker in no column, plain text held in a moved group, a value for another list refused;
+seen to fail without the registry), `readable.test.ts`, `sealed.test.ts` (which now reads _colour_ and `color` as one word) and `e2e/appearance.spec.ts` in
+Chromium and WebKit (the default blue, a chosen icon and colour in the sidebar and the header, the server's answer holding neither as text, a reload).
+**Waits for the release with 16.18 (ui 0.107.0):** the cart as the default in place of the basket, and the larger set of icons (`LIST_ICONS`, `DEFAULT_LIST_ICON`);
+for 22.9 and 23.2: shopping mode's and Home's tiles' icon; for 20.4: the import of both. **Gaps to raise in `sovereign`:** `IconPicker`'s options have no
+accessible names (a screen reader hears an unnamed option, and a test can choose only by position), and its panel opens aligned to its button's right edge and
+is clipped by a scrolling container, so the button sits at the right of its row here.
 
 #### 📋 22.4 — The list's header
 

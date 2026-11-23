@@ -130,7 +130,7 @@
   font-size: var(--sv-font-size-sm);
 }
 
-/* The rail: a letter for each list, with the name as its title, and a plus. */
+/* The rail: the icon of each list, with the name as its title, and a plus. */
 .rail .heading,
 .rail .label,
 .rail .count,
@@ -143,13 +143,4 @@
   justify-content: center;
   width: 40px;
   padding: var(--sv-space-2);
-}
-
-.initial {
-  display: none;
-  font-weight: var(--sv-font-weight-semibold);
-}
-
-.rail .initial {
-  display: inline;
 }

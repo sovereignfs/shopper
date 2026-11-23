@@ -8,6 +8,7 @@ import { makeList } from '../actions/lists';
 import { isName, MAX_NAME_LENGTH } from '../catalog/name';
 import { type Place, placesOf } from '../local/places';
 import { useLocal, useLocalQuery } from '../local/react';
+import { ListGlyph } from './ListGlyph';
 import styles from './ListsNav.module.css';
 
 /**
@@ -16,7 +17,7 @@ import styles from './ListsNav.module.css';
  * **Share** on the list. Under each its lists with how many items are open; archived lists are behind a toggle. Every list is a link, so the keyboard and a
  * pointer take the same way, and the one open is marked.
  *
- * `rail` draws a letter for each list and a plus; `onNavigate` is told when a link is followed or a list made, which the phone's sheet closes on; `widen`
+ * `rail` draws each list's icon, in its colour, and a plus; `onNavigate` is told when a link is followed or a list made, which the phone's sheet closes on; `widen`
  * is what _New list_ asks of a rail, which has no room for a name to be typed.
  */
 export function ListsNav({
@@ -173,9 +174,7 @@ function ListLink({
       aria-current={here ? 'page' : undefined}
       onClick={onNavigate}
     >
-      <span className={styles.initial} aria-hidden>
-        {[...list.name][0]?.toUpperCase()}
-      </span>
+      <ListGlyph list={list} />
       <span className={styles.label}>
         <span className={styles.name}>
           {list.name}

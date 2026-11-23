@@ -47,6 +47,13 @@
   gap: var(--sv-space-3);
 }
 
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
 .muted {
   margin: 0;
   color: var(--sv-color-text-muted);
