@@ -13,24 +13,32 @@ export function destination(query: {
   return safeNext(query.next) ?? safeNext(query.returnTo);
 }
 
-/** The address that starts a sign-in at core, coming back to `next` (or the front address). */
-export const toCore = (next: string | null): string =>
-  `/api/auth/sign-in/sovereign?returnTo=${encodeURIComponent(next ?? '/')}`;
+/**
+ * What Shopper asks core to do with the person (OpenID Connect `prompt`): **`create`** opens core's sign-up in place of its sign-in, for _Create an account_
+ * (Prompt Create 1.0, `@sovereignfs/auth` 0.7.0, Sovereign 0.86.0 and later; before it, core shows its sign-in); **`login`** has them sign in again even with a
+ * session there, for something that asks a recent sign-in first (the export, `coreSignedInAt`).
+ */
+export type CorePrompt = 'create' | 'login';
+
+/** The address that starts a sign-in at core, coming back to `next` (or the front address), asking for `prompt` when there is one. */
+export const toCore = (next: string | null, prompt?: CorePrompt): string =>
+  `/api/auth/sign-in/sovereign?${prompt ? `prompt=${prompt}&` : ''}returnTo=${encodeURIComponent(next ?? '/')}`;
 
 export type SuiteStep =
   | { readonly kind: 'go'; readonly to: string }
   | { readonly kind: 'show'; readonly error: string; readonly retry: string };
 
 /**
- * What `/sign-in` or `/sign-up` does in suite mode. Someone with a session goes where they were going; a return from core with `?error=` is shown once,
+ * What `/sign-in` or `/sign-up` does in suite mode (`/sign-up` asks core for `prompt=create`). Someone with a session goes where they were going; a return from core with `?error=` is shown once,
  * with a way to try again, and is never sent back to core by itself, so a failure at core cannot loop; anyone else is sent to core.
  */
 export function suiteStep(
   signedIn: boolean,
   error: string | undefined,
   next: string | null,
+  prompt?: CorePrompt,
 ): SuiteStep {
   if (signedIn) return { kind: 'go', to: next ?? '/' };
-  if (error) return { kind: 'show', error, retry: toCore(next) };
-  return { kind: 'go', to: toCore(next) };
+  if (error) return { kind: 'show', error, retry: toCore(next, prompt) };
+  return { kind: 'go', to: toCore(next, prompt) };
 }

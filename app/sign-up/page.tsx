@@ -17,8 +17,8 @@ export default async function SignUpPage({
   searchParams: Promise<{ next?: string | string[]; error?: string | string[] }>;
 }) {
   const settings = authSettings();
-  // Suite mode: an account is made at core, so this page sends the browser there, one click from its sign-up (RFC 0005).
-  if (settings?.sovereign) return <SuitePage query={await searchParams} />;
+  // Suite mode: an account is made at core, so this page sends the browser there, asking for its sign-up (`prompt=create`, RFC 0005).
+  if (settings?.sovereign) return <SuitePage query={await searchParams} prompt="create" />;
   if (!settings?.local) notFound();
   const next = safeNext((await searchParams).next);
   if (await getSession()) redirect(next ?? '/');

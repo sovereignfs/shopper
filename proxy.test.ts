@@ -58,11 +58,15 @@ describe('the proxy', () => {
     for (const local of ['', '1']) {
       vi.stubEnv('SHOPPER_AUTH_LOCAL', local);
       // A visitor goes to core by a redirect the server makes, keeping an invitation's page.
-      for (const path of ['/sign-in', '/sign-up']) {
+      // Sign-up asks core for its sign-up (`prompt=create`, Create an account); sign-in for its sign-in.
+      for (const [path, prompt] of [
+        ['/sign-in', ''],
+        ['/sign-up', 'prompt=create&'],
+      ] as const) {
         const sent = proxy(request(`${path}?next=${encodeURIComponent(invite)}`));
         expect(sent.status, path).toBe(307);
         expect(sent.headers.get('location'), path).toBe(
-          `https://shopper.example.com/api/auth/sign-in/sovereign?returnTo=${encodeURIComponent(invite)}`,
+          `https://shopper.example.com/api/auth/sign-in/sovereign?${prompt}returnTo=${encodeURIComponent(invite)}`,
         );
       }
       // A return from core with a failure, and someone with a session, are the page's to answer.

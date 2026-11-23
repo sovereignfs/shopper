@@ -61,7 +61,7 @@ core lets them sign up (settled with the owner, §26).
 **Technical:** `src/auth/config.ts` takes suite mode when both ways in are set, logging once which settings to remove; `/sign-in` and `/sign-up` in a suite redirect (a session
 to `next`, anyone else to `/api/auth/sign-in/sovereign?returnTo=…`), and a return with `?error=` renders the reason and _Try again_; the landing's
 button says _Sign in with Sovereign_ in a suite. Alone, `SignInForm`, `SignUpForm` and the reset pair from `@sovereignfs/ui` (the current release),
-Shopper's recovery-kit screen kept in `AuthCard`. With 16.17, `/sign-up` asks core for `prompt=create`. 2.9 marked superseded.
+Shopper's recovery-kit screen kept in `AuthCard`. `/sign-up` asks core for `prompt=create`. 2.9 marked superseded.
 
 **Accepts when:** in a suite, visiting `/sign-in` signed out arrives at core's sign-in with Shopper's return, an invitation's `next` survives the round
 trip, and a refused sign-in at core shows the page once with no loop; alone, the forms render as core's, and every existing auth test passes; an
@@ -83,8 +83,10 @@ password twice; `/sign-up`'s own footer is the form's. Tests: `suite.test.ts`, t
 change); the browser tests rewritten for suite mode (`e2e/sovereign.spec.ts`: `/sign-in` and `/sign-up` go through core, the both-ways instance
 has no password form and its sign-up route is 404, core's logout checked by the session, as a fresh `/sign-in` signs straight in again), and
 the sign-up helper fills the confirmation; `scripts/deploy-check.sh`'s `sovereign` setup checks that `/sign-in` and `/sign-up` answer 307 to
-core, and that a core that cannot be reached ends on the sign-in page saying so, with no password field. **Left out:** `prompt=create` (16.17 is not released; Shopper's `@sovereignfs/auth` 0.6.0 would drop
-it, and a core before 0.86.0 would send the person back to its sign-up after the account was made, so it waits for both); the `Sovereign beside
+core, and that a core that cannot be reached ends on the sign-in page saying so, with no password field. **`prompt=create` (done on `@sovereignfs/auth` 0.7.0 and the SDK 2.12.0, 2026-11-23):** `/sign-up` in suite mode sends the browser to core asking for its sign-up
+(`toCore(next, 'create')`, from the proxy and from `SuitePage` for the retry after a failure), which the package passes on and drops for any other value; it needs **Sovereign 0.86.0 or later**
+(before it, core shows its sign-in); tests: `suite.test.ts`, `proxy.test.ts`, `sovereign.test.ts` (the prompt reaches core's authorization request) and `e2e/sovereign.spec.ts` (what the fake core was asked),
+and `scripts/deploy-check.sh` expects the new address. **Left out:** the `Sovereign beside
 local` unit test in `sovereign.test.ts` stays, since it holds the package to never matching by email, which is what protects those accounts now.
 
 #### ✅ 22.3 — A list's icon and colour

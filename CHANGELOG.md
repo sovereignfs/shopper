@@ -25,6 +25,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Changed
 
+- **Create an account**, hosted by a Sovereign instance, opens Sovereign's sign-up and not its sign-in (`prompt=create`). **This needs Sovereign 0.86.0 or later**:
+  an older one shows its sign-in, where there is no way to make an account.
 - **Settings is a dialog** (RFC 0005), over the page you opened it from (or over Home when you open its address), with four sections, each at its own address:
   **Profile** (`/settings/profile`), **Security**, **Preferences** and **Data**. Sign-in and Encryption are in Security; This device and Notifications are in
   Preferences, which also has how a list shows its items by default and, running alone, **Appearance** (light, dark or your system's) and your **time zone and

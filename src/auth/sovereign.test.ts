@@ -119,6 +119,24 @@ describe(`Sovereign sign-in, open sign-up (${leg})`, () => {
     expect(account).toMatchObject({ provider_id: 'sovereign', account_id: who.sub });
   });
 
+  it('passes what Shopper asks of core on to it: its sign-up for Create an account, a fresh sign-in when something wants one, and nothing otherwise', async () => {
+    for (const [prompt, expected] of [
+      ['create', 'create'],
+      ['login', 'login'],
+      ['nonsense', null],
+      [undefined, null],
+    ] as const) {
+      const before = fake.authorizations.length;
+      fake.signInAs(person());
+      const query = `${prompt ? `prompt=${prompt}&` : ''}returnTo=%2F`;
+      const start = await visitor(t).get(`/api/auth/sign-in/sovereign?${query}`);
+      expect(start.status, String(prompt)).toBe(302);
+      const asked = new URL(got(start.headers.get('location')));
+      expect(asked.searchParams.get('prompt'), String(prompt)).toBe(expected);
+      expect(fake.authorizations.length).toBe(before);
+    }
+  });
+
   it('asks Sovereign the way its client was registered: the exact callback, PKCE S256, the client secret by basic auth', async () => {
     const before = fake.authorizations.length;
     await login(t, fake, visitor(t), person());

@@ -16,6 +16,13 @@ createServer((req, res) => {
     res.writeHead(200).end('ok');
     return;
   }
+  // The `prompt` of each authorization request so far, which a test reads to see what the app asked core to do (`create` for Create an account).
+  if (req.method === 'GET' && req.url === '/prompts') {
+    res
+      .writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify(fake.authorizations.map((url) => url.searchParams.get('prompt'))));
+    return;
+  }
   if (req.method === 'POST' && req.url === '/sign-in-as') {
     let body = '';
     req.on('data', (chunk) => (body += chunk));

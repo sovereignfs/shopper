@@ -3,7 +3,7 @@ import { AuthLink } from '@sovereignfs/ui';
 import { oauthErrorMessage } from './messages';
 import { authSettings } from './server';
 import { getSession } from './session';
-import { destination, suiteStep } from './suite';
+import { type CorePrompt, destination, suiteStep } from './suite';
 import { AuthShell } from './screens/AuthShell';
 
 /**
@@ -12,12 +12,15 @@ import { AuthShell } from './screens/AuthShell';
  */
 export async function SuitePage({
   query,
+  prompt,
 }: {
   query: { error?: string | string[]; next?: string | string[]; returnTo?: string | string[] };
+  /** `create` for `/sign-up`, which opens core's sign-up (Create an account); none for `/sign-in`. */
+  prompt?: CorePrompt;
 }) {
   if (!authSettings()?.sovereign) notFound();
   const error = typeof query.error === 'string' ? query.error : undefined;
-  const step = suiteStep((await getSession()) !== null, error, destination(query));
+  const step = suiteStep((await getSession()) !== null, error, destination(query), prompt);
   if (step.kind === 'go') redirect(step.to);
   return (
     <AuthShell

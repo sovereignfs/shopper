@@ -13,6 +13,26 @@ describe('suite mode’s sign-in and sign-up (RFC 0005)', () => {
     expect(toCore(null)).toBe('/api/auth/sign-in/sovereign?returnTo=%2F');
   });
 
+  it('asks core for its sign-up for Create an account, and for a fresh sign-in when something wants one', () => {
+    expect(toCore(null, 'create')).toBe('/api/auth/sign-in/sovereign?prompt=create&returnTo=%2F');
+    expect(toCore(INVITE, 'create')).toBe(
+      `/api/auth/sign-in/sovereign?prompt=create&returnTo=${encodeURIComponent(INVITE)}`,
+    );
+    expect(toCore('/settings/data', 'login')).toBe(
+      '/api/auth/sign-in/sovereign?prompt=login&returnTo=%2Fsettings%2Fdata',
+    );
+    expect(suiteStep(false, undefined, INVITE, 'create')).toEqual({
+      kind: 'go',
+      to: toCore(INVITE, 'create'),
+    });
+    // Trying again after a failure at core's sign-up is core's sign-up again, not its sign-in.
+    expect(suiteStep(false, 'sovereign', null, 'create')).toEqual({
+      kind: 'show',
+      error: 'sovereign',
+      retry: toCore(null, 'create'),
+    });
+  });
+
   it('sends someone with a session where they were going, never to core', () => {
     expect(suiteStep(true, undefined, INVITE)).toEqual({ kind: 'go', to: INVITE });
     expect(suiteStep(true, 'sovereign', null)).toEqual({ kind: 'go', to: '/' });

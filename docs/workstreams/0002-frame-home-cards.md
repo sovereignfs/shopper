@@ -78,7 +78,7 @@ or not; and **loyalty cards**, shown at the till and shared with the people one 
 
 The points the first discussion left open, and the RFCs' open questions, were gone through the same day and settled as recommended:
 
-1. **`prompt=create`** (16.17) is P3 and not waited on: until it is built, `/sign-up` in a suite lands one click from core's sign-up.
+1. **`prompt=create`** (16.17) is P3 and was not waited on: built on 2026-11-23 with `@sovereignfs/auth` 0.7.0, it needs Sovereign 0.86.0 or later; before then `/sign-up` in a suite landed one click from core's sign-up.
 2. **2.9 is superseded,** and a standalone instance joining a suite with password accounts is a candidate (15.5), not now.
 3. **The list's header** (RFC 0005): Shop in the accent colour as the only primary button; the menu borderless and flush right; every icon in the row at
    the small size.

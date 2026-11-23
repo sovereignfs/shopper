@@ -174,11 +174,11 @@ check_sovereign() {
   # Suite mode (RFC 0005): sign-in and sign-up send the browser to core at once, and reset is not there. This core is not there to reach, so
   # following the way ends on the sign-in page saying so, with no password to type.
   local page
+  # (Sign-up asks core for its sign-up, `prompt=create`: Create an account.)
   for path in sign-in sign-up; do
-    case "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "$base/$path")" in
-      "307 $base/api/auth/sign-in/sovereign?returnTo=%2F") ;;
-      *) fail "sovereign: /$path does not send the browser to core" ;;
-    esac
+    want="$base/api/auth/sign-in/sovereign?returnTo=%2F"
+    [ "$path" = sign-up ] && want="$base/api/auth/sign-in/sovereign?prompt=create&returnTo=%2F"
+    [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "$base/$path")" = "307 $want" ] || fail "sovereign: /$path does not send the browser to core"
   done
   page="$(curl -sSL --max-time 20 "$base/sign-in")"
   echo "$page" | grep -q 'could not be reached' || fail "sovereign: a core that cannot be reached is not said so on the sign-in page"

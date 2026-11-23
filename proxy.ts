@@ -54,7 +54,11 @@ export function proxy(request: NextRequest) {
       next: query.get('next') ?? undefined,
       returnTo: query.get('returnTo') ?? undefined,
     });
-    return NextResponse.redirect(new URL(toCore(next), request.url), 307);
+    // `/sign-up` opens core's sign-up (Create an account); `/sign-in` its sign-in.
+    return NextResponse.redirect(
+      new URL(toCore(next, path === '/sign-up' ? 'create' : undefined), request.url),
+      307,
+    );
   }
   if (cookie && path === '/home' && !request.headers.has(HOME_MARK))
     return NextResponse.redirect(new URL('/', request.url), 308);

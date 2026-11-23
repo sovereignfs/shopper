@@ -70,11 +70,21 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     }
     await page.goto('/');
     await expect(page.getByRole('link', { name: 'Sign in with Sovereign' })).toBeVisible();
-    // Sign-up has no form of its own: it is core's, so the page sends the browser there and back.
+    // Sign-up has no form of its own: it is core's, so the page sends the browser there and back, asking for core's sign-up (`prompt=create`).
     await nextPersonIs(page, person('signup'));
     await throughSovereign(page, '/sign-up');
+    const prompts = async () =>
+      (await (await page.request.get(`http://localhost:${PORTS.coreControl}/prompts`)).json()) as (
+        string | null
+      )[];
+    expect((await prompts()).at(-1)).toBe('create');
     await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
     await expect(page.getByLabel('Password')).toHaveCount(0);
+    await signOut(page);
+    // Sign-in asks for core's sign-in, with no prompt.
+    await nextPersonIs(page, person('signin'));
+    await throughSovereign(page);
+    expect((await prompts()).at(-1)).toBeNull();
     await signOut(page);
   });
 
