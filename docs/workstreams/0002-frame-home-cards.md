@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 under way (22.2 done; 22.8 done standalone, its suite half waits for `@sovereignfs/auth` 0.7.0; 22.7 waits for `@sovereignfs/ui` 0.107.0); leg 4 under way (22.4, 22.9 and 22.10 done; 22.3 and 22.6 built against ui 0.105.0, each waiting for 0.107.0's icons; 22.5 waits for its `SettingsDialog`); legs 5 to 8 to go; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 under way (22.2 done; 22.8 done standalone, its suite half waits for `@sovereignfs/auth` 0.7.0; 22.7 waits for `@sovereignfs/ui` 0.107.0); leg 4 under way (22.9 and 22.10 done; 22.3, 22.4 and 22.6 built against ui 0.105.0, each waiting for 0.107.0's icons; 22.5 waits for its `SettingsDialog`); legs 5 to 8 to go; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -215,10 +215,11 @@ was started with 12.7's release published as v0.2.0 and its roadmap row still op
   the SDK 2.12.0 and `@sovereignfs/auth` 0.7.0 carry `prompt=create`. **16.23** (the apps a person can open) is core's `listMyApps`, with a
   person's token and no new scope, as the owner chose; its icons are served from core's own address. Legs 3, 4, 5 and 7 wait for the owner to release them, as the table says.
 
-**Leg 4 is built as far as the installed design system allows** (0.5.0, committed on `develop`, 2026-11-23): **22.4** (the list's header), **22.9** (shopping mode) and
-**22.10** (page titles) are done. **22.3** (a list's icon and colour, encrypted, in no table, shown in the header, the sidebar, the drawer and shopping mode,
-chosen in today's list settings) and **22.6** (an item beside its list, a tap on a row, no Save) work against `@sovereignfs/ui` 0.105.0 and wait for 0.107.0 only
-for `shopping-cart` (the default icon, and Shop's), the larger icon set and `square-pen`: one bump commit, which also pins the release. **22.5** (list settings as
-`SettingsDialog`, which moves 22.3's pickers into General) waits for 0.107.0 entirely. Two gaps to raise in `sovereign`: `IconPicker`'s options have no
-accessible names, and its panel is clipped by a scrolling container. The browser suite has one failure that is not this leg's: `e2e/keys.spec.ts`'s locked-key
-test fails in WebKit on most runs of the commit before it too.
+**Leg 4 is built as far as the installed design system allows** (0.5.0, committed on `develop`, 2026-11-23). **Done:** 22.9 (shopping mode) and 22.10 (page titles).
+**Built against `@sovereignfs/ui` 0.105.0, waiting for 0.107.0 only for its icons:** 22.3 (a list's icon and colour, encrypted and in no table, shown in the header,
+the sidebar, the drawer and shopping mode, chosen in today's list settings), 22.4 (the list's header) and 22.6 (an item beside its list, a tap on a row, no
+Save): the cart (the default icon, and Shop's), the larger icon set and `square-pen` are one bump commit, which also pins the release. **22.5** (list settings
+as `SettingsDialog`, which moves 22.3's pickers into General) waits for 0.107.0 entirely and is not started. Two gaps to raise in `sovereign`: `IconPicker`'s
+options have no accessible names, and its panel is clipped by a scrolling container. The data-layer tests ran on the `file:` database only, not on sqld or
+PostgreSQL. The browser suite has one failure that is not this leg's: `e2e/keys.spec.ts`'s locked-key test fails in WebKit on most runs of the commit before it
+too.

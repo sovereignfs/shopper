@@ -122,6 +122,73 @@ test('the pencil opens it for a keyboard, and closing it gives focus back to the
   await expect(pencil).toBeFocused();
 });
 
+test('what was typed and not yet left is written when the panel goes: by Escape, and by Back', async ({
+  page,
+  baseURL,
+}) => {
+  const [milk] = await signedUpWith(page, baseURL, [
+    { name: 'Milk', category: 'dairy-eggs' },
+    { name: 'Bread', category: 'bakery' },
+  ]);
+  // Escape while the note still has focus: no blur comes.
+  await page.getByText('Milk', { exact: true }).click();
+  await panel(page).getByLabel('Note').fill('the green one');
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page.getByText('the green one', { exact: true })).toBeVisible();
+
+  // Back, as a phone's gesture goes: the address leaves `?item=` and the panel goes with it.
+  await page.getByText('Bread', { exact: true }).click();
+  await panel(page).getByLabel('Note').fill('sliced');
+  await page.goBack();
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page.getByText('sliced', { exact: true })).toBeVisible();
+  await synced(page);
+  const saved = await serverItems(page, baseURL ?? '');
+  expect(saved.find((item) => item.id === milk)?.note).toBe('the green one');
+  expect(saved.find((item) => item.name === 'Bread')?.note).toBe('sliced');
+});
+
+test('Escape closes an open picker and leaves the panel, and then closes the panel', async ({
+  page,
+  baseURL,
+}) => {
+  await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  await page.getByText('Milk', { exact: true }).click();
+  await panel(page).getByRole('button', { name: /icon/i }).last().click();
+  await expect(page.getByRole('listbox', { name: 'Icon' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('listbox', { name: 'Icon' })).toHaveCount(0);
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toHaveCount(0);
+});
+
+test('where the list would be squeezed the item is the whole area in place of it, and closing it shows the list', async ({
+  page,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 820, height: 900 });
+  await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(panel(page)).toBeVisible();
+  const box = await panel(page).boundingBox();
+  // The area beside the full sidebar (280px) is all of it, and nothing scrolls sideways.
+  expect(box?.width).toBeGreaterThan(820 - 280 - 2);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await panel(page).getByRole('button', { name: 'Close the item' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+
+  // Wide enough, it is beside the list again.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await expect(panel(page)).toBeVisible();
+});
+
 test('saving with the network cut changes the device at once, and the server has it when it is back', async ({
   page,
   context,

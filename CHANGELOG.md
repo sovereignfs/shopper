@@ -12,7 +12,7 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 - **A list's icon and colour** (RFC 0005): choose them in a list's settings, under Appearance. The icon is drawn in the colour before the list's name in
   its header, in the sidebar (the narrow sidebar shows it in place of the letter) and in the phone's drawer. Both are encrypted on your device as the
-  list's name is, and a list you never gave either looks as before, with a basket and blue. Clearing the colour puts the blue back. The set of icons grows
+  list's name is (the suite's encryption is not yet audited), and a list you never gave either looks as before, with a basket and blue. Clearing the colour puts the blue back. The set of icons grows
   with a coming release.
 - **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, Settings `<section> · Settings · Shopper` and
   a list's settings `Settings · <list> · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the name, and until then
@@ -22,8 +22,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 ### Changed
 
 - **An item opens beside its list** (RFC 0005): tap an item's row, or its pencil, and it opens in a column at the right of the list, which stays where it
-  is, so that you can open another beside it; on a phone it is a page of its own, with a back arrow. There is no Save: each field is kept as you leave it,
-  on your device, with no network. A tap on a row no longer does nothing and a long press on a list no longer opens the item; the checkbox alone ticks,
+  is, so that you can open another beside it; on a phone, and wherever the list would be squeezed, it is a page of its own, with a back arrow on a phone. There
+  is no Save: each field is kept as you leave it, and what you were typing when you press Escape or go Back is kept too, on your device, with no network. A tap on a row no longer does nothing and a long press on a list no longer opens the item; the checkbox alone ticks,
   and shopping mode is as it was.
 - **Shopping mode** (RFC 0005): the header has the list's icon and name with how many are left to get and in the basket; adding is behind **Add item**, which
   opens the field and closes it when the item is added or you press Escape, and _Already in basket_ is now the switch **Put it straight in the basket**, off by

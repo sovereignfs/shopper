@@ -20,7 +20,7 @@ import type { ItemRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { addQuantity, isQuantity, subtractQuantity } from '../quantity/decimal';
 import { UNITS, isUnit, stepFor, type Unit } from '../quantity/units';
-import type { ListData } from '../local/listview';
+import { type ListData, listViewOf } from '../local/listview';
 import { useLocal } from '../local/react';
 import styles from './ItemPanel.module.css';
 
@@ -75,6 +75,48 @@ export function ItemPanel({
     };
   }, []);
 
+  // What was typed and not yet left is written when the panel goes without a blur: Escape while typing, Back (a phone's gesture), another item opened. It is
+  // written against the row **as the device holds it then**, and only if the item is still there, since an edit would otherwise restore one deleted elsewhere.
+  const latest = useRef({ name, note, remember, item, client });
+  latest.current = { name, note, remember, item, client };
+  useEffect(
+    () => () => {
+      const {
+        name: typedName,
+        note: typedNote,
+        remember: learn,
+        item: last,
+        client: device,
+      } = latest.current;
+      const trimmedName = typedName?.trim() ?? '';
+      if (!device || (typedName === null && typedNote === null)) return;
+      void listViewOf(device.db, last.listId)
+        .then(async (now) => {
+          if (!now.found) return;
+          const fresh = now.items.find((each) => each.id === last.id && each.deletedAt === null);
+          if (!fresh) return;
+          const product = now.products.find((each) => each.id === fresh.productId);
+          const edit: ItemEdit = {
+            ...(typedName !== null && trimmedName !== '' ? { name: trimmedName } : {}),
+            ...(typedNote !== null
+              ? { note: typedNote.trim() === '' ? null : typedNote.trim() }
+              : {}),
+          };
+          const mutation = editItem(
+            env(),
+            fresh,
+            edit,
+            learn && product ? { product } : undefined,
+            { product, products: now.products },
+          );
+          if (mutation) await device.commit(mutation);
+        })
+        // The device may be gone (signed out); what was typed then goes with it.
+        .catch(() => undefined);
+    },
+    [],
+  );
+
   /** Writes one field (or the few a choice sets), and only if it differs; the product learns from it when _Remember_ is on. */
   function save(edit: ItemEdit) {
     const mutation = editItem(env(), item, edit, remember && product ? { product } : undefined, {
@@ -128,8 +170,12 @@ export function ItemPanel({
       aria-label={`Item: ${item.name}`}
       tabIndex={-1}
       onKeyDown={(event) => {
-        // Escape closes it, unless it is what closes a picker's panel that is open over it.
-        if (event.key === 'Escape' && !event.defaultPrevented) onClose();
+        // Escape closes the panel, unless it is what closes a picker's panel that is open over it. The picker does not mark the key as handled, and where a
+        // click does not focus a button (Safari) the key does not come from inside it, so an open picker is told by its button saying it is expanded: this
+        // runs before the picker's own listener on the document, which is what closes it. What was typed goes with the panel, written as it goes.
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        if (panel.current?.querySelector('[aria-expanded="true"], [role="dialog"]')) return;
+        onClose();
       }}
     >
       <header className={styles.head}>

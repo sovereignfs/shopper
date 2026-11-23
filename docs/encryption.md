@@ -6,7 +6,7 @@
 ## What is encrypted, and by whom
 
 **What you write into Shopper is encrypted on your device, before it is sent,** with **keys of each list's own**, held only by the people on that list:
-the names of lists, items and products, and notes. The server stores and syncs what it cannot read, and merges changes without opening them. This is
+the names of lists, items and products, a list's icon and colour, and notes. The server stores and syncs what it cannot read, and merges changes without opening them. This is
 the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0004](rfcs/0004-lists-of-their-own.md) and `DESIGN.md` §13.
 
 - **A new account's lists are encrypted from their first item.** When you sign in, your device makes your keys and moves anything the server held

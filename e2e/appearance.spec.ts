@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { LIST_ICONS } from '../src/lists/appearance';
-import { seedItems, signUp, test } from './helpers';
+import { PASSWORD, anotherDevice, seedItems, signUp, test } from './helpers';
 
 /**
  * A list's icon and colour (task 22.3, RFC 0005), in a real browser: chosen in the list's settings, drawn in the header and the sidebar in the list's
@@ -20,12 +20,13 @@ const colorOf = (page: Page, link: RegExp) =>
     .first()
     .evaluate((svg) => getComputedStyle(svg).color);
 
-test('a list has the defaults until it is given an icon and a colour, and then the sidebar and the header show them and the server holds only ciphertext', async ({
+test('a list has the defaults until it is given an icon and a colour, and then the sidebar and the header show them, a second device has them, and the server holds only ciphertext', async ({
   page,
+  browser,
   baseURL,
 }) => {
   const base = baseURL ?? '';
-  await signUp(page);
+  const email = await signUp(page);
   await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], base);
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
 
@@ -94,6 +95,20 @@ test('a list has the defaults until it is given an icon and a colour, and then t
   await expect
     .poll(() => colorOf(page, /Groceries/), { timeout: 15_000 })
     .toBe('rgb(124, 58, 237)');
+
+  // A second device of the same account signs in, opens the list's content from the server's ciphertext, and draws it in the same colour.
+  const second = await anotherDevice(browser, base);
+  await second.page.goto('/sign-in');
+  await second.page.getByLabel('Email').fill(email);
+  await second.page.getByLabel('Password').fill(PASSWORD);
+  await second.page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(second.page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect
+    .poll(() => colorOf(second.page, /Groceries/), { timeout: 15_000 })
+    .toBe('rgb(124, 58, 237)');
+  await second.context.close();
 
   // The default colour again.
   await page.getByRole('button', { name: 'List menu' }).click();

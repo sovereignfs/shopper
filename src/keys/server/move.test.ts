@@ -31,6 +31,9 @@ const LIMITS: Limits = {
   householdProducts: 5000,
 };
 const MARKER = 'MARKERmv4';
+/** A list's icon and colour, as a person chose them: names a design system might one day have, and a colour no swatch offers. */
+const LIST_ICON = 'planted-icon-xq7';
+const LIST_COLOR = '#a1b2c3';
 let database: Database;
 let ada: Someone;
 let grace: Someone;
@@ -53,6 +56,8 @@ beforeAll(async () => {
     mutationId: crypto.randomUUID(),
     householdId: ada.household,
     changes: [
+      // The list's icon and colour (RFC 0005) are content like its name: they move with it, and the markers are in no table afterwards.
+      { table: 'list', id: list?.id ?? '', fields: { icon: LIST_ICON, color: LIST_COLOR } },
       {
         table: 'product',
         id: product,
@@ -229,6 +234,21 @@ describe(`moving a household (${leg})`, () => {
         item?.encrypted?.note ?? '',
       ),
     ).toBe(`barista ${MARKER}`);
+    // The list's icon and colour were moved with its name, and open under the list's keys.
+    const moved = pulled?.lists[0] as
+      { id: string; encrypted?: Record<string, string> } | undefined;
+    const listKeys = await deriveListKeyring(ring, moved?.id ?? '');
+    for (const [field, value] of [
+      ['icon', LIST_ICON],
+      ['color', LIST_COLOR],
+    ] as const)
+      expect(
+        await openField(
+          listKeys,
+          { list: moved?.id ?? '', table: 'list', row: moved?.id ?? '', field },
+          moved?.encrypted?.[field] ?? '',
+        ),
+      ).toBe(value);
     // Per list (RFC 0004): another list's keys, from the same group, do not open it.
     expect(
       await openField(
@@ -244,11 +264,11 @@ describe(`moving a household (${leg})`, () => {
         ? sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema IN ('shopper', 'public')`
         : sql`SELECT name FROM sqlite_master WHERE type = 'table'`,
     );
-    const forms = [
-      MARKER,
-      Buffer.from(MARKER).toString('base64'),
-      Buffer.from(MARKER).toString('hex'),
-    ];
+    const forms = [MARKER, LIST_ICON, LIST_COLOR].flatMap((text) => [
+      text,
+      Buffer.from(text).toString('base64'),
+      Buffer.from(text).toString('hex'),
+    ]);
     for (const { name } of tables) {
       if (name === 'household' || name.startsWith('sqlite_') || name.startsWith('__')) continue;
       const qualified =

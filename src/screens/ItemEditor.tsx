@@ -80,10 +80,12 @@ export function ItemBeside({
   ) : null;
   if (panel && mobile) return panel;
   return (
-    <ThreeColumnLayout sidebarHidden>
-      <div />
-      <div className={styles.main}>{children}</div>
-      {panel}
-    </ThreeColumnLayout>
+    <div className={styles.layout} {...(panel ? { 'data-item-open': '' } : {})}>
+      <ThreeColumnLayout sidebarHidden>
+        <div />
+        <div className={styles.main}>{children}</div>
+        {panel}
+      </ThreeColumnLayout>
+    </div>
   );
 }

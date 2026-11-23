@@ -163,9 +163,7 @@ export function ListSettings({ id }: { id: string }) {
           allowNone
           noneLabel="Default colour"
           swatches={LIST_SWATCHES}
-          value={
-            color === undefined ? (list.color === null ? null : listColorOf(list.color)) : color
-          }
+          value={color === undefined ? (list.color ? listColorOf(list.color) : null) : color}
           onChange={chooseColor}
         />
       </section>

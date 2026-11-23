@@ -111,12 +111,13 @@ it has been still for 400 ms); 22.5 moves them into the dialog's General. The re
 `apply.test.ts` and `encrypted.test.ts` (merged by field, the marker in no column, plain text held in a moved group, a value for another list refused;
 seen to fail without the registry), `readable.test.ts`, `sealed.test.ts` (which now reads _colour_ and `color` as one word) and `e2e/appearance.spec.ts` in
 Chromium and WebKit (the default blue, a chosen icon and colour in the sidebar and the header, the server's answer holding neither as text, a reload).
-**Waits for the release with 16.18 (ui 0.107.0):** the cart as the default in place of the basket, and the larger set of icons (`LIST_ICONS`, `DEFAULT_LIST_ICON`);
+A second device of the account signs in and draws the same colour (`e2e/appearance.spec.ts`); the move of a household to the browser's encryption carries both
+(`move.test.ts`: the markers are in no table afterwards). **Waits for the release with 16.18 (ui 0.107.0):** the cart as the default in place of the basket, and the larger set of icons (`LIST_ICONS`, `DEFAULT_LIST_ICON`);
 for 23.2: Home's tiles' icon; for 20.4: the import of both (shopping mode's header shows it, from 22.9). **Gaps to raise in `sovereign`:** `IconPicker`'s options have no
 accessible names (a screen reader hears an unnamed option, and a test can choose only by position), and its panel opens aligned to its button's right edge and
 is clipped by a scrolling container, so the button sits at the right of its row here.
 
-#### ✅ 22.4 — The list's header
+#### ⏳ 22.4 — The list's header
 
 **Goal:** Shop first and clear, buttons of one height, the menu flush right. **Design:** RFC 0005, "A list". **Depends on:** 22.1.
 
@@ -131,7 +132,7 @@ phone) and the menu (`ghost`, its padding and border pulled out of the row by `.
 no icon and Share's was `md`). **Shop is there only while something is left to buy,** as RFC 0005 says; `e2e/shop.spec.ts`'s "Keep" test keeps an item open for
 that reason. Tests: `e2e/header.spec.ts` in Chromium and WebKit (one height, Shop first with its label, Share's label by width, the menu's glyph within a pixel
 of the rows' right edge; desktop and phone, light and dark; no Shop on a list with nothing to buy), seen to fail against the old header. **Waits for
-ui 0.107.0:** the cart on Shop, which is the basket until then.
+ui 0.107.0:** the cart on Shop, which is the basket until then, and so the task is not marked done.
 
 #### 📋 22.5 — A list's settings in the dialog
 
@@ -164,7 +165,12 @@ the long press is gone from lists; **shopping mode keeps its long press** and it
 shopping screens and not by the app's frame, so that leg 5's frame replaces nothing here. Tests: `e2e/item.spec.ts` (rewritten: a tap opens and ticks nothing, each
 field written as it is left and at the server, two items replacing each other, the keyboard and focus back, offline, Remember, Delete and Undo, an unknown item
 closing it; on a phone, the page, the back arrow and no sideways scroll), `list.spec.ts`, `phone.spec.ts` and `shop.spec.ts` in Chromium and WebKit.
-**Waits for the release with 16.18 (ui 0.107.0):** `square-pen` in place of the pencil. **Left out:** the open item is not marked in the list.
+**Also:** what was typed and not left (Escape, Back, another item opened) is written as the panel goes, against the row as the device then holds it and only if the
+item is still there, so that an edit never restores an item deleted elsewhere; Escape closes an open picker and then the panel. **Where the list would be
+squeezed the item is the whole area in place of it,** by a container query on the area the frame gives the page (under 800px, so it follows the sidebar's
+three states and not the window): at 820px with the full sidebar the list was 180px wide beside the 360px column. **Remember for next time** is applied at each
+change, so turning it off afterwards does not unlearn what an earlier change taught. **Waits for the release with 16.18 (ui 0.107.0):** `square-pen` in place
+of the pencil. **Left out:** the open item is not marked in the list.
 
 #### 📋 22.7 — Settings as a dialog, by mode
 
