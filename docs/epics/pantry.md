@@ -18,6 +18,8 @@ through the one path, is sealed where it names something, and is handled by dele
 
 #### 📋 13.1 — The pantry and low points
 
+**Re-homed (2026-11-23)** by [RFC 0006](../rfcs/0006-home-and-inventory.md): on hand and the low point are an Inventory item's (23.3), a person's, not a household's product's. Built in phase 3 as planned.
+
 **Goal:** what is at home, and what is running low. **Design:** §22.2. **Depends on:** 12.6.
 
 **Technical:** on a product, kept at home, an amount on hand (decimal, in the product's unit) and a low point; on hand increased when a line for it is
@@ -28,6 +30,8 @@ catalog.
 
 #### 📋 13.2 — Staples
 
+**Re-homed (2026-11-23)** by [RFC 0006](../rfcs/0006-home-and-inventory.md): a staple is an Inventory item marked recurring (23.3); 23.5 offers missing ones first. What is left here is _Add staples_.
+
 **Goal:** what is always wanted, one action away. **Design:** §22.2. **Depends on:** 12.6.
 
 **Technical:** a staple flag on products; the empty add field offers missing staples first; _Add staples_ on a list adds every missing one at its
@@ -36,6 +40,8 @@ default quantity, in one mutation, folding with what is open.
 **Accepts when:** _Add staples_ adds exactly the missing ones and never a duplicate.
 
 #### 📋 13.3 — Repeating items
+
+**Re-homed (2026-11-23)** by [RFC 0006](../rfcs/0006-home-and-inventory.md): the rule is set on an Inventory item marked recurring (23.3).
 
 **Goal:** an item that comes back on its own. **Design:** §22.2. **Depends on:** 12.6.
 

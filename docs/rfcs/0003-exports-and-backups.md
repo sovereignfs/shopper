@@ -27,7 +27,7 @@ superseded; 11.3 (the plugin) moves to the browser.
 
 Under RFC 0001 the server holds ciphertext. As the contract says, end-to-end encrypted data is exported **as its ciphertext**, marked as envelopes in
 `contents.json`, with the person's sealed household-key records beside it, so that their keys open it again and nothing is in plain text on the way.
-Whether the person's browser also adds a readable copy, made after they unlock, is RFC 0001's open question 2; until it is settled, the
+**Settled (2026-11-23)** by [RFC 0005](0005-the-frame-settings-and-screens.md): a person's own export from Shopper is readable, one JSON file made by their browser (22.8); core's export of a person keeps Shopper's part as ciphertext. Whether the person's browser also adds a readable copy, made after they unlock, is RFC 0001's open question 2; until it is settled, the
 person's page says that the file opens with their keys.
 
 The things the contract forbids are never in it: a password's hash, a session, a token, a refresh token, another person's email.

@@ -1,0 +1,76 @@
+# Epic 23: Home and Inventory
+
+## Status
+
+📋 Planned. Workstream 0002, after 12.7 and before phase 2.
+
+## Overview
+
+[RFC 0006](../rfcs/0006-home-and-inventory.md): `/` opens **Home**, with Continue for the last list, a tile for every list and what can be said at a
+glance; **Inventory** is a person's own library of what they buy, shown together with the starter catalog, layered over it, never shared, feeding
+suggestions first, and where "what is at home" will live.
+
+## Related
+
+[RFC 0006](../rfcs/0006-home-and-inventory.md) · [workstream 0002](../workstreams/0002-frame-home-cards.md) · `DESIGN.md` §8, §16.4, §16.8, §22.2 ·
+[epic 4](catalog.md) (4.7 brought forward) · [epic 8](screens.md) (8.5, 8.6 replaced) · [epic 13](pantry.md) (13.1 to 13.3 re-homed)
+
+## Tasks
+
+#### 📋 23.1 — The design
+
+**Goal:** `DESIGN.md` says what RFC 0006 builds. **Depends on:** 22.1.
+
+**Technical:** §4 (Home, Inventory; "catalog" as a list's), §8 (Inventory beside a list's catalog; layering; suggestions' sources), §9.7 (All lists as
+Home's), §13.1 (`inventory_item`'s name and note, a person's category name), §16.3 (`/inventory`), §16.4 (Home), §16.8 (Inventory as the catalog
+screen), §20 (`inventory_item`), §22.2 (the pantry and staples on Inventory); `AGENTS.md`'s words and the one path's list of tables; 8.5, 8.6 and 13.1
+to 13.3 pointing here.
+
+**Accepts when:** no document says `/` opens the last list, or that the catalog screen is per list.
+
+#### 📋 23.2 — Home
+
+**Goal:** `/` opens Home. **Design:** RFC 0006, "Home". **Depends on:** 23.1, 22.3, 22.11.
+
+**Technical:** `src/screens/HomeScreen.tsx` becomes Home: Continue (`landingListOf`), the list tiles (own, shared, archived behind a toggle; icon,
+colour, open count, `AvatarStack` when 16.3 is released, initials until), At a glance computed on the device; an invitation's arrival still opens its
+list; the title `Home · Shopper`. Replaces 8.5.
+
+**Accepts when:** a signed-in `/` shows Home with Continue on the last list, offline; a new account's Continue is its _Groceries_ with the line; a
+person arriving by an invitation lands on its list.
+
+#### 📋 23.3 — Inventory: the data
+
+**Goal:** a person's own items and their changes to the starter, kept in their group and read by them alone. **Design:** RFC 0006, "The data".
+**Depends on:** 23.1.
+
+**Technical:** `inventory_item` on both dialects (`household_id`, `starter_key`, encrypted `name` and `note`, its name key under a key derived from the
+group's, `category_id`, `icon`, `unit`, `quantity`, `recurring`, `hidden`), written through `src/actions/` and `src/sync/apply.ts`, folded by name key;
+a person's own categories (4.7's adding, renaming and hiding, brought forward; an encrypted name); the pull excludes `inventory_item` for anyone but the
+group's own account, in the statement; a new name on a list makes an item, marked once; `People.deletePerson`, the export and the import; §13.1's
+registry test.
+
+**Accepts when:** a starter entry renamed shows the new name and keeps the entry's key; a hidden entry is offered nowhere; a person on one of the
+group's lists pulls no `inventory_item` (seen to fail with the condition removed); the property tests hold with Inventory rows.
+
+#### 📋 23.4 — Inventory: the screen
+
+**Goal:** `/inventory`. **Design:** RFC 0006, "The screen". **Depends on:** 23.3, 22.6, 22.11.
+
+**Technical:** the person's items and the starter's, searchable, grouped by category, filtered by recurring or once and by mine, starter or hidden; an
+item in the right column (name, category, icon, unit, quantity, note, recurring, hide or restore, _Add to a list_); _+ Add item_; the Categories tab
+(4.7's aisle order by `DragHandleRow`). Linked from the sidebar and from Home. Replaces 8.6.
+
+**Accepts when:** an item made, changed, hidden and restored offline reaches a second device of the same person; _Add to a list_ adds it with its
+category, icon and unit; a keyboard reaches everything.
+
+#### 📋 23.5 — Inventory in suggestions
+
+**Goal:** what a person has made their own comes first when they add. **Design:** RFC 0006, "Suggestions". **Depends on:** 23.3.
+
+**Technical:** `src/catalog/suggest.ts` with Inventory as its first source, then the list's products, then the person's other lists'; hidden starter
+entries excluded; recurring items not on the list first in _Often bought_; a list's new product made from the Inventory item; "Remember for next time"
+offering to update the Inventory item.
+
+**Accepts when:** a renamed starter entry is suggested by its new name and not its old; a recurring item missing from a list is offered first with an
+empty field; the suggestion tests and property tests pass.

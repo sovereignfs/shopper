@@ -130,7 +130,9 @@ Tusk's `src/auth/` parts left out of 2.1.
 **Accepts when:** a passkey and an authenticator app can each be added, used to sign in, and removed; the last way in cannot be removed; backup
 codes work once each.
 
-#### 📋 2.9 — Linking core and a local account (phase 2)
+#### ➖ 2.9 — Linking core and a local account (phase 2)
+
+**Superseded (2026-11-23)** by [RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md): an instance signs people in through core or by its own accounts, never both, so there is nothing to link (22.2). What follows is kept as it was planned.
 
 **Goal:** one person, two ways in, never joined by guessing. **Design:** §15.1. **Depends on:** 2.3.
 

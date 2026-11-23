@@ -178,3 +178,101 @@ answer in the fragment, a refusal when told to), with a way to make an answer wr
 return page.
 
 **Accepts when:** a `@sovereignfs/sdk` release carrying it is published.
+
+#### 📋 16.17 — `prompt=create`: an app asks core to open on its sign-up
+
+**Goal:** an app's _Create an account_ lands on core's sign-up, not its sign-in. **Design:** [RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md),
+"Sign-in". **Depends on:** nothing here. **Needed by:** nothing waits; 22.2 uses it when it is released.
+
+**What Shopper needs:** OIDC's `prompt=create` in the SDK's `beginSignIn`, in `@sovereignfs/auth`'s `/sign-in/sovereign` route, and in core's
+authorize endpoint, which sends the person to `/sign-up` with the resume address as its `returnTo` (core's sign-up keeps `returnTo` already).
+
+**Accepts when:** releases of the SDK, `@sovereignfs/auth` and core carrying it are published.
+
+#### 📋 16.18 — Icons: `square-pen`, and more
+
+**Goal:** the icons RFC 0005 to 0007 use are in the design system. **Design:** RFC 0005, "A list". **Depends on:** nothing here. **Needed by:** 22.3,
+22.6.
+
+**What Shopper needs:** `square-pen` (Lucide's) and, for lists, Inventory's categories and cards, icons beyond groceries: hardware, electronics,
+clothing, gifts, garden, office, a card. Added by development, as 16.4's grocery icons are; people never upload their own.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying them is published.
+
+#### 📋 16.19 — `SettingsDialog`
+
+**Goal:** settings as one dialog with a side navigation, for every app and core. **Design:** RFC 0005, "Settings". **Depends on:** nothing here.
+**Needed by:** 22.5, 22.7.
+
+**What Shopper needs:** on `Dialog`'s fixed-size `lg` frame: a title row and close across the width; sections in groups with dividers, each with an
+icon; an optional search; the active section's content scrolling in a frame that does not change size; on a phone, the sections then one with a back
+arrow. Controlled (`active`, `onSelect`), so that an app puts each section at an address.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+#### 📋 16.20 — `Header` with the app's own brand
+
+**Goal:** an app's header is the design system's, with its own wordmark. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed
+by:** 22.11.
+
+**What Shopper needs:** a `brand` slot in place of the initial badge (which stays the default, for core); on the right, the launcher, the bell and the
+avatar in that order, each drawn only when given.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+#### 📋 16.21 — `AppSidebar`
+
+**Goal:** the sidebar every app copies, once. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:** 22.11.
+
+**What Shopper needs:** full, a rail of icons (with tooltips) or hidden, with its toggle, remembered on the device per app and per kind of page
+(Shopper's `src/ui/sidebar.ts`'s rules); blocks of `NavList`, each with an optional heading and an optional trailing _+ New …_ row; an item with an icon
+in a colour and a count.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+#### 📋 16.22 — `AppFrame`
+
+**Goal:** the header, the sidebar, the content and a right column, wired, for every app. **Design:** RFC 0005, "The frame". **Depends on:** 16.20,
+16.21. **Needed by:** 22.11.
+
+**What Shopper needs:** desktop: `Header`, `AppSidebar`, the content, `ThreeColumnLayout`'s optional right column; phone: `MobileHeader`, the content,
+`MobileFooter` and a `Drawer`; the overlays' offsets published as Tusk's `AppShell` does; nothing that changes a route by viewport.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+#### 📋 16.23 — The apps a person can open
+
+**Goal:** an app's header can show the suite's launcher. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:** 22.11.
+
+**What Shopper needs:** a core endpoint answering, for the person signed in, the apps they may open (name, description, icon, launch address, from each
+manifest with `signIn`), with icons served from core's own address; an SDK call to it with the app's token; `AppsLauncher` fed from it.
+
+**Accepts when:** releases of core and the SDK carrying it are published.
+
+#### 📋 16.24 — `MobileFooter`'s middle button, named by the app
+
+**Goal:** the middle button can be something other than the apps. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:**
+22.11.
+
+**What Shopper needs:** a label (and so an accessible name) for the middle button, which is "Apps" today and fixed; Shopper's opens its lists.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+#### 📋 16.25 — `Barcode`
+
+**Goal:** a linear barcode drawn as `QrCode` draws a QR code. **Design:** [RFC 0007](../rfcs/0007-loyalty-cards.md), "A card". **Depends on:** nothing
+here. **Needed by:** 24.3.
+
+**What Shopper needs:** EAN-13, EAN-8, UPC-A, Code 128 and Code 39 as an SVG, with a quiet zone, black on white in either theme, scaled to its width;
+no third-party request.
+
+**Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+#### 📋 16.26 — Writing an export in the browser
+
+**Goal:** an app whose data only the browser can open writes the contract's export there. **Design:** RFC 0005, "A readable export". **Depends on:**
+nothing here. **Needed by:** nothing waits; 22.8 writes one JSON file until then.
+
+**What Shopper needs:** `@sovereignfs/export`'s writer (the zip, the head, records) usable in a browser, with no `node:` module.
+
+**Accepts when:** a `@sovereignfs/export` release carrying it is published.

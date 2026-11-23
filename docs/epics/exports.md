@@ -37,6 +37,8 @@ items, products and categories, content as the ciphertext it is, marked as envel
 
 #### 🚧 20.2 — A person's export with no core
 
+**Replaced in form (2026-11-23)** by 22.8 ([RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md)): a person's own export is one readable JSON file made in the browser, after confirming it is them, in both modes. The operator's export (20.3) and import (20.4) stay as written.
+
 **Goal:** alone, a person takes their own export. **Design:** RFC 0003, sdk §9.5. **Depends on:** 20.1.
 
 **Technical:** `ExportJobs` on Shopper's database (`exportJobsMigrations`, both dialects), `ExportRunner` as a claimed job, `downloadExport`,

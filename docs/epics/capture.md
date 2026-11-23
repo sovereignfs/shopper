@@ -17,6 +17,8 @@ stored by Shopper itself, sealed. The browser never calls a third party; files n
 
 #### 📋 14.1 — Barcode scanning
 
+**Decoding brought forward (2026-11-23)** to 24.4 ([RFC 0007](../rfcs/0007-loyalty-cards.md)), for loyalty cards; this task uses it for products.
+
 **Goal:** scan to find or add a product. **Design:** §22.3. **Depends on:** 13.9.
 
 **Technical:** the camera through `getUserMedia`, frames decoded on the device by `BarcodeDetector` where present, otherwise a bundled WebAssembly
