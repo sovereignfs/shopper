@@ -9,6 +9,7 @@ import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import { listViewOf } from '../local/listview';
 import { callOperation } from '../local/ops';
 import { useLocal, useLocalQuery } from '../local/react';
+import { useTitle } from './title';
 import styles from './ListSettings.module.css';
 
 /**
@@ -26,6 +27,7 @@ export function ListSettings({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  useTitle(found?.found ? ['Settings', found.list.name] : []);
 
   if (!found) return <div className={styles.page} aria-busy="true" />;
   if (!found.found)

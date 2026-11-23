@@ -15,6 +15,7 @@ import { AddField } from './AddField';
 import { EditedItem, useItemParam } from './ItemEditor';
 import { iconOf } from './ListScreen';
 import { shopEntry } from './shop-entry';
+import { useTitle } from './title';
 import { useUndo } from './Undo';
 import { useWakeLock } from './wake-lock';
 import styles from './ShopScreen.module.css';
@@ -58,6 +59,7 @@ function Shopping({ data }: { data: Found }) {
   const offerUndo = useUndo();
   const editing = useItemParam();
   const { list, items, categories, me } = data;
+  useTitle([`Shopping ${list.name}`]);
   const [basket, setBasket] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [showBasket, setShowBasket] = useState(true);

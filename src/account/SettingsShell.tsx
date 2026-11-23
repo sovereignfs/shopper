@@ -2,6 +2,7 @@
 
 import { type ReactNode, useState } from 'react';
 import { Icon, type IconName } from '@sovereignfs/ui';
+import { useTitle } from '../screens/title';
 import { type AccountSection } from './query';
 import styles from './Account.module.css';
 
@@ -26,6 +27,7 @@ export function SettingsShell({
   panels: Record<AccountSection, ReactNode>;
 }) {
   const [section, setSection] = useState<AccountSection>(initial);
+  useTitle([SECTIONS.find((entry) => entry.id === section)?.label ?? 'Profile', 'Settings']);
   return (
     <div className={styles.shell}>
       <div className={styles.side}>

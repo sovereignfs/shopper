@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { isId } from '@/src/actions/format';
 import { ListScreen } from '@/src/screens/ListScreen';
 
-export const metadata: Metadata = { title: 'List' };
+// The list's name is encrypted: the browser titles the page once it is opened (`useTitle`), and until then it is the app's.
+export const metadata: Metadata = { title: { absolute: 'Shopper' } };
 export const dynamic = 'force-dynamic';
 
 /**

@@ -40,6 +40,7 @@ import { AddField } from './AddField';
 import { EditedItem, useItemParam, useQueryParam } from './ItemEditor';
 import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
+import { useTitle } from './title';
 import { useUndo } from './Undo';
 
 /**
@@ -117,6 +118,7 @@ function Loaded({ data }: { data: Found }) {
   const editing = useItemParam();
   const sharing = useQueryParam('share');
   const { list, items, categories, me } = data;
+  useTitle([list.name]);
   const open = openItems(items);
   const bought = boughtItems(items);
 

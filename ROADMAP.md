@@ -303,7 +303,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | 110 | [22.7](docs/epics/frame.md)  | Settings as a dialog, by mode   | P1       | 22.2, 16.19 | 📋     |
 | 111 | [22.8](docs/epics/frame.md)  | A readable export               | P1       | 22.7        | ⏳     |
 | 112 | [22.9](docs/epics/frame.md)  | Shop mode                       | P1       | 22.3        | 📋     |
-| 113 | [22.10](docs/epics/frame.md) | Page titles                     | P2       | 22.1        | 📋     |
+| 113 | [22.10](docs/epics/frame.md) | Page titles                     | P2       | 22.1        | ✅     |
 
 ### Milestone Y — The frame, Home and Inventory
 

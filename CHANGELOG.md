@@ -6,6 +6,15 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.5.0] - 2026-11-23
+
+### Added
+
+- **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, a list's settings `Settings ·
+<list> · Shopper` and Settings `<section> · Settings · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the
+  name, and until then it is `Shopper`. A browser keeps titles in its history, and a history it syncs leaves the device with them: the one way an
+  opened name leaves Shopper (`docs/encryption.md`).
+
 ## [0.4.0] - 2026-11-23
 
 **Before upgrading:** an instance set up with both a Sovereign core and its own accounts (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=1`) now signs

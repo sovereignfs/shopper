@@ -182,7 +182,7 @@ default; Finish in a bar fixed to the bottom with the basket's count, the list p
 
 **Accepts when:** with forty items the last is reachable above the bar on a phone; adding with the toggle on adds it bought; the network off throughout.
 
-#### 📋 22.10 — Page titles
+#### ✅ 22.10 — Page titles
 
 **Goal:** every page's title says what it shows. **Design:** RFC 0005, "Page titles". **Depends on:** 22.1.
 
@@ -190,6 +190,15 @@ default; Finish in a bar fixed to the bottom with the basket's count, the list p
 encrypted name.
 
 **Accepts when:** every row of RFC 0005's table holds for the pages that exist (Inventory's and the cards' titles come with 23.4 and 24.3), and a list opened offline titles itself once the store has loaded.
+
+**Done as (0.5.0, 2026-11-23):** `useTitle` (`src/screens/title.ts`, with the pure `titleOf` beside it) sets `document.title` from the opened name and, when its
+screen goes, puts back what it found unless the next page has already set its own, so that a list's name does not stay behind on a page whose server
+title is the same `Shopper` (the server titles for a list, shopping mode and a list's settings are now the app's name alone, in place of `List`,
+`Shopping` and `List settings`). Used by the list (`<list> · Shopper`), shopping mode (`Shopping <list> · Shopper`), a list's settings (`Settings ·
+<list> · Shopper`) and Settings (`<section> · Settings · Shopper`, by today's sections, which 22.7 renames). `docs/encryption.md` says the caveat as
+running. Tests: `title.test.ts` (the table's rows) and `e2e/titles.spec.ts` in Chromium and WebKit (the title at each page, and that a name does not
+outlast its page), seen to fail against the code before. **Left out:** Home's `Home · Shopper`, since `/` still draws the last list and so carries
+its title; it comes with 23.2.
 
 #### 📋 22.11 — The suite's frame
 
