@@ -145,7 +145,7 @@ function Loaded({ data }: { data: Found }) {
         id={list.id}
         householdId={list.householdId}
         share={() => sharing.open('1')}
-        shop={list.archivedAt === null}
+        shop={list.archivedAt === null && open.length > 0}
         view={view}
         setView={setView}
         canClear={bought.length > 0}
@@ -218,22 +218,24 @@ function Header({
       <ListGlyph list={appearance} size="lg" />
       <h1 title={name}>{name}</h1>
       <div className={styles.actions}>
-        <Button variant="secondary" size="sm" onClick={share} aria-label="Share">
-          <Icon name="users" aria-hidden />
-          <span className={styles.actionLabel}>Share</span>
-        </Button>
         {shop ? (
           <Button
-            variant="secondary"
+            variant="primary"
             size="sm"
             onClick={() => {
               shopEntry.setFromList(true);
               router.push(`/shop?h=${householdId}&l=${id}`);
             }}
           >
+            {/* The cart (RFC 0005) once the design system has it, 0.107.0. */}
+            <Icon name="shopping-basket" size="sm" aria-hidden />
             Shop
           </Button>
         ) : null}
+        <Button variant="secondary" size="sm" onClick={share} aria-label="Share">
+          <Icon name="users" size="sm" aria-hidden />
+          <span className={styles.actionLabel}>Share</span>
+        </Button>
         <Menu
           open={menu}
           onClose={() => setMenu(false)}
@@ -241,14 +243,15 @@ function Header({
           aria-label="List menu"
           trigger={
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
+              className={styles.menuButton}
               aria-label="List menu"
               aria-haspopup="menu"
               aria-expanded={menu}
               onClick={() => setMenu(!menu)}
             >
-              <Icon name="ellipsis-vertical" aria-hidden />
+              <Icon name="ellipsis-vertical" size="sm" aria-hidden />
             </Button>
           }
           items={[

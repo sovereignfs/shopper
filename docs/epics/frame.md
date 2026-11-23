@@ -116,7 +116,7 @@ for 22.9 and 23.2: shopping mode's and Home's tiles' icon; for 20.4: the import 
 accessible names (a screen reader hears an unnamed option, and a test can choose only by position), and its panel opens aligned to its button's right edge and
 is clipped by a scrolling container, so the button sits at the right of its row here.
 
-#### 📋 22.4 — The list's header
+#### ✅ 22.4 — The list's header
 
 **Goal:** Shop first and clear, buttons of one height, the menu flush right. **Design:** RFC 0005, "A list". **Depends on:** 22.1.
 
@@ -125,6 +125,13 @@ offset so its dots meet the content's edge); every icon at `sm`. `src/screens/Li
 
 **Accepts when:** the three are the same height at a desktop's and a phone's width, the menu's glyph lines up with the rows' right edge, light and
 dark.
+
+**Done as (0.5.0, 2026-11-23):** `src/screens/ListScreen.tsx`'s header is Shop (`primary`, icon and label on a phone too), Share (`secondary`, its label hidden on a
+phone) and the menu (`ghost`, its padding and border pulled out of the row by `.menuButton`), every icon at `sm`, which is what made the three one height (Shop had
+no icon and Share's was `md`). **Shop is there only while something is left to buy,** as RFC 0005 says; `e2e/shop.spec.ts`'s "Keep" test keeps an item open for
+that reason. Tests: `e2e/header.spec.ts` in Chromium and WebKit (one height, Shop first with its label, Share's label by width, the menu's glyph within a pixel
+of the rows' right edge; desktop and phone, light and dark; no Shop on a list with nothing to buy), seen to fail against the old header. **Waits for
+ui 0.107.0:** the cart on Shop, which is the basket until then.
 
 #### 📋 22.5 — A list's settings in the dialog
 

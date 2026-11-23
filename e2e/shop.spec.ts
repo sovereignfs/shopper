@@ -140,7 +140,11 @@ test('Keep leaves what was bought on the list, and leaving without finishing cha
   page,
   baseURL,
 }) => {
-  await inTheShop(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  // Coffee stays on the list: Shop is there only while something is left to buy (RFC 0005), and the test goes back into shopping from the list.
+  await inTheShop(page, baseURL, [
+    { name: 'Milk', category: 'dairy-eggs' },
+    { name: 'Coffee', category: 'pantry' },
+  ]);
   await page.getByRole('checkbox', { name: /Milk/ }).click();
   await page.getByRole('button', { name: 'Back to Groceries' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();

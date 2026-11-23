@@ -34,6 +34,12 @@
   margin-left: var(--sv-space-1);
 }
 
+/* The menu's dots meet the content's right edge (RFC 0005): its own padding and border are pulled out of the row, so that the glyph, and not the button, is
+   what lines up with the rows below. */
+.menuButton {
+  margin-right: calc(-1 * (var(--sv-space-3) + var(--sv-border-width-hairline)));
+}
+
 @media (max-width: 720px) {
   .page {
     padding: var(--sv-space-4);

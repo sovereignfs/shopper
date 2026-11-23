@@ -14,10 +14,15 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   its header, in the sidebar (the narrow sidebar shows it in place of the letter) and in the phone's drawer. Both are encrypted on your device as the
   list's name is, and a list you never gave either looks as before, with a basket and blue. Clearing the colour puts the blue back. The set of icons grows
   with a coming release.
-- **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, a list's settings `Settings ·
-<list> · Shopper` and Settings `<section> · Settings · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the
-  name, and until then it is `Shopper`. A browser keeps titles in its history, and a history it syncs leaves the device with them: the one way an
-  opened name leaves Shopper (`docs/encryption.md`).
+- **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, Settings `<section> · Settings · Shopper` and
+  a list's settings `Settings · <list> · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the name, and until then
+  it is `Shopper`. A browser keeps titles in its history, and a history it syncs leaves the device with them: the one way an opened name leaves Shopper
+  (`docs/encryption.md`).
+
+### Changed
+
+- **A list's header** (RFC 0005): **Shop** is first and stands out, with its label on a phone too, and shows only while something is left to buy; **Share**
+  and the list's menu follow, all three of one height, with the menu's dots in line with the right edge of the items below.
 
 ## [0.4.0] - 2026-11-23
 

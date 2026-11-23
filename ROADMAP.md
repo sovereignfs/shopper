@@ -297,7 +297,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | --- | ---------------------------- | ------------------------------- | -------- | ----------- | ------ |
 | 105 | [22.2](docs/epics/frame.md)  | Sign-in by mode                 | P0       | 22.1        | ✅     |
 | 106 | [22.3](docs/epics/frame.md)  | A list's icon and colour        | P1       | 22.1, 16.18 | ⏳     |
-| 107 | [22.4](docs/epics/frame.md)  | The list's header               | P1       | 22.1        | 📋     |
+| 107 | [22.4](docs/epics/frame.md)  | The list's header               | P1       | 22.1        | ✅     |
 | 108 | [22.5](docs/epics/frame.md)  | A list's settings in the dialog | P1       | 22.3, 16.19 | 📋     |
 | 109 | [22.6](docs/epics/frame.md)  | The item beside its list        | P1       | 22.1, 16.18 | 📋     |
 | 110 | [22.7](docs/epics/frame.md)  | Settings as a dialog, by mode   | P1       | 22.2, 16.19 | 📋     |
