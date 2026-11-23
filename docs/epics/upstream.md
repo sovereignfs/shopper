@@ -261,7 +261,7 @@ manifest with `signIn`), with icons served from core's own address; an SDK call 
 
 **Accepts when:** releases of core and the SDK carrying it are published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.8, on its `develop` at `6b1630e`, with a person's token and no new scope (the owner's choice): core's `GET /api/v1/apps` (`listMyApps`), the SDK's `sv.as(person).apps.list()`, and `appsLauncherItems` in `@sovereignfs/ui` for `AppsLauncher`. **Icons are the addresses each app's launcher entry names, on each app's own host, not core's:** Shopper's `img-src` must allow them, or the tiles draw initials. Not published yet.
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.8, on its `develop` at `6b1630e`, with a person's token and no new scope (the owner's choice): core's `GET /api/v1/apps` (`listMyApps`), the SDK's `sv.as(person).apps.list()`, and `appsLauncherItems` in `@sovereignfs/ui` for `AppsLauncher`. Its icons are served from core's own address (`/api/branding/apps/<id>`, `cb3e1a2`), fetched from each app and checked as a picture. Not published yet.
 
 #### ⏳ 16.24 — `MobileFooter`'s middle button, named by the app
 

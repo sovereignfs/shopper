@@ -143,9 +143,7 @@ is "worth offering to `@sovereignfs/ui`". The design system has the parts (`Head
   `MobileFooter` and a `Drawer`. The same routes on both; only what is drawn differs.
 - **The launcher's apps** (16.23): core's own launcher reads its database, and **no endpoint gives an app the apps a person may open**. Core gains one
   (name, description, icon and launch address, from each app's manifest, for the person signed in) and the SDK a call to it with the app's token;
-  `AppsLauncher` shows them. **Suite mode only;** kept on the device so that it opens offline; icons served from core's own address. _Built (2026-11-23) as
-  `listMyApps` with a person's token and no new scope; core gives each icon's address on its app's own host, so Shopper draws initials until
-  core serves them (`DESIGN.md` §16.2)._
+  `AppsLauncher` shows them. **Suite mode only;** kept on the device so that it opens offline; icons served from core's own address. _Built (2026-11-23) as `listMyApps`, with a person's token and no new scope; each icon is core's own address for it (`/api/branding/apps/<id>`)._
 - **`MobileFooter`'s middle button takes its own name** (16.24): it is named "Apps" today and an app cannot change it.
 
 **Shopper's sidebar** has two blocks: **Home, Inventory, Loyalty cards**; then **My lists** (with _+ New list_) and **Shared with me** (whose each is,

@@ -213,4 +213,4 @@ was started with 12.7's release published as v0.2.0 and its roadmap row still op
   `sovereign` tracks it as its epic 21 and workstream 0012. Its `@sovereignfs/ui` 0.107.0 has the icons, `SettingsDialog`,
   `MobileFooter`'s label, `Header`'s brand, `AppSidebar`, `AppFrame` and `Barcode`; `@sovereignfs/export` 0.4.0 writes in a page; core 0.86.0,
   the SDK 2.12.0 and `@sovereignfs/auth` 0.7.0 carry `prompt=create`. **16.23** (the apps a person can open) is core's `listMyApps`, with a
-  person's token and no new scope, as the owner chose; its icons are on each app's own host, not core's, which leg 5 must allow or draw initials for. Legs 3, 4, 5 and 7 wait for the owner to release them, as the table says.
+  person's token and no new scope, as the owner chose; its icons are served from core's own address. Legs 3, 4, 5 and 7 wait for the owner to release them, as the table says.
