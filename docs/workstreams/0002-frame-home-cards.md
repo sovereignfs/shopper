@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; legs 2 to 8 to go; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign` but 16.23, waiting for its releases; legs 3 to 8 to go; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -209,4 +209,8 @@ was started with 12.7's release published as v0.2.0 and its roadmap row still op
 
 **What waits:**
 
-- **Leg 2** (16.17 to 16.26, in `sovereign`): nothing released yet; legs 3, 4, 5 and 7 wait on it as the table says.
+- **Leg 2** (16.17 to 16.26, in `sovereign`): **built but 16.23, on `sovereign`'s `develop`, not pushed or released** (2026-11-23).
+  `sovereign` tracks it as its epic 21 and workstream 0012. Its `@sovereignfs/ui` 0.107.0 has the icons, `SettingsDialog`,
+  `MobileFooter`'s label, `Header`'s brand, `AppSidebar`, `AppFrame` and `Barcode`; `@sovereignfs/export` 0.4.0 writes in a page; core 0.86.0,
+  the SDK 2.12.0 and `@sovereignfs/auth` 0.7.0 carry `prompt=create`. **16.23** (the apps a person can open) waits for the owner to choose
+  which token calls core's new endpoint. Legs 3, 4, 5 and 7 wait for the owner to release them, as the table says.

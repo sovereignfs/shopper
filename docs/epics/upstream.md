@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In Progress: 16.17 to 16.26 but 16.23 are built in `sovereign` (its epic 21, workstream 0012) and wait for their release; 16.23 waits for the owner's choice of token.
 
 ## Overview
 
@@ -179,7 +179,7 @@ return page.
 
 **Accepts when:** a `@sovereignfs/sdk` release carrying it is published.
 
-#### 📋 16.17 — `prompt=create`: an app asks core to open on its sign-up
+#### ⏳ 16.17 — `prompt=create`: an app asks core to open on its sign-up
 
 **Goal:** an app's _Create an account_ lands on core's sign-up, not its sign-in. **Design:** [RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md),
 "Sign-in". **Depends on:** nothing here. **Needed by:** nothing waits; 22.2 uses it when it is released.
@@ -189,7 +189,9 @@ authorize endpoint, which sends the person to `/sign-up` with the resume address
 
 **Accepts when:** releases of the SDK, `@sovereignfs/auth` and core carrying it are published.
 
-#### 📋 16.18 — Icons: `square-pen`, and more
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.9 (its epic 21, workstream 0012), on its `develop` at `21724b3`: core 0.86.0, SDK 2.12.0, `@sovereignfs/auth` 0.7.0: `beginSignIn({ prompt: 'create' })` and `/api/auth/sign-in/sovereign?prompt=create`; core's `/sign-up` carries the app's request and ends in its sign-in. Not published yet; this is done when it is.
+
+#### ⏳ 16.18 — Icons: `square-pen`, and more
 
 **Goal:** the icons RFC 0005 to 0007 use are in the design system. **Design:** RFC 0005, "A list". **Depends on:** nothing here. **Needed by:** 22.3,
 22.6.
@@ -199,7 +201,9 @@ clothing, gifts, garden, office, a card. Added by development, as 16.4's grocery
 
 **Accepts when:** a `@sovereignfs/ui` release carrying them is published.
 
-#### 📋 16.19 — `SettingsDialog`
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.2 (its epic 21, workstream 0012), on its `develop` at `925dbaf`: `@sovereignfs/ui` 0.107.0: twenty icons, `square-pen`, `shopping-cart` (a new list's), `store`, `hammer`, `wrench`, `plug`, `laptop`, `headphones`, `shirt`, `gift`, `sprout`, `flower-2`, `briefcase`, `paperclip`, `pill`, `baby`, `dog`, `sofa`, `wallet-cards`, `scan-barcode`. Not published yet; this is done when it is.
+
+#### ⏳ 16.19 — `SettingsDialog`
 
 **Goal:** settings as one dialog with a side navigation, for every app and core. **Design:** RFC 0005, "Settings". **Depends on:** nothing here.
 **Needed by:** 22.5, 22.7.
@@ -210,7 +214,9 @@ arrow. Controlled (`active`, `onSelect`), so that an app puts each section at an
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-#### 📋 16.20 — `Header` with the app's own brand
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.1 (its epic 21, workstream 0012), on its `develop` at `5a900be`: `@sovereignfs/ui` 0.107.0: `SettingsDialog` (`groups`, `active`, `onSelect`, `search`, `renderLink`; `active: null` is the sections alone on a phone), on `Dialog`'s new `flush`. Not published yet; this is done when it is.
+
+#### ⏳ 16.20 — `Header` with the app's own brand
 
 **Goal:** an app's header is the design system's, with its own wordmark. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed
 by:** 22.11.
@@ -220,7 +226,9 @@ avatar in that order, each drawn only when given.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-#### 📋 16.21 — `AppSidebar`
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.4 (its epic 21, workstream 0012), on its `develop` at `62c0c91`: `@sovereignfs/ui` 0.107.0: `Header`'s `brand`, beside the `leading` slot and the optional launcher, bell and avatar it already had. Not published yet; this is done when it is.
+
+#### ⏳ 16.21 — `AppSidebar`
 
 **Goal:** the sidebar every app copies, once. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:** 22.11.
 
@@ -230,7 +238,9 @@ in a colour and a count.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-#### 📋 16.22 — `AppFrame`
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.5 (its epic 21, workstream 0012), on its `develop` at `d2edbd1`: `@sovereignfs/ui` 0.107.0: `AppSidebar` and `useAppSidebar(appId, pageKind)`, with `src/ui/sidebar.ts`'s rules exported (`sidebarStateFor`, `toggleSidebarHidden`, `toggleSidebarRail`), kept under `sv.sidebar.<app>`; a rail names each row with its `title`. Not published yet; this is done when it is.
+
+#### ⏳ 16.22 — `AppFrame`
 
 **Goal:** the header, the sidebar, the content and a right column, wired, for every app. **Design:** RFC 0005, "The frame". **Depends on:** 16.20,
 16.21. **Needed by:** 22.11.
@@ -239,6 +249,8 @@ in a colour and a count.
 `MobileFooter` and a `Drawer`; the overlays' offsets published as Tusk's `AppShell` does; nothing that changes a route by viewport.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.6 (its epic 21, workstream 0012), on its `develop` at `bdcac5a`: `@sovereignfs/ui` 0.107.0: `AppFrame` (`appId`, `brand`, `pageKind`, `blocks`, `footer`, `detail`, `renderLink`); the phone's middle button opens the drawer unless the footer gives its own `onOpenApps`. Not published yet; this is done when it is.
 
 #### 📋 16.23 — The apps a person can open
 
@@ -249,7 +261,9 @@ manifest with `signIn`), with icons served from core's own address; an SDK call 
 
 **Accepts when:** releases of core and the SDK carrying it are published.
 
-#### 📋 16.24 — `MobileFooter`'s middle button, named by the app
+**Waiting (2026-11-23):** `sovereign`'s 21.8, its one task that changes core's API; it waits for the owner to choose which token calls it (a person's, and with which scope).
+
+#### ⏳ 16.24 — `MobileFooter`'s middle button, named by the app
 
 **Goal:** the middle button can be something other than the apps. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:**
 22.11.
@@ -258,7 +272,9 @@ manifest with `signIn`), with icons served from core's own address; an SDK call 
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-#### 📋 16.25 — `Barcode`
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.3 (its epic 21, workstream 0012), on its `develop` at `ede94ac`: `@sovereignfs/ui` 0.107.0: `MobileFooter`'s `launcherLabel`, beside its `launcherIcon`. Not published yet; this is done when it is.
+
+#### ⏳ 16.25 — `Barcode`
 
 **Goal:** a linear barcode drawn as `QrCode` draws a QR code. **Design:** [RFC 0007](../rfcs/0007-loyalty-cards.md), "A card". **Depends on:** nothing
 here. **Needed by:** 24.3.
@@ -268,7 +284,9 @@ no third-party request.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-#### 📋 16.26 — Writing an export in the browser
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.7 (its epic 21, workstream 0012), on its `develop` at `7a48a97`: `@sovereignfs/ui` 0.107.0: `Barcode` and `encodeBarcode` (EAN-13, EAN-8, UPC-A, Code 128, Code 39), checked against bwip-js and ZXing. Not published yet; this is done when it is.
+
+#### ⏳ 16.26 — Writing an export in the browser
 
 **Goal:** an app whose data only the browser can open writes the contract's export there. **Design:** RFC 0005, "A readable export". **Depends on:**
 nothing here. **Needed by:** nothing waits; 22.8 writes one JSON file until then.
@@ -276,3 +294,5 @@ nothing here. **Needed by:** nothing waits; 22.8 writes one JSON file until then
 **What Shopper needs:** `@sovereignfs/export`'s writer (the zip, the head, records) usable in a browser, with no `node:` module.
 
 **Accepts when:** a `@sovereignfs/export` release carrying it is published.
+
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.10 (its epic 21, workstream 0012), on its `develop` at `c24f270`: `@sovereignfs/export` 0.4.0: `BrowserExportWriter` from `@sovereignfs/export/browser`, the same archive as the server's writer. Not published yet; this is done when it is.

@@ -278,16 +278,16 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | 92  | [22.1](docs/epics/frame.md)     | The design: the frame and the screens              | P0       | 12.7         | ✅     |
 | 93  | [23.1](docs/epics/inventory.md) | The design: Home and Inventory                     | P0       | 22.1         | ✅     |
 | 94  | [24.1](docs/epics/cards.md)     | The design: loyalty cards                          | P0       | 22.1         | ✅     |
-| 95  | [16.17](docs/epics/upstream.md) | `prompt=create` (`sovereign`)                      | P3       | —            | 📋     |
-| 96  | [16.18](docs/epics/upstream.md) | Icons: `square-pen`, and more (`sovereign`)        | P1       | —            | 📋     |
-| 97  | [16.19](docs/epics/upstream.md) | `SettingsDialog` (`sovereign`)                     | P1       | —            | 📋     |
-| 98  | [16.20](docs/epics/upstream.md) | `Header` with the app's own brand (`sovereign`)    | P1       | —            | 📋     |
-| 99  | [16.21](docs/epics/upstream.md) | `AppSidebar` (`sovereign`)                         | P1       | —            | 📋     |
-| 100 | [16.22](docs/epics/upstream.md) | `AppFrame` (`sovereign`)                           | P1       | 16.20, 16.21 | 📋     |
+| 95  | [16.17](docs/epics/upstream.md) | `prompt=create` (`sovereign`)                      | P3       | —            | ⏳     |
+| 96  | [16.18](docs/epics/upstream.md) | Icons: `square-pen`, and more (`sovereign`)        | P1       | —            | ⏳     |
+| 97  | [16.19](docs/epics/upstream.md) | `SettingsDialog` (`sovereign`)                     | P1       | —            | ⏳     |
+| 98  | [16.20](docs/epics/upstream.md) | `Header` with the app's own brand (`sovereign`)    | P1       | —            | ⏳     |
+| 99  | [16.21](docs/epics/upstream.md) | `AppSidebar` (`sovereign`)                         | P1       | —            | ⏳     |
+| 100 | [16.22](docs/epics/upstream.md) | `AppFrame` (`sovereign`)                           | P1       | 16.20, 16.21 | ⏳     |
 | 101 | [16.23](docs/epics/upstream.md) | The apps a person can open (`sovereign`)           | P1       | —            | 📋     |
-| 102 | [16.24](docs/epics/upstream.md) | `MobileFooter`'s middle button named (`sovereign`) | P1       | —            | 📋     |
-| 103 | [16.25](docs/epics/upstream.md) | `Barcode` (`sovereign`)                            | P1       | —            | 📋     |
-| 104 | [16.26](docs/epics/upstream.md) | Writing an export in the browser (`sovereign`)     | P3       | —            | 📋     |
+| 102 | [16.24](docs/epics/upstream.md) | `MobileFooter`'s middle button named (`sovereign`) | P1       | —            | ⏳     |
+| 103 | [16.25](docs/epics/upstream.md) | `Barcode` (`sovereign`)                            | P1       | —            | ⏳     |
+| 104 | [16.26](docs/epics/upstream.md) | Writing an export in the browser (`sovereign`)     | P3       | —            | ⏳     |
 
 ### Milestone X — Sign-in, Settings and a list
 
