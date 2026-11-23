@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 written on 2026-11-23, its open points settled, the design's review open; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; legs 2 to 8 to go; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -202,15 +202,11 @@ never leave the device. `card` and `card_member` follow `list` and `list_member`
 
 ## Where it stands (2026-11-23)
 
-**Leg 1 is written** (22.1, 23.1, 24.1), committed on `develop`, one commit a task: `DESIGN.md` says what RFC 0005 to 0007 build (§2.3 lists it),
-and `AGENTS.md`, `README.md`, `docs/encryption.md` and `docs/sharing.md` agree, the last three saying what is coming rather than what runs. It was
-started with 12.7's release published as v0.2.0 and its roadmap row still open, at the owner's word.
+**Leg 1 is done** (22.1, 23.1, 24.1), committed on `develop`: `DESIGN.md` says what RFC 0005 to 0007 build (§2.3 lists it), and `AGENTS.md`,
+`README.md`, `docs/encryption.md` and `docs/sharing.md` agree, the last three saying what is coming rather than what runs. **The owner approved the
+design on 2026-11-23,** after settling the fourteen points writing it raised, all as proposed (`DESIGN.md` §26, "Settled at leg 1's review"). It
+was started with 12.7's release published as v0.2.0 and its roadmap row still open, at the owner's word.
 
 **What waits:**
 
-- **The owner's review of the design as a whole,** the leg's gate. **The fourteen points it raised are settled** (2026-11-23, all as proposed; `DESIGN.md`
-  §26, "Settled at leg 1's review"): the defaults of a list's icon and colour with no migration; the sidebar's words; Inventory's limit, its sealing
-  in a group not yet moved, an item pointing at a list's copy of a category, and no view of every open item; a card's invitation in `invitation`, its
-  keys following a list's until 16.8, the list's settings' Cards section, its limit, its link handed only to someone on both, its button in shopping
-  mode's header, and its Admin alone inviting; and joining a list in a suite only as core's sign-up allows.
 - **Leg 2** (16.17 to 16.26, in `sovereign`): nothing released yet; legs 3, 4, 5 and 7 wait on it as the table says.

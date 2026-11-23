@@ -2,7 +2,7 @@
 
 ## Status
 
-⏳ In Progress. Workstream 0002, before phase 2: the design (24.1) is written and waits on the owner's review.
+⏳ In Progress. Workstream 0002, before phase 2: the design (24.1) is done and approved by the owner (2026-11-23); the rest waits on `sovereign`'s releases (epic 16).
 
 ## Overview
 
