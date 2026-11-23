@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** 📋 Planned: designed with the owner on 2026-11-23; starts after workstream 0001's release (12.7)\
+**Status:** ⏳ In Progress: leg 1 written on 2026-11-23 and waiting on the owner's review; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -21,7 +21,7 @@ or not; and **loyalty cards**, shown at the till and shared with the people one 
 
 ## Definition of done
 
-- [ ] `DESIGN.md` says what RFC 0005 to 0007 build, and `AGENTS.md`'s words and rules agree with it (22.1, 23.1, 24.1).
+- [x] `DESIGN.md` says what RFC 0005 to 0007 build, and `AGENTS.md`'s words and rules agree with it (22.1, 23.1, 24.1).
 - [ ] The releases of `sovereign` this needs are published: 16.18 to 16.25 (16.17 and 16.26 are not waited on).
 - [ ] In a suite, `/sign-in` and `/sign-up` go to core at once, and a failure at core shows a page rather than a loop; alone, the forms are the design
       system's, as core's are; an instance configured with both ways in starts in suite mode and says so (22.2).
@@ -199,6 +199,16 @@ never leave the device. `card` and `card_member` follow `list` and `list_member`
 **Technical notes:** the security review covers the export route, the cards' sharing and keys, and Inventory's exclusion from pulls. `CHANGELOG.md` says
 "not yet audited" where it describes encryption, and that an instance with both ways in now signs in through core only.
 
-## Where it stands
+## Where it stands (2026-11-23)
 
-Planned. Nothing is built; leg 1 waits on 12.7.
+**Leg 1 is written** (22.1, 23.1, 24.1), committed on `develop`, one commit a task: `DESIGN.md` says what RFC 0005 to 0007 build (§2.3 lists it),
+and `AGENTS.md`, `README.md`, `docs/encryption.md` and `docs/sharing.md` agree, the last three saying what is coming rather than what runs. It was
+started with 12.7's release published as v0.2.0 and its roadmap row still open, at the owner's word.
+
+**What waits:**
+
+- **The owner's review of the design,** the leg's gate, and with it **the twelve points in `DESIGN.md` §25**, each written as proposed where the RFCs
+  were silent or disagreed: the defaults of a list's icon and colour with no migration; the sidebar's words; Inventory's limit, its keys in a group
+  still sealed by the server, an item pointing at a list's copy of a category, and no view of every open item; a card's invitation, its keys when
+  someone leaves, the list's settings' Cards section, its limit, who is handed its link to a list, and its button in shopping mode's header.
+- **Leg 2** (16.17 to 16.26, in `sovereign`): nothing released yet; legs 3, 4, 5 and 7 wait on it as the table says.

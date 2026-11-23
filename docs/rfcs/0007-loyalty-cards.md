@@ -1,13 +1,13 @@
 # RFC 0007 — Loyalty cards
 
-|                |                                                                                                                 |
-| -------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Status**     | Accepted on 2026-11-23; to be built in [workstream 0002](../workstreams/0002-frame-home-cards.md)               |
-| **Date**       | November 2026                                                                                                   |
-| **Author**     | Claude Code (design discussion with `kasunben`)                                                                 |
-| **Scope**      | `DESIGN.md` §4, §7, §11, §13, §16, §18, §20, §22.3; `src/cards/` (new), `src/keys/`, `src/sync/`, `migrations/` |
-| **Supersedes** | Where 14.1's decoding is built (brought forward from phase 4)                                                   |
-| **Tasks**      | [epic 24](../epics/cards.md), and 16.25 of [epic 16](../epics/upstream.md)                                      |
+|                |                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Status**     | Accepted on 2026-11-23; in `DESIGN.md`, being built in [workstream 0002](../workstreams/0002-frame-home-cards.md) |
+| **Date**       | November 2026                                                                                                     |
+| **Author**     | Claude Code (design discussion with `kasunben`)                                                                   |
+| **Scope**      | `DESIGN.md` §4, §7, §11, §13, §16, §18, §20, §22.3; `src/cards/` (new), `src/keys/`, `src/sync/`, `migrations/`   |
+| **Supersedes** | Where 14.1's decoding is built (brought forward from phase 4)                                                     |
+| **Tasks**      | [epic 24](../epics/cards.md), and 16.25 of [epic 16](../epics/upstream.md)                                        |
 
 ## Summary
 

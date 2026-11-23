@@ -2,7 +2,7 @@
 
 |                |                                                                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**     | Accepted on 2026-11-23; to be built in [workstream 0002](../workstreams/0002-frame-home-cards.md)                                   |
+| **Status**     | Accepted on 2026-11-23; in `DESIGN.md`, being built in [workstream 0002](../workstreams/0002-frame-home-cards.md)                   |
 | **Date**       | November 2026                                                                                                                       |
 | **Author**     | Claude Code (design discussion with `kasunben`)                                                                                     |
 | **Scope**      | `DESIGN.md` §4, §8, §9.7, §13.1, §16.2 to §16.4, §16.8, §18, §20, §22.2; `src/catalog/`, `src/screens/`, `src/sync/`, `migrations/` |

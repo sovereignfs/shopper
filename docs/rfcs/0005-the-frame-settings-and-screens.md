@@ -2,7 +2,7 @@
 
 |                |                                                                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **Status**     | Accepted on 2026-11-23; to be built in [workstream 0002](../workstreams/0002-frame-home-cards.md)                                    |
+| **Status**     | Accepted on 2026-11-23; in `DESIGN.md`, being built in [workstream 0002](../workstreams/0002-frame-home-cards.md)                    |
 | **Date**       | November 2026                                                                                                                        |
 | **Author**     | Claude Code (design discussion with `kasunben`)                                                                                      |
 | **Scope**      | `DESIGN.md` §2.2, §4, §6.2, §15.1, §16, §17, §18; `src/auth/`, `src/account/`, `src/screens/`, `src/ui/`; `@sovereignfs/ui` and core |
