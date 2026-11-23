@@ -23,6 +23,8 @@ const LIMITS: Limits = {
   householdProducts: 5000,
 };
 const PLANTED = 'PLANTED-Oat-Milk-Brand';
+/** An icon's name is lower case and hyphens; this one is not in the design system, which is for the table to hold as it was sent. */
+const ICON = 'planted-icon-xq7';
 
 let database: Database;
 let ada: Someone;
@@ -356,6 +358,32 @@ describe(`what is refused (${leg})`, () => {
       mutation(ada.household, [create(crypto.randomUUID(), 'x')]),
     );
     expect(result).toMatchObject({ status: 'refused', reason: 'unsupported' });
+  });
+
+  it('a list’s icon and colour are sealed with its name, merged by field, and are in no column in the clear', async () => {
+    const row = () =>
+      dbGet<Record<string, unknown>>(
+        database,
+        sql`SELECT * FROM ${appTable(database, 'list')} WHERE id = ${ada.list}`,
+      );
+    const open = async () => unsealRow('list', ada.list, String((await row())?.sealed), TEST_RING);
+    const listChange = (fields: Record<string, string | number | null>) =>
+      mutation(ada.household, [{ table: 'list', id: ada.list, fields }]);
+    applied(await applyMutation(deps(), ada.accountId, listChange({ icon: ICON })));
+    applied(await applyMutation(deps(), ada.accountId, listChange({ color: '#12ab34' })));
+    expect(await open()).toMatchObject({ icon: ICON, color: '#12ab34' });
+    // The name was not touched by either, and nothing of the two is a column of its own.
+    expect((await open()).name).toBeTruthy();
+    expect(JSON.stringify({ ...(await row()), sealed: '' })).not.toContain(ICON);
+    expect(JSON.stringify({ ...(await row()), sealed: '' })).not.toContain('12ab34');
+    // Back to the defaults takes both away.
+    applied(await applyMutation(deps(), ada.accountId, listChange({ icon: null, color: null })));
+    expect(await open()).not.toHaveProperty('icon');
+    expect(await open()).not.toHaveProperty('color');
+    // A colour that is not a colour is refused, whoever sent it.
+    expect(
+      await applyMutation(deps(), ada.accountId, listChange({ color: 'url(x)' })),
+    ).toMatchObject({ status: 'refused' });
   });
 
   it('a rename to a name the household already has, which is a person’s decision and is refused', async () => {

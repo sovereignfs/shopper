@@ -52,7 +52,7 @@ export type SyncedRow = RowOf[SyncedTable];
 
 /** What a field is before anyone says anything about it, for a row a device makes. The server's defaults are these. */
 const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
-  list: { clearing: 'manual', archivedAt: null, deletedAt: null },
+  list: { icon: null, color: null, clearing: 'manual', archivedAt: null, deletedAt: null },
   item: {
     note: null,
     unit: null,

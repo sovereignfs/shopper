@@ -174,10 +174,13 @@ const num = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
 function listOf(row: Raw, ring: KeyRing) {
+  const sealed = opened('list', row, ring);
   return {
     id: row.id,
     householdId: row.household_id,
-    name: text(opened('list', row, ring).name) ?? '',
+    name: text(sealed.name) ?? '',
+    icon: text(sealed.icon),
+    color: text(sealed.color),
     position: row.position,
     clearing: row.clearing,
     archivedAt: num(row.archived_at),

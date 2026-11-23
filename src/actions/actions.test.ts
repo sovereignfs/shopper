@@ -13,7 +13,7 @@ import {
   unclearBought,
   untickItem,
 } from './items';
-import { archiveList, makeList, renameList, reorderList, restoreList } from './lists';
+import { archiveList, makeList, renameList, reorderList, restoreList, styleList } from './lists';
 import type { Mutation } from './format';
 import { validateMutation } from './validate';
 import {
@@ -321,6 +321,55 @@ describe('the actions on lists', () => {
       archivedAt: null,
     });
     expect(restoreList(env(), list())).toBeNull();
+  });
+
+  it('makes a new list with neither an icon nor a colour: the defaults are shown and never written', () => {
+    const m = valid(makeList(env(), { householdId: HOUSEHOLD, name: 'Pharmacy', position: 'a1' }));
+    expect(Object.keys(m.changes[0]?.fields ?? {})).not.toContain('icon');
+    expect(Object.keys(m.changes[0]?.fields ?? {})).not.toContain('color');
+  });
+
+  it('styles a list by field, so that a change of the icon does not carry the colour', () => {
+    expect(valid(styleList(env(), list(), { icon: 'milk' })).changes[0]?.fields).toEqual({
+      icon: 'milk',
+    });
+    expect(valid(styleList(env(), list(), { color: '#dc2626' })).changes[0]?.fields).toEqual({
+      color: '#dc2626',
+    });
+    expect(
+      valid(styleList(env(), list(), { icon: 'milk', color: '#dc2626' })).changes[0]?.fields,
+    ).toEqual({ icon: 'milk', color: '#dc2626' });
+  });
+
+  it('styles nothing when nothing differs, and puts the defaults back with null', () => {
+    expect(
+      styleList(env(), list({ icon: 'milk', color: '#dc2626' }), {
+        icon: 'milk',
+        color: '#dc2626',
+      }),
+    ).toBeNull();
+    expect(styleList(env(), list(), { icon: null, color: null })).toBeNull();
+    // A row stored before the fields existed has neither, which is null.
+    expect(
+      styleList(env(), { ...list(), icon: undefined, color: undefined } as never, { icon: null }),
+    ).toBeNull();
+    expect(
+      valid(styleList(env(), list({ icon: 'milk', color: '#dc2626' }), { icon: null, color: null }))
+        .changes[0]?.fields,
+    ).toEqual({ icon: null, color: null });
+  });
+
+  it('refuses a colour that is not #rrggbb, and an icon that is not a name', () => {
+    for (const color of ['red', '#fff', '#DC2626', '#dc262', 'rgb(0,0,0)', 'url(x)', ''])
+      expect(
+        validateMutation(styleList(env(), list(), { color }) as Mutation, 'plain').ok,
+        color,
+      ).toBe(false);
+    for (const icon of ['Milk', 'milk cart', '../x', '<b>', ''])
+      expect(
+        validateMutation(styleList(env(), list(), { icon }) as Mutation, 'plain').ok,
+        icon,
+      ).toBe(false);
   });
 });
 

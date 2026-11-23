@@ -12,6 +12,9 @@ export interface ListRow {
   readonly id: string;
   readonly householdId: string;
   readonly name: string;
+  /** The list's icon and colour (RFC 0005), sealed as its name is; `null` for a list that has none, which is shown with the defaults (`src/lists/appearance.ts`). */
+  readonly icon: string | null;
+  readonly color: string | null;
   /** A fractional key (DESIGN.md §9.6) among the household's lists, compared as text. */
   readonly position: string;
   /** How bought items leave the list; `manual` in 0.1.0 (§9.5). */

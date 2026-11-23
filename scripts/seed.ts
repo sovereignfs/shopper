@@ -219,6 +219,8 @@ const listRow = (id: string, householdId: string, name: string, now: number) => 
   householdId,
   name,
   position: 'a0',
+  icon: null,
+  color: null,
   clearing: 'manual' as const,
   archivedAt: null,
   deletedAt: null,

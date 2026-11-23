@@ -66,7 +66,7 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
         mode === 'encrypted' && table === 'product' && name === 'nameKey'
           ? nameKey
           : encrypted
-            ? name === 'note'
+            ? name === 'note' || (table === 'list' && name !== 'name')
               ? z.union([cipher, z.null()])
               : cipher
             : spec.fields[name];

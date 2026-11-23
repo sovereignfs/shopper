@@ -2,6 +2,7 @@ import '../zod-jitless';
 import { z } from 'zod';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import { isGroceryIcon } from '../catalog/icons';
+import { isListColor } from '../lists/appearance';
 import { isQuantity } from '../quantity/decimal';
 import { isUnit } from '../quantity/units';
 
@@ -67,6 +68,15 @@ const position = z.string().refine(isPosition, 'not a position');
 const quantity = z.string().refine(isQuantity, 'not a quantity');
 const unit = z.string().refine(isUnit, 'not a unit');
 const icon = z.string().refine(isGroceryIcon, 'not an icon');
+/**
+ * A list's icon and colour (RFC 0005): sealed, so a server can check them only as the person typed them, in a household that has not moved. The icon's
+ * shape and not its name, since the set grows with the design system and a name this build does not know is drawn as the default; the colour is exact.
+ */
+const listIcon = z
+  .string()
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'not an icon')
+  .max(40);
+const listColor = z.string().refine(isListColor, 'not a colour');
 const nullable = <T extends z.ZodType>(schema: T) => z.union([schema, z.null()]);
 
 interface TableFields {
@@ -79,6 +89,8 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
   list: {
     fields: {
       name,
+      icon: nullable(listIcon),
+      color: nullable(listColor),
       position,
       clearing: z.enum(['manual', 'on_finish', 'after_day']),
       archivedAt: nullable(time),
@@ -127,7 +139,7 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
 export const CONTENT: Record<SyncedTable, readonly string[]> = {
-  list: ['name'],
+  list: ['name', 'icon', 'color'],
   item: ['name', 'note'],
   product: ['name', 'note'],
 };

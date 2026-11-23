@@ -63,6 +63,8 @@ const listRow = (household: string, id: string): ListRow => ({
   householdId: household,
   name: 'Groceries',
   position: 'a0',
+  icon: null,
+  color: null,
   clearing: 'manual',
   archivedAt: null,
   deletedAt: null,

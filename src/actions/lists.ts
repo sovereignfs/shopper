@@ -33,6 +33,21 @@ export function renameList(env: Env, list: ListRow, name: string): Mutation | nu
   return one(env, list, { name });
 }
 
+/**
+ * Changes a list's icon and colour (RFC 0005): each its own field, so that two people changing one each lose neither. `null` puts the list back to the
+ * defaults, which are shown and never written. A list stored before the fields existed has neither, which is `null` here.
+ */
+export function styleList(
+  env: Env,
+  list: ListRow,
+  input: { icon?: string | null; color?: string | null },
+): Mutation | null {
+  const fields: Record<string, string | null> = {};
+  if (input.icon !== undefined && (list.icon ?? null) !== input.icon) fields.icon = input.icon;
+  if (input.color !== undefined && (list.color ?? null) !== input.color) fields.color = input.color;
+  return one(env, list, fields);
+}
+
 /** Moves a list to a position among the household's lists, which a person changes by dragging. */
 export function reorderList(env: Env, list: ListRow, position: string): Mutation | null {
   return one(env, list, { position });

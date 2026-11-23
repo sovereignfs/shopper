@@ -68,7 +68,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
   list: {
     table: 'list',
     sql: 'list',
-    sealed: ['name'],
+    sealed: ['name', 'icon', 'color'],
     plain: [
       { field: 'position', column: 'position' },
       { field: 'clearing', column: 'clearing' },

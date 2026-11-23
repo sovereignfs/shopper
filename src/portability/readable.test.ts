@@ -47,6 +47,16 @@ async function served(key: CryptoKey) {
               { list: LIST, table: 'list', row: LIST, field: 'name' },
               'Groceries',
             ),
+            icon: await sealField(
+              own,
+              { list: LIST, table: 'list', row: LIST, field: 'icon' },
+              'apple',
+            ),
+            color: await sealField(
+              own,
+              { list: LIST, table: 'list', row: LIST, field: 'color' },
+              '#dc2626',
+            ),
           },
         },
         {
@@ -124,6 +134,9 @@ describe('a readable export, opened in the browser', () => {
       readable: true,
     });
     expect(file.records.list?.map((row) => row.name)).toEqual(['Groceries', 'Bob’s party']);
+    // A list's icon and colour are in the file, opened (RFC 0005); a list that has neither has neither.
+    expect(file.records.list?.[0]).toMatchObject({ icon: 'apple', color: '#dc2626' });
+    expect(file.records.list?.[1]).not.toHaveProperty('icon');
     expect(file.records.item).toEqual([
       { id: ITEM, listId: LIST, name: 'Oat milk', note: '1 litre, the green one' },
     ]);
@@ -145,7 +158,7 @@ describe('a readable export, opened in the browser', () => {
     const all = await served(key);
     // Another app key: nothing opens. The plain rows are still there.
     const wrong = await openServed(all, await appKey(), HEAD);
-    expect(wrong.unopened).toBe(4);
+    expect(wrong.unopened).toBe(6);
     expect(wrong.records.list?.map((row) => row.name)).toEqual([null, null]);
     expect(wrong.records.item?.[0]).toMatchObject({ name: null, note: null });
     expect(wrong.records.person).toHaveLength(1);

@@ -25,6 +25,8 @@ export const list = (over: Partial<ListRow> = {}): ListRow => ({
   id: '40000000-0000-4000-8000-000000000001',
   householdId: HOUSEHOLD,
   name: 'Groceries',
+  icon: null,
+  color: null,
   position: 'a0',
   clearing: 'manual',
   archivedAt: null,
