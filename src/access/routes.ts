@@ -52,7 +52,7 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/settings',
     who: 'signed-in',
-    note: 'Goes to /settings/profile, or, for an old /settings?section=…, to the section that took its place: a visitor is sent to sign in.',
+    note: "The signed-in person's own settings, a dialog over Home with no section named (and, opened from a page, over that page: the intercepting route @modal/(.)settings is the same address); an old /settings?section=… goes to the section that took its place: a visitor is sent to sign in.",
   },
   {
     kind: 'page',

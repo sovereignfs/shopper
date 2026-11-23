@@ -21,7 +21,7 @@ import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { addQuantity, isQuantity, subtractQuantity } from '../quantity/decimal';
 import { UNITS, isUnit, stepFor, type Unit } from '../quantity/units';
 import { type ListData, listViewOf } from '../local/listview';
-import { useFormat } from '../format/FormatProvider';
+import { useFormat } from '../account/AccountProvider';
 import { useLocal } from '../local/react';
 import styles from './ItemPanel.module.css';
 

@@ -52,7 +52,26 @@ describe('who sets the title', () => {
     const one = titles.add('One');
     titles.remove(one);
     titles.remove(one);
-    titles.remove({ title: 'Never added' });
+    titles.remove({ title: 'Never added', over: false });
     expect(titles.current()).toBeUndefined();
+  });
+
+  it('is a dialog over the page under it, whichever of them mounted first', () => {
+    const titles = new Titles();
+    // Loaded directly, Settings mounts before the list under it has opened its name.
+    const settings = titles.add('Profile · Settings · Shopper', true);
+    const list = titles.add('Weekly shop · Shopper');
+    expect(titles.current()).toBe('Profile · Settings · Shopper');
+    list.title = 'Groceries · Shopper';
+    expect(titles.current()).toBe('Profile · Settings · Shopper');
+    titles.remove(settings);
+    expect(titles.current()).toBe('Groceries · Shopper');
+  });
+
+  it('is the dialog opened last, among dialogs', () => {
+    const titles = new Titles();
+    titles.add('Settings · Weekly shop · Shopper', true);
+    titles.add('Data · Settings · Shopper', true);
+    expect(titles.current()).toBe('Data · Settings · Shopper');
   });
 });

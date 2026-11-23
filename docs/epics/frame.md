@@ -186,7 +186,7 @@ squeezed the item is the whole area in place of it,** by a container query on th
 three states and not the window): at 820px with the full sidebar the list was 180px wide beside the 360px column. **Remember for next time** is applied at each
 change, so turning it off afterwards does not unlearn what an earlier change taught. **The edit icon is `square-pen`** (ui 0.107.0). **Left out:** the open item is not marked in the list.
 
-#### ⏳ 22.7 — Settings as a dialog, by mode
+#### ✅ 22.7 — Settings as a dialog, by mode
 
 **Goal:** Settings is `SettingsDialog`, and each section says and does what RFC 0005's table says, in both modes. **Design:** RFC 0005, "Settings".
 **Depends on:** 22.2, 16.19.
@@ -200,27 +200,37 @@ delete. The content security policy allows core's address for images.
 **Accepts when:** each section opens at its address, from the avatar's menu and directly; a suite account sees core's picture and links and no password
 field; a standalone account changes its password and keeps its lists.
 
-**In progress; the dialog and its routes are built (0.5.0, 2026-11-23, on ui 0.107.0):** `SettingsHost` (`src/account/SettingsHost.tsx`) is `SettingsDialog` with four sections,
-**Profile, Security, Preferences and Data**, rendered by the server for the mode (`SettingsRoute`, which asks for the session) and shown by the client. Opened from a page
-it is over that page by an intercepting route (`app/(app)/@modal/(.)settings/[section]`, with `@modal/default.tsx`), which stays where it is, and Back closes it; loaded
-directly, `app/(app)/settings/[section]/page.tsx` draws Home (`HomeScreen`) with the dialog open and closes to `/`. A section is chosen in place with the browser's own
-history (no round trip, and one Back leaves Settings), is an address (`/settings/<section>`) and a title (`<section> · Settings · Shopper`). `/settings` and the old
-`/settings?section=` redirect to the section that took the old one's place (`sectionBefore`: This device and Notifications into Preferences, Sign-in and Encryption into
-Security); a name that is not a section is not found. Preferences holds how a list shows its items by default (`src/lists/view-preference.ts`, the key the list screen
-already used), Appearance (light, dark or the system's, which has had no screen until now), This device and Notifications as they were; the avatar menu, the phone's footer
-and Couldn't sync link to the new addresses. **`useTitle` has one owner now (`Titles`):** with Settings over a list two screens name the page, the one opened last wins and the
-one under it is again when it goes (two observers had reset each other's title without end, which hung the page). Tests: `e2e/settings.spec.ts` in Chromium and WebKit, `query.test.ts`,
-`view-preference.test.ts`, `title.test.ts`, and `auth`, `device`, `export`, `pwa`, `phone`, `offline` and `titles` specs moved to the new addresses. **Suite mode** (`CoreSections.tsx`, chosen by `SettingsRoute` when core is a way in, with core's address from `SHOPPER_CORE_URL` and `coreLink`): **Profile** is who core says
-the person is, read only (name and email from the session, **core's picture** from `signedInUser` held to an address on core's own origin by `pictureOf`, which the
-header's avatar draws too), with _Edit in Sovereign_; **Security** is links to core's security and keys and no password form, with Encryption; **Preferences** says
-appearance, language and notifications are Sovereign's and links there, keeping the list's view and This device; **Data** keeps the readable export's line and links to
-core's _Delete account_ in place of Shopper's own form. **The content security policy gains core's origin for images alone** (`img-src`, from `edgeSettings().coreOrigin`
-through the proxy), tested to leave every other directive as it was. The fake core has a `picture` and serves one (`/avatar.png`). Tests: `e2e/sovereign.spec.ts` in
-Chromium and WebKit (the policy, the avatar, each section's read-only content and links), `core-links.test.ts`, `csp.test.ts`. **Standalone** adds **time zone and language and region** to Preferences, kept on the account through `@sovereignfs/auth`'s own update (its `timezone` and `locale`, which it checks),
-read by the signed-in layout into a `FormatProvider`, and **used**: the item's date, a link's expiry and This device's times are written in them (`src/format/regional.ts`,
-pure, with `Intl`; not chosen, the browser's own, as before). Hosted by Sovereign the same two come from core's claims and are not edited here. Tests: `regional.test.ts`
-and the new case in `e2e/settings.spec.ts` (German and Auckland change the date, kept across a reload). **Left out:** the offline shell, which has no session, writes dates as the
-browser does.
+**Done as (0.5.0, 2026-11-23, on ui 0.107.0):**
+
+- **The dialog and its routes.** `SettingsHost` is `SettingsDialog` with four sections, **Profile, Security, Preferences and Data**, rendered by the server for the mode
+  (`SettingsRoute`, which asks for the session) and shown by the client. Opened from a page it is over that page by an intercepting route
+  (`app/(app)/@modal/(.)settings`, with `@modal/default.tsx`, **`@modal/page.tsx` and `@modal/[...catchAll]` drawing nothing, so that the dialog does not stay open over the next
+  page**, which Next's docs say a slot would do), and Back closes it; loaded directly, `app/(app)/settings` draws Home (`HomeScreen`) with the dialog open and closes to `/`.
+  **The section shown is the address's** (`/settings/<section>`, a section chosen in place with the browser's own history: no round trip, one Back leaves Settings, and Back and
+  Forward agree); **`/settings` alone names none**, which is the first on a wide screen and the sections alone on a phone, so that the route does not depend on the viewport.
+  `/settings?section=` redirects to the section that took the old one's place (`sectionBefore`); a name that is not a section is not found. The title is `<section> · Settings · Shopper`.
+- **Settings changes the page without refreshing a route.** `AccountProvider` holds the name and the time zone and language, so a saved name or choice shows in the header
+  and every date at once: a `router.refresh()` of a dialog that is an intercepted route at an address it chose in place moved what was under it and broke Forward.
+- **`useTitle` has one owner** (`Titles`): with Settings over a list two screens name the page, **a dialog is the title over the page under it** (loaded directly, Settings mounts first)
+  and among the same kind the last opened is; two observers had reset each other's title without end, which hung the page.
+- **Standalone.** Profile (name editable, initials), Security (the password and Encryption, as before), Preferences, Data (the readable export, 22.8, and delete). **Preferences** is
+  how a list shows its items by default (`src/lists/view-preference.ts`, the key the list screen already used), **Appearance** (light, dark or the system's, which had no screen
+  until now), **time zone and language and region**, kept on the account through `@sovereignfs/auth`'s own update and **used** for the item's date, a link's expiry and This
+  device's times (`src/format/regional.ts`), This device and Notifications.
+- **Suite mode** (`CoreSections.tsx`, with core's address from `SHOPPER_CORE_URL` and `coreLink`): **Profile** is who core says the person is, read only, with **core's picture** from
+  `signedInUser` held to an address on core's own origin by `pictureOf` (public and cookie-less on core's side, so an `<img>` loads it), which the header's avatar draws too, and _Edit
+  in Sovereign_; **Security** is links to core's security and keys and no password form, with Encryption; **Preferences** says language and time zone are Sovereign's, **used** for dates
+  as `signedInUser` has them from core's claims, and links there; **Data** keeps the readable export's line and links to core's _Delete account_ in place of Shopper's own form. **The
+  content security policy gains core's origin for images alone** (`img-src`, from `edgeSettings().coreOrigin` through the proxy), tested to leave every other directive as it was.
+- **Deviations from RFC 0005's table, recorded in `DESIGN.md` §17.** In suite mode **Appearance stays Shopper's** (the page's theme script reads this device's choice or the system's,
+  and nothing of core's can reach it, so core's link would change nothing) and **Notifications keep the push control for this device**, which works and which removing would regress; each
+  kind by channel is 9.4's. **The name is refreshed** by `@sovereignfs/auth` when it renews a session (the hourly check), **not when a new session starts for an account that
+  exists**, so a rename at Sovereign shows after the next check; Shopper's `person` keeps the name it had, as now. Both are Sovereign's to say; not tested.
+- **Tests.** `e2e/settings.spec.ts` in Chromium and WebKit (over the page and Back; each section an address; the old addresses; Preferences kept on the device and on the account; the
+  title loaded directly; a section chosen and a setting changed in place with Back and Forward; on a phone the sections alone from the footer and the dialog gone on reaching a list),
+  `e2e/sovereign.spec.ts` (the policy, the avatar, each section's read-only content and links, core's language and time zone used), `query`, `view-preference`, `regional`, `title`,
+  `core-links` and `csp` unit tests, and the `auth`, `device`, `export`, `pwa`, `phone`, `offline`, `security` and `titles` specs moved to the new addresses.
+  **Left out:** the offline shell, which has no session, writes dates as the browser does and has no picture.
 
 #### ⏳ 22.8 — A readable export
 

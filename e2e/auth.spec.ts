@@ -164,7 +164,7 @@ test('Settings: a name is changed, a password is changed, and the account is del
   const email = await signUp(page);
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
-  await expect(page).toHaveURL(/\/settings\/profile$/);
+  await expect(page).toHaveURL(/\/settings$/);
 
   // Profile: the name is changed, and shown wherever the person is named.
   await page.getByRole('textbox', { name: /^Name/ }).fill('Ada Lovelace');
@@ -203,10 +203,13 @@ test.describe('Settings at a phone’s width', () => {
   test('has nothing to scroll sideways, and the sections are reachable', async ({ page }) => {
     await signUp(page);
     await page.goto('/settings');
-    await expect(page).toHaveURL(/\/settings\/profile$/);
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
-    // On a phone the address names a section, and the back arrow goes to the sections.
+    // On a phone `/settings` is the sections alone; one is chosen, and the back arrow goes to them again.
+    await expect(page.getByRole('textbox', { name: /^Name/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Profile' }).click();
+    await expect(page).toHaveURL(/\/settings\/profile$/);
     await page.getByRole('button', { name: 'Back to the sections' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
     await page.getByRole('button', { name: 'Security' }).click();
     await expect(page.getByRole('form', { name: 'Change password' })).toBeVisible();
     expect(

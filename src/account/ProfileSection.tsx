@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { Alert, Avatar, Button, FormField, Input } from '@sovereignfs/ui';
+import { useAccount } from './AccountProvider';
 import { MAX_NAME_LENGTH } from './profile';
 import styles from './Account.module.css';
 
@@ -10,8 +10,10 @@ import styles from './Account.module.css';
  * Settings, Profile (DESIGN.md §17): who the person is here. Their initials, the name they are shown under (which everyone in a household sees, §6.1), which
  * they can change, and their address, which is shown and is not changed here. Saving the name needs a connection, and says so when there is none.
  */
-export function ProfileSection({ name, email }: { name: string; email: string }) {
-  const router = useRouter();
+export function ProfileSection({ name: served, email }: { name: string; email: string }) {
+  const account = useAccount();
+  // The name as it is now: the one just saved, before the server is asked again.
+  const name = account.name ?? served;
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +38,8 @@ export function ProfileSection({ name, email }: { name: string; email: string })
       }
       setValue(trimmed);
       setSaved(true);
-      // The menu, and every page that says who is signed in, read it from the session.
-      router.refresh();
+      // The menu says it at once, with no route refreshed: this dialog is a route of its own, and a refresh moves what is under it.
+      account.update({ name: trimmed });
     } catch {
       setError('This needs a connection. Try again when you are back online.');
     } finally {

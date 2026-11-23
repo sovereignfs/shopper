@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { seedItems, signUp, test } from './helpers';
+import { PHONE, seedItems, signUp, test } from './helpers';
 
 /**
  * Settings, the dialog (task 22.7, RFC 0005), running alone: it is over the page it was opened from, by Next's intercepting route, and over Home when its address
@@ -21,9 +21,11 @@ test('opened from a page it is over that page, which stays, and Back closes it',
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
   const before = page.url();
   await openFromMenu(page);
-  await expect(page).toHaveURL(/\/settings\/profile$/);
+  // No section is named by `/settings`: on a wide screen the first is shown.
+  await expect(page).toHaveURL(/\/settings$/);
   await expect(dialog(page)).toBeVisible();
-  await expect(page).toHaveTitle('Profile · Settings · Shopper');
+  await expect(dialog(page).getByRole('textbox', { name: /^Name/ })).toBeVisible();
+  await expect(page).toHaveTitle('Settings · Shopper');
   // The page it was opened from is still there under it, and nothing of it was reloaded.
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeAttached();
   await page.goBack();
@@ -70,7 +72,6 @@ test('the old addresses go to the section that took their place, and a name that
 }) => {
   await signUp(page);
   for (const [from, to] of [
-    ['/settings', 'profile'],
     ['/settings?section=sign-in', 'security'],
     ['/settings?section=encryption', 'security'],
     ['/settings?section=device', 'preferences'],
@@ -82,6 +83,10 @@ test('the old addresses go to the section that took their place, and a name that
     await expect(page, from).toHaveURL(new RegExp(`/settings/${to}$`));
     await expect(dialog(page), from).toBeVisible();
   }
+  // Bare, it is the dialog with no section named, and stays so.
+  await page.goto('/settings');
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(dialog(page)).toBeVisible();
   await page.goto('/settings/sign-in');
   await expect(page.getByRole('heading', { name: 'That is not here' })).toBeVisible();
 });
@@ -157,4 +162,91 @@ test('Preferences: a time zone and a language are kept on the account and change
   await expect(dialog(page).getByText('Saved.')).toBeVisible();
   await dialog(page).getByLabel('Time zone').selectOption('');
   await expect(dialog(page).getByText('Saved.')).toBeVisible();
+});
+
+test('loaded directly, the dialog is the page’s title over the list under it, once the list has opened its name', async ({
+  page,
+  baseURL,
+}) => {
+  await signUp(page);
+  await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
+  await page.goto('/settings/security');
+  await expect(page.getByRole('checkbox', { name: /Milk/ })).toBeAttached({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeAttached();
+  // The list under it has named itself by now, and Settings is still the title.
+  await expect(page).toHaveTitle('Security · Settings · Shopper');
+  await dialog(page).getByRole('button', { name: /close/i }).click();
+  await expect(page).toHaveTitle('Groceries · Shopper');
+});
+
+test('opened from a page, a section is chosen and a setting changed in place: one dialog, the same section, the page beneath; Back and Forward follow the address', async ({
+  page,
+  baseURL,
+}) => {
+  await signUp(page);
+  await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
+  await openFromMenu(page);
+  await dialog(page).getByRole('button', { name: 'Preferences' }).click();
+  await expect(page).toHaveURL(/\/settings\/preferences$/);
+  // A setting that refreshes the route (the time zone is kept on the account) does not move the dialog.
+  await dialog(page).getByLabel('Time zone').selectOption('Europe/Berlin');
+  await expect(dialog(page).getByText('Saved.')).toBeVisible();
+  await expect(dialog(page)).toHaveCount(1);
+  await expect(page).toHaveURL(/\/settings\/preferences$/);
+  await expect(dialog(page).getByLabel('Time zone')).toHaveValue('Europe/Berlin');
+  await expect(page.getByRole('checkbox', { name: /Milk/ })).toBeAttached();
+
+  // Back leaves Settings; Forward comes back to the section the address names.
+  await page.goBack();
+  await expect(dialog(page)).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/settings\/preferences$/);
+  await expect(dialog(page)).toBeVisible();
+  await expect(dialog(page).getByLabel('Time zone')).toBeVisible();
+  await dialog(page).getByLabel('Time zone').selectOption('');
+  await expect(dialog(page).getByText('Saved.')).toBeVisible();
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: PHONE });
+
+  test('Settings from the footer is the sections, and reaching a list from the drawer closes it', async ({
+    page,
+    baseURL,
+  }) => {
+    await signUp(page);
+    await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+    await page.locator('footer').getByRole('link', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(dialog(page).getByRole('button', { name: 'Preferences' })).toBeVisible();
+    await expect(dialog(page).getByRole('textbox', { name: /^Name/ })).toHaveCount(0);
+    // To a list through the drawer, which a dialog is over: the dialog does not stay open over the next page.
+    await dialog(page).getByRole('button', { name: /close/i }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await page.locator('footer').getByRole('link', { name: 'Settings' }).click();
+    await expect(dialog(page)).toBeVisible();
+    await page.goBack();
+    await expect(dialog(page)).toHaveCount(0);
+    await page.locator('footer').getByRole('button', { name: 'Lists' }).click();
+    await page
+      .getByRole('dialog', { name: 'Navigation' })
+      .getByRole('link', { name: /Groceries/ })
+      .click();
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  });
+
+  test('left open, Settings is not over the list reached by the drawer', async ({
+    page,
+    baseURL,
+  }) => {
+    await signUp(page);
+    await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
+    await page.locator('footer').getByRole('link', { name: 'Settings' }).click();
+    await expect(dialog(page)).toBeVisible();
+    // The drawer is under the dialog, so the way to a list is the browser's: Home by a link in the header's wordmark.
+    await page.getByRole('link', { name: 'Shopper' }).first().click({ force: true });
+    await expect(dialog(page)).toHaveCount(0, { timeout: 10_000 });
+  });
 });

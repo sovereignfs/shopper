@@ -1,6 +1,6 @@
 /**
  * Which part of Settings an address asks for (RFC 0005, DESIGN.md §17): `/settings/<section>`, one of four. Pure, so that what a stray or hostile address does
- * is tested with no browser. The sections are **Profile**, **Security**, **Preferences** and **Data**; before 0.6.0 there were six (`/settings?section=…`), and
+ * is tested with no browser. The sections are **Profile**, **Security**, **Preferences** and **Data**; before 0.5.0 there were six (`/settings?section=…`), and
  * those addresses are still answered, with the section that took their place.
  */
 export const SECTIONS = ['profile', 'security', 'preferences', 'data'] as const;

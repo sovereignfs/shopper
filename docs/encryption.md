@@ -15,7 +15,7 @@ the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0
   Someone you share Groceries with cannot open anything of your other lists, even from a copy of the database. Send a link privately: whoever opens it
   first can join.
 - **Lists that were shared before they could move are not encrypted yet** (a 0.1.0 household with more than one person in it): the others could not
-  be given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Encryption** says which of your lists
+  be given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Security** says which of your lists
   are which.
 - **Removing someone from a list does not change that list's key yet.** They stop receiving anything from the server at once, but someone who kept the
   key and also got a copy of the database could read what is added to that list after. A new key for those who remain comes later.

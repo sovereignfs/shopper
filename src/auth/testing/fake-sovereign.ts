@@ -18,8 +18,10 @@ export interface FakeUser {
   sub: string;
   email: string;
   name?: string;
-  /** The address of their picture, for the `profile` scope. */
+  /** The address of their picture, and their language and time zone, for the `profile` scope. */
   picture?: string;
+  locale?: string;
+  zoneinfo?: string;
   emailVerified?: boolean;
 }
 
@@ -256,6 +258,8 @@ export async function startFakeSovereign(
             email_verified: user.emailVerified ?? true,
             ...(user.name !== undefined ? { name: user.name } : {}),
             ...(user.picture !== undefined ? { picture: user.picture } : {}),
+            ...(user.locale !== undefined ? { locale: user.locale } : {}),
+            ...(user.zoneinfo !== undefined ? { zoneinfo: user.zoneinfo } : {}),
             ...(pending.nonce && !overrides.omitNonce ? { nonce: pending.nonce } : {}),
             ...overrides.claims,
           });
@@ -279,6 +283,8 @@ export async function startFakeSovereign(
             email_verified: user.emailVerified ?? true,
             ...(user.name !== undefined ? { name: user.name } : {}),
             ...(user.picture !== undefined ? { picture: user.picture } : {}),
+            ...(user.locale !== undefined ? { locale: user.locale } : {}),
+            ...(user.zoneinfo !== undefined ? { zoneinfo: user.zoneinfo } : {}),
           });
         }
         json(404, { error: 'not_found' });

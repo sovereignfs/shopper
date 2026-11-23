@@ -1016,7 +1016,7 @@ themselves.**
 
 ### 14.2 Preferences
 
-Per kind and per channel, in **Settings > Notifications** (`notice_pref`). Shopper's bell is the channel for every kind that is on; the defaults are
+Per kind and per channel, in **Settings › Preferences › Notifications** (`notice_pref`). Shopper's bell is the channel for every kind that is on; the defaults are
 the table's.
 
 ### 14.3 Delivery
@@ -1368,15 +1368,18 @@ dialog, as a list's (§16.9).
 **One dialog with a side navigation,** `SettingsDialog` (§16.10, 16.19), over the page it was opened from, from the avatar's menu. Every section has
 an address (`/settings/profile`, `/settings/security`, `/settings/preferences`, `/settings/data`), through Next's intercepting routes: opened from a
 page, the dialog is over that page; loaded directly, the same address shows Home with the dialog open, so Settings always looks the same.
-`/settings?section=…` redirects. A list's settings are the same dialog with the list's sections (§16.5). What each section says depends on the mode
-(§15.1); in suite mode, core owns the person's profile, security, appearance and notifications, and Shopper links there rather than copying them.
+`/settings?section=…` redirects. **`/settings` alone names no section:** the first on a wide screen and the sections alone on a phone, so that nothing about the
+route depends on the viewport; the avatar's menu and the phone's footer go there. A list's settings are the same dialog with the list's sections (§16.5). What each
+section says depends on the mode (§15.1); in suite mode, core owns the person's profile, security, language, time zone and notifications, and Shopper links there rather
+than copying them. **Two things stay Shopper's in suite mode, because nothing of core's can reach them:** **Appearance** (light, dark or the system's, kept on the device,
+which the page cannot take from core) and **notifications on this device** (the push control, §14.1); a language and time zone core says are used for dates, and changed there.
 
-| Section         | Suite mode                                                                                                                             | Standalone                                                                                             |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Profile**     | Name, email and picture from core (the SDK session's `name`, `email`, `picture`), read only, refreshed at sign-in; _Edit in Sovereign_ | Name (editable; the person's name everywhere, §6.1) and email; initials, a photo of one's own later    |
-| **Security**    | Links to core's sign-in and security, and to its keys and recovery kit                                                                 | Change the password (through `@sovereignfs/auth`, as core does); passkeys and two-factor (phase 2)     |
-| **Preferences** | How a list shows its items by default; **This device**; "Appearance, language and notifications are in Sovereign"                      | The same, with appearance, time zone, language and region; **Notifications**, "coming later" until 9.4 |
-| **Data**        | Shopper's readable export (§18.1); a line that core's export holds Shopper's part, encrypted; deleting the account is core's           | The readable export; delete the account (§19); for the first account, the app's export (§18.1)         |
+| Section         | Suite mode                                                                                                                                      | Standalone                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Profile**     | Name, email and picture from core (the SDK session's `name`, `email`, `picture`), read only, refreshed at sign-in; _Edit in Sovereign_          | Name (editable; the person's name everywhere, §6.1) and email; initials, a photo of one's own later                        |
+| **Security**    | Links to core's sign-in and security, and to its keys and recovery kit                                                                          | Change the password (through `@sovereignfs/auth`, as core does); passkeys and two-factor (phase 2)                         |
+| **Preferences** | How a list shows its items by default; **Appearance**; **This device**; notifications on this device; "language and time zone are in Sovereign" | The same, with appearance, time zone, language and region; **Notifications** on this device, each kind by channel from 9.4 |
+| **Data**        | Shopper's readable export (§18.1); a line that core's export holds Shopper's part, encrypted; deleting the account is core's                    | The readable export; delete the account (§19); for the first account, the app's export (§18.1)                             |
 
 - **Security** also holds **Encryption:** "Each list is encrypted with keys of its own, held only by the people on it. Not yet audited.", and which
   lists are not yet (§13.7). Standalone, the recovery kit (§13.2); in suite mode, a line that the kit and passkeys that unlock are core's.

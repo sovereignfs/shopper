@@ -11,12 +11,11 @@ export const dynamic = 'force-dynamic';
  * not a section is not found; the old `/settings?section=…` is `../page.tsx`.
  */
 export default async function Settings({ params }: { params: Promise<{ section: string }> }) {
-  const section = sectionOf((await params).section);
-  if (!section) notFound();
+  if (!sectionOf((await params).section)) notFound();
   return (
     <>
       <HomeScreen />
-      <SettingsRoute section={section} close="home" />
+      <SettingsRoute close="home" />
     </>
   );
 }

@@ -1,21 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Alert, FormField, SegmentedControl, Select } from '@sovereignfs/ui';
 import { authClient } from '../auth/client';
 import { coreLink } from '../auth/core-links';
-import { LOCALES, timeZones, type Regional } from '../format/regional';
+import { LOCALES, localeOf, timeZoneOf, timeZones, type Regional } from '../format/regional';
 import { readView, type View, writeView } from '../lists/view-preference';
 import { chooseTheme, readTheme, type ThemeChoice } from '../theme/preferences';
+import { useAccount } from './AccountProvider';
 import { NotificationsSection } from './NotificationsSection';
 import { ThisDeviceSection } from './ThisDeviceSection';
 import styles from './Account.module.css';
 
 /**
- * Settings, Preferences (RFC 0005, DESIGN.md §17): how a list shows its items by default, this device, notifications, and, **running alone,** how Shopper
- * looks. Hosted by a Sovereign instance, appearance, language and notifications are Sovereign's, and this says so and goes there (`core`): Shopper keeps no
- * copy of them. What is chosen here about how this device draws things is kept in this browser (`src/lists/view-preference.ts`, `src/theme/preferences.ts`).
+ * Settings, Preferences (RFC 0005, DESIGN.md §17): how a list shows its items by default, how Shopper looks **on this device**, this device, and notifications on
+ * it. **Running alone,** the time zone and language dates are written in are chosen here; hosted by a Sovereign instance they are Sovereign's, used here and changed
+ * there (`core`). Appearance stays Shopper's in both: it cannot follow Sovereign's, so a choice here is the one that works. What is chosen here about how this device draws things is kept in this browser (`src/lists/view-preference.ts`, `src/theme/preferences.ts`).
  */
 export function PreferencesSection({
   core,
@@ -28,17 +28,15 @@ export function PreferencesSection({
   return (
     <div className={styles.panel}>
       <ListsPreference />
+      <AppearancePreference />
       {core === null ? (
-        <>
-          <AppearancePreference />
-          <RegionalPreference regional={regional} />
-        </>
+        <RegionalPreference regional={regional} />
       ) : (
         <div className={styles.group}>
-          <h2>Appearance, language and notifications</h2>
+          <h2>Language and time zone</h2>
           <p className={styles.muted}>
-            These are Sovereign’s, the same in every app you use there.{' '}
-            <a href={coreLink(core, '/preferences')}>Change them in Sovereign</a>.
+            These are Sovereign’s, the same in every app you use there, and Shopper writes dates in
+            them. <a href={coreLink(core, '/preferences')}>Change them in Sovereign</a>.
           </p>
         </div>
       )}
@@ -118,7 +116,7 @@ function localeLabel(tag: string): string {
  * them. Not chosen, they are the browser's own. Needs a connection, and says so when there is none; core's are core's, so this is only for running alone.
  */
 function RegionalPreference({ regional }: { regional: Regional }) {
-  const router = useRouter();
+  const account = useAccount();
   const [problem, setProblem] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   // What is shown is what was chosen, at once; the server's answer follows with the refresh.
@@ -138,8 +136,12 @@ function RegionalPreference({ regional }: { regional: Regional }) {
       const result = await authClient.updateUser(change);
       if (result.error) return setProblem('That could not be saved. Check it and try again.');
       setSaved(true);
-      // Every date on the page is written with what the account says.
-      router.refresh();
+      // Every date on the page is written with what the account says now, with no route refreshed (this dialog is one, and a refresh moves what is under it).
+      account.update(
+        'timezone' in change
+          ? { timeZone: timeZoneOf(change.timezone) }
+          : { locale: localeOf(change.locale) },
+      );
     } catch {
       setProblem('This needs a connection. Try again when you are back online.');
     }

@@ -14,22 +14,25 @@ const ROOT = path.resolve(__dirname, '../..');
 function addresses(folder: string, kind: 'page' | 'route'): string[] {
   const file = kind === 'page' ? /^page\.tsx?$/ : /^route\.tsx?$/;
   const out: string[] = [];
-  const walk = (directory: string, parts: string[]) => {
+  const walk = (directory: string, parts: string[], slot: boolean, intercepting: boolean) => {
     for (const name of readdirSync(path.join(ROOT, directory))) {
       const full = path.join(ROOT, directory, name);
       if (statSync(full).isDirectory()) {
-        const intercepting = /^\(\.+\)(.+)$/.exec(name);
+        const intercepts = /^\(\.+\)(.+)$/.exec(name);
         const unlisted = /^\(.*\)$/.test(name) || name.startsWith('@');
         walk(
           path.join(directory, name),
-          unlisted ? parts : intercepting ? [...parts, intercepting[1] ?? name] : [...parts, name],
+          unlisted ? parts : intercepts ? [...parts, intercepts[1] ?? name] : [...parts, name],
+          slot || name.startsWith('@'),
+          intercepting || intercepts !== null,
         );
       } else if (file.test(name)) {
-        out.push(`/${parts.join('/')}`);
+        // A page in a slot is the slot's to draw (the dialog's, or nothing): it is an address of its own only if it intercepts one.
+        if (!slot || intercepting) out.push(`/${parts.join('/')}`);
       }
     }
   };
-  walk(folder, []);
+  walk(folder, [], false, false);
   return [...new Set(out)];
 }
 

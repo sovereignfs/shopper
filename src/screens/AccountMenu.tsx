@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { turnOffPush } from '@sovereignfs/pwa/client';
 import { UserMenu } from '@sovereignfs/ui';
+import { useAccount } from '../account/AccountProvider';
 import { useKeys } from '../keys/keys';
 import { useLocal, useLocalQuery } from '../local/react';
 import { failedCount } from '../local/store';
@@ -28,6 +29,8 @@ export function AccountMenu({
   picture?: string | undefined;
 }) {
   const router = useRouter();
+  // The name is the one Settings last saved, before the server is asked again.
+  const shown = useAccount().name ?? name;
   const { leave } = useLocal();
   const keys = useKeys();
   // What the server refused and the person has not yet seen to: a mark on the avatar and an entry in its menu (DESIGN.md §12.5).
@@ -60,13 +63,13 @@ export function AccountMenu({
   return (
     <span className={styles.wrap}>
       <UserMenu
-        name={name}
+        name={shown}
         email={email}
         {...(picture ? { avatarUrl: picture } : {})}
         size="sm"
         aria-label="User menu"
         items={[
-          { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings/profile') },
+          { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings') },
           ...(refused > 0
             ? [
                 {

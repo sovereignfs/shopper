@@ -5,37 +5,29 @@ import { ExportSection } from './ExportSection';
 import { PasswordSection } from './PasswordSection';
 import { PreferencesSection } from './PreferencesSection';
 import { ProfileSection } from './ProfileSection';
-import type { AccountSection } from './query';
 import { SettingsHost } from './SettingsHost';
 import { accountHasPassword } from '../auth/password';
-import { corePicture } from '../auth/profile';
+import { accountFacts } from '../auth/profile';
 import { authSettings } from '../auth/server';
 import { requireSession } from '../auth/session';
-import { localeOf, timeZoneOf } from '../format/regional';
 import { getVaultId } from '../keys/server/vault';
 import styles from './Account.module.css';
 
 /**
  * Settings, rendered by the server (RFC 0005, DESIGN.md §17): every section for **the mode the instance is in** (§15.1), with what only the server knows (whether
- * the account has a password, its vault), handed to the dialog, which only shows one. The session is asked for here, since a `'use server'` function and a page's
- * guard protect nothing of their own (AGENTS.md). The same for the dialog over a page and the one over Home: the route decides which, and how it closes.
+ * the account has a password, its vault), handed to the dialog, which only shows one: the address says which. The session is asked for here, since a
+ * `'use server'` function and a page's guard protect nothing of their own (AGENTS.md). The same for the dialog over a page and the one over Home: the route
+ * decides how it closes.
  */
-export async function SettingsRoute({
-  section,
-  close,
-}: {
-  section: AccountSection;
-  close: 'back' | 'home';
-}) {
+export async function SettingsRoute({ close }: { close: 'back' | 'home' }) {
   const session = await requireSession();
   const settings = authSettings();
   const vaultId = await getVaultId();
   // In suite mode core's address, which the sections go to, and the picture it has of the person (RFC 0005); running alone, neither.
   const core = settings?.sovereign?.issuer ?? null;
-  const picture = core ? await corePicture(session) : undefined;
+  const { picture, locale, timeZone } = await accountFacts(session);
   return (
     <SettingsHost
-      section={section}
       close={close}
       panels={{
         profile: (
@@ -67,15 +59,7 @@ export async function SettingsRoute({
             <EncryptionSection />
           </div>
         ),
-        preferences: (
-          <PreferencesSection
-            core={core}
-            regional={{
-              locale: localeOf(session.user.locale),
-              timeZone: timeZoneOf(session.user.timezone),
-            }}
-          />
-        ),
+        preferences: <PreferencesSection core={core} regional={{ locale, timeZone }} />,
         data: (
           <div className={styles.panel}>
             <ExportSection suite={core !== null} email={session.user.email} vaultId={vaultId} />

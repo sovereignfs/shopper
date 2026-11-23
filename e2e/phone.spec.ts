@@ -45,7 +45,7 @@ test.describe('on a phone', () => {
     await page.keyboard.press('Escape');
 
     await footer(page).getByRole('link', { name: 'Settings' }).click();
-    await expect(page).toHaveURL(/\/settings\/profile$/);
+    await expect(page).toHaveURL(/\/settings$/);
     await expect(footer(page).getByRole('link', { name: 'Settings' })).toHaveAttribute(
       'aria-current',
       /.+/,

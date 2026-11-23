@@ -14,7 +14,14 @@ const BOTH = `http://localhost:${PORTS.both}`;
 
 async function nextPersonIs(
   page: Page,
-  who: { sub: string; email: string; name?: string; picture?: string },
+  who: {
+    sub: string;
+    email: string;
+    name?: string;
+    picture?: string;
+    locale?: string;
+    zoneinfo?: string;
+  },
 ) {
   const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/sign-in-as`, {
     data: who,
@@ -142,7 +149,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       `${core}/preferences`,
     );
     await expect(dialog.getByRole('radio', { name: 'By aisle' })).toBeVisible();
-    await expect(dialog.getByRole('radio', { name: 'Dark' })).toHaveCount(0);
+    await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
     // Data: Shopper's export, a line about core's, and deleting is core's.
     await dialog.getByRole('button', { name: 'Data' }).click();
     await expect(dialog.getByText(/holds Shopper’s part/)).toBeVisible();
@@ -151,6 +158,36 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       `${core}/delete-account`,
     );
     await expect(dialog.getByRole('button', { name: 'Delete my account…' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await signOut(page);
+  });
+
+  test('Sovereign’s language and time zone are the ones dates are written in, as it says them at each sign-in, and are changed there', async ({
+    page,
+  }) => {
+    const first = person('regional');
+    await nextPersonIs(page, first);
+    await throughSovereign(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await signOut(page);
+
+    // The same person, with a language and a time zone at Sovereign now.
+    await nextPersonIs(page, { ...first, locale: 'de-DE', zoneinfo: 'Pacific/Auckland' });
+    await throughSovereign(page);
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Preferences' }).click();
+    // Used and not edited here; the device's own times follow them.
+    await expect(dialog.getByText(/These are Sovereign’s/)).toBeVisible();
+    await expect(dialog.getByLabel('Time zone')).toHaveCount(0);
+    await expect(dialog.getByText(/Last synced \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/)).toBeVisible({
+      timeout: 30_000,
+    });
+    // Appearance stays Shopper's, since it cannot follow Sovereign's.
+    await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
     await page.keyboard.press('Escape');
     await signOut(page);
   });

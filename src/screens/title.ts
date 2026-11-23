@@ -13,27 +13,34 @@ export function titleOf(parts: readonly string[]): string {
 }
 
 /**
- * **Who sets the title.** More than one screen can be there at once (Settings is a dialog over a list), and each names what it is: the one **opened last** is the
- * title, and when it goes the one under it is again. Pure, so that this is tested with no document; `useTitle` is the part that touches one.
+ * **Who sets the title.** More than one screen can be there at once (Settings is a dialog over a list), and each names what it is. **A dialog is the title over
+ * the page under it, whichever mounted first** (loaded directly, Settings mounts before the list it is over has opened its name), and among the same kind the
+ * one **opened last** is; when it goes the one under it is again. Pure, so that this is tested with no document; `useTitle` is the part that touches one.
  */
-export class Titles {
-  private readonly entries: { title: string }[] = [];
+export interface TitleEntry {
+  title: string;
+  /** Whether this is a dialog, which is the title over any page. */
+  readonly over: boolean;
+}
 
-  /** A screen names itself; its title is the current one from now on. The entry is what it changes (`entry.title = …`) and gives back to leave. */
-  add(title: string): { title: string } {
-    const entry = { title };
+export class Titles {
+  private readonly entries: TitleEntry[] = [];
+
+  /** A screen names itself. The entry is what it changes (`entry.title = …`) and gives back to leave. */
+  add(title: string, over = false): TitleEntry {
+    const entry = { title, over };
     this.entries.push(entry);
     return entry;
   }
 
-  remove(entry: { title: string }): void {
+  remove(entry: TitleEntry): void {
     const at = this.entries.indexOf(entry);
     if (at >= 0) this.entries.splice(at, 1);
   }
 
-  /** The title now: the last screen's, or `undefined` when none is there. */
+  /** The title now: the last dialog's, else the last page's, or `undefined` when none is there. */
   current(): string | undefined {
-    return this.entries.at(-1)?.title;
+    return (this.entries.findLast((entry) => entry.over) ?? this.entries.at(-1))?.title;
   }
 }
 
@@ -58,9 +65,10 @@ function keep(): void {
  *
  * When the last screen goes it puts back what it found, **unless the next page has already set its own** (a title that is no longer ours is left alone).
  */
-export function useTitle(parts: readonly string[]): void {
+export function useTitle(parts: readonly string[], options: { over?: boolean } = {}): void {
   const title = titleOf(parts);
-  const entry = useRef<{ title: string } | null>(null);
+  const over = options.over === true;
+  const entry = useRef<TitleEntry | null>(null);
 
   useEffect(() => {
     if (titles.current() === undefined) {
@@ -68,7 +76,7 @@ export function useTitle(parts: readonly string[]): void {
       observer = new MutationObserver(keep);
       observer.observe(document.head, { childList: true, subtree: true, characterData: true });
     }
-    const mine = titles.add(title);
+    const mine = titles.add(title, over);
     entry.current = mine;
     keep();
     return () => {

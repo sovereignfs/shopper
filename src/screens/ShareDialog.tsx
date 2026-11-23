@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormat } from '../format/FormatProvider';
+import { useFormat } from '../account/AccountProvider';
 import { useCallback, useEffect, useState } from 'react';
 import { Avatar, Button, ConfirmDialog, CopyButton, Dialog } from '@sovereignfs/ui';
 import { type ListData } from '../local/listview';

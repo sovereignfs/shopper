@@ -13,7 +13,6 @@ export default async function SettingsOverPage({
 }: {
   params: Promise<{ section: string }>;
 }) {
-  const section = sectionOf((await params).section);
-  if (!section) notFound();
-  return <SettingsRoute section={section} close="back" />;
+  if (!sectionOf((await params).section)) notFound();
+  return <SettingsRoute close="back" />;
 }

@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
-import { corePicture } from '@/src/auth/profile';
-import { FormatProvider } from '@/src/format/FormatProvider';
-import { localeOf, timeZoneOf } from '@/src/format/regional';
+import { accountFacts } from '@/src/auth/profile';
+import { AccountProvider } from '@/src/account/AccountProvider';
 import { requireSession } from '@/src/auth/session';
 import { KeyPrompt } from '@/src/keys/KeyPrompt';
 import { KeysProvider, type PageKeySource } from '@/src/keys/keys';
@@ -28,8 +27,8 @@ export default async function AppLayout({
 }) {
   const session = await requireSession();
   const found = await keySourceOf(session.user.id);
-  // In suite mode the person's picture is core's, drawn in the header (RFC 0005); running alone there is none, and the avatar is their initials.
-  const picture = await corePicture(session);
+  // In suite mode the person's picture, time zone and language are core's (RFC 0005); running alone the zone and language are the account's and there is no picture.
+  const { picture, locale, timeZone } = await accountFacts(session);
   // What the page needs to open the key (RFC 0001), read for each request: never built into the bundle.
   const source: PageKeySource | undefined =
     found?.kind === 'vault'
@@ -48,11 +47,8 @@ export default async function AppLayout({
           keys={source}
         />
         <UndoProvider>
-          {/* How dates are written: the account's time zone and language, which the person chose in Settings (or core says), and the browser's for what is not. */}
-          <FormatProvider
-            locale={localeOf(session.user.locale)}
-            timeZone={timeZoneOf(session.user.timezone)}
-          >
+          {/* The name and the time zone and language dates are written in, which Settings changes without refreshing a route (core's, in suite mode). */}
+          <AccountProvider name={session.user.name} locale={locale} timeZone={timeZone}>
             <ShellFrame
               account={
                 <AccountMenu
@@ -66,7 +62,7 @@ export default async function AppLayout({
               {children}
               {modal}
             </ShellFrame>
-          </FormatProvider>
+          </AccountProvider>
         </UndoProvider>
       </LocalProvider>
     </KeysProvider>

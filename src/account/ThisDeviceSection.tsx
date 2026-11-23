@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Alert, Button, ConfirmDialog, Select } from '@sovereignfs/ui';
 import { canMove } from '../local/describe';
 import type { FailedEntry } from '../local/db';
-import { useFormat } from '../format/FormatProvider';
+import { useFormat } from '../account/AccountProvider';
 import { useLocal, useLocalQuery } from '../local/react';
 import { resetDevice } from '../local/reset';
 import { failedOf, lastSyncedAt, listsOf, persistenceGranted } from '../local/store';
