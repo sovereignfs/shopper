@@ -15,7 +15,7 @@ export function destination(query: {
 
 /**
  * What Shopper asks core to do with the person (OpenID Connect `prompt`): **`create`** opens core's sign-up in place of its sign-in, for _Create an account_
- * (Prompt Create 1.0, `@sovereignfs/auth` 0.7.0, Sovereign 0.86.0 and later; before it, core shows its sign-in); **`login`** has them sign in again even with a
+ * (Prompt Create 1.0, `@sovereignfs/auth` 0.7.0, Sovereign 0.140.0 and later; before it, core shows its sign-in); **`login`** has them sign in again even with a
  * session there, for something that asks a recent sign-in first (the export, `coreSignedInAt`).
  */
 export type CorePrompt = 'create' | 'login';

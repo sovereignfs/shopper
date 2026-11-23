@@ -84,7 +84,7 @@ change); the browser tests rewritten for suite mode (`e2e/sovereign.spec.ts`: `/
 has no password form and its sign-up route is 404, core's logout checked by the session, as a fresh `/sign-in` signs straight in again), and
 the sign-up helper fills the confirmation; `scripts/deploy-check.sh`'s `sovereign` setup checks that `/sign-in` and `/sign-up` answer 307 to
 core, and that a core that cannot be reached ends on the sign-in page saying so, with no password field. **`prompt=create` (done on `@sovereignfs/auth` 0.7.0 and the SDK 2.12.0, 2026-11-23):** `/sign-up` in suite mode sends the browser to core asking for its sign-up
-(`toCore(next, 'create')`, from the proxy and from `SuitePage` for the retry after a failure), which the package passes on and drops for any other value; it needs **Sovereign 0.86.0 or later**
+(`toCore(next, 'create')`, from the proxy and from `SuitePage` for the retry after a failure), which the package passes on and drops for any other value; it needs **Sovereign 0.140.0 or later** (core's own package is 0.86.0; the platform's releases are 0.140.0 for this, 0.141.0 for the launcher's apps and 0.142.0 for `coreSignedInAt`)
 (before it, core shows its sign-in); tests: `suite.test.ts`, `proxy.test.ts`, `sovereign.test.ts` (the prompt reaches core's authorization request) and `e2e/sovereign.spec.ts` (what the fake core was asked),
 and `scripts/deploy-check.sh` expects the new address. **Left out:** the `Sovereign beside
 local` unit test in `sovereign.test.ts` stays, since it holds the package to never matching by email, which is what protects those accounts now.

@@ -78,7 +78,7 @@ or not; and **loyalty cards**, shown at the till and shared with the people one 
 
 The points the first discussion left open, and the RFCs' open questions, were gone through the same day and settled as recommended:
 
-1. **`prompt=create`** (16.17) is P3 and was not waited on: built on 2026-11-23 with `@sovereignfs/auth` 0.7.0, it needs Sovereign 0.86.0 or later; before then `/sign-up` in a suite landed one click from core's sign-up.
+1. **`prompt=create`** (16.17) is P3 and was not waited on: built on 2026-11-23 with `@sovereignfs/auth` 0.7.0, it needs Sovereign 0.140.0 or later; before then `/sign-up` in a suite landed one click from core's sign-up.
 2. **2.9 is superseded,** and a standalone instance joining a suite with password accounts is a candidate (15.5), not now.
 3. **The list's header** (RFC 0005): Shop in the accent colour as the only primary button; the menu borderless and flush right; every icon in the row at
    the small size.
@@ -219,4 +219,4 @@ was started with 12.7's release published as v0.2.0 and its roadmap row still op
 22.10** are built, committed and verified; the leg's owner gate is none. Two gaps to raise in `sovereign`: `IconPicker`'s options have no accessible names, and its
 panel is clipped by a scrolling container. The data-layer tests ran on the `file:` database only, not on sqld or PostgreSQL. Known: `e2e/keys.spec.ts`'s locked-key
 test fails in WebKit on most runs of the commit before this leg too, and `src/catalog/suggest.test.ts`'s ten-millisecond test failed once under load and passes alone.
-**Leg 3 is done** (0.5.0, `develop`, 2026-11-23): 22.2, 22.7 and 22.8 are built and verified, with `@sovereignfs/auth` 0.7.0 and the SDK 2.12.0 pinned for 22.8's suite half and 22.2's `prompt=create`, which needs Sovereign 0.86.0 or later. The export's button in suite mode is not browser-tested (the fake core releases no key).
+**Leg 3 is done** (0.5.0, `develop`, 2026-11-23): 22.2, 22.7 and 22.8 are built and verified, with `@sovereignfs/auth` 0.7.0 and the SDK 2.12.0 pinned for 22.8's suite half and 22.2's `prompt=create`, which needs Sovereign 0.140.0 or later (its export, 0.142.0). The export's button in suite mode is not browser-tested (the fake core releases no key).
