@@ -87,7 +87,7 @@ core, and that a core that cannot be reached ends on the sign-in page saying so,
 it, and a core before 0.86.0 would send the person back to its sign-up after the account was made, so it waits for both); the `Sovereign beside
 local` unit test in `sovereign.test.ts` stays, since it holds the package to never matching by email, which is what protects those accounts now.
 
-#### ⏳ 22.3 — A list's icon and colour
+#### ✅ 22.3 — A list's icon and colour
 
 **Goal:** every list has an icon and a colour, encrypted, shown wherever the list is. **Design:** RFC 0005, "A list". **Depends on:** 22.1, 16.18.
 
@@ -100,7 +100,7 @@ registry test.
 **Accepts when:** a new list has the defaults; a changed icon and colour reach a second device and survive offline edits by field; the marker test
 finds neither in any table.
 
-**Done as, against `@sovereignfs/ui` 0.105.0 (0.5.0, 2026-11-23); what waits is below:** `icon` and `color` are fields of a list's sealed content, in `CONTENT`
+**Done as (0.5.0, 2026-11-23; the cart and the larger icon set with `@sovereignfs/ui` 0.107.0, the same day):** `icon` and `color` are fields of a list's sealed content, in `CONTENT`
 (`src/actions/format.ts`), the sealed registry and `src/sync/tables.ts`, so **no migration**: encrypted in the browser once a household has moved, sealed by the
 server before, in no column. Validated as typed (a colour is exactly `#rrggbb`, an icon a name's shape) and, on reading, held to `src/lists/appearance.ts`
 (its swatches **copied from Tally's `src/groups/colors.ts`**), where a value this build does not know is the default; `ListGlyph` draws the icon in the colour
@@ -112,12 +112,13 @@ it has been still for 400 ms); 22.5 moves them into the dialog's General. The re
 seen to fail without the registry), `readable.test.ts`, `sealed.test.ts` (which now reads _colour_ and `color` as one word) and `e2e/appearance.spec.ts` in
 Chromium and WebKit (the default blue, a chosen icon and colour in the sidebar and the header, the server's answer holding neither as text, a reload).
 A second device of the account signs in and draws the same colour (`e2e/appearance.spec.ts`); the move of a household to the browser's encryption carries both
-(`move.test.ts`: the markers are in no table afterwards). **Waits for the release with 16.18 (ui 0.107.0):** the cart as the default in place of the basket, and the larger set of icons (`LIST_ICONS`, `DEFAULT_LIST_ICON`);
-for 23.2: Home's tiles' icon; for 20.4: the import of both (shopping mode's header shows it, from 22.9). **Gaps to raise in `sovereign`:** `IconPicker`'s options have no
+(`move.test.ts`: the markers are in no table afterwards). **With 0.107.0:** the cart is the default (`DEFAULT_LIST_ICON`) and `LIST_ICONS` has the
+larger set: a shop, hardware, electronics, clothing, a gift, the garden, the office, the pharmacy, a baby, a pet and home. **Left to other tasks:** Home's tiles' icon
+(23.2) and the import of both (20.4); shopping mode's header shows it from 22.9. **Gaps to raise in `sovereign`:** `IconPicker`'s options have no
 accessible names (a screen reader hears an unnamed option, and a test can choose only by position), and its panel opens aligned to its button's right edge and
 is clipped by a scrolling container, so the button sits at the right of its row here.
 
-#### ⏳ 22.4 — The list's header
+#### ✅ 22.4 — The list's header
 
 **Goal:** Shop first and clear, buttons of one height, the menu flush right. **Design:** RFC 0005, "A list". **Depends on:** 22.1.
 
@@ -131,8 +132,8 @@ dark.
 phone) and the menu (`ghost`, its padding and border pulled out of the row by `.menuButton`), every icon at `sm`, which is what made the three one height (Shop had
 no icon and Share's was `md`). **Shop is there only while something is left to buy,** as RFC 0005 says; `e2e/shop.spec.ts`'s "Keep" test keeps an item open for
 that reason. Tests: `e2e/header.spec.ts` in Chromium and WebKit (one height, Shop first with its label, Share's label by width, the menu's glyph within a pixel
-of the rows' right edge; desktop and phone, light and dark; no Shop on a list with nothing to buy), seen to fail against the old header. **Waits for
-ui 0.107.0:** the cart on Shop, which is the basket until then, and so the task is not marked done.
+of the rows' right edge; desktop and phone, light and dark; no Shop on a list with nothing to buy), seen to fail against the old header. The cart is on Shop
+from ui 0.107.0.
 
 #### 📋 22.5 — A list's settings in the dialog
 
@@ -144,7 +145,7 @@ confirmation); `/l/<id>/settings` redirects and its page is removed; from 24.6, 
 **Accepts when:** opened from the menu, closed by Back, opened by a link and offline; a Member sees no Delete; a second person's attempt to delete is
 refused as not found.
 
-#### ⏳ 22.6 — The item beside its list
+#### ✅ 22.6 — The item beside its list
 
 **Goal:** an item opens in a right column, by a tap on its row. **Design:** RFC 0005, "A list's settings, and an item". **Depends on:** 22.1, 16.18.
 
@@ -155,7 +156,7 @@ becomes the column's content.
 **Accepts when:** two items opened one after the other replace each other in the column; the checkbox alone ticks on a list; a tap ticks in Shop mode;
 with a keyboard, the edit button opens it.
 
-**Done as, against `@sovereignfs/ui` 0.105.0 (0.5.0, 2026-11-23); what waits is below:** `ItemDialog` is now `ItemPanel` (`src/screens/ItemPanel.tsx`), an
+**Done as (0.5.0, 2026-11-23; `square-pen` with `@sovereignfs/ui` 0.107.0, the same day):** `ItemDialog` is now `ItemPanel` (`src/screens/ItemPanel.tsx`), an
 `aside` with **no Save**: the quantity, unit, category, icon and list are written at once and the name (also on Enter) and the note when focus moves on,
 each as one change of that field alone (`editItem` already sent only what differs), with no Undo toast for them and Delete's kept. `ItemBeside`
 (`ItemEditor.tsx`) places it: `ThreeColumnLayout`'s right column while `?item=` names an item of the list, the page narrower and usable beside it; **on a
@@ -169,8 +170,7 @@ closing it; on a phone, the page, the back arrow and no sideways scroll), `list.
 item is still there, so that an edit never restores an item deleted elsewhere; Escape closes an open picker and then the panel. **Where the list would be
 squeezed the item is the whole area in place of it,** by a container query on the area the frame gives the page (under 800px, so it follows the sidebar's
 three states and not the window): at 820px with the full sidebar the list was 180px wide beside the 360px column. **Remember for next time** is applied at each
-change, so turning it off afterwards does not unlearn what an earlier change taught. **Waits for the release with 16.18 (ui 0.107.0):** `square-pen` in place
-of the pencil. **Left out:** the open item is not marked in the list.
+change, so turning it off afterwards does not unlearn what an earlier change taught. **The edit icon is `square-pen`** (ui 0.107.0). **Left out:** the open item is not marked in the list.
 
 #### 📋 22.7 — Settings as a dialog, by mode
 
@@ -230,7 +230,7 @@ basket**, off by default, shown with the field. **Finish shopping** is a bar at 
 so that it stays in its own column beside an open item, pinned to the bottom of a short page (`ItemBeside`'s wrapper fills the column) and clear of a phone's safe
 area; the page has no bottom padding of its own, so the last row is above the bar and never under it. The long press and the whole-row tick are as they were.
 Tests: `e2e/shop.spec.ts` in Chromium and WebKit (Add item opens and closes, the switch off by default and on adding bought, with the network cut; forty items on a
-desktop and on a phone with the last row above the bar and the bar in the viewport). **Shop mode's icon is the one 22.3 waits on for the larger set and the cart.**
+desktop and on a phone with the last row above the bar and the bar in the viewport). **The cart is Shop's icon on the list from ui 0.107.0.**
 
 #### ✅ 22.10 — Page titles
 

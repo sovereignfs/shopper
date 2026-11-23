@@ -12,8 +12,7 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 - **A list's icon and colour** (RFC 0005): choose them in a list's settings, under Appearance. The icon is drawn in the colour before the list's name in
   its header, in the sidebar (the narrow sidebar shows it in place of the letter) and in the phone's drawer. Both are encrypted on your device as the
-  list's name is (the suite's encryption is not yet audited), and a list you never gave either looks as before, with a basket and blue. Clearing the colour puts the blue back. The set of icons grows
-  with a coming release.
+  list's name is (the suite's encryption is not yet audited), and a list you never gave either shows a cart and blue. Clearing the colour puts the blue back. There are icons for a shop, hardware, electronics, clothing, a gift, the garden, the office, the pharmacy, a baby, a pet and home as well as groceries.
 - **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, Settings `<section> · Settings · Shopper` and
   a list's settings `Settings · <list> · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the name, and until then
   it is `Shopper`. A browser keeps titles in its history, and a history it syncs leaves the device with them: the one way an opened name leaves Shopper

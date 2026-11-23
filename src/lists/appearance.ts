@@ -29,11 +29,13 @@ export const LIST_SWATCHES: readonly { label: string; value: string }[] = [
 export const DEFAULT_LIST_COLOR = '#2563eb';
 
 /**
- * The icons a list may have, in the order `IconPicker` offers them: what the design system pinned here (0.105.0) has. `satisfies` holds each to
- * `IconName`, so a name it does not have fails to compile. Task 16.18's larger set (a cart, a shop, hardware, a pharmacy, a baby, a pet) joins with the
- * release that has it, with the cart as the default in place of the basket.
+ * The icons a list may have, in the order `IconPicker` offers them: the cart a new list shows, then the groceries, then what a list may be for beyond them
+ * (a shop, hardware, electronics, clothing, a gift, the garden, the office, the pharmacy, a baby, a pet, home). `satisfies` holds each to `IconName`, so a
+ * name the design system does not have fails to compile. A list's icon is a choice from this set and never an upload; the card icons (`wallet-cards`,
+ * `scan-barcode`) are for loyalty cards, not here.
  */
 export const LIST_ICONS = [
+  'shopping-cart',
   'shopping-basket',
   'apple',
   'banana',
@@ -55,6 +57,22 @@ export const LIST_ICONS = [
   'beer',
   'spray-can',
   'package',
+  'store',
+  'hammer',
+  'wrench',
+  'plug',
+  'laptop',
+  'headphones',
+  'shirt',
+  'gift',
+  'sprout',
+  'flower-2',
+  'briefcase',
+  'paperclip',
+  'pill',
+  'baby',
+  'dog',
+  'sofa',
   'house',
   'luggage',
   'list-todo',
@@ -62,8 +80,8 @@ export const LIST_ICONS = [
 
 export type ListIcon = (typeof LIST_ICONS)[number];
 
-/** What a list with no icon of its own shows (RFC 0005 says the cart, which the design system has from 0.107.0). */
-export const DEFAULT_LIST_ICON: ListIcon = 'shopping-basket';
+/** What a list with no icon of its own shows: the cart (RFC 0005). */
+export const DEFAULT_LIST_ICON: ListIcon = 'shopping-cart';
 
 const ICONS: ReadonlySet<string> = new Set(LIST_ICONS);
 

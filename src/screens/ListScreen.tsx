@@ -224,8 +224,7 @@ function Header({
               router.push(`/shop?h=${householdId}&l=${id}`);
             }}
           >
-            {/* The cart (RFC 0005) once the design system has it, 0.107.0. */}
-            <Icon name="shopping-basket" size="sm" aria-hidden />
+            <Icon name="shopping-cart" size="sm" aria-hidden />
             Shop
           </Button>
         ) : null}
@@ -341,8 +340,7 @@ function Row({
         aria-label={`Edit ${item.name}`}
         onClick={() => edit(item.id)}
       >
-        {/* `square-pen` (RFC 0005) once the design system has it, 0.107.0. */}
-        <Icon name="pencil" aria-hidden />
+        <Icon name="square-pen" aria-hidden />
       </button>
     </div>
   );
