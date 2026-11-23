@@ -66,7 +66,7 @@ test('the items are by aisle, in the household’s order, with quantity and note
   expect(await violations()).toEqual([]);
 });
 
-test('only the checkbox ticks: a tap on the name, the icon or the quantity does nothing, and the keyboard ticks a focused checkbox', async ({
+test('only the checkbox ticks: a tap on the name, the icon or the quantity opens the item and ticks nothing, and the keyboard ticks a focused checkbox', async ({
   page,
   baseURL,
 }) => {
@@ -77,13 +77,16 @@ test('only the checkbox ticks: a tap on the name, the icon or the quantity does 
   const milk = page
     .getByRole('listitem')
     .filter({ has: page.getByRole('checkbox', { name: /Milk/ }) });
-  // Anywhere on the row but the box: the name, the quantity, the empty space to the right of them.
+  // Anywhere on the row but the box: the name, the quantity, the empty space to the right of them. Each opens the item (RFC 0005) and ticks nothing.
+  const panel = page.getByRole('complementary', { name: /^Item:/ });
   await milk.getByText('Milk', { exact: true }).click();
+  await expect(panel).toBeVisible();
   await milk.getByText('2 L').click();
   const row = await milk.boundingBox();
   if (!row) throw new Error('no row');
-  await page.mouse.click(row.x + row.width * 0.6, row.y + row.height / 2);
+  await page.mouse.click(row.x + row.width * 0.5, row.y + row.height / 2);
   await expect(page.getByRole('checkbox', { name: /Milk/ })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /Bread/ })).not.toBeChecked();
   await expect(page.getByRole('button', { name: /Bought/ })).toHaveCount(0);
 
   // The box ticks it.

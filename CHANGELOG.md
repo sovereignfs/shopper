@@ -21,6 +21,10 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Changed
 
+- **An item opens beside its list** (RFC 0005): tap an item's row, or its pencil, and it opens in a column at the right of the list, which stays where it
+  is, so that you can open another beside it; on a phone it is a page of its own, with a back arrow. There is no Save: each field is kept as you leave it,
+  on your device, with no network. A tap on a row no longer does nothing and a long press on a list no longer opens the item; the checkbox alone ticks,
+  and shopping mode is as it was.
 - **A list's header** (RFC 0005): **Shop** is first and stands out, with its label on a phone too, and shows only while something is left to buy; **Share**
   and the list's menu follow, all three of one height, with the menu's dots in line with the right edge of the items below.
 

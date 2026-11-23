@@ -143,7 +143,7 @@ confirmation); `/l/<id>/settings` redirects and its page is removed; from 24.6, 
 **Accepts when:** opened from the menu, closed by Back, opened by a link and offline; a Member sees no Delete; a second person's attempt to delete is
 refused as not found.
 
-#### 📋 22.6 — The item beside its list
+#### ⏳ 22.6 — The item beside its list
 
 **Goal:** an item opens in a right column, by a tap on its row. **Design:** RFC 0005, "A list's settings, and an item". **Depends on:** 22.1, 16.18.
 
@@ -153,6 +153,18 @@ becomes the column's content.
 
 **Accepts when:** two items opened one after the other replace each other in the column; the checkbox alone ticks on a list; a tap ticks in Shop mode;
 with a keyboard, the edit button opens it.
+
+**Done as, against `@sovereignfs/ui` 0.105.0 (0.5.0, 2026-11-23); what waits is below:** `ItemDialog` is now `ItemPanel` (`src/screens/ItemPanel.tsx`), an
+`aside` with **no Save**: the quantity, unit, category, icon and list are written at once and the name (also on Enter) and the note when focus moves on,
+each as one change of that field alone (`editItem` already sent only what differs), with no Undo toast for them and Delete's kept. `ItemBeside`
+(`ItemEditor.tsx`) places it: `ThreeColumnLayout`'s right column while `?item=` names an item of the list, the page narrower and usable beside it; **on a
+phone the panel is the page, in place of the list, with a back arrow** (rendered, not navigated, so the route is the same). Opening moves focus into the
+panel and closing gives it back to the edit button when that opened it; Escape closes. A tap on a list's row (not its checkbox, label, button or link) opens it and
+the long press is gone from lists; **shopping mode keeps its long press** and its whole-row tick, and opens the same panel. The column is placed by the list and
+shopping screens and not by the app's frame, so that leg 5's frame replaces nothing here. Tests: `e2e/item.spec.ts` (rewritten: a tap opens and ticks nothing, each
+field written as it is left and at the server, two items replacing each other, the keyboard and focus back, offline, Remember, Delete and Undo, an unknown item
+closing it; on a phone, the page, the back arrow and no sideways scroll), `list.spec.ts`, `phone.spec.ts` and `shop.spec.ts` in Chromium and WebKit.
+**Waits for the release with 16.18 (ui 0.107.0):** `square-pen` in place of the pencil. **Left out:** the open item is not marked in the list.
 
 #### 📋 22.7 — Settings as a dialog, by mode
 
@@ -216,8 +228,10 @@ encrypted name.
 
 **Done as (0.5.0, 2026-11-23):** `useTitle` (`src/screens/title.ts`, with the pure `titleOf` beside it) sets `document.title` from the opened name and, when its
 screen goes, puts back what it found unless the next page has already set its own, so that a list's name does not stay behind on a page whose server
-title is the same `Shopper` (the server titles for a list, shopping mode and a list's settings are now the app's name alone, in place of `List`,
-`Shopping` and `List settings`). Used by the list (`<list> · Shopper`), shopping mode (`Shopping <list> · Shopper`), a list's settings (`Settings ·
+title is the same `Shopper`. **No page of the signed-in area sets a server title** (the root's `Shopper` is every one's), and a page added later sets its title with the hook too. **The hook
+keeps its title against Next:** Next makes the `<title>` again as it moves between routes, late when its metadata streams in, which wrote the app's name over
+the browser's (seen in WebKit, intermittently, after a move from a list's settings to Settings, and once in Chromium), so a change to the head puts the title
+back for as long as the screen is mounted. Used by the list (`<list> · Shopper`), shopping mode (`Shopping <list> · Shopper`), a list's settings (`Settings ·
 <list> · Shopper`) and Settings (`<section> · Settings · Shopper`, by today's sections, which 22.7 renames). `docs/encryption.md` says the caveat as
 running. Tests: `title.test.ts` (the table's rows) and `e2e/titles.spec.ts` in Chromium and WebKit (the title at each page, and that a name does not
 outlast its page), seen to fail against the code before. **Left out:** Home's `Home · Shopper`, since `/` still draws the last list and so carries

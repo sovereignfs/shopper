@@ -54,7 +54,7 @@ test.describe('on a phone', () => {
     expect(await violations()).toEqual([]);
   });
 
-  test('a list is used end to end: add, tick, edit by a long press and by the pencil, with nothing sideways', async ({
+  test('a list is used end to end: add, tick, open the item by a tap and by the pencil, with nothing sideways', async ({
     page,
     baseURL,
   }) => {
@@ -73,25 +73,21 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('button', { name: /Bought \(1\)/ })).toBeVisible();
     expect(await nothingSideways(page)).toBe(true);
 
-    // A long press, as a finger makes it, opens the item; a tap does not.
-    const row = page.getByRole('checkbox', { name: /Bread/ });
-    await row.evaluate(async (element) => {
-      const init = { bubbles: true, pointerType: 'touch', pointerId: 7, isPrimary: true };
-      element.dispatchEvent(new PointerEvent('pointerdown', init));
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      element.dispatchEvent(new PointerEvent('pointerup', init));
-    });
-    const dialog = page.getByRole('dialog', { name: /Item: Bread/ });
-    await expect(dialog).toBeVisible();
-    const box = await dialog.boundingBox();
+    // A tap on the row, away from its checkbox, opens the item as a page of its own and ticks nothing; there is no long press on a list (RFC 0005).
+    await page.getByText('Bread', { exact: true }).click();
+    const panel = page.getByRole('complementary', { name: /Item: Bread/ });
+    await expect(panel).toBeVisible();
+    const box = await panel.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(PHONE.width - 1);
     await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(page.getByRole('checkbox', { name: /Bread/ })).not.toBeChecked();
 
     // The pencil is a target a finger can hit.
     const pencil = await page.getByRole('button', { name: 'Edit Bread' }).boundingBox();
     expect(Math.min(pencil?.width ?? 0, pencil?.height ?? 0)).toBeGreaterThanOrEqual(32);
     await page.getByRole('button', { name: 'Edit Bread' }).click();
-    await expect(dialog).toBeVisible();
+    await expect(panel).toBeVisible();
     expect(await nothingSideways(page)).toBe(true);
   });
 });

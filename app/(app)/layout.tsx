@@ -12,6 +12,9 @@ import { UndoProvider } from '@/src/screens/Undo';
 // Everything for someone who is signed in (DESIGN.md §16.2): the session is checked here, and the frame is the one the offline shell makes too.
 export const dynamic = 'force-dynamic';
 
+// **No page here sets a title of its own on the server** (RFC 0005, DESIGN.md §16.13): a list's name is encrypted, so the browser sets every title in this area
+// (`useTitle`, which also keeps it against Next making the `<title>` again), and the server's is the app's name for all of them.
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
   const found = await keySourceOf(session.user.id);

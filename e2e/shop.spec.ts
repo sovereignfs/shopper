@@ -170,7 +170,7 @@ test('a long press opens the item, and another person’s tick shows when the de
     await new Promise((resolve) => setTimeout(resolve, 700));
     element.dispatchEvent(new PointerEvent('pointerup', init));
   });
-  await expect(page.getByRole('dialog', { name: /Item: Coffee/ })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /Item: Coffee/ })).toBeVisible();
   await page.keyboard.press('Escape');
 
   // Someone else ticks Milk on the server; this device pulls while the screen is open.

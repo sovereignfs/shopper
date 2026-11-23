@@ -431,7 +431,7 @@ phase 4), the **last unit price** and the unit it was for, how many times it has
 - **Every item points at a product of its own list.** Adding a name the list has never used makes a product there, from the adding person's Inventory
   item of that name when there is one (its category, icon, unit and quantity), else from the starter catalog when it matches (§8.6), else with the
   category guessed (§8.3) and a generic icon.
-- **Editing an item's category, icon or unit can update its product,** so the next add comes right: the item dialog has "Remember for next time", on
+- **Editing an item's category, icon or unit can update its product,** so the next add comes right: the item's panel has "Remember for next time", on
   by default (§9.4). Its name, quantity, note and price are the item's own; the price also updates the product's last unit price when the item is
   bought (§10.4).
 - **A product is tidied where it is used,** from an item's panel (§16.7): its "Remember for next time" (§9.4) writes the product, and offers to update

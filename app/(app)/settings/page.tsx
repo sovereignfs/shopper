@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { sectionOf, one } from '@/src/account/query';
 import { DeleteAccountSection } from '@/src/account/DeleteAccountSection';
 import { EncryptionSection } from '@/src/account/EncryptionSection';
@@ -13,7 +12,6 @@ import { authSettings } from '@/src/auth/server';
 import { requireSession } from '@/src/auth/session';
 import { getVaultId } from '@/src/keys/server/vault';
 
-export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
 /**

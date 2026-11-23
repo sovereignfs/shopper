@@ -12,7 +12,7 @@ import { type ListData, listViewOf } from '../local/listview';
 import { useLocal, useLocalQuery } from '../local/react';
 import { boughtItems, groupByAisle, openItems, quantityLabel } from '../lists/view';
 import { AddField } from './AddField';
-import { EditedItem, useItemParam } from './ItemEditor';
+import { ItemBeside, useItemParam } from './ItemEditor';
 import { iconOf } from './ListScreen';
 import { shopEntry } from './shop-entry';
 import { useTitle } from './title';
@@ -85,117 +85,117 @@ function Shopping({ data }: { data: Found }) {
   }
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <button
-          type="button"
-          className={styles.back}
-          onClick={leave}
-          aria-label={`Back to ${list.name}`}
-        >
-          <Icon name="chevron-left" aria-hidden />
-        </button>
-        <div className={styles.title}>
-          <h1>{list.name}</h1>
-          <p role="status" className={styles.progress}>
-            {open.length} to get · {bought.length} in basket
-          </p>
-        </div>
-      </header>
-
-      <div className={styles.add}>
-        <AddField data={data} change={change} basket={basket} />
-        <label className={styles.basketOption}>
-          <input type="checkbox" checked={basket} onChange={(e) => setBasket(e.target.checked)} />
-          Already in basket
-        </label>
-      </div>
-
-      {open.length === 0 ? (
-        <p className={styles.note}>
-          {bought.length > 0 ? 'Everything is in the basket.' : `Nothing on ${list.name}.`}
-        </p>
-      ) : (
-        groupByAisle(open, categories).map((group) => (
-          <section key={group.key} aria-label={group.category?.name ?? 'Other'}>
-            <h2 className={styles.category}>{group.category?.name ?? 'Other'}</h2>
-            <ul className={styles.rows}>
-              {group.items.map((item) => (
-                <li key={item.id}>
-                  <ShopRow
-                    item={item}
-                    data={data}
-                    checked={false}
-                    onToggle={() => void tick(item)}
-                    onHold={() => editing.open(item.id)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))
-      )}
-
-      {bought.length > 0 ? (
-        <section aria-label="In basket" className={styles.basket}>
+    <ItemBeside data={data} change={change}>
+      <div className={styles.page}>
+        <header className={styles.header}>
           <button
             type="button"
-            className={styles.basketToggle}
-            aria-expanded={showBasket}
-            onClick={() => setShowBasket(!showBasket)}
+            className={styles.back}
+            onClick={leave}
+            aria-label={`Back to ${list.name}`}
           >
-            In basket ({bought.length})
-            <Icon name={showBasket ? 'chevron-up' : 'chevron-down'} aria-hidden />
+            <Icon name="chevron-left" aria-hidden />
           </button>
-          {showBasket ? (
-            <ul className={styles.rows}>
-              {bought.map((item) => (
-                <li key={item.id} className={styles.dropped}>
-                  <ShopRow
-                    item={item}
-                    data={data}
-                    checked
-                    onToggle={() => void untick(item)}
-                    onHold={() => editing.open(item.id)}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-      ) : null}
+          <div className={styles.title}>
+            <h1>{list.name}</h1>
+            <p role="status" className={styles.progress}>
+              {open.length} to get · {bought.length} in basket
+            </p>
+          </div>
+        </header>
 
-      <div className={styles.finish}>
-        <Button size="lg" onClick={() => (bought.length === 0 ? leave() : setFinishing(true))}>
-          Finish shopping
-        </Button>
-      </div>
+        <div className={styles.add}>
+          <AddField data={data} change={change} basket={basket} />
+          <label className={styles.basketOption}>
+            <input type="checkbox" checked={basket} onChange={(e) => setBasket(e.target.checked)} />
+            Already in basket
+          </label>
+        </div>
 
-      {finishing ? (
-        <Dialog
-          open
-          size="sm"
-          title="Finish shopping"
-          aria-label="Finish shopping"
-          onClose={() => setFinishing(false)}
-          footer={
-            <div className={styles.finishActions}>
-              <Button variant="secondary" onClick={() => void finish(false)}>
-                Keep
-              </Button>
-              <Button onClick={() => void finish(true)}>Clear</Button>
-            </div>
-          }
-        >
-          <p>
-            Clear {bought.length} bought {bought.length === 1 ? 'item' : 'items'} from {list.name}?
+        {open.length === 0 ? (
+          <p className={styles.note}>
+            {bought.length > 0 ? 'Everything is in the basket.' : `Nothing on ${list.name}.`}
           </p>
-        </Dialog>
-      ) : null}
-      {editing.id !== null ? (
-        <EditedItem id={editing.id} data={data} close={editing.close} change={change} />
-      ) : null}
-    </div>
+        ) : (
+          groupByAisle(open, categories).map((group) => (
+            <section key={group.key} aria-label={group.category?.name ?? 'Other'}>
+              <h2 className={styles.category}>{group.category?.name ?? 'Other'}</h2>
+              <ul className={styles.rows}>
+                {group.items.map((item) => (
+                  <li key={item.id}>
+                    <ShopRow
+                      item={item}
+                      data={data}
+                      checked={false}
+                      onToggle={() => void tick(item)}
+                      onHold={() => editing.open(item.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        )}
+
+        {bought.length > 0 ? (
+          <section aria-label="In basket" className={styles.basket}>
+            <button
+              type="button"
+              className={styles.basketToggle}
+              aria-expanded={showBasket}
+              onClick={() => setShowBasket(!showBasket)}
+            >
+              In basket ({bought.length})
+              <Icon name={showBasket ? 'chevron-up' : 'chevron-down'} aria-hidden />
+            </button>
+            {showBasket ? (
+              <ul className={styles.rows}>
+                {bought.map((item) => (
+                  <li key={item.id} className={styles.dropped}>
+                    <ShopRow
+                      item={item}
+                      data={data}
+                      checked
+                      onToggle={() => void untick(item)}
+                      onHold={() => editing.open(item.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
+
+        <div className={styles.finish}>
+          <Button size="lg" onClick={() => (bought.length === 0 ? leave() : setFinishing(true))}>
+            Finish shopping
+          </Button>
+        </div>
+
+        {finishing ? (
+          <Dialog
+            open
+            size="sm"
+            title="Finish shopping"
+            aria-label="Finish shopping"
+            onClose={() => setFinishing(false)}
+            footer={
+              <div className={styles.finishActions}>
+                <Button variant="secondary" onClick={() => void finish(false)}>
+                  Keep
+                </Button>
+                <Button onClick={() => void finish(true)}>Clear</Button>
+              </div>
+            }
+          >
+            <p>
+              Clear {bought.length} bought {bought.length === 1 ? 'item' : 'items'} from {list.name}
+              ?
+            </p>
+          </Dialog>
+        ) : null}
+      </div>
+    </ItemBeside>
   );
 }
 

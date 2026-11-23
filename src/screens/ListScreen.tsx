@@ -13,7 +13,6 @@ import {
   Icon,
   type IconName,
   Menu,
-  useLongPress,
 } from '@sovereignfs/ui';
 import type { Env } from '../actions/env';
 import { clearBought, tickItem, untickItem } from '../actions/items';
@@ -37,7 +36,7 @@ import {
 import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors } from '../ui/dnd';
 import styles from './ListScreen.module.css';
 import { AddField } from './AddField';
-import { EditedItem, useItemParam, useQueryParam } from './ItemEditor';
+import { ItemBeside, useItemParam, useQueryParam } from './ItemEditor';
 import { ListGlyph } from './ListGlyph';
 import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
@@ -116,7 +115,6 @@ function Loaded({ data }: { data: Found }) {
   const { client } = useLocal();
   const offerUndo = useUndo();
   const [view, setView] = useView();
-  const editing = useItemParam();
   const sharing = useQueryParam('share');
   const { list, items, categories, me } = data;
   useTitle([list.name]);
@@ -138,52 +136,51 @@ function Loaded({ data }: { data: Found }) {
     );
 
   return (
-    <div className={styles.page}>
-      <Header
-        name={list.name}
-        appearance={list}
-        id={list.id}
-        householdId={list.householdId}
-        share={() => sharing.open('1')}
-        shop={list.archivedAt === null && open.length > 0}
-        view={view}
-        setView={setView}
-        canClear={bought.length > 0}
-        clear={() => void clear()}
-      />
-      {list.archivedAt !== null ? (
-        <p className={styles.note}>
-          This list is archived.{' '}
-          <Link href={`/l/${list.id}/settings`}>Restore it in its settings</Link> to use it again.
-        </p>
-      ) : null}
-      {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
-      {sharing.value === '1' ? <ShareDialog data={data} onClose={sharing.close} /> : null}
-      {editing.id !== null ? (
-        <EditedItem id={editing.id} data={data} close={editing.close} change={change} />
-      ) : null}
-      {open.length === 0 && bought.length === 0 ? (
-        <Empty data={data} change={change} />
-      ) : (
-        <>
-          {open.length === 0 ? (
-            <p className={styles.note}>Everything on {list.name} is ticked.</p>
-          ) : null}
-          {view === 'aisle' ? (
-            <ByAisle groups={groupByAisle(open, categories)} data={data} onTick={tick} />
-          ) : (
-            <ul className={styles.items} aria-label="Items in the order added">
-              {inOrderAdded(open).map((item) => (
-                <li key={item.id}>
-                  <Row item={item} data={data} checked={false} onToggle={() => void tick(item)} />
-                </li>
-              ))}
-            </ul>
-          )}
-          <Bought items={bought} data={data} onUntick={untick} onClear={() => void clear()} />
-        </>
-      )}
-    </div>
+    <ItemBeside data={data} change={change}>
+      <div className={styles.page}>
+        <Header
+          name={list.name}
+          appearance={list}
+          id={list.id}
+          householdId={list.householdId}
+          share={() => sharing.open('1')}
+          shop={list.archivedAt === null && open.length > 0}
+          view={view}
+          setView={setView}
+          canClear={bought.length > 0}
+          clear={() => void clear()}
+        />
+        {list.archivedAt !== null ? (
+          <p className={styles.note}>
+            This list is archived.{' '}
+            <Link href={`/l/${list.id}/settings`}>Restore it in its settings</Link> to use it again.
+          </p>
+        ) : null}
+        {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
+        {sharing.value === '1' ? <ShareDialog data={data} onClose={sharing.close} /> : null}
+        {open.length === 0 && bought.length === 0 ? (
+          <Empty data={data} change={change} />
+        ) : (
+          <>
+            {open.length === 0 ? (
+              <p className={styles.note}>Everything on {list.name} is ticked.</p>
+            ) : null}
+            {view === 'aisle' ? (
+              <ByAisle groups={groupByAisle(open, categories)} data={data} onTick={tick} />
+            ) : (
+              <ul className={styles.items} aria-label="Items in the order added">
+                {inOrderAdded(open).map((item) => (
+                  <li key={item.id}>
+                    <Row item={item} data={data} checked={false} onToggle={() => void tick(item)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Bought items={bought} data={data} onUntick={untick} onClear={() => void clear()} />
+          </>
+        )}
+      </div>
+    </ItemBeside>
   );
 }
 
@@ -315,12 +312,17 @@ function Row({
       </span>
     ) : undefined;
   const edit = useItemParam().open;
-  // On a phone a long press on the row opens the item, as the pencil does; the checkbox alone ticks (DESIGN.md §16.5, §16.11).
-  const press = useLongPress({ onLongPress: () => edit(item.id) });
-  // On a list **only the checkbox ticks**: a tap anywhere else on the row does nothing, so that a finger that is scrolling, or aiming at the pencil, buys
-  // nothing by mistake (DESIGN.md §16.5). Shopping mode keeps the whole row as the target (`ShopScreen`), where a thumb in a trolley wants it.
+  // On a list **a tap on the row opens the item** and only the checkbox ticks (RFC 0005): opening a panel changes nothing, so a finger that is scrolling, or
+  // aiming at the checkbox, costs nothing, and there is no long press. The pencil is the visible sign of it and the way in for a keyboard and a screen reader;
+  // the checkbox and the pencil are left to do their own work. Shopping mode keeps the whole row as the tick (`ShopScreen`), where a thumb in a trolley wants it.
+  const open = (event: React.MouseEvent) => {
+    if ((event.target as HTMLElement).closest('input, label, button, a')) return;
+    edit(item.id);
+  };
   const row = (
-    <div className={`${styles.line} ${checked ? styles.ticked : ''}`}>
+    // The pencil is this row's control for a keyboard: the row itself is only a larger target for a pointer, so it is not a control of its own.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div className={`${styles.line} ${checked ? styles.ticked : ''}`} onClick={open}>
       <Checkbox
         id={`tick-${item.id}`}
         label=""
@@ -339,21 +341,21 @@ function Row({
         aria-label={`Edit ${item.name}`}
         onClick={() => edit(item.id)}
       >
+        {/* `square-pen` (RFC 0005) once the design system has it, 0.107.0. */}
         <Icon name="pencil" aria-hidden />
       </button>
     </div>
   );
-  const pressed = <div {...press}>{row}</div>;
   return handle ? (
     <DragHandleRow
       handleProps={handle.props}
       isDragging={handle.dragging}
       className={styles.handleRow}
     >
-      {pressed}
+      {row}
     </DragHandleRow>
   ) : (
-    pressed
+    row
   );
 }
 
