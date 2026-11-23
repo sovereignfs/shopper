@@ -111,7 +111,7 @@ a standalone account each open their lists on it.
 **Goal:** the suite's frame, Home, Inventory and loyalty cards, published before phase 2. **Depends on:** epics 22 to 24, 12.7.
 
 **Technical:** the version settled at the workstream's first bump; `CHANGELOG.md` in a person's words, with "not yet audited" where it describes
-encryption, and for an operator: an instance configured with both ways in must choose one before upgrading (RFC 0005); a security review of the
+encryption, and for an operator: an instance configured with both ways in now signs in through core only (RFC 0005); a security review of the
 export route, cards' sharing and keys, and Inventory's exclusion from pulls; the release as 12.4; hosting updated as 12.5.
 
 **Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and a

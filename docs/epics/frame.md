@@ -25,7 +25,7 @@ every page has a title; and the frame (header, sidebar, phone's footer) is the d
 frame, two blocks, three states, the launcher), §16.3 (addresses: `/settings/<section>`, `?settings=`, `/l/<id>/settings` gone), §16.5 (the header's
 actions, the row's tap), §16.7 (the item's column), §16.11 (the phone's footer), §11.1 (Shop mode), §17 (Settings by mode), §18 (the readable
 export), §13.1 (a list's icon and colour); `AGENTS.md`'s "or both" and words; `docs/encryption.md` (the titles' caveat); RFC 0003's open question 2
-marked settled by this RFC; workstream 0001's export row pointing here. The workstream's assumed points settled with the owner.
+marked settled by this RFC; workstream 0001's export row pointing here.
 
 **Accepts when:** no document says an instance signs people in both ways, that Settings is a page, or that a person's own export is ciphertext only.
 
@@ -33,14 +33,14 @@ marked settled by this RFC; workstream 0001's export row pointing here. The work
 
 **Goal:** in a suite, Shopper's sign-in pages are the way to core; alone, they are core's forms. **Design:** RFC 0005, "Sign-in". **Depends on:** 22.1.
 
-**Technical:** `src/auth/config.ts` refuses an instance with both ways in, naming the settings; `/sign-in` and `/sign-up` in a suite redirect (a session
+**Technical:** `src/auth/config.ts` takes suite mode when both ways in are set, logging once which settings to remove; `/sign-in` and `/sign-up` in a suite redirect (a session
 to `next`, anyone else to `/api/auth/sign-in/sovereign?returnTo=…`), and a return with `?error=` renders the reason and _Try again_; the landing's
 button says _Sign in with Sovereign_ in a suite. Alone, `SignInForm`, `SignUpForm` and the reset pair from `@sovereignfs/ui` (the current release),
 Shopper's recovery-kit screen kept in `AuthCard`. With 16.17, `/sign-up` asks core for `prompt=create`. 2.9 marked superseded.
 
 **Accepts when:** in a suite, visiting `/sign-in` signed out arrives at core's sign-in with Shopper's return, an invitation's `next` survives the round
 trip, and a refused sign-in at core shows the page once with no loop; alone, the forms render as core's, and every existing auth test passes; an
-instance configured both ways does not start.
+instance configured both ways starts in suite mode and logs it once.
 
 #### 📋 22.3 — A list's icon and colour
 

@@ -24,7 +24,7 @@ or not; and **loyalty cards**, shown at the till and shared with the people one 
 - [ ] `DESIGN.md` says what RFC 0005 to 0007 build, and `AGENTS.md`'s words and rules agree with it (22.1, 23.1, 24.1).
 - [ ] The releases of `sovereign` this needs are published: 16.18 to 16.25 (16.17 and 16.26 are not waited on).
 - [ ] In a suite, `/sign-in` and `/sign-up` go to core at once, and a failure at core shows a page rather than a loop; alone, the forms are the design
-      system's, as core's are; an instance configured with both ways in does not start (22.2).
+      system's, as core's are; an instance configured with both ways in starts in suite mode and says so (22.2).
 - [ ] Every list has an icon and a colour, encrypted, shown in its header, the sidebar, the drawer and on Home (22.3).
 - [ ] Settings and a list's settings are `SettingsDialog`, each section at its own address; Profile, Security, Preferences and Data say and do what
       RFC 0005's table says, in both modes (22.5, 22.7).
@@ -74,23 +74,27 @@ or not; and **loyalty cards**, shown at the till and shared with the people one 
 | Sharing a card           | Its own people and keys, by a link, as a list                                                             | Through the lists it is linked to                                                          |
 | Where in the order       | **After 12.7, before phase 2**                                                                            | After phase 2: its screens and Settings would be built twice                               |
 
-## Assumed, to confirm at leg 1
+## Settled with the owner (2026-11-23)
 
-Points the discussion did not settle in words. Each is written as the RFCs say until the owner says otherwise at leg 1's review:
+The points the first discussion left open, and the RFCs' open questions, were gone through the same day and settled as recommended:
 
-1. **`prompt=create`** (16.17) is recorded and not waited on: until it is built, `/sign-up` in a suite lands one click from core's sign-up.
-2. **2.9 is superseded,** and a standalone instance joining a suite with password accounts is **not now** (RFC 0005, open question 1).
+1. **`prompt=create`** (16.17) is P3 and not waited on: until it is built, `/sign-up` in a suite lands one click from core's sign-up.
+2. **2.9 is superseded,** and a standalone instance joining a suite with password accounts is a candidate (15.5), not now.
 3. **The list's header** (RFC 0005): Shop in the accent colour as the only primary button; the menu borderless and flush right; every icon in the row at
    the small size.
 4. **A list's settings** at `?settings=<section>`, with `/l/<id>/settings` redirecting.
 5. **The item** in `ThreeColumnLayout`'s right column, with a page of its own on a phone (Tusk's way), in place of a new `SidePanel`.
 6. **"Password protection as core's"** for the export means confirming the password before the export starts, as core does, and not a file encrypted
    with a password.
-7. **Inventory's details** (RFC 0006): a new name on a list makes an Inventory item automatically, marked once; a category a person made is seen by the
-   people on their lists; the catalog screen (8.6) becomes Inventory.
-8. **Start-up refuses an instance configured with both ways in** (RFC 0005), rather than choosing one: an existing instance with both must choose before
-   upgrading. The owner decided a suite offers Sovereign only; refusing to start is how this plan enforces it.
+7. **Inventory's details** (RFC 0006): a new name on a list makes an Inventory item automatically, marked once; the catalog screen (8.6) becomes
+   Inventory; a list shows the person's categories its items use, from its own copies.
+8. **An instance configured with both ways in starts in suite mode** and logs that its local sign-in is off, rather than refusing to start, so that an
+   upgraded instance keeps running.
 9. **Home's edges** (RFC 0006): arriving by an invitation still opens that list; a brand-new account opens Home, whose Continue is its _Groceries_.
+10. **Import reads both** the contract's export and 22.8's readable file (20.4).
+11. **A person's own category** is encrypted under the group's derived key in Inventory and copied per list under the list's keys (`list_category`).
+12. **Later:** a shared pantry (with kinds of group), a schedule for recurring items (13.3), moving cards to and from Wallet (15.6), a card linked to a
+    shop (with 13.5).
 
 ## Prerequisites
 
@@ -101,16 +105,16 @@ Points the discussion did not settle in words. Each is written as the RFCs say u
 
 ## Legs
 
-| Leg | Name                 | Epic tasks                          | Gate?              | Waits on       | Done when                                                                    |
-| --- | -------------------- | ----------------------------------- | ------------------ | -------------- | ---------------------------------------------------------------------------- |
-| 1   | The design           | 22.1, 23.1, 24.1                    | **Owner reviews**  | 12.7           | `DESIGN.md` says what RFC 0005 to 0007 build; the assumed points are settled |
-| 2   | Upstream             | 16.17 to 16.26, in `sovereign`      | **Owner releases** | —              | The releases legs 3, 4, 5 and 7 wait on are published                        |
-| 3   | Sign-in and Settings | 22.2, 22.7, 22.8                    | —                  | 16.19          | Both modes sign in as decided; Settings is the dialog; the export downloads  |
-| 4   | A list               | 22.3, 22.4, 22.5, 22.6, 22.9, 22.10 | —                  | 16.18, 16.19   | Icons and colours, the header, list settings, the item column, Shop mode     |
-| 5   | The frame            | 22.11                               | **Owner reviews**  | 16.20 to 16.24 | Shopper's frame is the design system's; its copies are deleted               |
-| 6   | Home and Inventory   | 23.2, 23.3, 23.4, 23.5              | —                  | leg 5          | `/` is Home; Inventory works, alone and in suggestions                       |
-| 7   | Loyalty cards        | 24.2, 24.3, 24.4, 24.5, 24.6        | —                  | 16.25, leg 5   | A card is scanned, shown, shared and opened from Shop mode                   |
-| 8   | Review and release   | 12.8                                | **Owner releases** | legs 3 to 7    | Ready to release; the owner publishes                                        |
+| Leg | Name                 | Epic tasks                          | Gate?              | Waits on       | Done when                                                                   |
+| --- | -------------------- | ----------------------------------- | ------------------ | -------------- | --------------------------------------------------------------------------- |
+| 1   | The design           | 22.1, 23.1, 24.1                    | **Owner reviews**  | 12.7           | `DESIGN.md` says what RFC 0005 to 0007 build; the design is reviewed        |
+| 2   | Upstream             | 16.17 to 16.26, in `sovereign`      | **Owner releases** | —              | The releases legs 3, 4, 5 and 7 wait on are published                       |
+| 3   | Sign-in and Settings | 22.2, 22.7, 22.8                    | —                  | 16.19          | Both modes sign in as decided; Settings is the dialog; the export downloads |
+| 4   | A list               | 22.3, 22.4, 22.5, 22.6, 22.9, 22.10 | —                  | 16.18, 16.19   | Icons and colours, the header, list settings, the item column, Shop mode    |
+| 5   | The frame            | 22.11                               | **Owner reviews**  | 16.20 to 16.24 | Shopper's frame is the design system's; its copies are deleted              |
+| 6   | Home and Inventory   | 23.2, 23.3, 23.4, 23.5              | —                  | leg 5          | `/` is Home; Inventory works, alone and in suggestions                      |
+| 7   | Loyalty cards        | 24.2, 24.3, 24.4, 24.5, 24.6        | —                  | 16.25, leg 5   | A card is scanned, shown, shared and opened from Shop mode                  |
+| 8   | Review and release   | 12.8                                | **Owner releases** | legs 3 to 7    | Ready to release; the owner publishes                                       |
 
 One leg is one branch, one draft PR, one review gate, with one version bump. Legs 3 and 4 can run while leg 2's later releases are being made.
 
@@ -127,7 +131,7 @@ the RFCs say what the rows build.
 is) and its rules (a new table in `deletePerson`, the export and the import; §13.1's table) change with it; its synced sections are not edited here.
 `docs/encryption.md` gains the titles' caveat; `docs/sharing.md` gains cards.
 
-**Do not proceed if:** the owner has not reviewed it, or an assumed point above is still open.
+**Do not proceed if:** the owner has not reviewed it.
 
 ### Leg 2 — Upstream
 
@@ -145,7 +149,7 @@ consumer's. The apps endpoint answers for the person signed in and only with app
 
 **Epic tasks:** 22.2, 22.7, 22.8
 
-**Technical notes:** `src/auth/config.ts` refuses both ways in at start-up, with the sentence naming the settings; `.env.example` and the manifest
+**Technical notes:** `src/auth/config.ts` takes suite mode when both ways in are set, logging once which settings to remove; `.env.example` and the manifest
 say so. Settings' sections are Next's intercepting routes (read `node_modules/next/dist/docs/` on parallel and intercepting routes first). The export's
 server route asks for the session and the confirmation and serves records; the browser opens them with the keys it holds and writes the file.
 
@@ -193,7 +197,7 @@ never leave the device. `card` and `card_member` follow `list` and `list_member`
 **Epic tasks:** 12.8
 
 **Technical notes:** the security review covers the export route, the cards' sharing and keys, and Inventory's exclusion from pulls. `CHANGELOG.md` says
-"not yet audited" where it describes encryption, and that an instance with both ways in must choose one before upgrading.
+"not yet audited" where it describes encryption, and that an instance with both ways in now signs in through core only.
 
 ## Where it stands
 

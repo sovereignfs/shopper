@@ -23,7 +23,7 @@ suggestions first, and where "what is at home" will live.
 
 **Technical:** §4 (Home, Inventory; "catalog" as a list's), §8 (Inventory beside a list's catalog; layering; suggestions' sources), §9.7 (All lists as
 Home's), §13.1 (`inventory_item`'s name and note, a person's category name), §16.3 (`/inventory`), §16.4 (Home), §16.8 (Inventory as the catalog
-screen), §20 (`inventory_item`), §22.2 (the pantry and staples on Inventory); `AGENTS.md`'s words and the one path's list of tables; 8.5, 8.6 and 13.1
+screen), §20 (`inventory_item`, `list_category`), §22.2 (the pantry and staples on Inventory); `AGENTS.md`'s words and the one path's list of tables; 8.5, 8.6 and 13.1
 to 13.3 pointing here.
 
 **Accepts when:** no document says `/` opens the last list, or that the catalog screen is per list.
@@ -46,11 +46,13 @@ person arriving by an invitation lands on its list.
 
 **Technical:** `inventory_item` on both dialects (`household_id`, `starter_key`, encrypted `name` and `note`, its name key under a key derived from the
 group's, `category_id`, `icon`, `unit`, `quantity`, `recurring`, `hidden`), written through `src/actions/` and `src/sync/apply.ts`, folded by name key;
-a person's own categories (4.7's adding, renaming and hiding, brought forward; an encrypted name); the pull excludes `inventory_item` for anyone but the
+a person's own categories (4.7's adding, renaming and hiding, brought forward; the name encrypted under the group's derived key) and
+`list_category`, a list's copy of each it uses (its name under the list's keys, made when an item of it is first put on the list, renamed with it on
+the person's own lists); the pull excludes `inventory_item` for anyone but the
 group's own account, in the statement; a new name on a list makes an item, marked once; `People.deletePerson`, the export and the import; §13.1's
 registry test.
 
-**Accepts when:** a starter entry renamed shows the new name and keeps the entry's key; a hidden entry is offered nowhere; a person on one of the
+**Accepts when:** a person on a shared list reads the name of a category its items use and of no other of the owner's; a starter entry renamed shows the new name and keeps the entry's key; a hidden entry is offered nowhere; a person on one of the
 group's lists pulls no `inventory_item` (seen to fail with the condition removed); the property tests hold with Inventory rows.
 
 #### 📋 23.4 — Inventory: the screen

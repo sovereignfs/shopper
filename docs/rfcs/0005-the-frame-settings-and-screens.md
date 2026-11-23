@@ -33,7 +33,8 @@ fed by a new core endpoint. Shopper adopts it first; Tusk and Tally are not part
 - **Standalone mode.** Shopper's sign-in, sign-up and reset render the design system's forms; Shopper keeps only what is its own: deriving the
   password, opening the vault, the recovery kit after a reset (a screen core has no equivalent of, in the same `AuthCard`), and where the person goes
   next. `@sovereignfs/ui` moves from 0.105.0 to the release that carries them as core uses them.
-- **An instance with both is no longer a configuration.** Start-up refuses one that sets both ways in. Task 2.9 (linking a core and a local account)
+- **An instance with both is no longer a configuration.** One that sets both **starts in suite mode** and logs, once at start-up, that its local
+  sign-in is off and which settings to remove; nothing else changes, so an instance upgraded with both keeps running. Task 2.9 (linking a core and a local account)
   has nothing left to do and is superseded. A standalone instance that later joins a suite already has password accounts; giving them a way across is
   **not now**, recorded here so that it is not decided by accident.
 
@@ -171,8 +172,9 @@ There is **no app launcher on a phone** for now. Settings is in the avatar's men
 | A zip in the contract's layout, built in the browser | The writer is Node's; a dependency for a zip is not worth it before 16.26                  |
 | The frame for Tusk and Tally in the same work        | The owner's decision: Shopper first; the others adopt it in their own repositories         |
 
-## Open questions
+## Settled with the owner (2026-11-23)
 
-1. Whether a standalone instance's password accounts get a way into a suite (not now).
-2. When 16.17 is built: until then `/sign-up` in suite mode lands one click from core's sign-up.
-3. Whether import (20.4, deferred by the owner) reads 22.8's readable JSON file, the contract's export, or both.
+1. **A standalone instance's password accounts, into a suite:** not now; a candidate (15.5).
+2. **`prompt=create` (16.17):** P3, built when `sovereign`'s auth is next worked on; nothing waits on it, and until then `/sign-up` in a suite lands
+   one click from core's sign-up.
+3. **Import reads both:** 20.4 reads the contract's export and 22.8's readable file, so that the file people download can come back in.

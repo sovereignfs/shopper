@@ -467,12 +467,14 @@ None committed (`DESIGN.md` §22.4). Each waits on a decision before it is plann
 | 181 | [15.2](docs/epics/later.md) | Sending a trip to Ledger or Tally  | P3       | 7.5        | 🚧     |
 | 182 | [15.3](docs/epics/later.md) | AI through the instance's provider | P3       | —          | 🚧     |
 | 183 | [15.4](docs/epics/later.md) | Other languages                    | P3       | 4.3, 4.5   | 🚧     |
+| 184 | [15.5](docs/epics/later.md) | A standalone instance into a suite | P3       | 22.2       | 🚧     |
+| 185 | [15.6](docs/epics/later.md) | Cards to and from Wallet           | P3       | 24.2       | 🚧     |
 
 ## Upstream, not placed above
 
 | #   | ID                             | Task                                         | Priority | Depends on | Status |
 | --- | ------------------------------ | -------------------------------------------- | -------- | ---------- | ------ |
-| 184 | [16.7](docs/epics/upstream.md) | `MoneyInput` (`sovereign`), if Tally's lands | P3       | —          | 📋     |
+| 186 | [16.7](docs/epics/upstream.md) | `MoneyInput` (`sovereign`), if Tally's lands | P3       | —          | 📋     |
 
 16.4 (grocery icons, row 156) is needed by 4.8 and is started during phase 1, so that it is released by then. 16.1, 16.3 and 16.5 are started in the same
 way, a milestone ahead of the task that waits on them.

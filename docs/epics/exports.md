@@ -69,7 +69,8 @@ is written with `encryptTo`; anyone else gets a page that is not there.
 
 #### 🚧 20.4 — Import
 
-**Goal:** an export comes back in as new households. **Design:** RFC 0003, "Import and restore"; §18.2. **Depends on:** 20.2 (its form replaced by 22.8: an import reads the contract's export; whether it also reads 22.8's file is RFC 0005's open question 3).
+**Goal:** an export comes back in as new households. **Design:** RFC 0003, "Import and restore"; §18.2. **Depends on:** 20.2 (its form replaced by 22.8). **Reads both** the contract's export and 22.8's readable JSON file (RFC 0005, settled 2026-11-23); a
+readable file's values are encrypted in the browser as they are written.
 
 **Technical:** `readExport`; opened in the browser with the person's keys; new households with new keys, written through the one path; products folded
 by name key; the person's own household merged into theirs; a malformed or newer file writes nothing.

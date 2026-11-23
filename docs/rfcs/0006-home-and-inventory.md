@@ -65,9 +65,13 @@ an entry added or corrected in a later release. With layers the starter can grow
   - `category_id` (one of the group's categories), `icon`, `unit`, `quantity`, `note` (encrypted);
   - `recurring` (a boolean), `hidden` (a boolean: a hidden starter entry is offered nowhere until shown again);
   - and, from the pantry (13.1), `on_hand` and `low_point`.
-- **The group's categories** gain the person's own (4.7, brought forward for Inventory): adding, renaming and hiding, with an encrypted name for one a
-  person made. A list's items are grouped by them, so **a category a person made is seen by the people on their lists, by its name**, as the starter
-  ones are; an Inventory item is not.
+- **A person's own categories** (4.7, brought forward for Inventory: adding, renaming and hiding) live in Inventory, their names encrypted under a key
+  derived from the group's, which **nobody else holds**. The starter categories stay the group's, by their key, with no name to encrypt.
+- **A list carries its own copy of each of a person's categories its items use** (`list_category`: the list, the category it copies, its name
+  encrypted under **the list's keys**, its place in the aisle order), made when an item of that category is first put on the list, as a list's product
+  is made from an Inventory item (RFC 0004's pattern). The people on a shared list read the names of the categories its items use, and nothing else
+  of the person's categories. Renaming a category in Inventory renames its copies on the person's own lists (a list they are Admin of); a copy is
+  removed with its list.
 - **Read by its own account only.** A pull by anyone else, on any of the group's lists, holds no `inventory_item`; a test pulls as a person on one of
   the group's lists and finds none.
 - **Written through the one path** (`src/actions/`, `src/sync/apply.ts`), merged by field, folded by name key as products are (§12.4), restoring on an
@@ -102,10 +106,10 @@ time", §9.4, also offering to update the Inventory item); merging a list's prod
 | Saving to Inventory only when asked                       | A library people must keep up is the plugin's lesson (§16.12): it fills itself                     |
 | `/` keeps opening the last list; Home only by the sidebar | The owner's decision: Home is where Shopper opens, and Continue keeps the last list one tap away   |
 
-## Open questions
+## Settled with the owner (2026-11-23)
 
-1. A pantry for a home of several people: Inventory is a person's, and on hand is theirs. A shared "what is at home" waits for kinds of group (§22.1).
-2. A schedule for recurring items (13.3's rule) and how it adds to which list.
-3. **Under which key a person's own category name is encrypted,** for 23.1 to settle: categories are the group's, the group's key is never shared, and the
-   people on a person's lists must read the names their items are grouped under. §8.3 and §13.1 as built say how a renamed starter category is read today;
-   a person's own category follows the same.
+1. **A pantry for a home of several people:** later, with kinds of group (§22.1). Until then Inventory, and what is on hand, is a person's.
+2. **A schedule for recurring items:** later, in phase 3 (13.3): the rule is set on an Inventory item marked recurring, and adds to the list the
+   person chooses.
+3. **A person's own category's name:** encrypted under the group's derived key in Inventory, and copied per list under the list's keys
+   (`list_category`, "The data" above), so that the people on a list read only the categories its items use.

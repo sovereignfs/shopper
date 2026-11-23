@@ -69,7 +69,8 @@ first block has **Loyalty cards**; on a phone it is the footer's right icon.
 | Typing only, scanning in phase 4               | A number typed wrong fails at the till; the card is the first thing that needs the camera |
 | Cards shared with a list's people, by the list | A card has its own people (RFC 0004's lesson): sharing a list must not share a card       |
 
-## Open questions
+## Settled with the owner (2026-11-23)
 
-1. Moving a card between Shopper and Wallet in a suite.
-2. Whether a card can be linked to a shop (13.5) rather than a list, once shops exist.
+1. **Moving a card between Shopper and Wallet:** later, a candidate (15.6), through each app's export and import.
+2. **A card linked to a shop:** later, when shops exist (13.5): a card can then be linked to a shop as well as a list, and Shop mode shows it when
+   shopping there.
