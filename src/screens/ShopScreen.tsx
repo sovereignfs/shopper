@@ -3,7 +3,15 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Button, CheckableListRow, Dialog, EmptyState, Icon, useLongPress } from '@sovereignfs/ui';
+import {
+  Button,
+  CheckableListRow,
+  Dialog,
+  EmptyState,
+  Icon,
+  Toggle,
+  useLongPress,
+} from '@sovereignfs/ui';
 import type { Env } from '../actions/env';
 import { clearBought, tickItem, untickItem } from '../actions/items';
 import type { Mutation } from '../actions/format';
@@ -14,6 +22,7 @@ import { boughtItems, groupByAisle, openItems, quantityLabel } from '../lists/vi
 import { AddField } from './AddField';
 import { ItemBeside, useItemParam } from './ItemEditor';
 import { iconOf } from './ListScreen';
+import { ListGlyph } from './ListGlyph';
 import { shopEntry } from './shop-entry';
 import { useTitle } from './title';
 import { useUndo } from './Undo';
@@ -61,6 +70,7 @@ function Shopping({ data }: { data: Found }) {
   const { list, items, categories, me } = data;
   useTitle([`Shopping ${list.name}`]);
   const [basket, setBasket] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [showBasket, setShowBasket] = useState(true);
   const open = openItems(items);
@@ -96,6 +106,7 @@ function Shopping({ data }: { data: Found }) {
           >
             <Icon name="chevron-left" aria-hidden />
           </button>
+          <ListGlyph list={list} size="lg" />
           <div className={styles.title}>
             <h1>{list.name}</h1>
             <p role="status" className={styles.progress}>
@@ -105,11 +116,31 @@ function Shopping({ data }: { data: Found }) {
         </header>
 
         <div className={styles.add}>
-          <AddField data={data} change={change} basket={basket} />
-          <label className={styles.basketOption}>
-            <input type="checkbox" checked={basket} onChange={(e) => setBasket(e.target.checked)} />
-            Already in basket
-          </label>
+          {adding ? (
+            <>
+              <AddField
+                data={data}
+                change={change}
+                basket={basket}
+                focused
+                onAdded={() => setAdding(false)}
+                onEscape={() => setAdding(false)}
+              />
+              <div className={styles.basketOption}>
+                <Toggle
+                  aria-label="Put it straight in the basket"
+                  checked={basket}
+                  onChange={setBasket}
+                />
+                <span>Put it straight in the basket</span>
+              </div>
+            </>
+          ) : (
+            <Button variant="secondary" onClick={() => setAdding(true)}>
+              <Icon name="plus" size="sm" aria-hidden />
+              Add item
+            </Button>
+          )}
         </div>
 
         {open.length === 0 ? (
@@ -166,7 +197,9 @@ function Shopping({ data }: { data: Found }) {
           </section>
         ) : null}
 
+        {/* Always in reach: the bar sticks to the bottom of the content, above a phone's safe area, with the basket's count (RFC 0005). */}
         <div className={styles.finish}>
+          <span className={styles.finishCount}>{bought.length} in basket</span>
           <Button size="lg" onClick={() => (bought.length === 0 ? leave() : setFinishing(true))}>
             Finish shopping
           </Button>

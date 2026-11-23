@@ -25,6 +25,9 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   is, so that you can open another beside it; on a phone it is a page of its own, with a back arrow. There is no Save: each field is kept as you leave it,
   on your device, with no network. A tap on a row no longer does nothing and a long press on a list no longer opens the item; the checkbox alone ticks,
   and shopping mode is as it was.
+- **Shopping mode** (RFC 0005): the header has the list's icon and name with how many are left to get and in the basket; adding is behind **Add item**, which
+  opens the field and closes it when the item is added or you press Escape, and _Already in basket_ is now the switch **Put it straight in the basket**, off by
+  default; **Finish shopping** is a bar at the foot of the screen, with what is in the basket, that you can always reach, and the last item is never under it.
 - **A list's header** (RFC 0005): **Shop** is first and stands out, with its label on a phone too, and shows only while something is left to buy; **Share**
   and the list's menu follow, all three of one height, with the menu's dots in line with the right edge of the items below.
 

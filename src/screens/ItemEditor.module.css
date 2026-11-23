@@ -1,0 +1,10 @@
+/* The page beside an open item (or alone) fills its column, so that a page that pins something to its bottom, as shopping mode's Finish bar, can. */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.main > * {
+  flex: 1;
+}

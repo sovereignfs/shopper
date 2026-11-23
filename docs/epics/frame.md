@@ -112,7 +112,7 @@ it has been still for 400 ms); 22.5 moves them into the dialog's General. The re
 seen to fail without the registry), `readable.test.ts`, `sealed.test.ts` (which now reads _colour_ and `color` as one word) and `e2e/appearance.spec.ts` in
 Chromium and WebKit (the default blue, a chosen icon and colour in the sidebar and the header, the server's answer holding neither as text, a reload).
 **Waits for the release with 16.18 (ui 0.107.0):** the cart as the default in place of the basket, and the larger set of icons (`LIST_ICONS`, `DEFAULT_LIST_ICON`);
-for 22.9 and 23.2: shopping mode's and Home's tiles' icon; for 20.4: the import of both. **Gaps to raise in `sovereign`:** `IconPicker`'s options have no
+for 23.2: Home's tiles' icon; for 20.4: the import of both (shopping mode's header shows it, from 22.9). **Gaps to raise in `sovereign`:** `IconPicker`'s options have no
 accessible names (a screen reader hears an unnamed option, and a test can choose only by position), and its panel opens aligned to its button's right edge and
 is clipped by a scrolling container, so the button sits at the right of its row here.
 
@@ -208,7 +208,7 @@ a fresh sign-in at core. `coreSignedInAt` (`@sovereignfs/auth`, `sovereign`'s `2
 keeps, and Shopper uses it with `prompt=login` when that is published; until then Data says core's export holds Shopper's part. Left out: the zip (16.26,
 unreleased), Inventory and cards (23.3 and 24.2).
 
-#### 📋 22.9 — Shop mode
+#### ✅ 22.9 — Shop mode
 
 **Goal:** a clearer header, adding behind a button, Finish always in reach. **Design:** RFC 0005, "Shop mode". **Depends on:** 22.3.
 
@@ -216,6 +216,15 @@ unreleased), Inventory and cards (23.3 and 24.2).
 default; Finish in a bar fixed to the bottom with the basket's count, the list padded beneath. `src/screens/ShopScreen.tsx`.
 
 **Accepts when:** with forty items the last is reachable above the bar on a phone; adding with the toggle on adds it bought; the network off throughout.
+
+**Done as (0.5.0, 2026-11-23):** `src/screens/ShopScreen.tsx`'s header is back, the list's icon in its colour (`ListGlyph`) and name, and "12 to get · 3 in basket" under it,
+with nothing at the right. Adding is behind **Add item**, which opens `AddField` with focus in it and closes it when the item is written or on Escape (`AddField`
+gains `focused`, `onAdded` and `onEscape`; a refused add leaves it open with its reason); the checkbox _Already in basket_ is now the switch **Put it straight in the
+basket**, off by default, shown with the field. **Finish shopping** is a bar at the foot with the basket's count (`3 in basket`), `position: sticky` and not `fixed`
+so that it stays in its own column beside an open item, pinned to the bottom of a short page (`ItemBeside`'s wrapper fills the column) and clear of a phone's safe
+area; the page has no bottom padding of its own, so the last row is above the bar and never under it. The long press and the whole-row tick are as they were.
+Tests: `e2e/shop.spec.ts` in Chromium and WebKit (Add item opens and closes, the switch off by default and on adding bought, with the network cut; forty items on a
+desktop and on a phone with the last row above the bar and the bar in the viewport). **Shop mode's icon is the one 22.3 waits on for the larger set and the cart.**
 
 #### ✅ 22.10 — Page titles
 

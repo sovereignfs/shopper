@@ -25,10 +25,19 @@ export function AddField({
   data,
   change,
   basket = false,
+  focused = false,
+  onAdded,
+  onEscape,
 }: {
   data: Found;
-  /** Adds straight into the basket (shopping mode's "Already in basket"): the item is ticked by the person as it is added. */
+  /** Adds straight into the basket (shopping mode's "Put it straight in the basket"): the item is ticked by the person as it is added. */
   basket?: boolean;
+  /** Takes focus when it is drawn: shopping mode opens it from a button, and it is what the person went there to use. */
+  focused?: boolean;
+  /** Told when an item has been added (shopping mode closes the field). */
+  onAdded?: () => void;
+  /** Told when Escape is pressed in the field (shopping mode closes it). */
+  onEscape?: () => void;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
   const { client } = useLocal();
@@ -38,10 +47,10 @@ export function AddField({
   const [fresh, setFresh] = useState(0);
   const id = useId();
   useEffect(() => {
-    if (fresh === 0) return;
+    if (fresh === 0 && !focused) return;
     const input = document.getElementById(id);
     if (input instanceof HTMLInputElement) input.focus();
-  }, [fresh, id]);
+  }, [fresh, focused, id]);
   const suggestions = useMemo(
     () => (text.trim() === '' ? [] : suggest({ text, products, items }).filter(notNew)),
     [text, products, items],
@@ -80,11 +89,20 @@ export function AddField({
       setRefused(null);
       const mutation = basket ? inBasket(planned.mutation, me, Date.now()) : planned.mutation;
       await change(mutation, planned.message);
+      // Written, so whoever opened the field may close it; a refusal leaves it open, with the reason.
+      onAdded?.();
     });
   }
 
   return (
-    <div className={styles.add}>
+    // Escape is a shortcut for the button that opened the field, which is the control; the field itself keeps every key it had.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      className={styles.add}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && onEscape) onEscape();
+      }}
+    >
       <SuggestionInput
         key={fresh}
         id={id}

@@ -6,6 +6,7 @@ import type { Mutation } from '../actions/format';
 import type { ListData } from '../local/listview';
 import { ThreeColumnLayout, useIsMobile } from '@sovereignfs/ui';
 import { ItemPanel } from './ItemPanel';
+import styles from './ItemEditor.module.css';
 
 type Found = Extract<ListData, { found: true }>;
 
@@ -81,7 +82,7 @@ export function ItemBeside({
   return (
     <ThreeColumnLayout sidebarHidden>
       <div />
-      <div>{children}</div>
+      <div className={styles.main}>{children}</div>
       {panel}
     </ThreeColumnLayout>
   );
