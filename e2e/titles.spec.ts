@@ -24,10 +24,12 @@ test('a page is titled by the name the browser opened, and a name does not outla
   // The list's settings.
   await page.getByRole('button', { name: 'List menu' }).click();
   await page.getByRole('menuitem', { name: 'List settings' }).click();
-  await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}\/settings$/);
+  await expect(page).toHaveURL(/\?settings=general$/);
   await expect(page).toHaveTitle('Settings · Groceries · Shopper');
 
-  // Settings, reached from the avatar's menu: the section is in the title, and the list's name is gone from it.
+  // Closed by Back, the list is titled again; then Settings, reached from the avatar's menu: the section is in the title, and the list's name is gone from it.
+  await page.goBack();
+  await expect(page).toHaveTitle('Groceries · Shopper');
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);

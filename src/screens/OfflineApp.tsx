@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '@sovereignfs/ui';
 import { isId } from '../actions/format';
@@ -14,7 +14,6 @@ import { AppShell } from '../ui/AppShell';
 import { AccountMenu } from './AccountMenu';
 import { HomeScreen } from './HomeScreen';
 import { ListScreen } from './ListScreen';
-import { ListSettings } from './ListSettings';
 import { ShellFrame } from './ShellFrame';
 import { ShopScreen } from './ShopScreen';
 import { UndoProvider } from './Undo';
@@ -23,7 +22,7 @@ import { UndoProvider } from './Undo';
  * Shopper with no server document (DESIGN.md §16.11). The service worker answers a signed-in address with the one page it keeps, `/shell`, which holds
  * nothing of a person and is the same for everyone; this is what that page is. It finds who is signed in on the device (`src/identity.ts`), makes the
  * composition the server's layout makes, and **chooses the screen from the address**, since the page it came in is not the page of the address: the front
- * address and `/home` are the last list, `/l/<id>` that list, `/l/<id>/settings` its settings and `/shop?l=<id>` shopping mode. The screens read the
+ * address and `/home` are the last list, `/l/<id>` that list (its settings are a dialog over it, `?settings=`), `/l/<id>/settings` an old address that goes there, and `/shop?l=<id>` shopping mode. The screens read the
  * device's store and write through `commit`, so they need none of the server. Any other address says it needs a connection (`answersOffline`).
  */
 const LIST = /^\/l\/([0-9a-f-]{36})$/;
@@ -67,7 +66,7 @@ function Screen() {
   // The worker answers every address with this page when there is no network; only the signed-in screens are here (DESIGN.md §16.11).
   if (!answersOffline(pathname)) return <NeedsConnection />;
   const settings = LIST_SETTINGS.exec(pathname)?.[1];
-  if (settings) return <ListSettings id={settings} />;
+  if (settings) return <ToSettings id={settings} />;
   const list = LIST.exec(pathname)?.[1];
   if (list) return <ListScreen id={list} />;
   if (pathname === '/shop') {
@@ -75,6 +74,13 @@ function Screen() {
     return id && isId(id) ? <ShopScreen id={id} /> : <NotHere />;
   }
   return <HomeScreen />;
+}
+
+/** `/l/<id>/settings` is not a page any more: the dialog is over the list, which this goes to, with no server to do it. */
+function ToSettings({ id }: { id: string }) {
+  const router = useRouter();
+  useEffect(() => router.replace(`/l/${id}?settings=general`), [router, id]);
+  return null;
 }
 
 function NeedsConnection() {

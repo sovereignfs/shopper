@@ -135,7 +135,7 @@ that reason. Tests: `e2e/header.spec.ts` in Chromium and WebKit (one height, Sho
 of the rows' right edge; desktop and phone, light and dark; no Shop on a list with nothing to buy), seen to fail against the old header. The cart is on Shop
 from ui 0.107.0.
 
-#### 📋 22.5 — A list's settings in the dialog
+#### ✅ 22.5 — A list's settings in the dialog
 
 **Goal:** a list's settings open over the list. **Design:** RFC 0005, "A list's settings". **Depends on:** 22.3, 16.19.
 
@@ -144,6 +144,20 @@ confirmation); `/l/<id>/settings` redirects and its page is removed; from 24.6, 
 
 **Accepts when:** opened from the menu, closed by Back, opened by a link and offline; a Member sees no Delete; a second person's attempt to delete is
 refused as not found.
+
+**Done as (0.5.0, 2026-11-23, on `@sovereignfs/ui` 0.107.0's `SettingsDialog`):** `ListSettingsDialog` (`src/screens/ListSettingsDialog.tsx`) replaces the page
+`ListSettings`, which is removed. It is the design system's dialog (`size="fixed"`, two groups so that a divider sets _Archive and delete_ apart) over the list at
+`?settings=general|archive`, drawn by `ListScreen` like `ShareDialog`; **General** is the name (with its _Save name_), and Appearance, the icon and colour pickers of 22.3
+moved from the page, written as they are chosen; **Archive and delete** is archive or restore and, for an archived list and its Admin, delete for good after
+today's confirmation. A section is chosen in place (`useQueryParam`'s new `replace`), so Back goes to the list and not to the section before; on a phone the dialog
+is the screen, the address naming a section opens it and the back arrow goes to the sections (`?settings=`, no section). The menu's _List settings_ and the archived
+note's button open it with the browser's own history, so it works with no network; **from the front address, which draws the last list and would draw none once it
+is archived, the dialog is opened on the list's own address** (`/l/<id>?settings=…`) so that archiving does not take the dialog away. `/l/<id>/settings` is a redirect
+to `?settings=general` and no page, on the server (`app/(app)/l/[id]/settings/page.tsx`, a bad id not found) and in the offline shell (`OfflineApp`'s `ToSettings`); its
+title is `Settings · <list> · Shopper`. Tests: `e2e/list-settings.spec.ts` in Chromium and WebKit (from the menu over the list, the sections, Back; a link and the old
+address; no network, renamed and written when it is back; a phone's whole screen and back arrow; **a Member of an archived list can Restore and is not offered Delete, the
+Admin is**), `list.spec.ts` (rename, archive, restore and delete through the dialog), `appearance.spec.ts` and `titles.spec.ts`; a second person's delete is refused as
+not found by `src/lists/scope.test.ts`. **Left out:** a list's linked cards in General (24.6).
 
 #### ✅ 22.6 — The item beside its list
 

@@ -35,7 +35,7 @@ test('a list has the defaults until it is given an icon and a colour, and then t
 
   await page.getByRole('button', { name: 'List menu' }).click();
   await page.getByRole('menuitem', { name: 'List settings' }).click();
-  await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}\/settings$/);
+  await expect(page).toHaveURL(/\?settings=general$/);
 
   await page.getByRole('button', { name: 'Icon' }).click();
   // The design system's picker names its options by nothing yet (an icon alone), so the choice is by its place in the set.
@@ -78,11 +78,9 @@ test('a list has the defaults until it is given an icon and a colour, and then t
     )
     .toBe(true);
 
-  // Back on the list: the header has the icon, and a reload (the device opening the server's ciphertext again) keeps the colour.
-  await page
-    .getByRole('link', { name: /Groceries/ })
-    .first()
-    .click();
+  // Back to the list, as the dialog is closed: the header has the icon, and a reload (the device opening the server's ciphertext again) keeps the colour.
+  await page.goBack();
+  await expect(page).toHaveURL(/^[^?]*$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
   // The list's header draws its icon in the same colour.
   const headerGlyph = page

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -8,52 +7,111 @@ import {
   Button,
   ColorPicker,
   ConfirmDialog,
-  EmptyState,
   FormField,
   IconPicker,
   Input,
+  SettingsDialog,
 } from '@sovereignfs/ui';
 import { archiveList, renameList, restoreList, styleList } from '../actions/lists';
-import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import type { ListRow } from '../actions/rows';
-import { listViewOf } from '../local/listview';
+import { MAX_NAME_LENGTH, isName } from '../catalog/name';
+import type { ListData } from '../local/listview';
 import { LIST_ICONS, LIST_SWATCHES, listColorOf, listIconOf } from '../lists/appearance';
 import { callOperation } from '../local/ops';
-import { useLocal, useLocalQuery } from '../local/react';
-import { useTitle } from './title';
-import styles from './ListSettings.module.css';
+import { useLocal } from '../local/react';
+import styles from './ListSettingsDialog.module.css';
 
-/**
- * A list's settings (DESIGN.md §9.1, §16.3): its **name**, **archive** (and restore), and **delete for good**. Renaming, archiving and restoring are synced
- * changes, so they work with no network; deleting for good is **an Admin's online operation, offered only for an archived list** (it removes the list and
- * its items), and says why when the server will not. The clearing rule and moving to another household come with trips (7.2) and households (3.6).
- */
+type Found = Extract<ListData, { found: true }>;
+
+/** The sections, in the order the dialog lists them; an address names one by its id (`?settings=general`). */
+export const LIST_SETTINGS_SECTIONS = ['general', 'archive'] as const;
+export type ListSettingsSection = (typeof LIST_SETTINGS_SECTIONS)[number];
+
+/** The section an address names, or `null` for none (the sections alone on a phone, the first on a wider screen): a value that is not a section is none. */
+export const sectionOfAddress = (value: string): ListSettingsSection | null =>
+  (LIST_SETTINGS_SECTIONS as readonly string[]).includes(value)
+    ? (value as ListSettingsSection)
+    : null;
+
 const env = () => ({ now: Date.now(), newId: () => crypto.randomUUID() });
 
-export function ListSettings({ id }: { id: string }) {
+/**
+ * **A list's settings** (RFC 0005, DESIGN.md §9.1, §16.5): the design system's settings dialog over the list, at `?settings=<section>`, so that Back closes it
+ * and a link opens it, offline too. Two sections, each its own group: **General** (its name, icon and colour) and **Archive and delete**. Renaming, styling,
+ * archiving and restoring are synced changes, so they work with no network; deleting for good is **an Admin's online operation, offered only for an archived
+ * list** (it removes the list and its items), and says why when the server will not. The clearing rule and moving to another household come with trips (7.2)
+ * and households (3.6).
+ */
+export function ListSettingsDialog({
+  data,
+  section,
+  onSection,
+  onClose,
+}: {
+  data: Found;
+  /** The section the address names, or `null`. */
+  section: ListSettingsSection | null;
+  onSection: (section: ListSettingsSection | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <SettingsDialog
+      open
+      onClose={onClose}
+      title="List settings"
+      size="fixed"
+      active={section}
+      onSelect={(id) => onSection(id === null ? null : sectionOfAddress(id))}
+      backLabel="Back to the sections"
+      groups={[
+        {
+          id: 'list',
+          sections: [
+            {
+              id: 'general',
+              label: 'General',
+              icon: 'settings',
+              content: <General list={data.list} />,
+            },
+          ],
+        },
+        {
+          id: 'keep',
+          sections: [
+            {
+              id: 'archive',
+              label: 'Archive and delete',
+              icon: 'archive',
+              content: <ArchiveAndDelete data={data} />,
+            },
+          ],
+        },
+      ]}
+    />
+  );
+}
+
+/** Its name, with a button, and its icon and colour, which are written as they are chosen. */
+function General({ list }: { list: ListRow }) {
   const { client } = useLocal();
-  const router = useRouter();
-  const found = useLocalQuery((db) => listViewOf(db, id), [id]).data;
   const [name, setName] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [working, setWorking] = useState(false);
-  useTitle(found?.found ? ['Settings', found.list.name] : []);
+  const shown = name ?? list.name;
+  const trimmed = shown.trim();
 
   // A colour is chosen by dragging, which says every colour on the way: it is shown at once and written once it has been still for a moment (and when the
-  // page is left), so that one pick is one change and not a hundred.
+  // section is left), so that one pick is one change and not a hundred.
   const [color, setColor] = useState<string | null | undefined>(undefined);
-  const latest = useRef<{ list: ListRow | null; color: string | null | undefined }>({
-    list: null,
+  const latest = useRef<{ list: ListRow; color: string | null | undefined }>({
+    list,
     color: undefined,
   });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  latest.current.list = found?.found ? found.list : null;
+  latest.current.list = list;
   const flushColor = useCallback(() => {
     clearTimeout(timer.current);
     const { list: current, color: value } = latest.current;
     latest.current.color = undefined;
-    if (value === undefined || !current || !client) return;
+    if (value === undefined || !client) return;
     const mutation = styleList(env(), current, { color: value });
     if (mutation) void client.commit(mutation);
     setColor(undefined);
@@ -66,23 +124,6 @@ export function ListSettings({ id }: { id: string }) {
     timer.current = setTimeout(flushColor, 400);
   };
 
-  if (!found) return <div className={styles.page} aria-busy="true" />;
-  if (!found.found)
-    return found.synced ? (
-      <EmptyState
-        icon="list-todo"
-        heading="That list is not here"
-        description="It may have been deleted, or it is not one of yours."
-        action={<Link href="/">Back to your lists</Link>}
-      />
-    ) : (
-      <div className={styles.page} aria-busy="true" />
-    );
-  const { list, household } = found;
-  const archived = list.archivedAt !== null;
-  const shown = name ?? list.name;
-  const trimmed = shown.trim();
-
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!client || !isName(trimmed) || trimmed === list.name) return;
@@ -90,34 +131,8 @@ export function ListSettings({ id }: { id: string }) {
     setName(null);
   }
 
-  async function remove() {
-    if (!client) return;
-    setWorking(true);
-    setProblem(null);
-    const result = await callOperation({
-      op: 'list.delete',
-      household: household.id,
-      list: list.id,
-    });
-    setWorking(false);
-    if (!result.ok) {
-      setConfirming(false);
-      return setProblem(result.message);
-    }
-    // The list and its items are gone from the server; this device learns it at its next sync, so it is asked for now, so that the front address does not open it.
-    await client.sync();
-    router.push('/');
-  }
-
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <Link href={`/l/${list.id}`} className={styles.back}>
-          ← {list.name}
-        </Link>
-        <h1>List settings</h1>
-      </header>
-
+    <div className={styles.section}>
       <form className={styles.group} onSubmit={(event) => void save(event)} aria-label="Name">
         <FormField label="Name">
           {(field) => (
@@ -138,12 +153,10 @@ export function ListSettings({ id }: { id: string }) {
       </form>
 
       <section className={styles.group} aria-label="Appearance">
-        <h2>Appearance</h2>
+        <h3>Appearance</h3>
         <p className={styles.muted}>
           The icon and colour that stand for this list in its header, the sidebar and the drawer.
-          They are encrypted as its name is.
         </p>
-        {/* The picker's panel opens to the left of its button, so the button is at the right of its row, where the panel has room. */}
         <div className={styles.between}>
           <span>Icon</span>
           <IconPicker
@@ -167,9 +180,43 @@ export function ListSettings({ id }: { id: string }) {
           onChange={chooseColor}
         />
       </section>
+    </div>
+  );
+}
 
+/** Archive or restore, and, for an archived list and its Admin alone, delete for good after a confirmation. */
+function ArchiveAndDelete({ data }: { data: Found }) {
+  const { client } = useLocal();
+  const router = useRouter();
+  const { list, household } = data;
+  const archived = list.archivedAt !== null;
+  const [confirming, setConfirming] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
+
+  async function remove() {
+    if (!client) return;
+    setWorking(true);
+    setProblem(null);
+    const result = await callOperation({
+      op: 'list.delete',
+      household: household.id,
+      list: list.id,
+    });
+    setWorking(false);
+    if (!result.ok) {
+      setConfirming(false);
+      return setProblem(result.message);
+    }
+    // The list and its items are gone from the server; this device learns it at its next sync, so it is asked for now, so that the front address does not open it.
+    await client.sync();
+    router.push('/');
+  }
+
+  return (
+    <div className={styles.section}>
       <section className={styles.group} aria-label="Archive">
-        <h2>{archived ? 'Archived' : 'Archive'}</h2>
+        <h3>{archived ? 'Archived' : 'Archive'}</h3>
         <p className={styles.muted}>
           {archived
             ? 'This list is archived: it is out of the way in the sidebar and keeps its items. Restore it to use it again.'
@@ -189,7 +236,7 @@ export function ListSettings({ id }: { id: string }) {
 
       {archived && household.role === 'admin' ? (
         <section className={styles.group} aria-label="Delete">
-          <h2>Delete</h2>
+          <h3>Delete</h3>
           <p className={styles.muted}>
             Deletes the list and everything on it, for everyone it is shared with. It cannot be
             undone, and it needs a connection.

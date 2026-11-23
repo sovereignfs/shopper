@@ -20,6 +20,9 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Changed
 
+- **A list's settings are a dialog over the list** (RFC 0005), opened from the list's menu: **General** (its name, icon and colour) and **Archive and delete**, each at
+  its own address (`?settings=general`, `?settings=archive`), so Back closes it and a link opens it, with no network too. On a phone it is the whole screen.
+  `/l/<id>/settings` goes to it.
 - **An item opens beside its list** (RFC 0005): tap an item's row, or its pencil, and it opens in a column at the right of the list, which stays where it
   is, so that you can open another beside it; on a phone, and wherever the list would be squeezed, it is a page of its own, with a back arrow on a phone. There
   is no Save: each field is kept as you leave it, and what you were typing when you press Escape or go Back is kept too, on your device, with no network. A tap on a row no longer does nothing and a long press on a list no longer opens the item; the checkbox alone ticks,

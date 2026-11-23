@@ -60,6 +60,22 @@
   color: var(--sv-color-text-muted);
 }
 
+/* A button that reads as the link it stands for in a sentence (it opens a dialog, which no address does when the device has no network). */
+.linkButton {
+  padding: 0;
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.linkButton:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
 .group {
   display: flex;
   flex-direction: column;

@@ -34,7 +34,7 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/l/[id]/settings',
     who: 'signed-in',
-    note: 'A list’s settings. The page holds nothing of it; deleting for good is the Admin’s online operation, checked in its statement.',
+    note: 'Redirects to /l/[id]?settings=general: a list’s settings are a dialog over the list, which holds nothing of it; deleting for good is the Admin’s online operation, checked in its statement.',
   },
   {
     kind: 'page',

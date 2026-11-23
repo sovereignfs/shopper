@@ -326,7 +326,7 @@ test('a list is renamed, archived, restored and, when archived, deleted for good
   await expect(page.getByRole('heading', { level: 1, name: 'Hardware' })).toBeVisible();
   await page.getByRole('button', { name: 'List menu' }).click();
   await page.getByRole('menuitem', { name: 'List settings' }).click();
-  await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}\/settings$/);
+  await expect(page).toHaveURL(/\?settings=general$/);
 
   await page.getByRole('textbox', { name: 'Name' }).fill('Hardware store');
   await page.getByRole('button', { name: 'Save name' }).click();
@@ -334,6 +334,7 @@ test('a list is renamed, archived, restored and, when archived, deleted for good
 
   // Not archived, so there is no deleting it.
   await expect(page.getByRole('button', { name: /Delete this list/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Archive and delete' }).click();
   await page.getByRole('button', { name: 'Archive this list' }).click();
   await expect(sidebar(page).getByRole('link', { name: /Hardware store/ })).toHaveCount(0);
   await expect(sidebar(page).getByRole('button', { name: /Archived \(1\)/ })).toBeVisible();
@@ -347,7 +348,10 @@ test('a list is renamed, archived, restored and, when archived, deleted for good
     .poll(async () => (await deviceRows(page, account, 'outbox')).length, { timeout: 15_000 })
     .toBe(0);
   await page.getByRole('button', { name: 'Delete this list…' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Delete for good' }).click();
+  await page
+    .getByRole('dialog', { name: /Delete this list/ })
+    .getByRole('button', { name: 'Delete for good' })
+    .click();
   await expect(page).toHaveURL('/');
   await expect(sidebar(page).getByRole('link', { name: /Hardware store/ })).toHaveCount(0);
   await expect(sidebar(page).getByRole('button', { name: /Archived/ })).toHaveCount(0);

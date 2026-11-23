@@ -18,6 +18,8 @@ type Found = Extract<ListData, { found: true }>;
 export function useQueryParam(name: string): {
   value: string | null;
   open: (value: string) => void;
+  /** Changes the value in place, with no new entry in the history: a dialog's section is not a place Back goes to. */
+  replace: (value: string) => void;
   close: () => void;
 } {
   const params = useSearchParams();
@@ -32,6 +34,7 @@ export function useQueryParam(name: string): {
   return {
     value: params.get(name),
     open: (value) => window.history.pushState(null, '', to(value)),
+    replace: (value) => window.history.replaceState(null, '', to(value)),
     close: () => window.history.replaceState(null, '', to(null)),
   };
 }

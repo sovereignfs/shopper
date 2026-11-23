@@ -1,0 +1,38 @@
+/* The two sections of a list's settings, in the design system's settings dialog: a section is a stack of groups, each a heading and what it holds. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-5);
+  max-width: 560px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+}
+
+.group h3 {
+  margin: 0;
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+}
+
+/* The icon's button is at the right of its row: the picker's panel opens to the left of it, where there is room. */
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+.muted {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+}

@@ -38,6 +38,7 @@ import styles from './ListScreen.module.css';
 import { AddField } from './AddField';
 import { ItemBeside, useItemParam, useQueryParam } from './ItemEditor';
 import { ListGlyph } from './ListGlyph';
+import { ListSettingsDialog, sectionOfAddress } from './ListSettingsDialog';
 import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
 import { useTitle } from './title';
@@ -116,8 +117,20 @@ function Loaded({ data }: { data: Found }) {
   const offerUndo = useUndo();
   const [view, setView] = useView();
   const sharing = useQueryParam('share');
+  // The list's settings are a dialog at `?settings=<section>` (an empty value is the dialog with no section chosen), so Back closes it and a link opens it.
+  const settings = useQueryParam('settings');
+  const router = useRouter();
+  const pathname = usePathname();
   const { list, items, categories, me } = data;
-  useTitle([list.name]);
+  /**
+   * Opens a section of the list's settings. On the list's own address that is the address's `?settings=`, written with the browser's own history so that it works
+   * with no network; from the front address, which draws the last list and would draw none once it is archived, the dialog is opened on the list's own address.
+   */
+  const openSettings = (section: string) =>
+    pathname === `/l/${list.id}`
+      ? settings.open(section)
+      : router.push(`/l/${list.id}?settings=${section}`);
+  useTitle(settings.value === null ? [list.name] : ['Settings', list.name]);
   const open = openItems(items);
   const bought = boughtItems(items);
 
@@ -144,6 +157,7 @@ function Loaded({ data }: { data: Found }) {
           id={list.id}
           householdId={list.householdId}
           share={() => sharing.open('1')}
+          openSettings={() => openSettings('general')}
           shop={list.archivedAt === null && open.length > 0}
           view={view}
           setView={setView}
@@ -153,11 +167,26 @@ function Loaded({ data }: { data: Found }) {
         {list.archivedAt !== null ? (
           <p className={styles.note}>
             This list is archived.{' '}
-            <Link href={`/l/${list.id}/settings`}>Restore it in its settings</Link> to use it again.
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => openSettings('archive')}
+            >
+              Restore it in its settings
+            </button>{' '}
+            to use it again.
           </p>
         ) : null}
         {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
         {sharing.value === '1' ? <ShareDialog data={data} onClose={sharing.close} /> : null}
+        {settings.value !== null ? (
+          <ListSettingsDialog
+            data={data}
+            section={sectionOfAddress(settings.value)}
+            onSection={(next) => settings.replace(next ?? '')}
+            onClose={settings.close}
+          />
+        ) : null}
         {open.length === 0 && bought.length === 0 ? (
           <Empty data={data} change={change} />
         ) : (
@@ -190,6 +219,7 @@ function Header({
   id,
   householdId,
   share,
+  openSettings,
   shop,
   view,
   setView,
@@ -202,6 +232,7 @@ function Header({
   id: string;
   householdId: string;
   share: () => void;
+  openSettings: () => void;
   shop: boolean;
   view: View;
   setView: (view: View) => void;
@@ -264,7 +295,7 @@ function Header({
             {
               label: 'List settings',
               icon: 'settings',
-              onSelect: () => router.push(`/l/${id}/settings`),
+              onSelect: openSettings,
             },
           ]}
         />
