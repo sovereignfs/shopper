@@ -15,7 +15,14 @@ export const dynamic = 'force-dynamic';
 // **No page here sets a title of its own on the server** (RFC 0005, DESIGN.md §16.13): a list's name is encrypted, so the browser sets every title in this area
 // (`useTitle`, which also keeps it against Next making the `<title>` again), and the server's is the app's name for all of them.
 
-export default async function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({
+  children,
+  modal,
+}: {
+  children: ReactNode;
+  /** The settings dialog over the page it was opened from (`@modal`, RFC 0005), or nothing. */
+  modal: ReactNode;
+}) {
   const session = await requireSession();
   const found = await keySourceOf(session.user.id);
   // What the page needs to open the key (RFC 0001), read for each request: never built into the bundle.
@@ -39,6 +46,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <ShellFrame account={<AccountMenu name={session.user.name} email={session.user.email} />}>
             <KeyPrompt />
             {children}
+            {modal}
           </ShellFrame>
         </UndoProvider>
       </LocalProvider>

@@ -20,6 +20,8 @@ const RENDERING_ONLY: Record<string, string> = {
   'src/screens/ItemEditor.tsx':
     'whether an open item is a column beside its list or a page in place of it: the address is `?item=` either way',
   'src/theme/script.ts': 'the colour scheme the device prefers, not a width',
+  'src/account/PreferencesSection.tsx':
+    'the colour scheme the device prefers, to apply a choice of System, not a width',
 };
 /** Files that draw by width and also write, because what they are for is writing: the width there decides only how something is drawn. None yet. */
 const ALSO_WRITES = new Set<string>();

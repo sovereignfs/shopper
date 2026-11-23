@@ -32,7 +32,7 @@ test('a page is titled by the name the browser opened, and a name does not outla
   await expect(page).toHaveTitle('Groceries · Shopper');
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\/profile$/);
   await expect(page).toHaveTitle('Profile · Settings · Shopper');
   await page.getByRole('button', { name: 'Data' }).click();
   await expect(page).toHaveTitle('Data · Settings · Shopper');

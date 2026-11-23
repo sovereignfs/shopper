@@ -6,7 +6,11 @@ import { ACCESS } from './routes';
 
 const ROOT = path.resolve(__dirname, '../..');
 
-/** Every page and route under `app/`, as the address it is served at: a route group, `(app)`, is not part of it. */
+/**
+ * Every page and route under `app/`, as the address it is served at: a route group, `(app)`, is not part of it, nor is a parallel route's slot, `@modal`, and an
+ * intercepting route, `(.)settings`, is the address it intercepts, which one entry of the list covers: the page that is loaded directly and the one that is opened
+ * from another are the same address and decide for themselves, each by `SettingsRoute`.
+ */
 function addresses(folder: string, kind: 'page' | 'route'): string[] {
   const file = kind === 'page' ? /^page\.tsx?$/ : /^route\.tsx?$/;
   const out: string[] = [];
@@ -14,14 +18,19 @@ function addresses(folder: string, kind: 'page' | 'route'): string[] {
     for (const name of readdirSync(path.join(ROOT, directory))) {
       const full = path.join(ROOT, directory, name);
       if (statSync(full).isDirectory()) {
-        walk(path.join(directory, name), /^\(.*\)$/.test(name) ? parts : [...parts, name]);
+        const intercepting = /^\(\.+\)(.+)$/.exec(name);
+        const unlisted = /^\(.*\)$/.test(name) || name.startsWith('@');
+        walk(
+          path.join(directory, name),
+          unlisted ? parts : intercepting ? [...parts, intercepting[1] ?? name] : [...parts, name],
+        );
       } else if (file.test(name)) {
         out.push(`/${parts.join('/')}`);
       }
     }
   };
   walk(folder, []);
-  return out;
+  return [...new Set(out)];
 }
 
 describe('the list of who may use what', () => {

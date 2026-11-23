@@ -99,7 +99,7 @@ export async function keepKit(page: Page): Promise<void> {
  * it to the route itself. `expect` is what the page says after: the sign-in link once the account is gone, or the refusal of a wrong password.
  */
 export async function deleteInSettings(page: Page, password: string): Promise<void> {
-  await page.goto('/settings?section=data');
+  await page.goto('/settings/data');
   await page.getByRole('button', { name: 'Delete my account…' }).click();
   const remove = page.getByRole('form', { name: 'Delete account' });
   await expect(remove.getByLabel('Your password')).toBeVisible();

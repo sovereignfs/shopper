@@ -9,7 +9,7 @@ import { PASSWORD, serverItems, signUp, test } from './helpers';
 const field = (page: Page) => page.getByRole('combobox', { name: 'Add an item' });
 
 async function openDownload(page: Page) {
-  await page.goto('/settings?section=data');
+  await page.goto('/settings/data');
   await page.getByRole('button', { name: 'Download my data…' }).click();
   return page.getByRole('form', { name: 'Download my data' });
 }

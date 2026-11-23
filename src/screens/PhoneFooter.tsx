@@ -36,7 +36,7 @@ export function PhoneFooter() {
           {
             icon: <Icon name="settings" aria-hidden />,
             label: 'Settings',
-            href: '/settings',
+            href: '/settings/profile',
             active: pathname === '/settings' || pathname.startsWith('/settings/'),
           },
         ]}

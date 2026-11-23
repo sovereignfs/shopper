@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { titleOf } from './title';
+import { Titles, titleOf } from './title';
 
 // RFC 0005's table, row by row, for the pages that exist: Home's, Inventory's and the cards' come with 23.2, 23.4 and 24.3.
 describe("a page's title", () => {
@@ -22,5 +22,37 @@ describe("a page's title", () => {
 
   it('leaves out a part that says nothing, so a name with only spaces is not a gap', () => {
     expect(titleOf(['  ', 'Weekly shop'])).toBe('Weekly shop · Shopper');
+  });
+});
+
+describe('who sets the title', () => {
+  it('is the screen opened last, and the one under it again when it goes', () => {
+    const titles = new Titles();
+    expect(titles.current()).toBeUndefined();
+    const list = titles.add('Weekly shop · Shopper');
+    expect(titles.current()).toBe('Weekly shop · Shopper');
+    const settings = titles.add('Profile · Settings · Shopper');
+    expect(titles.current()).toBe('Profile · Settings · Shopper');
+    titles.remove(settings);
+    expect(titles.current()).toBe('Weekly shop · Shopper');
+    titles.remove(list);
+    expect(titles.current()).toBeUndefined();
+  });
+
+  it('keeps a screen under another under it when the one under changes its title', () => {
+    const titles = new Titles();
+    const list = titles.add('Shopper');
+    titles.add('Data · Settings · Shopper');
+    list.title = 'Weekly shop · Shopper';
+    expect(titles.current()).toBe('Data · Settings · Shopper');
+  });
+
+  it('forgets a screen that is removed twice, or that was never there', () => {
+    const titles = new Titles();
+    const one = titles.add('One');
+    titles.remove(one);
+    titles.remove(one);
+    titles.remove({ title: 'Never added' });
+    expect(titles.current()).toBeUndefined();
   });
 });

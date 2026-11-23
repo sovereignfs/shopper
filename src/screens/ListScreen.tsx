@@ -21,6 +21,7 @@ import type { ItemRow } from '../actions/rows';
 import { isGroceryIcon } from '../catalog/icons';
 import { type Suggestion, suggest } from '../catalog/suggest';
 import { planAdd } from '../lists/adding';
+import { readView, type View, writeView } from '../lists/view-preference';
 import { type ListData, listViewOf, rememberList } from '../local/listview';
 import { useLocal, useLocalQuery } from '../local/react';
 import {
@@ -51,8 +52,6 @@ import { useUndo } from './Undo';
  * not here yet, and an entry is here only when its page is.
  *
  */
-type View = 'aisle' | 'added';
-const VIEW_KEY = 'shopper:list-view';
 
 const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
 
@@ -61,14 +60,7 @@ function useView(): [View, (view: View) => void] {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [stored, setStored] = useState<View | null>(() => {
-    try {
-      const value = window.localStorage.getItem(VIEW_KEY);
-      return value === 'added' || value === 'aisle' ? value : null;
-    } catch {
-      return null;
-    }
-  });
+  const [stored, setStored] = useState<View | null>(() => readView(window.localStorage));
   const param = params.get('view');
   const view: View =
     param === 'added' ? 'added' : param === 'aisle' ? 'aisle' : (stored ?? 'aisle');
@@ -76,11 +68,7 @@ function useView(): [View, (view: View) => void] {
     view,
     (next) => {
       setStored(next);
-      try {
-        window.localStorage.setItem(VIEW_KEY, next);
-      } catch {
-        // A private window: the choice lasts for this page.
-      }
+      writeView(window.localStorage, next);
       router.replace(next === 'added' ? `${pathname}?view=added` : pathname);
     },
   ];

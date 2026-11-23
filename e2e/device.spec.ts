@@ -225,7 +225,7 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
   // The avatar menu leads to it, and it is read in words.
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: /Couldn.t sync \(1\)/ }).click();
-  await expect(page).toHaveURL(/section=device/);
+  await expect(page).toHaveURL(/\/settings\/preferences$/);
   const entry = page
     .getByRole('list', { name: 'Changes that could not be synced' })
     .getByRole('listitem');
@@ -274,7 +274,11 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
     timeout: 15_000,
   });
   await page.getByRole('button', { name: 'Discard' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click();
+  // The confirmation is a dialog over the settings dialog, so it is named.
+  await page
+    .getByRole('dialog', { name: /Discard this change/ })
+    .getByRole('button', { name: 'Discard' })
+    .click();
   await expect(page.getByText(/Nothing is waiting here/)).toBeVisible();
   expect(await read(page, account, 'failed')).toHaveLength(0);
 });
@@ -283,7 +287,7 @@ test('resetting the device sends what is waiting, clears it and loads the househ
   page,
 }) => {
   await signUp(page);
-  await page.goto('/settings?section=device');
+  await page.goto('/settings/preferences');
   const account = await accountId(page);
   await expect
     .poll(async () => (await read(page, account, 'household')).length, { timeout: 15_000 })

@@ -186,7 +186,7 @@ squeezed the item is the whole area in place of it,** by a container query on th
 three states and not the window): at 820px with the full sidebar the list was 180px wide beside the 360px column. **Remember for next time** is applied at each
 change, so turning it off afterwards does not unlearn what an earlier change taught. **The edit icon is `square-pen`** (ui 0.107.0). **Left out:** the open item is not marked in the list.
 
-#### 📋 22.7 — Settings as a dialog, by mode
+#### ⏳ 22.7 — Settings as a dialog, by mode
 
 **Goal:** Settings is `SettingsDialog`, and each section says and does what RFC 0005's table says, in both modes. **Design:** RFC 0005, "Settings".
 **Depends on:** 22.2, 16.19.
@@ -199,6 +199,20 @@ delete. The content security policy allows core's address for images.
 
 **Accepts when:** each section opens at its address, from the avatar's menu and directly; a suite account sees core's picture and links and no password
 field; a standalone account changes its password and keeps its lists.
+
+**In progress; the dialog and its routes are built (0.5.0, 2026-11-23, on ui 0.107.0):** `SettingsHost` (`src/account/SettingsHost.tsx`) is `SettingsDialog` with four sections,
+**Profile, Security, Preferences and Data**, rendered by the server for the mode (`SettingsRoute`, which asks for the session) and shown by the client. Opened from a page
+it is over that page by an intercepting route (`app/(app)/@modal/(.)settings/[section]`, with `@modal/default.tsx`), which stays where it is, and Back closes it; loaded
+directly, `app/(app)/settings/[section]/page.tsx` draws Home (`HomeScreen`) with the dialog open and closes to `/`. A section is chosen in place with the browser's own
+history (no round trip, and one Back leaves Settings), is an address (`/settings/<section>`) and a title (`<section> · Settings · Shopper`). `/settings` and the old
+`/settings?section=` redirect to the section that took the old one's place (`sectionBefore`: This device and Notifications into Preferences, Sign-in and Encryption into
+Security); a name that is not a section is not found. Preferences holds how a list shows its items by default (`src/lists/view-preference.ts`, the key the list screen
+already used), Appearance (light, dark or the system's, which has had no screen until now), This device and Notifications as they were; the avatar menu, the phone's footer
+and Couldn't sync link to the new addresses. **`useTitle` has one owner now (`Titles`):** with Settings over a list two screens name the page, the one opened last wins and the
+one under it is again when it goes (two observers had reset each other's title without end, which hung the page). Tests: `e2e/settings.spec.ts` in Chromium and WebKit, `query.test.ts`,
+`view-preference.test.ts`, `title.test.ts`, and `auth`, `device`, `export`, `pwa`, `phone`, `offline` and `titles` specs moved to the new addresses. **Still to do:** the suite
+mode's Profile, Security and Preferences, core's picture (and the content security policy for it) and the header's avatar, and what standalone adds to Preferences (time zone,
+language and region).
 
 #### ⏳ 22.8 — A readable export
 

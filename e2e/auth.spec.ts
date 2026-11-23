@@ -164,7 +164,7 @@ test('Settings: a name is changed, a password is changed, and the account is del
   const email = await signUp(page);
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\/profile$/);
 
   // Profile: the name is changed, and shown wherever the person is named.
   await page.getByRole('textbox', { name: /^Name/ }).fill('Ada Lovelace');
@@ -174,8 +174,9 @@ test('Settings: a name is changed, a password is changed, and the account is del
   await expect(page.getByRole('textbox', { name: /^Name/ })).toHaveValue('Ada Lovelace');
   await expect(page.getByText(email)).toBeVisible();
 
-  // Sign-in: a wrong current password is refused, the right one changes it, and the new one signs in.
-  await page.getByRole('button', { name: 'Sign-in' }).click();
+  // Security: a wrong current password is refused, the right one changes it, and the new one signs in.
+  await page.getByRole('button', { name: 'Security' }).click();
+  await expect(page).toHaveURL(/\/settings\/security$/);
   const form = page.getByRole('form', { name: 'Change password' });
   await form.getByLabel('Current password').fill('not the password');
   await form.getByLabel(/^New password(?! again)/).fill('another horse battery');
@@ -202,8 +203,11 @@ test.describe('Settings at a phone’s width', () => {
   test('has nothing to scroll sideways, and the sections are reachable', async ({ page }) => {
     await signUp(page);
     await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-    await page.getByRole('button', { name: 'Sign-in' }).click();
+    await expect(page).toHaveURL(/\/settings\/profile$/);
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    // On a phone the address names a section, and the back arrow goes to the sections.
+    await page.getByRole('button', { name: 'Back to the sections' }).click();
+    await page.getByRole('button', { name: 'Security' }).click();
     await expect(page.getByRole('form', { name: 'Change password' })).toBeVisible();
     expect(
       await page.evaluate(

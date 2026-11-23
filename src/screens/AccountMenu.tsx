@@ -56,13 +56,13 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         size="sm"
         aria-label="User menu"
         items={[
-          { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings') },
+          { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings/profile') },
           ...(refused > 0
             ? [
                 {
                   label: `Couldn't sync (${refused})`,
                   icon: 'alert-triangle' as const,
-                  onSelect: () => router.push('/settings?section=device'),
+                  onSelect: () => router.push('/settings/preferences'),
                 },
               ]
             : []),

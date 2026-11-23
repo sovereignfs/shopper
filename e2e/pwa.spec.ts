@@ -105,8 +105,8 @@ test('after a signed-in tour the cache holds the shell, the build’s files and 
   await page.goto('/home');
   await controlled(page);
   // Ending on a page that stays where it is: `/sign-in` sends a signed-in person on, and a question asked of a page that is leaving has no answer.
-  for (const path of ['/', '/settings?section=device', '/settings']) await page.goto(path);
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  for (const path of ['/', '/settings/preferences', '/settings/profile']) await page.goto(path);
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
   await page.evaluate(() => fetch('/api/auth/get-session'));
   await page.evaluate(() =>
     fetch('/api/sync', {
@@ -137,5 +137,5 @@ test('with no network a page says that it needs one, and shows nothing of the pe
   await expect(page.getByText(email)).toHaveCount(0);
   await online(context);
   await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
 });
