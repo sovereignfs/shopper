@@ -1168,9 +1168,11 @@ The same routes on both; only what is drawn differs. Shopper adopts it first; Tu
   launcher, the bell and the avatar**, the launcher and the bell drawn only when there is something to give them. The avatar opens `UserMenu`: name
   and email (and core's picture in suite mode, §6.2), Settings, Notifications, Sign out, and a way back to core in suite mode. Couldn't sync, when
   anything is there, shows as a mark on the avatar and an entry in its menu.
-- **The launcher** (`AppsLauncher`), **suite mode only:** the apps the person may open on the instance, from core's endpoint for them (name,
-  description, icon and launch address from each app's manifest, for the person signed in, 16.23) through the SDK with the app's token; kept on the
-  device so that it opens offline; its icons loaded from core's own address. Standalone, there is none.
+- **The launcher** (`AppsLauncher`), **suite mode only:** the apps the person may open on the instance, from core's endpoint for them (`listMyApps`:
+  name, description, icon and launch address from each app's launcher entry, for the person signed in, 16.23) through the SDK's `apps.list()` with
+  the person's token and no scope of its own; kept on the device so that it opens offline. **Each app's initial stands for its icon:** core gives an
+  icon's address on that app's own host, which `img-src` does not allow, so the tiles are drawn with `appsLauncherItems` from icons set to none until
+  core serves them from its own address. Standalone, there is none.
 - **Sidebar** (`AppSidebar`, 16.21): **full, a rail of icons, or hidden**, with its toggle, remembered on the device per kind of page (the rules
   Shopper's `sidebar.ts` had). Its content is **two blocks** of `NavList`:
   1. **Home** (§16.4), **Inventory** (§16.8) and **Loyalty cards** (§16.14);
@@ -1546,7 +1548,7 @@ last-synced unread count, and view choices. Nothing else.
 ### Security
 
 As Tusk's §24: a strict CSP with a per-request nonce, `connect-src 'self'`, no `'unsafe-inline'`; nothing third-party loads, and in suite mode
-`img-src` adds core's own address alone, for the person's picture (§6.2) and the launcher's icons (§16.2); what people write is
+`img-src` adds core's own address alone, for the person's picture (§6.2) (the launcher's tiles draw initials, §16.2); what people write is
 rendered as text, never as HTML. **The camera's frames never leave the device** (§22.3): a card or a barcode is decoded in the browser. **Logs hold no item, product, list, shop or person names, notes, prices or addresses:** an id and a kind
 of failure. Every route, operation and mutation finds the session and carries the permission in its statement (§5.2); a route that changes something
 checks `Origin`; `/api/live` checks the session on connect and closes when it ends. An invitation token is random, stored hashed, compared in constant

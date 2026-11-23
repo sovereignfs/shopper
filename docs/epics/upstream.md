@@ -2,7 +2,7 @@
 
 ## Status
 
-⏳ In Progress: 16.17 to 16.26 but 16.23 are built in `sovereign` (its epic 21, workstream 0012) and wait for their release; 16.23 waits for the owner's choice of token.
+⏳ In Progress: 16.17 to 16.26 are built in `sovereign` (its epic 21, workstream 0012) and wait for their release.
 
 ## Overview
 
@@ -252,7 +252,7 @@ in a colour and a count.
 
 **Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.6 (its epic 21, workstream 0012), on its `develop` at `bdcac5a`: `@sovereignfs/ui` 0.107.0: `AppFrame` (`appId`, `brand`, `pageKind`, `blocks`, `footer`, `detail`, `renderLink`); the phone's middle button opens the drawer unless the footer gives its own `onOpenApps`. Not published yet; this is done when it is.
 
-#### 📋 16.23 — The apps a person can open
+#### ⏳ 16.23 — The apps a person can open
 
 **Goal:** an app's header can show the suite's launcher. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:** 22.11.
 
@@ -261,7 +261,7 @@ manifest with `signIn`), with icons served from core's own address; an SDK call 
 
 **Accepts when:** releases of core and the SDK carrying it are published.
 
-**Waiting (2026-11-23):** `sovereign`'s 21.8, its one task that changes core's API; it waits for the owner to choose which token calls it (a person's, and with which scope).
+**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.8, on its `develop` at `6b1630e`, with a person's token and no new scope (the owner's choice): core's `GET /api/v1/apps` (`listMyApps`), the SDK's `sv.as(person).apps.list()`, and `appsLauncherItems` in `@sovereignfs/ui` for `AppsLauncher`. **Icons are the addresses each app's launcher entry names, on each app's own host, not core's:** Shopper's `img-src` must allow them, or the tiles draw initials. Not published yet.
 
 #### ⏳ 16.24 — `MobileFooter`'s middle button, named by the app
 
