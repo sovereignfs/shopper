@@ -1,3 +1,4 @@
+import { CoreDelete, CoreProfile, CoreSecurity } from './CoreSections';
 import { DeleteAccountSection } from './DeleteAccountSection';
 import { EncryptionSection } from './EncryptionSection';
 import { ExportSection } from './ExportSection';
@@ -7,6 +8,7 @@ import { ProfileSection } from './ProfileSection';
 import type { AccountSection } from './query';
 import { SettingsHost } from './SettingsHost';
 import { accountHasPassword } from '../auth/password';
+import { corePicture } from '../auth/profile';
 import { authSettings } from '../auth/server';
 import { requireSession } from '../auth/session';
 import { getVaultId } from '../keys/server/vault';
@@ -27,7 +29,9 @@ export async function SettingsRoute({
   const session = await requireSession();
   const settings = authSettings();
   const vaultId = await getVaultId();
-  const suite = settings?.sovereign !== undefined;
+  // In suite mode core's address, which the sections go to, and the picture it has of the person (RFC 0005); running alone, neither.
+  const core = settings?.sovereign?.issuer ?? null;
+  const picture = core ? await corePicture(session) : undefined;
   return (
     <SettingsHost
       section={section}
@@ -35,25 +39,42 @@ export async function SettingsRoute({
       panels={{
         profile: (
           <div className={styles.panel}>
-            <ProfileSection name={session.user.name} email={session.user.email} />
+            {core ? (
+              <CoreProfile
+                name={session.user.name}
+                email={session.user.email}
+                picture={picture}
+                core={core}
+              />
+            ) : (
+              <ProfileSection name={session.user.name} email={session.user.email} />
+            )}
           </div>
         ),
         security: (
           <div className={styles.panel}>
-            <PasswordSection
-              hasPassword={await accountHasPassword(session.user.id)}
-              minLength={settings?.passwordMinLength ?? 10}
-              email={session.user.email}
-              vaultId={vaultId}
-            />
+            {core ? (
+              <CoreSecurity core={core} />
+            ) : (
+              <PasswordSection
+                hasPassword={await accountHasPassword(session.user.id)}
+                minLength={settings?.passwordMinLength ?? 10}
+                email={session.user.email}
+                vaultId={vaultId}
+              />
+            )}
             <EncryptionSection />
           </div>
         ),
-        preferences: <PreferencesSection core={settings?.sovereign?.issuer ?? null} />,
+        preferences: <PreferencesSection core={core} />,
         data: (
           <div className={styles.panel}>
-            <ExportSection suite={suite} email={session.user.email} vaultId={vaultId} />
-            <DeleteAccountSection email={session.user.email} vaultId={vaultId} />
+            <ExportSection suite={core !== null} email={session.user.email} vaultId={vaultId} />
+            {core ? (
+              <CoreDelete core={core} />
+            ) : (
+              <DeleteAccountSection email={session.user.email} vaultId={vaultId} />
+            )}
           </div>
         ),
       }}

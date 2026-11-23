@@ -18,6 +18,8 @@ export interface FakeUser {
   sub: string;
   email: string;
   name?: string;
+  /** The address of their picture, for the `profile` scope. */
+  picture?: string;
   emailVerified?: boolean;
 }
 
@@ -164,6 +166,17 @@ export async function startFakeSovereign(
           return json(200, document);
         }
         if (url.pathname === `${PATH}/jwks`) return json(200, { keys: [jwk] });
+        // A picture for a person to have (`FakeUser.picture`): a real image, so that a page draws it and does not fall back to initials.
+        if (url.pathname === '/avatar.png') {
+          res.writeHead(200, { 'content-type': 'image/png' });
+          res.end(
+            Buffer.from(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==',
+              'base64',
+            ),
+          );
+          return;
+        }
 
         if (url.pathname === `${PATH}/oauth2/authorize`) {
           authorizations.push(url);
@@ -242,6 +255,7 @@ export async function startFakeSovereign(
             email: user.email,
             email_verified: user.emailVerified ?? true,
             ...(user.name !== undefined ? { name: user.name } : {}),
+            ...(user.picture !== undefined ? { picture: user.picture } : {}),
             ...(pending.nonce && !overrides.omitNonce ? { nonce: pending.nonce } : {}),
             ...overrides.claims,
           });
@@ -264,6 +278,7 @@ export async function startFakeSovereign(
             email: user.email,
             email_verified: user.emailVerified ?? true,
             ...(user.name !== undefined ? { name: user.name } : {}),
+            ...(user.picture !== undefined ? { picture: user.picture } : {}),
           });
         }
         json(404, { error: 'not_found' });

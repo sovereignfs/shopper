@@ -48,6 +48,27 @@ describe('the Content-Security-Policy', () => {
     expect(directive(text, 'img-src')).toEqual(["'self'", 'data:', 'blob:']);
   });
 
+  it('lets an image come from core, in suite mode, and nothing else from it', () => {
+    const text = policy({ imageOrigin: 'https://sovereign.example.com' });
+    expect(directive(text, 'img-src')).toEqual([
+      "'self'",
+      'data:',
+      'blob:',
+      'https://sovereign.example.com',
+    ]);
+    // Only images: a script, a request, a frame, a form and a font are still this origin's alone.
+    for (const name of ['default-src', 'font-src', 'connect-src', 'worker-src', 'manifest-src'])
+      expect(directive(text, name), name).toEqual(["'self'"]);
+    expect(directive(text, 'script-src').join(' ')).not.toContain('sovereign.example.com');
+    expect(directive(text, 'form-action')).toEqual(["'self'"]);
+    // Running alone there is none.
+    expect(directive(policy({ imageOrigin: null }), 'img-src')).toEqual([
+      "'self'",
+      'data:',
+      'blob:',
+    ]);
+  });
+
   it('allows no frame, no plugin, no framing of a page, and no foreign form target or base', () => {
     const text = policy();
     expect(directive(text, 'frame-src')).toEqual(["'none'"]);

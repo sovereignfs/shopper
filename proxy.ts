@@ -25,10 +25,10 @@ const HOME_MARK = 'x-shopper-home';
 const SOVEREIGN_PAGES = new Set(['/sign-in', '/sign-up']);
 
 export function proxy(request: NextRequest) {
-  const { secure, development, authLocal, authSovereign } = edgeSettings();
+  const { secure, development, authLocal, authSovereign, coreOrigin } = edgeSettings();
   const page = !request.nextUrl.pathname.startsWith('/api/');
   const nonce = newNonce();
-  const policy = contentSecurityPolicy({ nonce, secure, development });
+  const policy = contentSecurityPolicy({ nonce, secure, development, imageOrigin: coreOrigin });
 
   const requestHeaders = new Headers(request.headers);
   if (page) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { SegmentedControl } from '@sovereignfs/ui';
+import { coreLink } from '../auth/core-links';
 import { readView, type View, writeView } from '../lists/view-preference';
 import { chooseTheme, readTheme, type ThemeChoice } from '../theme/preferences';
 import { NotificationsSection } from './NotificationsSection';
@@ -24,7 +25,7 @@ export function PreferencesSection({ core }: { core: string | null }) {
           <h2>Appearance, language and notifications</h2>
           <p className={styles.muted}>
             These are Sovereign’s, the same in every app you use there.{' '}
-            <a href={`${core}/preferences`}>Change them in Sovereign</a>.
+            <a href={coreLink(core, '/preferences')}>Change them in Sovereign</a>.
           </p>
         </div>
       )}

@@ -17,7 +17,16 @@ const PUSH_OFF_MS = 3_000;
  * device (`src/local/signout.ts`): it tries to send what is waiting, asks before it throws away what it cannot, ends the session, deletes this account's
  * working copy from the device and returns to the front address.
  */
-export function AccountMenu({ name, email }: { name: string; email: string }) {
+export function AccountMenu({
+  name,
+  email,
+  picture,
+}: {
+  name: string;
+  email: string;
+  /** Core's picture of the person in suite mode (RFC 0005); without one, their initials. */
+  picture?: string | undefined;
+}) {
   const router = useRouter();
   const { leave } = useLocal();
   const keys = useKeys();
@@ -53,6 +62,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
       <UserMenu
         name={name}
         email={email}
+        {...(picture ? { avatarUrl: picture } : {})}
         size="sm"
         aria-label="User menu"
         items={[

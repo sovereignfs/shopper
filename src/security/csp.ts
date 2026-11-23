@@ -9,7 +9,8 @@
  *    broader is allowed for WebAssembly: the cryptography is Web Crypto and JavaScript.
  *  - **Style *elements*** carry the nonce too. **Style *attributes* are allowed**: React's `style` props and the design system's overlays position
  *    things with them, and an attribute can change how something looks but cannot run anything.
- *  - **Everything else comes from this origin**: images (and `data:` and `blob:`), fonts (the design system's own, served from here), `connect-src`
+ *  - **Everything else comes from this origin**: images (and `data:` and `blob:`; and, in suite mode, **core's own origin, for images alone**, where the person's
+ *    picture is), fonts (the design system's own, served from here), `connect-src`
  *    (sync, the one API a browser calls), the service worker (`worker-src`) and the manifest. No frames, no plugins, nobody may frame a page
  *    (`frame-ancestors`), forms go only here, `<base>` cannot be changed.
  *  - **`upgrade-insecure-requests`** only where the app is served over https: on `http://localhost` it would send the page's own requests to a port
@@ -23,9 +24,16 @@ export interface PolicyOptions {
   secure: boolean;
   /** `next dev`, which needs `eval`. */
   development: boolean;
+  /** Core's origin when core is a way in (`SHOPPER_CORE_URL`): the one place an image may come from beyond this app, for the person's picture (RFC 0005). */
+  imageOrigin?: string | null;
 }
 
-export function contentSecurityPolicy({ nonce, secure, development }: PolicyOptions): string {
+export function contentSecurityPolicy({
+  nonce,
+  secure,
+  development,
+  imageOrigin,
+}: PolicyOptions): string {
   // `next dev`'s own overlay (the indicator at the bottom left, its menus and error dialog) draws itself with a dozen inline `<style>` elements inside
   // a shadow root, none of which can be given a nonce, so under the production policy it is left unstyled. Development only, and a nonce in the list
   // would make browsers ignore `'unsafe-inline'`, so it stands alone: the production policy below is the one that is tested and shipped.
@@ -38,7 +46,7 @@ export function contentSecurityPolicy({ nonce, secure, development }: PolicyOpti
     `style-src ${styles}`,
     `style-src-elem ${styles}`,
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob:${imageOrigin ? ` ${imageOrigin}` : ''}`,
     "font-src 'self'",
     "connect-src 'self'",
     "worker-src 'self'",

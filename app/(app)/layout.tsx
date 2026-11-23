@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { corePicture } from '@/src/auth/profile';
 import { requireSession } from '@/src/auth/session';
 import { KeyPrompt } from '@/src/keys/KeyPrompt';
 import { KeysProvider, type PageKeySource } from '@/src/keys/keys';
@@ -25,6 +26,8 @@ export default async function AppLayout({
 }) {
   const session = await requireSession();
   const found = await keySourceOf(session.user.id);
+  // In suite mode the person's picture is core's, drawn in the header (RFC 0005); running alone there is none, and the avatar is their initials.
+  const picture = await corePicture(session);
   // What the page needs to open the key (RFC 0001), read for each request: never built into the bundle.
   const source: PageKeySource | undefined =
     found?.kind === 'vault'
@@ -43,7 +46,11 @@ export default async function AppLayout({
           keys={source}
         />
         <UndoProvider>
-          <ShellFrame account={<AccountMenu name={session.user.name} email={session.user.email} />}>
+          <ShellFrame
+            account={
+              <AccountMenu name={session.user.name} email={session.user.email} picture={picture} />
+            }
+          >
             <KeyPrompt />
             {children}
             {modal}

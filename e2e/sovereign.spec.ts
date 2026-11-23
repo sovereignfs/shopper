@@ -12,7 +12,10 @@ import { PORTS } from './ports';
 const SOVEREIGN = `http://localhost:${PORTS.sovereign}`;
 const BOTH = `http://localhost:${PORTS.both}`;
 
-async function nextPersonIs(page: Page, who: { sub: string; email: string; name?: string }) {
+async function nextPersonIs(
+  page: Page,
+  who: { sub: string; email: string; name?: string; picture?: string },
+) {
   const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/sign-in-as`, {
     data: who,
   });
@@ -88,6 +91,68 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       ).toBeVisible();
       await signOut(page);
     }
+  });
+
+  test('Settings is core’s to say: the profile as core says it, with its picture, and links to core in place of a password and a delete', async ({
+    page,
+  }) => {
+    const core = `http://localhost:${PORTS.coreAuth}`;
+    const who = { ...person('pictured'), picture: `${core}/avatar.png` };
+    await nextPersonIs(page, who);
+    await throughSovereign(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+    // The page's policy lets an image come from core and from nowhere else beyond the app, and the avatar in the header is core's picture.
+    const csp = (await page.request.get('/')).headers()['content-security-policy'] ?? '';
+    expect(csp).toContain(`img-src 'self' data: blob: ${core}`);
+    await expect(page.getByRole('button', { name: 'User menu' }).locator('img')).toHaveAttribute(
+      'src',
+      `${core}/avatar.png`,
+    );
+
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog).toBeVisible();
+    // Profile: read only, as core says it, with a way to change it there.
+    await expect(dialog.getByText(who.name, { exact: true })).toBeVisible();
+    await expect(dialog.getByText(who.email)).toBeVisible();
+    await expect(dialog.getByRole('textbox')).toHaveCount(0);
+    await expect(dialog.getByRole('link', { name: 'Edit in Sovereign' })).toHaveAttribute(
+      'href',
+      `${core}/profile`,
+    );
+    await expect(dialog.locator('img').first()).toHaveAttribute('src', `${core}/avatar.png`);
+    // Security: core's, with no password to change here.
+    await dialog.getByRole('button', { name: 'Security' }).click();
+    await expect(dialog.getByRole('link', { name: /Sovereign’s security/ })).toHaveAttribute(
+      'href',
+      `${core}/security`,
+    );
+    await expect(dialog.getByRole('link', { name: 'Open your keys' })).toHaveAttribute(
+      'href',
+      `${core}/keys`,
+    );
+    await expect(dialog.getByRole('form', { name: 'Change password' })).toHaveCount(0);
+    // Preferences: appearance, language and notifications are core's; the list's view and this device are Shopper's.
+    await dialog.getByRole('button', { name: 'Preferences' }).click();
+    await expect(dialog.getByRole('link', { name: 'Change them in Sovereign' })).toHaveAttribute(
+      'href',
+      `${core}/preferences`,
+    );
+    await expect(dialog.getByRole('radio', { name: 'By aisle' })).toBeVisible();
+    await expect(dialog.getByRole('radio', { name: 'Dark' })).toHaveCount(0);
+    // Data: Shopper's export, a line about core's, and deleting is core's.
+    await dialog.getByRole('button', { name: 'Data' }).click();
+    await expect(dialog.getByText(/holds Shopper’s part/)).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'Delete it in Sovereign' })).toHaveAttribute(
+      'href',
+      `${core}/delete-account`,
+    );
+    await expect(dialog.getByRole('button', { name: 'Delete my account…' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await signOut(page);
   });
 
   test('the same person signs in again as the same account, and signing out is local', async ({

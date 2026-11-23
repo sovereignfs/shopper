@@ -23,7 +23,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 - **Settings is a dialog** (RFC 0005), over the page you opened it from (or over Home when you open its address), with four sections, each at its own address:
   **Profile** (`/settings/profile`), **Security**, **Preferences** and **Data**. Sign-in and Encryption are in Security; This device and Notifications are in
   Preferences, which also has how a list shows its items by default and, running alone, **Appearance** (light, dark or your system's). The old addresses
-  (`/settings?section=…`) go to the section that took their place.
+  (`/settings?section=…`) go to the section that took their place. Hosted by a Sovereign instance, Profile is who Sovereign says you are, with its picture (also in the
+  header), and Security, Preferences and deleting your account link to Sovereign, which owns them.
 - **A list's settings are a dialog over the list** (RFC 0005), opened from the list's menu: **General** (its name, icon and colour) and **Archive and delete**, each at
   its own address (`?settings=general`, `?settings=archive`), so Back closes it and a link opens it, with no network too. On a phone it is the whole screen.
   `/l/<id>/settings` goes to it.

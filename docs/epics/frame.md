@@ -210,9 +210,14 @@ Security); a name that is not a section is not found. Preferences holds how a li
 already used), Appearance (light, dark or the system's, which has had no screen until now), This device and Notifications as they were; the avatar menu, the phone's footer
 and Couldn't sync link to the new addresses. **`useTitle` has one owner now (`Titles`):** with Settings over a list two screens name the page, the one opened last wins and the
 one under it is again when it goes (two observers had reset each other's title without end, which hung the page). Tests: `e2e/settings.spec.ts` in Chromium and WebKit, `query.test.ts`,
-`view-preference.test.ts`, `title.test.ts`, and `auth`, `device`, `export`, `pwa`, `phone`, `offline` and `titles` specs moved to the new addresses. **Still to do:** the suite
-mode's Profile, Security and Preferences, core's picture (and the content security policy for it) and the header's avatar, and what standalone adds to Preferences (time zone,
-language and region).
+`view-preference.test.ts`, `title.test.ts`, and `auth`, `device`, `export`, `pwa`, `phone`, `offline` and `titles` specs moved to the new addresses. **Suite mode** (`CoreSections.tsx`, chosen by `SettingsRoute` when core is a way in, with core's address from `SHOPPER_CORE_URL` and `coreLink`): **Profile** is who core says
+the person is, read only (name and email from the session, **core's picture** from `signedInUser` held to an address on core's own origin by `pictureOf`, which the
+header's avatar draws too), with _Edit in Sovereign_; **Security** is links to core's security and keys and no password form, with Encryption; **Preferences** says
+appearance, language and notifications are Sovereign's and links there, keeping the list's view and This device; **Data** keeps the readable export's line and links to
+core's _Delete account_ in place of Shopper's own form. **The content security policy gains core's origin for images alone** (`img-src`, from `edgeSettings().coreOrigin`
+through the proxy), tested to leave every other directive as it was. The fake core has a `picture` and serves one (`/avatar.png`). Tests: `e2e/sovereign.spec.ts` in
+Chromium and WebKit (the policy, the avatar, each section's read-only content and links), `core-links.test.ts`, `csp.test.ts`. **Still to do:** what standalone adds to
+Preferences (time zone, language and region).
 
 #### ⏳ 22.8 — A readable export
 
