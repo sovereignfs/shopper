@@ -8,6 +8,11 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.5.0] - 2026-11-23
 
+### Fixed
+
+- **Signing in through Sovereign checks the signature of the ID token** Sovereign returns, against the keys it publishes (`@sovereignfs/sdk` 2.11.1). Before, an ID token
+  signed with any key was believed, so someone able to answer for Sovereign's token endpoint could have signed a person in as anyone. Nothing to do but update.
+
 ### Added
 
 - **A list's icon and colour** (RFC 0005): choose them in a list's settings, under Appearance. The icon is drawn in the colour before the list's name in

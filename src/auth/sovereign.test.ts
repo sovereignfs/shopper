@@ -187,21 +187,18 @@ describe(`Sovereign sign-in, open sign-up (${leg})`, () => {
     for (const row of sealed) expect(row.sealed).not.toContain(token);
   });
 
-  // **Fails today, and is kept so:** `@sovereignfs/sdk` 2.11's `finishSignIn` does not check the signature of the ID token it takes from
-  // core's token endpoint (openid-client checks it only with `enableNonRepudiationChecks`), though sdk §9.1 says it does. It is the SDK's
-  // to fix; once Shopper is on a release that does, this passes, `fails` must go, and the test holds it.
-  it.fails(
-    'refuses an ID token signed by a key Sovereign does not publish, and leaves no account',
-    async () => {
-      const who = person();
-      const before = (await users(t)).length;
-      const result = await login(t, fake, visitor(t), who, { signWithWrongKey: true });
-      expect(result.signedIn).toBe(false);
-      expect(result.location.searchParams.get('error')).toBeTruthy();
-      expect((await users(t)).length).toBe(before);
-      expect((await users(t)).some((u) => u.email === who.email)).toBe(false);
-    },
-  );
+  // `@sovereignfs/sdk` 2.11.0's `finishSignIn` did not check the signature of the ID token it takes from core's token endpoint (openid-client checks it only with
+  // `enableNonRepudiationChecks`), though sdk §9.1 says it does, so this was kept as a failing test. 2.11.1 checks it against the keys core publishes, and this
+  // holds it: someone able to answer for core's token endpoint cannot sign a person in as anyone.
+  it('refuses an ID token signed by a key Sovereign does not publish, and leaves no account', async () => {
+    const who = person();
+    const before = (await users(t)).length;
+    const result = await login(t, fake, visitor(t), who, { signWithWrongKey: true });
+    expect(result.signedIn).toBe(false);
+    expect(result.location.searchParams.get('error')).toBeTruthy();
+    expect((await users(t)).length).toBe(before);
+    expect((await users(t)).some((u) => u.email === who.email)).toBe(false);
+  });
 
   it('refuses an ID token meant for another client', async () => {
     const result = await login(t, fake, visitor(t), person(), { claims: { aud: 'someone-else' } });
