@@ -136,7 +136,8 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   record, safe to run twice. **A new table is handled there, and exported and imported, in the same change,** with a test that seeds one of each.
 - **Every row of a group carries `household_id`, and the permission is in the statement:** for a list, its items and its products, being on the list
   (`list_member`, `onList` in `src/access/membership.ts`) as a condition of the same query (`DESIGN.md` §5.2, RFC 0004), never checked first and then
-  touched; a list's Admin's operation adds the role to it. Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
+  touched; a list's Admin's operation adds the role to it. **A person's Inventory and own categories are their account's alone:** the statement names
+  the group whose `own_of` is the session's account (`ownerOf`), and no pull hands an `inventory_item` to anyone else (`DESIGN.md` §8.8). Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
 - **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the list's
   keys (derived from the group's, RFC 0004), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
@@ -144,7 +145,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   What the server must hold itself (a person's name and email, an invitation's email, credentials) is sealed through `src/crypto/sealed.ts`
   (§13.4). A table that adds such a field adds it to §13.1's or §13.4's table and its registry test in the same change. **The words "not yet
   audited" go wherever Shopper describes its encryption.**
-- **Lists, items, products, categories, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
+- **Lists, items, products, categories, a list's categories, Inventory items, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
   mutation, and `src/sync/apply.ts` applies it, re-checking membership and limits, merging field by field, folding duplicates (`src/sync/fold.ts`), in
   one short transaction that increments the group's `seq`. A replayed mutation writes nothing. The property tests pass.
 - **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** (and, from phase 2, a second makes no trip line);
@@ -155,7 +156,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   `LISTEN/NOTIFY` is not used.
 - **Quantities are canonical decimal strings and money is integer minor units,** calculated in `src/quantity/`; no binary float touches either. One
   figure has one implementation, pure, shared by the browser, the server and the tests (suggestions, totals, unit prices, aisle order).
-- **The device's store is per account and holds only the lists the account is on;** it is deleted at sign-out. **The service worker caches the shell
+- **The device's store is per account and holds only the lists the account is on, and its own Inventory;** it is deleted at sign-out. **The service worker caches the shell
   only,** by allow-list; no page or answer with a person's data is ever in a cache.
 - **Notices are raised in the change's transaction or by the digest job, never for the person who acted.** Mail goes
   through `mail_outbox`, in the background; no address or content is logged.
@@ -180,7 +181,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Never fork a navigation decision by viewport;** fork only what is rendered.
 - **No third-party loads and no third-party requests from the browser.** What people write is rendered as text, never as HTML. A lookup by barcode
   (phase 4) is made by the server.
-- **User-facing words are "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
+- **User-facing words are "list", "item", "catalog", "Inventory", "Home", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
   (`DESIGN.md` §4), never "household" or "group" (RFC 0004: the group is never shown), "ledger", "purchase transaction", "owner", "viewer",
   "editor", "tenant", "client" or "plugin".
 - **Next.js tracks the latest stable release.** Read the guide bundled with the installed version (`node_modules/next/dist/docs/`) before writing Next

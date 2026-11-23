@@ -276,7 +276,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | #   | ID                              | Task                                               | Priority | Depends on   | Status |
 | --- | ------------------------------- | -------------------------------------------------- | -------- | ------------ | ------ |
 | 92  | [22.1](docs/epics/frame.md)     | The design: the frame and the screens              | P0       | 12.7         | ✅     |
-| 93  | [23.1](docs/epics/inventory.md) | The design: Home and Inventory                     | P0       | 22.1         | 📋     |
+| 93  | [23.1](docs/epics/inventory.md) | The design: Home and Inventory                     | P0       | 22.1         | ✅     |
 | 94  | [24.1](docs/epics/cards.md)     | The design: loyalty cards                          | P0       | 22.1         | 📋     |
 | 95  | [16.17](docs/epics/upstream.md) | `prompt=create` (`sovereign`)                      | P3       | —            | 📋     |
 | 96  | [16.18](docs/epics/upstream.md) | Icons: `square-pen`, and more (`sovereign`)        | P1       | —            | 📋     |

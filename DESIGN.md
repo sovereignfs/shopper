@@ -62,14 +62,14 @@ The plugin's requirement numbers (`SHP-*`) and task numbers (`T-*`) are not used
 | Households, owner and member roles, invites, a default shared list (SHP-20–23)                 | §7: **a list's people**, Admin and Member, by a link to the list, and a first list; kinds of group, changing roles and invitations by email are phase 2 |
 | Moving a list from a person to a household (SHP-24) and its unsolved migration                 | **Dropped:** a list is shared by its link, never moved (§9.1)                                                                                           |
 | Own lists, shared with me, read-only combined view (SHP-02)                                    | §7.4: **My lists** and **Shared with me**; §9.7: **All lists**, editable (phase 2)                                                                      |
-| Last-used list as the landing page (SHP-03)                                                    | §16.4                                                                                                                                                   |
+| Last-used list as the landing page (SHP-03)                                                    | §16.4: Shopper opens on **Home**, whose _Continue_ is the last list used                                                                                |
 | Type-ahead suggestions from the owner's catalog and history (SHP-04), learned ranking (SHP-32) | §8.5, from every catalog of the person's lists, learned from the first release                                                                          |
 | Curated icons with a category fallback (SHP-05)                                                | §8.4, `IconPicker`; 0.1.0 uses the icon set as it is, and more grocery icons are added to the design system for phase 2 (§16.10)                        |
 | Edit name, quantity, unit, category, icon, barcode, price, updating the catalog (SHP-06)       | §9.2, §8.2. Price comes with trips in phase 2; the barcode is kept on the product in phase 4, with scanning                                             |
 | Tap to buy writes a purchase row; untap removes it (SHP-07)                                    | §9.5: a tick marks the item bought; from phase 2 (§10) it also puts it in the person's open **trip**, as a trip line; unticking undoes both             |
 | Clear bought, reorder, group by category (SHP-08)                                              | §9.5, §9.6, with the category order as the aisle order                                                                                                  |
 | Household analytics: spend, categories, frequent items, who bought what (SHP-25)               | Phase 3, Insights (§22.2). The trips history (§10.5) is in phase 2                                                                                      |
-| Light inventory and low-stock (SHP-30, 31)                                                     | Phase 3, the pantry (§22.2)                                                                                                                             |
+| Light inventory and low-stock (SHP-30, 31)                                                     | **Inventory** (§8.8), a person's own library of what they buy; on hand and low points with the pantry, phase 3 (§22.2)                                  |
 | Photos, barcode scanning, Open Food Facts lookup (SHP-40, 41)                                  | Phase 4 (§22.3), files stored by Shopper itself, lookups made by the server                                                                             |
 | Live shared-list sync (SHP-50)                                                                 | §12.6: devices pull every 20 seconds by default in 0.1.0; **live updates are phase 2**, as a setting each person chooses within the operator's limits   |
 | Notifications for items added, someone bought, invites (SHP-51)                                | §14, phase 2                                                                                                                                            |
@@ -77,7 +77,7 @@ The plugin's requirement numbers (`SHP-*`) and task numbers (`T-*`) are not used
 | AI icons, receipt OCR, auto-categories, predictive restock (SHP-60–63)                         | Later (§22.4); categories are learned from the catalog without AI (§8.3)                                                                                |
 | Price history (SHP-70)                                                                         | A product's last price with trips in phase 2 (§8.2); per shop and over time in phase 3 (§22.2)                                                          |
 | Budgets, multi-currency, a household ledger (SHP-71, 73)                                       | **Dropped:** Ledger's job. One currency per list (phase 2)                                                                                              |
-| Recurring items (SHP-72)                                                                       | Phase 3 (§22.2)                                                                                                                                         |
+| Recurring items (SHP-72)                                                                       | A mark on an Inventory item (§8.8); a schedule in phase 3 (§22.2)                                                                                       |
 | CSV export of the ledger (SHP-74)                                                              | Export of everything as JSON (§18)                                                                                                                      |
 | Export, import, delete through `sdk.portability`                                               | §18 (export and import, phase 2), §19 (delete, 0.1.0), as the app's own, and **the plugin's export can be imported** (§18.3, phase 2)                   |
 | Tenants, `sdk.db`, `sdk.directory`, the plugin manifest                                        | Gone with the legacy runtime (§15, §20)                                                                                                                 |
@@ -116,20 +116,22 @@ After workstream 0001's release (0.2.0) and before phase 2, Shopper is made to l
 otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens wait on releases of
 `@sovereignfs/ui` and core (16.18 to 16.25); each section says what it builds.
 
-| Area            | What changes                                                                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in         | **Core's or Shopper's, never both** (§15.1): in a suite, `/sign-in` goes to core at once; alone, the design system's forms                     |
-| A list          | An icon and a colour, encrypted (§9.1); the header's Shop, Share and menu (§16.5); its settings in the settings dialog; a row's tap opens it   |
-| An item         | Opens in a column beside its list, a page of its own on a phone, saving as it is left (§16.7)                                                  |
-| Shopping mode   | The list's header, _+ Add item_, _Put it straight in the basket_, and _Finish shopping_ fixed at the bottom (§11.1)                            |
-| Settings        | `SettingsDialog`, each section at its own address; what each says by mode (§17)                                                                |
-| A person's data | **A readable export,** one JSON file made in the browser after confirming it is them (§18.1)                                                   |
-| The frame       | The header, the sidebar and the phone's footer are `@sovereignfs/ui`'s; an app launcher in a suite (§16.2, §16.11); every page titled (§16.13) |
+| Area            | What changes                                                                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in         | **Core's or Shopper's, never both** (§15.1): in a suite, `/sign-in` goes to core at once; alone, the design system's forms                          |
+| A list          | An icon and a colour, encrypted (§9.1); the header's Shop, Share and menu (§16.5); its settings in the settings dialog; a row's tap opens it        |
+| An item         | Opens in a column beside its list, a page of its own on a phone, saving as it is left (§16.7)                                                       |
+| Shopping mode   | The list's header, _+ Add item_, _Put it straight in the basket_, and _Finish shopping_ fixed at the bottom (§11.1)                                 |
+| Settings        | `SettingsDialog`, each section at its own address; what each says by mode (§17)                                                                     |
+| A person's data | **A readable export,** one JSON file made in the browser after confirming it is them (§18.1)                                                        |
+| The frame       | The header, the sidebar and the phone's footer are `@sovereignfs/ui`'s; an app launcher in a suite (§16.2, §16.11); every page titled (§16.13)      |
+| Home            | **`/` opens Home,** with _Continue_ for the last list used, every list, and what the device can count (§16.4)                                       |
+| Inventory       | **A person's own library of what they buy,** with the starter catalog shown in it, their own categories, and suggestions drawing on it first (§8.8) |
 
 ## 3. User journeys
 
-1. **First visit, alone.** Someone runs the image (§21). They make the first account and land on their first list, _Groceries_, in their own lists, with the
-   cursor in the add field.
+1. **First visit, alone.** Someone runs the image (§21). They make the first account and land on **Home**, whose _Continue_ is their first list,
+   _Groceries_, with one line on what to do next.
 2. **First visit, on an instance.** They open Shopper from the launcher and sign in through core. The same.
 3. **Sharing.** Kasun presses _Share_ on _Groceries_, makes a link and sends it to Thulana any way he likes. Thulana opens it, makes an account
    (sign-up is open on this server, §6.3), and finds _Groceries_ under _Shared with me_, and nothing else of Kasun's. _(From phase 2 Kasun can also
@@ -165,8 +167,10 @@ otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.
 | **List**            | A shopping list, shared on its own, with its icon and colour: _Groceries_, _Pharmacy_ (§9.1)                                                                 |
 | **Item**            | One thing on a list: _Oat milk, 2 L_ (§9.2). It is **open** until ticked, then **bought**, then **cleared** from the list                                    |
 | **Product**         | An entry in a list's **catalog**: what Shopper remembers about something bought on it (§8.2)                                                                 |
-| **Starter catalog** | The common groceries Shopper ships with, offered until a list has its own entry (§8.6)                                                                       |
-| **Category**        | A section of the shop (_Produce_, _Dairy & eggs_), a group's. Their order is the **aisle order** (§8.3)                                                      |
+| **Inventory**       | A person's own library of the things they buy, across their lists and beyond groceries, never shared; an entry is an **Inventory item** (§8.8)               |
+| **Home**            | Where Shopper opens: the last list to continue, every list, and what is going on (§16.4)                                                                     |
+| **Starter catalog** | The common groceries Shopper ships with, shown in Inventory and offered until a list or a person has their own entry (§8.6)                                  |
+| **Category**        | A section of the shop (_Produce_, _Dairy & eggs_): a starter one, or a person's own, made in Inventory. Their order is the **aisle order** (§8.3)            |
 | **Trip**            | (Phase 2) One person's time in a shop: what they ticked, where, when, and what it cost (§10)                                                                 |
 | **Trip line**       | (Phase 2) One bought thing in a trip, kept after the item leaves the list (§10.2)                                                                            |
 | **Shop**            | (Phase 2) A place bought from, named in trips (§10.3)                                                                                                        |
@@ -174,7 +178,7 @@ otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.
 | **Notice**          | (Phase 2) Something a person is told, in the bell (§14)                                                                                                      |
 | **Outbox**          | Changes made on a device and not yet accepted by the server (§12)                                                                                            |
 
-User-facing text says "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"; never "household" or
+User-facing text says "list", "item", "catalog", "Inventory", "Home", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"; never "household" or
 "group" (§7.1), "ledger", "purchase transaction", "product row", "owner", "viewer", "editor", "tenant", "client" or "plugin". On screen, ticking is "bought" and a
 trip is "shopping at Lidl".
 
@@ -261,7 +265,9 @@ carry `list_id`; every read and write of them names the list together with the a
 `… WHERE list_id = ? AND EXISTS (SELECT 1 FROM list_member lm JOIN person p ON p.id = lm.person_id WHERE lm.list_id = ? AND p.account_id = ? AND lm.left_at IS NULL)`
 (`onList` in `src/access/membership.ts`). Never checked first and then touched; a refusal reads as not found. Anything a change points at must be the
 same group's, in the same statement, and **an item's product is always on the item's own list**. A list Admin's operation adds `AND lm.role = 'admin'`
-(`listAdminOf`). Making a list in a group is its own account's alone (`ownerOf`); a category is the group's, read by anyone on one of its lists.
+(`listAdminOf`). Making a list in a group is its own account's alone (`ownerOf`); a starter category is the group's, read by anyone on one of its lists.
+**Inventory is its own account's alone** (§8.8): every read and write of an `inventory_item` or of a person's own category names the group with
+`household.own_of` the account, in the statement (`ownerOf`); a list's copy of a category (`list_category`) is read and written as the list's.
 
 - **Sync applies the same rule per change** (§12.5): a change to a list the account is not on, or to an item or product of one, is refused, not ignored.
 - `src/access/routes.ts` lists every page, route and operation with who may use it; a test calls each as a second signed-in person, including one on
@@ -316,8 +322,8 @@ its own by a link. Sharing one list shows that list and nothing more.
 
 ### 7.1 The group
 
-Every account has **one group**, made with it (`household` in code, `own_of` the account), which holds the lists it makes, its starter categories and
-their order (§8.3), and the counter its changes are ordered by (§12.3). **Nobody sees it:** no screen, word or setting names a group. It is never shared;
+Every account has **one group**, made with it (`household` in code, `own_of` the account), which holds the lists it makes, its categories and
+their order (§8.3), its **Inventory** (§8.8), and the counter its changes are ordered by (§12.3). **Nobody sees it:** no screen, word or setting names a group. It is never shared;
 its own account is its only `member`. Kinds of group (a household, a group of friends), naming them, and more than one a person are later (§22.1).
 
 A group is made with one list, _Groceries_, and the starter categories.
@@ -369,48 +375,63 @@ directory and the bell are phase 2.
 
 Every limit is a setting the operator can change, with a default (the names are the first design's):
 
-| Setting                              | Default | What                                               |
-| ------------------------------------ | ------- | -------------------------------------------------- |
-| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`    | 20      | People on a list                                   |
-| `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`   | 20      | Groups an account has lists from, its own included |
-| `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included            |
-| `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                               |
-| `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together    |
-| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included (phase 2)   |
+| Setting                              | Default | What                                                           |
+| ------------------------------------ | ------- | -------------------------------------------------------------- |
+| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`    | 20      | People on a list                                               |
+| `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`   | 20      | Groups an account has lists from, its own included             |
+| `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included                        |
+| `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                                           |
+| `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together                |
+| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included (phase 2)               |
+| `SHOPPER_LIMIT_INVENTORY_ITEMS`      | 5000    | Items in a person's Inventory, hidden starter entries included |
 
-A limit reached offline is found when the change syncs and goes to Couldn't sync with the sentence (§12.5). Phase 1 has the first five.
+A limit reached offline is found when the change syncs and goes to Couldn't sync with the sentence (§12.5). Phase 1 has the first five; Inventory
+(§8.8) brings the categories' and its own.
 
 ## 8. The catalog
 
 ### 8.1 What it is for
 
-**Each list has a catalog of its own** (RFC 0004): what Shopper remembers about the things bought on it, so that adding is one tap and the item arrives right. It is never a
-screen people must maintain: it fills itself from what they add and edit, and they may tidy it (§16.8).
+**Each list has a catalog of its own** (RFC 0004): what Shopper remembers about the things bought on it, so that adding is one tap and the item
+arrives right. **Each person has an Inventory of their own** (§8.8, RFC 0006): what they buy, in their own words, across every list, which a list's
+catalog is made from and which nobody else sees. Neither is a screen people must maintain: both fill themselves from what is added and edited, and
+people may tidy them (§16.8, §9.4).
 
 ### 8.2 A product
 
 A name, its **name key** (§8.7), a category, an icon, a default unit and quantity, a note (a brand, "the green one"), a **barcode** (kept; used in
 phase 4), the **last unit price** and the unit it was for, how many times it has been bought, and when it was last bought and added. **0.1.0 has no last unit price and no barcode:** they arrive, as columns, with prices (7.1) and capture (14.1).
 
-- **Every item points at a product of its own list.** Adding a name the list has never used makes a product there, from the starter catalog when it matches (§8.6),
-  otherwise with the category guessed (§8.3) and a generic icon.
+- **Every item points at a product of its own list.** Adding a name the list has never used makes a product there, from the adding person's Inventory
+  item of that name when there is one (its category, icon, unit and quantity), else from the starter catalog when it matches (§8.6), else with the
+  category guessed (§8.3) and a generic icon.
 - **Editing an item's category, icon or unit can update its product,** so the next add comes right: the item dialog has "Remember for next time", on
   by default (§9.4). Its name, quantity, note and price are the item's own; the price also updates the product's last unit price when the item is
   bought (§10.4).
-- **A product is renamed, merged or deleted** (phase 2) from the catalog screen (§16.8). Merging two (_Oatmilk_ into _Oat milk_) points every item and trip line
+- **A product is tidied where it is used,** from an item's panel (§16.7): its "Remember for next time" (§9.4) writes the product, and offers to update
+  the person's Inventory item too. **A product is merged or deleted** (phase 2, 5.6). Merging two (_Oatmilk_ into _Oat milk_) points every item and trip line
   of one at the other, in one mutation. Deleting a product with open items is refused with a sentence; its trip lines keep their names.
 
 ### 8.3 Categories and aisle order
 
 Categories are a group's rows, made from the starter set when the group is made: **Produce, Bakery, Dairy & eggs, Meat & fish,
-Deli, Frozen, Pantry, Breakfast, Snacks & sweets, Drinks, Household, Personal care, Baby, Pets, Other**, each with an icon.
+Deli, Frozen, Pantry, Breakfast, Snacks & sweets, Drinks, Household, Personal care, Baby, Pets, Other**, each with an icon. Their order is the
+**aisle order**: lists and shopping mode group items in it.
 
-- **A group's categories are read by everyone on any of its lists**, since they name no one's shopping. Renaming, hiding, adding and reordering them is
-  phase 2; **in phase 1 the starter categories are fixed**, and their order is the aisle order. Their order is the **aisle order**: lists and shopping mode group items in it.
-  Hidden categories are not offered; their items show under _Other_ until moved. _Other_ cannot be hidden or deleted.
-- **A new product's category** is guessed by one pure function: the starter catalog's entry if the name matches one, otherwise the category most used
-  by the products the device holds sharing a word with it, otherwise _Other_.
-- **Per-shop aisle order** is phase 3 (§22.2); until then there is one.
+- **The starter categories are read by everyone on any of the group's lists,** by their key, since they name no one's shopping.
+- **A person's own categories** (Hardware, Electronics, Clothing, Gifts, Garden, Office, whatever they shop for) are made, renamed, hidden and put in
+  order in **Inventory** (§8.8, §16.8; 4.7's editing, brought forward from phase 2): rows of their group whose name is encrypted under the group's
+  Inventory keys (§13.2), which **nobody else holds**. A starter category renamed is one of these.
+- **A list carries its own copy of each of a person's categories its items use** (`list_category`: the list, the category it copies, its name
+  encrypted under **the list's keys**, its place in the aisle order), made when an item of that category is first put on the list. The people on a
+  shared list read the names of the categories its items use, and nothing else of anyone's categories. Renaming a category in Inventory renames its
+  copies on the person's own lists (those they are Admin of); a copy goes with its list. **An item's category is a starter category of its list's
+  group or a `list_category` of its own list,** never another group's row.
+- Hidden categories are not offered; their items show under _Other_ until moved. _Other_ cannot be hidden or deleted. **In phase 1 the starter
+  categories were fixed**, in the starter order.
+- **A new product's category** is guessed by one pure function: the person's Inventory item if the name matches one, the starter catalog's entry if it
+  matches one, otherwise the category most used by the products the device holds sharing a word with it, otherwise _Other_.
+- **Per-shop aisle order** is phase 3 (§22.2); until then there is one, the list's group's.
 
 ### 8.4 Icons
 
@@ -421,11 +442,13 @@ larger set arrives in phase 2 with a larger starter catalog (4.8).
 
 ### 8.5 Suggestions
 
-The add field (§16.6) suggests as the person types, from one pure function (`src/catalog/suggest.ts`) over **every product of every list the person has** (another list's product lends its quantity, unit, category and icon to a new
-product of this list, and is never itself used, §8.2) and, from phase 2, the last 180 days of trip lines, on the device, offline:
+The add field (§16.6) suggests as the person types, from one pure function (`src/catalog/suggest.ts`), on the device, offline, drawing from, in this
+order: **the person's Inventory** (§8.8, with the starter entries it does not hide), **this list's products**, and **the person's other lists'
+products** (another list's product lends its quantity, unit, category and icon to a new product of this list, and is never itself used, §8.2); and,
+from phase 2, the last 180 days of trip lines:
 
-1. **Matches:** the products whose normalised name starts with what was typed, then those with a word that does, then those within one edit of it,
-   then starter-catalog entries there is no product for, the same way.
+1. **Matches:** the entries whose normalised name starts with what was typed, then those with a word that does, then those within one edit of it.
+   **A hidden starter entry is never offered,** and a starter entry the person renamed is offered by its new name, not its old.
 2. **Ranked** within each tier by how often it was bought in the last 180 days, with recent buys counting more (a weight halving every 30
    days), then by when it was last added, then alphabetically. **In 0.1.0, which has no trip lines,** "how often" is the product's count of
    times bought, then when it was last bought (§8.2); the decayed count over trip lines arrives with trips (7.1).
@@ -433,7 +456,8 @@ product of this list, and is never itself used, §8.2) and, from phase 2, the la
 4. **Always last,** "Add _what was typed_" as a new item, so nobody is stuck when nothing matches.
 
 At most eight are shown. Nothing about ranking is stored: it is computed from the rows the device already holds. With an empty field, the add field
-offers the most often bought products not on the list ("Often bought").
+offers **the person's recurring Inventory items not on the list first** (what staples were to be, §22.2), then the most often bought products not on
+the list ("Often bought").
 
 ### 8.6 The starter catalog
 
@@ -441,13 +465,38 @@ About 150 common groceries in 0.1.0 and about 400 from phase 2 (4.8), in English
 category key, an icon and a default unit. It is data, not rows: a list's product is made from an entry when it is first added there. It is
 reviewed in its own task (4.3) and can grow in any release; other languages are not in phase 1.
 
+**In Inventory it is a layer** (RFC 0006): shown together with the person's own items, and never copied into an account. A person's change to an
+entry (a new name, category, icon, unit, note, recurring, hidden) is an `inventory_item` of theirs that overrides it, by the entry's key; everything
+the person did not change still comes from the entry, so the starter can grow or be corrected in any release and nobody's own words are lost.
+
 ### 8.7 Names
 
 - **Normalising** (`src/catalog/name.ts`, pure): trim, collapse spaces, Unicode NFKC, lower case in the root locale, strip a trailing plural "s" only
   where the starter catalog says so. _Oat Milk_ and _oat milk_ are one product.
 - **The name key** is an HMAC of the normalised name and the list's id under a key derived from the list's first key, made **in the browser**
   (§13.3). It is how the server finds "the same product" on a list without reading a name, and it is unique per list. It reveals only that two
-  products of one list share a name. (While a group is still sealed by the server, §13.7, the server makes it from the name itself.)
+  products of one list share a name. (While a group is still sealed by the server, §13.7, the server makes it from the name itself.) **An Inventory
+  item's name key** is the same HMAC of its normalised name and the group's id under a key derived from the group's Inventory keys (§13.3), unique per
+  group, so the server finds "the same thing" in a person's Inventory without reading it either.
+
+### 8.8 Inventory
+
+**A person's own library of the things they buy** (RFC 0006), across every list and beyond groceries: their own names ("the good bin bags"), their
+own categories (§8.3), what they buy again and again and what they buy once. It answers "the starter catalog does not say it the way we do, and is
+only groceries".
+
+- **The person's alone,** kept in their own group (§7.1), which is never shared. **Nobody on a shared list sees any of it,** and a list's people never
+  pull an `inventory_item` (§12.3). A shared pantry for a home of several people is later, with kinds of group (§22.1).
+- **Shown with the starter catalog,** as one list, the starter's entries and the person's own side by side; the starter is a layer under it (§8.6).
+- **An Inventory item:** a name and its name key (§8.7), a category (a starter one or the person's own), an icon, a unit, a quantity, a note, whether
+  it is **recurring or once** (a mark; a schedule is phase 3, §22.2), whether it is **hidden** (a hidden starter entry is offered nowhere until shown
+  again), and, with the pantry (§22.2), what is on hand and a low point. Its name and note are encrypted in the browser (§13.1).
+- **It fills itself:** a new name typed on any list makes an Inventory item of the person who typed it, marked once, unless they already have one, so
+  nobody keeps it up by hand (§16.12); people tidy it if they want to. That write is a mutation of the person's own group, beside the list's.
+- **A list's products stay** (§8.2, RFC 0004): a list keeps its own catalog, so sharing a list shares nothing of anyone's Inventory. A list's new
+  product is made from the adding person's Inventory item when there is one (§8.2).
+- **Written through the one path** (`src/actions/`, `src/sync/apply.ts`), merged by field, folded by name key as products are (§12.4), restored by an
+  edit after a delete. Exported, imported, and removed by `People.deletePerson` (§18, §19).
 
 ## 9. Lists and items
 
@@ -516,11 +565,10 @@ Items are grouped by category in the aisle order, and within a category by their
 of its design) that anyone on the list changes by dragging within the category (`DragHandleRow`, dnd-kit), keyboard too. Two devices moving one item to one
 place keep the key, ties broken by id (Tusk §8.4). A list can also be shown **in the order added**, a view choice kept on the device.
 
-### 9.7 All lists (phase 2)
+### 9.7 All lists
 
-`/all` shows every open item of every list the person is on, grouped by category in the aisle order,
-each item tagged with its list. It is **fully editable** (ticking, editing, deleting), since it reads the same store; adding asks which list. It is a
-view, not a list: it has no settings and cannot be shopped as one; shopping across several lists is in shopping mode (§11.2).
+**Every list the person is on is on Home** (§16.4, RFC 0006): a tile each, own then shared, with archived lists behind a toggle. Phase 2's _All lists_
+page (`/all`, every open item of every list in one view) is not built; shopping across several lists is in shopping mode (§11.2).
 
 ## 10. Trips (phase 2)
 
@@ -650,7 +698,7 @@ Tally's counter per group, here each account's group (§7.1).
 ### 12.1 The model
 
 - **The device holds the lists the account is on, by group, and nothing else of a group:** their people (names), open and bought items, products,
-  the group's categories, and, from phase 2, shops and trips of
+  the group's starter categories and the lists' copies of others (§8.3), **and the account's own Inventory and categories** (§8.8), and, from phase 2, shops and trips of
   the last 180 days with their lines, in IndexedDB through `idb`, one database per account (`shopper-<account id>`). Screens read from it, and
   suggestions, totals and aisle order are computed from it, so everything is readable and writable offline. Older trips are fetched online when the
   history is scrolled to them.
@@ -687,7 +735,7 @@ the item's `boughtAt` and `boughtBy`.
 - **Ids are made by the device,** so a new item, product or trip exists at once and everything can point at it offline. A mutation's id makes sending
   it twice harmless: the server records what it has applied.
 - **Only what changed is sent:** a field, not a row (Tusk's Desk). That is what makes most conflicts vanish (§12.4).
-- **What syncs offline:** everything about lists, items, products, categories and the aisle order, shops, trips and trip lines. Everything else is
+- **What syncs offline:** everything about lists, items, products, categories and the aisle order, Inventory, shops, trips and trip lines. Everything else is
   online (§12.8).
 - **The validators are one module,** run by the browser before it queues and by the server before it applies.
 
@@ -698,7 +746,8 @@ was applied (with any fold, §12.4), what was refused and why, the groups the ac
 
 - **Order is a counter per group** (`household.seq`), as Tally's. Applying a mutation is one short transaction: increment the group's `seq`, merge each change field by field, stamp each changed field and row with the `seq`, record the mutation id, write any notice. The
   increment serialises one group's writes without holding up any other.
-- **Pull** returns, per group, rows of the reader's lists whose `seq` is past the cursor, paged at `seq` boundaries, tombstones and aliases included,
+- **Pull** returns, per group, rows of the reader's lists whose `seq` is past the cursor (and, for the reader's own group alone, its Inventory and
+  categories: **an `inventory_item` is handed to nobody but its group's own account,** a condition of the statement, §5.2), paged at `seq` boundaries, tombstones and aliases included,
   and **names every list of the group the reader may see**: the device deletes any other it holds, with its items, people and catalog. **Joining a
   list re-stamps its rows** at the join's `seq`, so a device whose cursor is past them pulls them; an item moved to a list a reader is not on leaves a
   tombstone handed only to readers who cannot see it where it is now. A group new to the device starts at zero; one the account is on no list of any
@@ -714,21 +763,21 @@ was applied (with any fold, §12.4), what was refused and why, the groups the ac
 
 Resolved by rule, in the background, with nothing asked. Fields merge independently, so two people editing different things of one item both stand.
 
-| What happened                                                       | What results                                                                                                                                                                                |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Two people change different fields of an item, product or list      | Both changes stand                                                                                                                                                                          |
-| Two people change the same field                                    | The one that reached the server later wins                                                                                                                                                  |
-| Two people add the same product to one list (neither saw the other) | **Folded:** the later item becomes an alias of the earlier; one item, the larger quantity, both notes joined, the earlier adder named. A device's later changes to the alias go to the item |
-| Two people tick the same item                                       | **The first tick stands,** with its trip line (phase 2); the second is folded into it and changes nothing                                                                                   |
-| One ticks, another unticks                                          | The later to arrive stands, with or without its line                                                                                                                                        |
-| One edits or ticks an item another deleted                          | The edit restores it: losing someone's work is worse than an item coming back. A tick restores it as bought                                                                                 |
-| One edits a bought item another cleared                             | The edit stands on the item and its trip line; the item stays cleared                                                                                                                       |
-| Both delete                                                         | Deleted                                                                                                                                                                                     |
-| Two people move an item to one position                             | Both keep the key; ties break by id, so every device shows one order                                                                                                                        |
-| An item is added to a list another person archived or deleted       | Archived: the list is restored. Deleted for good: refused, to Couldn't sync                                                                                                                 |
-| Two people make a product with the same name on a list              | **Folded** by name key: the later becomes an alias of the earlier, and its items and lines point at the earlier                                                                             |
-| A product is merged into another while a device adds an item for it | The item points at the product it was merged into                                                                                                                                           |
-| Two trips finish the same item's clearing (phase 2)                 | Cleared once                                                                                                                                                                                |
+| What happened                                                                                           | What results                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Two people change different fields of an item, product or list                                          | Both changes stand                                                                                                                                                                          |
+| Two people change the same field                                                                        | The one that reached the server later wins                                                                                                                                                  |
+| Two people add the same product to one list (neither saw the other)                                     | **Folded:** the later item becomes an alias of the earlier; one item, the larger quantity, both notes joined, the earlier adder named. A device's later changes to the alias go to the item |
+| Two people tick the same item                                                                           | **The first tick stands,** with its trip line (phase 2); the second is folded into it and changes nothing                                                                                   |
+| One ticks, another unticks                                                                              | The later to arrive stands, with or without its line                                                                                                                                        |
+| One edits or ticks an item another deleted                                                              | The edit restores it: losing someone's work is worse than an item coming back. A tick restores it as bought                                                                                 |
+| One edits a bought item another cleared                                                                 | The edit stands on the item and its trip line; the item stays cleared                                                                                                                       |
+| Both delete                                                                                             | Deleted                                                                                                                                                                                     |
+| Two people move an item to one position                                                                 | Both keep the key; ties break by id, so every device shows one order                                                                                                                        |
+| An item is added to a list another person archived or deleted                                           | Archived: the list is restored. Deleted for good: refused, to Couldn't sync                                                                                                                 |
+| Two people make a product with the same name on a list (or two devices an Inventory item with one name) | **Folded** by name key: the later becomes an alias of the earlier, and its items and lines point at the earlier                                                                             |
+| A product is merged into another while a device adds an item for it                                     | The item points at the product it was merged into                                                                                                                                           |
+| Two trips finish the same item's clearing (phase 2)                                                     | Cleared once                                                                                                                                                                                |
 
 Folding (`src/sync/fold.ts`) is applied by the server in the mutation's transaction and recorded in `alias` (§20.3), which pull hands to devices so
 they re-point what they hold. It is the only change the server makes that a device did not send. **Joining two notes needs their text,** which the
@@ -813,9 +862,9 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 
 ### 13.1 What is encrypted
 
-| Encrypted in the browser, under the list's keys                                                                                                                                                                                                     | Readable by the server                                                                                                                                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
+| Encrypted in the browser, under the list's keys (Inventory and a person's own categories under their group's Inventory keys)                                                                                                                                                                         | Readable by the server                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); list category: name; inventory item: name, note; shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
 
 - **Each field is its own ciphertext** (`encryptBytes` under the list's content key, `importDocumentKey`), bound to list, table, row, field and epoch,
   and stored as `e2.<epoch>.<list>.<row>.<ciphertext>`, so a value moved to another row, field or list does not open, and the server, which cannot
@@ -825,6 +874,8 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 - **An item that changes list is encrypted again for the new one:** the device sends its name and note again, whatever the change was (a move, its
   Undo, a refused change moved to another list), and the server refuses a change of list without them. Its product is one of the new list's (§9.4).
 - **Prices, shops, trips and barcodes** arrive, encrypted, with the phase that adds them.
+- **Inventory** (§8.8) and a person's own categories are bound the same way to their group in place of a list, under the group's Inventory keys
+  (§13.2); a list's copy of a category (`list_category`) is the list's, under the list's keys.
 - **Field merging is unchanged** (§12.4): field stamps say which write is later, and the value is opaque. **Search, suggestions, totals, unit prices,
   aisle order and the plugin's import** run on the device, over what it has opened; the server has no copy of any of them.
 - **The server never shows, logs or decrypts** a value, and a screen that cannot open one shows `LockedState`, never ciphertext.
@@ -842,6 +893,9 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 - **A list's keyring is derived from its group's** (`deriveListKeyring`: each epoch's key through HKDF, `shopper:list-key:v1`, with the list's id), so
   the account's devices hold every list's keys with nothing more stored, and **one list's keyring opens nothing of another list's, nor gives back the
   group's**.
+- **A group's Inventory keys are derived from its keyring** the same way (`shopper:inventory-key:v1`, with the group's id), and are never given to
+  anyone: no link carries them and no `list_key` holds them, so nobody on a shared list can open a person's Inventory or own categories, even from a
+  copy of the database.
 - **Someone given a list by a link keeps their own copy of its keyring** in `list_key`, wrapped under their own app key (`lr1.`), kept by
   `list.key.mine`, handed back to them in each pull of a list they are on, and deleted when they leave it or are removed, with the list and with the
   person. Until the server has it, the copy waits in the browser (`src/keys/pending.ts`) and is used meanwhile. A device looks for its own copy first,
@@ -857,7 +911,8 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 
 `HMAC-SHA-256(K_name, list_id ‖ normalised name)`, with `K_name` derived by HKDF (`shopper:name-key:v3`) from the list's **first** key, made in the
 browser and sent with the product (`n3.`). The server folds products of one list whose name keys are equal and keeps one per name on a list, without
-reading a name. It does not change with the epoch, so folding holds across devices; it differs from list to list, so the same name on two lists says
+reading a name. An Inventory item's name key is the same HMAC with the group's id, under `K_name` derived from the group's Inventory keys, and the
+server folds a person's Inventory by it (§8.7). It does not change with the epoch, so folding holds across devices; it differs from list to list, so the same name on two lists says
 nothing; the cost is that someone removed from a list who also had a copy of the database could test a name they guess on it.
 
 ### 13.4 What the server still holds
@@ -1044,8 +1099,8 @@ Designed anew; the plugin's layout is not carried over, though its lessons are (
 
 `@sovereignfs/ui` throughout, imported directly; `--sv-*` tokens only; Hanken Grotesk served by the app. **Screens paint from the device** (§12.1), so
 after the first load nothing shows a spinner to see what was already seen; a screen that needs the server (notices, settings, old trips) shows a
-skeleton. Every surface has an empty state that says what to do next. An item not yet synced shows a small clock mark and nothing more. **The list is
-home;** everything else is one step away. Prices are tabular figures with their currency. Bought is shown by a tick, strikethrough and a
+skeleton. Every surface has an empty state that says what to do next. An item not yet synced shows a small clock mark and nothing more. **Home is where
+Shopper opens, and the last list is one tap from it** (§16.4); everything else is one step away. Prices are tabular figures with their currency. Bought is shown by a tick, strikethrough and a
 muted row, never by colour alone.
 
 ### 16.2 The frame
@@ -1089,28 +1144,43 @@ The same routes on both; only what is drawn differs. Shopper adopts it first; Tu
 
 ### 16.3 Screens and addresses
 
-| Address                             | What                                                                                          |
-| ----------------------------------- | --------------------------------------------------------------------------------------------- |
-| `/`                                 | The landing page for a visitor; for someone signed in, the last list they used (§16.4)        |
-| `/l/<id>`                           | A list (§16.5); `?view=added` for the order added                                             |
-| `/l/<id>?settings=<section>`        | The list's settings, in the settings dialog over the list (§16.5)                             |
-| `/l/<id>/settings`                  | Redirects to `?settings=general`; there is no page                                            |
-| `/shop?h=<id>&l=<id>,…`             | Shopping mode (§11); one list in phase 1 (`h` is the list's group)                            |
-| `/all`                              | All lists (§9.7), phase 2                                                                     |
-| `/trips`, `/trips/<id>`, `/catalog` | Trips (§10.5) and the catalogs and categories (§16.8), phase 2                                |
-| `/notifications`                    | Every notice (§14.1), phase 2                                                                 |
-| `/settings/<section>`               | Settings (§17): `profile`, `security`, `preferences`, `data`; `/settings?section=…` redirects |
-| `/invite/<token>`                   | An invitation (§7.3), for anyone                                                              |
-| `/sign-in`, `/sign-up`              | Standalone, the forms; in suite mode, straight to core (§15.1)                                |
+| Address                      | What                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `/`                          | The landing page for a visitor; for someone signed in, Home (§16.4)                           |
+| `/l/<id>`                    | A list (§16.5); `?view=added` for the order added                                             |
+| `/l/<id>?settings=<section>` | The list's settings, in the settings dialog over the list (§16.5)                             |
+| `/l/<id>/settings`           | Redirects to `?settings=general`; there is no page                                            |
+| `/shop?h=<id>&l=<id>,…`      | Shopping mode (§11); one list in phase 1 (`h` is the list's group)                            |
+| `/inventory`                 | Inventory (§16.8): a person's items and categories                                            |
+| `/trips`, `/trips/<id>`      | Trips (§10.5), phase 2, linked from Home                                                      |
+| `/notifications`             | Every notice (§14.1), phase 2                                                                 |
+| `/settings/<section>`        | Settings (§17): `profile`, `security`, `preferences`, `data`; `/settings?section=…` redirects |
+| `/invite/<token>`            | An invitation (§7.3), for anyone                                                              |
+| `/sign-in`, `/sign-up`       | Standalone, the forms; in suite mode, straight to core (§15.1)                                |
 
 An item opens beside its list at `?item=<id>` (§16.7), so that a link and the back button behave. The sharing dialog opens the same way, at
 `?share=1`, and a list's settings at `?settings=<section>`, so that Back closes them and a link opens them, offline too.
 
-### 16.4 Landing
+### 16.4 Home
 
-Signed in, `/` opens **the last list the person used**, kept on the device (and, once something writes it, in `account_settings`, so that a new device
-starts there too: the table exists since 17.4), or their own first list. A brand-new account lands on its _Groceries_, empty, with the add field focused and one line: "Add what you need. To
-shop with others, press Share." A person who arrived by an invitation lands on that list.
+**Signed in, `/` opens Home** (RFC 0006). Its first tile is **Continue**: the list the person used last, with its open count ("Continue: Groceries"),
+kept on the device (and, once something writes it, in `account_settings`, so that a new device starts there too: the table exists since 17.4), or
+their own first list.
+
+| Part                                                                                                    | When                          |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| **Continue:** the last list used, with its open count                                                   | Now                           |
+| **Lists:** a tile for every list, own then shared, with icon, colour, name, open count and who is on it | Now; archived behind a toggle |
+| **At a glance:** open items across the lists, bought this week, the most bought                         | Now                           |
+| **What happened:** "Anna added 3 items to Groceries"                                                    | With notices (9.2)            |
+| **Trips and spending:** the last trips, this month's total, a link to the trips history                 | With trips (7.1, 7.5)         |
+| **Running low, and staples to add**                                                                     | With the pantry (13.1, 13.2)  |
+
+- **Everything on Home is computed on the device** from the rows it holds, offline, as suggestions are (§8.5); nothing is stored for it. Who is on a
+  list shows as initials until `AvatarStack` is released (16.3).
+- **A brand-new account** opens Home, whose Continue is its _Groceries_, with one line: "Add what you need. To shop with others, press Share." **A
+  person who arrived by an invitation** lands on that list, not on Home.
+- **On a phone** Home is the footer's left icon (§16.11), and it links to Inventory.
 
 ### 16.5 A list
 
@@ -1156,13 +1226,16 @@ one made there, and its name and note are encrypted again for it, §13.1); "Reme
 no Save, as Tusk's card; **Delete** is a quiet text action, with _Undo_ (§12.7). Who added it and when, and if bought, who and in which trip, at the
 foot.
 
-### 16.8 The catalog (phase 2)
+### 16.8 Inventory
 
-`/catalog` has two tabs, for a list chosen at the top:
+`/inventory` (RFC 0006), in the sidebar's first block and linked from Home. **It is the catalog screen** phase 2 planned (8.6), a person's own: a
+list's own products are tidied where they are used, from an item's panel (§16.7), and merging a list's products is a task of its own (5.6).
 
-- **Products:** every product, searchable, grouped by category, each with icon, name, default unit, last unit price and times bought. Open one to
-  rename it, change category, icon, unit, note or barcode, **merge** it into another (§8.2), or delete it.
-- **Categories:** the aisle order as a draggable list (`DragHandleRow`), each with rename, icon, hide; _Add category_ at the end.
+- **Items:** every item, the person's and the starter's together, **searchable**, grouped by category, filtered by category, by **recurring or once**
+  and by **mine, starter or hidden**. An item opens in the right column (as an item of a list does, §16.7): its name, category, icon, unit, quantity,
+  note, recurring, hide or restore, and **Add to a list**. _+ Add item_ at the top.
+- **Categories:** the aisle order as a draggable list (`DragHandleRow`, a keyboard way too), each with rename, icon and hide; _Add category_ at the
+  end (§8.3).
 
 ### 16.9 Sharing a list
 
@@ -1275,9 +1348,9 @@ The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), 
 ### 18.1 Export
 
 - **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, and **every list
-  they are on, whole** (its people by name only), with its items, catalog and its group's categories, and what phase 2 adds, under
-  `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
-  own wrapped keys beside them (the group's for their own lists, their copies for lists shared with them), so that their keys open it.
+  they are on, whole** (its people by name only), with its items, catalog, the categories it uses (its group's starter ones and its
+  `list_category` copies), and **their own Inventory and categories** (§8.8), and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
+  own wrapped keys beside them (the group's for their own lists and Inventory, their copies for lists shared with them), so that their keys open it.
 - **A person's own export, readable** (RFC 0005, 22.8), in both modes, from **Settings › Data**: **one JSON file**, `shopper-export-<date>.json`,
   **made in the browser,** which holds the keys. The server checks who is asking and serves the person's records as it holds them (the same records as
   core's export); the browser opens them and writes the file, so the server never reads a name to make it. **Confirmed first, as core's export is:**
@@ -1327,6 +1400,8 @@ shared record. One routine, safe to run again; the `sub` link goes last.
   Admin they were** passes to the person on it longest, who becomes its Admin (and is told, `admin_passed`, phase 2), and stays in their group, which
   nobody owns from then; **elsewhere they leave.** A group nobody is left on is deleted whole, by `household_id`. Their open trips are finished
   (phase 2).
+- **Their Inventory and their own categories** are deleted, by `household_id`, whether or not their group stays for a list that passed on; a list's
+  copy of one of their categories (`list_category`) stays with its list, as the list's.
 - **Removed** (the rows that exist, phase by phase): notices for them, digests for and about them, their notice preferences, invitations they made
   (revoked) and to them, their device subscriptions, their group's keyring and their copies of lists' keys, their vault (`vault.deleteAccount`), their
   export jobs, their stored core token, their settings, rate counters, mail queued to them, and better-auth's rows: passkeys, two-factor, sessions,
@@ -1368,44 +1443,48 @@ vault tables and the export package's jobs (their own migrations, recorded apart
 `household` has no `color` or `currency`, and its sealed name is empty; `invitation` has no email; `product` has no barcode, last unit price or
 `price_unit`; `item` has no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`,
 `notice_digest`, `notice_pref`, `mail_outbox` and `credential`, and those columns. **Workstream 0002 adds** (§2.3) a list's icon and colour, two
-fields of its `encrypted` and no column, so a list made before them has neither and is shown with the defaults (§9.1). **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
+fields of its `encrypted` and no column, so a list made before them has neither and is shown with the defaults (§9.1); `inventory_item` and
+`list_category` (§8.3, §8.8); and a person's own categories' names in `category`'s `encrypted`. **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
 account tables, the core sign-in's, the session's key secret (`sv_key_secrets`) and the SDK's stores, moved there from 0.2.x's better-auth tables at
 start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` columns are left in place and read by nothing but the move.
 
-| Table              | Columns                                                                                                                                                                                                                                                                                                        |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `person`           | `id`, `account_id` (unique, may be null), `core_sub` (unique, may be null), `kind` (`account`, `imported`), `sealed` (name, email), `deleted_at`, `created_at`, `updated_at`                                                                                                                                   |
-| `household`        | The group (§7.1): `id`, `own_of` (its account's `account_id`, unique; null once that account is deleted), `sealed` (name), `seq`, `encryption` (`sealed`, `encrypted`), `epoch`, `created_by`, `created_at`, `updated_at`                                                                                      |
-| `member`           | `id`, `household_id`, `person_id`, `role`, `joined_at`, `left_at`, `seq`: the group's own account, its only member                                                                                                                                                                                             |
-| `list_member`      | `id`, `household_id`, `list_id`, `person_id` (unique with `list_id`), `role` (`admin`, `member`), `joined_at`, `left_at`, `seq` (§7.2)                                                                                                                                                                         |
-| `invitation`       | `id`, `household_id`, `list_id`, `token_hash` (unique), `wrapped_key` (the list's keyring under the link's secret, §13.5), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                                     |
-| `category`         | `id`, `household_id`, `starter_key`, `sealed` (name, when renamed or added), `icon`, `position`, `hidden`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                         |
-| `product`          | `id`, `household_id`, `list_id`, `name_key` (unique with `household_id` and `list_id`), `sealed` (name, note, barcode, last unit price), `category_id`, `icon`, `default_quantity`, `default_unit`, `price_unit`, `times_bought`, `last_bought_at`, `last_added_at`, `deleted_at`, `seq`, `fseq`, `created_at` |
-| `list`             | `id`, `household_id`, `sealed` or `encrypted` (name, icon, colour), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                      |
-| `item`             | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                                                     |
-| `shop`             | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                             |
-| `trip`             | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                               |
-| `trip_line`        | `id`, `household_id`, `trip_id`, `item_id`, `product_id`, `list_id`, `sealed` (name, list name, price), `quantity`, `unit`, `category_id`, `bought_by`, `bought_at`, `deleted_at`, `seq`, `fseq`                                                                                                               |
-| `alias`            | `household_id`, `table`, `from_id` (the key with `table`), `to_id`, `list_id`, `carried`, `seq`, `created_at` (§12.4)                                                                                                                                                                                          |
-| `notice`           | `id`, `account_id`, `kind`, `actor_person_id`, `household_id`, `subject_id`, `details` (JSON, sealed where it names something), `read_at`, `created_at`                                                                                                                                                        |
-| `notice_digest`    | `account_id`, `list_id`, `actor_person_id`, `window_start` (the key), `household_id`, `count`, `updated_at`                                                                                                                                                                                                    |
-| `notice_pref`      | `account_id`, `kind`, `channel` (the key), `on`                                                                                                                                                                                                                                                                |
-| `account_settings` | `account_id` (the key), `last_list_id`, `inbox_seen_at`, `created_at`, `updated_at`                                                                                                                                                                                                                            |
-| `mail_outbox`      | `id`, `account_id` or `sealed` (address), `template`, `data` (sealed JSON), `attempts`, `next_attempt_at`, `sent_at`, `failure_kind`, `created_at`                                                                                                                                                             |
-| `applied_mutation` | `account_id`, `id`, `household_id`, when (§12.9)                                                                                                                                                                                                                                                               |
-| `tombstone`        | `table`, `id`, `household_id`, `list_id` (who may be handed it), `seq`, when (§12.9)                                                                                                                                                                                                                           |
-| `credential`       | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                                               |
-| `household_key`    | `household_id`, `person_id` (the key), `epoch`, `record` (the group's keyring wrapped under its account's app key), `created_at` (§13.2)                                                                                                                                                                       |
-| `list_key`         | `list_id`, `person_id` (the key), `household_id`, `epoch`, `record` (the list's keyring wrapped under that person's app key), `created_at` (§13.2)                                                                                                                                                             |
-| `push_device`      | `id` (the push service's endpoint for the device), `account_id`, `sealed` (its keys, §13.4), `saved_at`: at most ten an account (RFC 0002)                                                                                                                                                                     |
-| `push_outbox`      | `id`, `account_id`, `endpoint`, `message` (a kind, who did it and a path; never a name), `attempts`, `due_at`, `claimed_until`, `expires_at`                                                                                                                                                                   |
-| `rate_bucket`      | As Tusk's. A job claims its work by a conditional update of the row it works on (`src/jobs/claim.ts`), not by a table                                                                                                                                                                                          |
+| Table              | Columns                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `person`           | `id`, `account_id` (unique, may be null), `core_sub` (unique, may be null), `kind` (`account`, `imported`), `sealed` (name, email), `deleted_at`, `created_at`, `updated_at`                                                                                                                                                                                                                       |
+| `household`        | The group (§7.1): `id`, `own_of` (its account's `account_id`, unique; null once that account is deleted), `sealed` (name), `seq`, `encryption` (`sealed`, `encrypted`), `epoch`, `created_by`, `created_at`, `updated_at`                                                                                                                                                                          |
+| `member`           | `id`, `household_id`, `person_id`, `role`, `joined_at`, `left_at`, `seq`: the group's own account, its only member                                                                                                                                                                                                                                                                                 |
+| `list_member`      | `id`, `household_id`, `list_id`, `person_id` (unique with `list_id`), `role` (`admin`, `member`), `joined_at`, `left_at`, `seq` (§7.2)                                                                                                                                                                                                                                                             |
+| `invitation`       | `id`, `household_id`, `list_id`, `token_hash` (unique), `wrapped_key` (the list's keyring under the link's secret, §13.5), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                                                                                                                         |
+| `category`         | `id`, `household_id`, `starter_key`, `sealed` or `encrypted` (name, when renamed or added; a person's own under the group's Inventory keys), `icon`, `position`, `hidden`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                             |
+| `product`          | `id`, `household_id`, `list_id`, `name_key` (unique with `household_id` and `list_id`), `sealed` (name, note, barcode, last unit price), `category_id`, `icon`, `default_quantity`, `default_unit`, `price_unit`, `times_bought`, `last_bought_at`, `last_added_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                     |
+| `list`             | `id`, `household_id`, `sealed` or `encrypted` (name, icon, colour), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                                                                                                          |
+| `item`             | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                         |
+| `inventory_item`   | `id`, `household_id` (the person's own group), `starter_key` (the starter entry it overrides, or null for one of their own), `name_key` (unique with `household_id`), `encrypted` (name, null when an override keeps the starter's; note), `category_id`, `icon`, `unit`, `quantity`, `recurring`, `hidden`, `on_hand` and `low_point` (phase 3), `deleted_at`, `seq`, `fseq`, `created_at` (§8.8) |
+| `list_category`    | `id`, `household_id`, `list_id`, `category_id` (the category it copies), `encrypted` (name, under the list's keys), `icon`, `position`, `deleted_at`, `seq`, `fseq` (§8.3)                                                                                                                                                                                                                         |
+| `shop`             | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                                                                                                                 |
+| `trip`             | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                                                   |
+| `trip_line`        | `id`, `household_id`, `trip_id`, `item_id`, `product_id`, `list_id`, `sealed` (name, list name, price), `quantity`, `unit`, `category_id`, `bought_by`, `bought_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                   |
+| `alias`            | `household_id`, `table`, `from_id` (the key with `table`), `to_id`, `list_id`, `carried`, `seq`, `created_at` (§12.4)                                                                                                                                                                                                                                                                              |
+| `notice`           | `id`, `account_id`, `kind`, `actor_person_id`, `household_id`, `subject_id`, `details` (JSON, sealed where it names something), `read_at`, `created_at`                                                                                                                                                                                                                                            |
+| `notice_digest`    | `account_id`, `list_id`, `actor_person_id`, `window_start` (the key), `household_id`, `count`, `updated_at`                                                                                                                                                                                                                                                                                        |
+| `notice_pref`      | `account_id`, `kind`, `channel` (the key), `on`                                                                                                                                                                                                                                                                                                                                                    |
+| `account_settings` | `account_id` (the key), `last_list_id`, `inbox_seen_at`, `created_at`, `updated_at`                                                                                                                                                                                                                                                                                                                |
+| `mail_outbox`      | `id`, `account_id` or `sealed` (address), `template`, `data` (sealed JSON), `attempts`, `next_attempt_at`, `sent_at`, `failure_kind`, `created_at`                                                                                                                                                                                                                                                 |
+| `applied_mutation` | `account_id`, `id`, `household_id`, when (§12.9)                                                                                                                                                                                                                                                                                                                                                   |
+| `tombstone`        | `table`, `id`, `household_id`, `list_id` (who may be handed it), `seq`, when (§12.9)                                                                                                                                                                                                                                                                                                               |
+| `credential`       | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                                                                                                                                   |
+| `household_key`    | `household_id`, `person_id` (the key), `epoch`, `record` (the group's keyring wrapped under its account's app key), `created_at` (§13.2)                                                                                                                                                                                                                                                           |
+| `list_key`         | `list_id`, `person_id` (the key), `household_id`, `epoch`, `record` (the list's keyring wrapped under that person's app key), `created_at` (§13.2)                                                                                                                                                                                                                                                 |
+| `push_device`      | `id` (the push service's endpoint for the device), `account_id`, `sealed` (its keys, §13.4), `saved_at`: at most ten an account (RFC 0002)                                                                                                                                                                                                                                                         |
+| `push_outbox`      | `id`, `account_id`, `endpoint`, `message` (a kind, who did it and a path; never a name), `attempts`, `due_at`, `claimed_until`, `expires_at`                                                                                                                                                                                                                                                       |
+| `rate_bucket`      | As Tusk's. A job claims its work by a conditional update of the row it works on (`src/jobs/claim.ts`), not by a table                                                                                                                                                                                                                                                                              |
 
 Indexes follow the queries: a list's people by person and by list; every synced table by `(household_id, seq)` for pull; items
 by list; trip lines by trip and by `(household_id, bought_at)` for suggestions; trips by `(household_id, started_at)` and open trips by person;
-invitations by list; notices by account and time; the mail outbox by `next_attempt_at`; digests by `updated_at`.
+invitations by list; Inventory by `(household_id, seq)` like every synced table and by `(household_id, starter_key)`; notices by account and time; the mail outbox by `next_attempt_at`; digests by `updated_at`.
 
-**The device's store** holds, per group, the lists the person is on, their people's names, items not cleared, products, the group's categories,
+**The device's store** holds, per group, the lists the person is on, their people's names, items not cleared, products, the group's starter
+categories and the lists' copies of others, the account's own Inventory and categories,
 shops, trips of the last 180 days and their lines, and aliases; and per account the cursors, the outbox, Couldn't sync, the freshness choice, the last list, the
 last-synced unread count, and view choices. Nothing else.
 
@@ -1478,8 +1557,8 @@ Everything the first design put in phase 1 that 0.1.0 leaves out (§2.2). Each i
 
 - **Groups:** kinds of group (a household, a group of friends), naming them, several a person; changing a list's roles; invitations by email;
   `AvatarStack`; a new key epoch for a list when someone leaves it (§7, §13.2).
-- **Catalog:** editing and merging products; renaming, hiding, adding and reordering categories; All lists; reading "2 oat milk"; about 400 starter
-  entries with grocery icons (§8, §9.7, §16.8).
+- **Catalog:** merging and deleting products; reading "2 oat milk"; about 400 starter entries with grocery icons (§8). Editing categories, All lists
+  and the catalog screen came before phase 2, as Inventory and Home (§2.3, §8.8, §16.4).
 - **Trips and prices:** ticking also writes a trip line; shops; prices, unit prices and totals; shopping mode with a shop, a total and "shopping too";
   several lists; the trips history; the clearing rules (§10, §11).
 - **Notices and mail:** the mail outbox, notices and the bell, the items-added digest, preferences and delivery (§14).
@@ -1492,12 +1571,13 @@ Everything the first design put in phase 1 that 0.1.0 leaves out (§2.2). Each i
 
 ### 22.2 Phase 3: the pantry and routines
 
-- **The pantry:** a product can be **kept at home**, with an amount on hand, adjusted when a trip line is bought (plus its quantity, in the product's
-  unit) and by hand ("used up", "have 2"); and a **low point**. A product at or below it is offered on a chosen list ("Running low: oat milk, eggs")
+- **The pantry:** an **Inventory item** (§8.8, RFC 0006; not a list's product) can be **kept at home**, with an amount on hand, adjusted when a trip
+  line of it is bought (plus its quantity, in the item's unit) and by hand ("used up", "have 2"); and a **low point**. It is a person's; a pantry
+  shared by a home of several people waits for kinds of group (§22.1). A product at or below it is offered on a chosen list ("Running low: oat milk, eggs")
   and can be added to it automatically, the list's choice.
-- **Staples:** products marked as always wanted; the add field's empty state offers those not on the list first, and _Add staples_ puts every missing
-  one on the list.
-- **Repeating items:** a product added to a list every N days or weeks, on a rule (Tusk's rule format, as Ledger and Tally copy it), by the server's
+- **Staples:** Inventory items marked **recurring** (§8.8), which the add field's empty state already offers first (§8.5); _Add staples_ puts every
+  missing one on the list.
+- **Repeating items:** a recurring Inventory item added to the list the person chooses every N days or weeks, on a rule set on the item (Tusk's rule format, as Ledger and Tally copy it), by the server's
   job, idempotent on `(rule, occurrence)`, and on the device for a list that is offline.
 - **Templates:** a list's items saved as a template ("weekly shop", "barbecue"), applied to a list in one action, adding what is missing at the
   template's quantities.
@@ -1556,6 +1636,14 @@ this file (22.1, 23.1, 24.1) found these, each written here as proposed and wait
    a plain default would say what it is. Proposed: a list with neither is shown with the defaults, and nothing is written for it.
 2. **The sidebar's words** (§7.4, §16.2): RFC 0005 says _My lists_ and _Shared with me_; 0.3.0 says _Your lists_ and _Shared with you_. Proposed:
    RFC 0005's, changed with the frame (22.11).
+3. **Limits for Inventory** (§7.6): RFC 0006 sets none, and every limit is a setting. Proposed: `SHOPPER_LIMIT_INVENTORY_ITEMS`, 5000, as a group's
+   products; a person's own categories count against `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`.
+4. **Inventory in a group still sealed by the server** (§13.7): a group that could not move has no keyring to derive Inventory keys from. Proposed:
+   its Inventory and own categories are sealed by the server as the rest of its content is, and move with it.
+5. **An item's category on a shared list** (§8.3): RFC 0006 makes a list's copy of a person's category; proposed that an item then points at the
+   copy (`list_category`), so that nothing a change points at is another group's.
+6. **All lists** (§9.7): RFC 0006 makes _All lists_ Home's tiles; proposed that phase 2's view of every open item in one place is not built, rather
+   than kept as a page beside Home.
 
 ## 26. Decision log
 
@@ -1608,4 +1696,6 @@ this file (22.1, 23.1, 24.1) found these, each written here as proposed and wait
 | 2026-11-22 | **Sign-in on `@sovereignfs/auth`, built** (ADR 0001 accepted, task 17.5): the auth store moves onto the package's tables at start; everyone signs in once more after the upgrade, under the package's cookie                                                                               | What the ADR's fallback waited on was released in `@sovereignfs/auth` 0.6.0                                                                         |
 | 2026-11-23 | **One way in per instance** (RFC 0005): suite mode signs in through core only, standalone through Shopper's own accounts only; an instance configured with both starts in suite mode. Supersedes "locally, through core, or both" and linking (2.9)                                        | A suite signs in through core; a standalone app has no core to offer                                                                                |
 | 2026-11-23 | **The suite's frame, Settings as `SettingsDialog`, an item beside its list, a list's icon and colour (encrypted), page titles set by the browser** (RFC 0005); the frame and the dialog are built in `@sovereignfs/ui` first                                                               | Shopper looks and behaves as the suite's apps do, and reusable UI is the design system's                                                            |
+| 2026-11-23 | **Home is where Shopper opens,** with _Continue_ for the last list; _All lists_ is Home's (RFC 0006). Supersedes the landing on the last list (§16.4 as it was)                                                                                                                            | The owner's decision: Continue keeps the last list one tap away                                                                                     |
+| 2026-11-23 | **Inventory, a person's own library of what they buy,** never shared, with the starter catalog layered under it and their own categories, copied per list as a list uses them (RFC 0006). The catalog screen is Inventory; the pantry, staples and repeating items are Inventory's         | Sharing it would break RFC 0004; copying the starter into every account would freeze it                                                             |
 | 2026-11-23 | **A person's own export is readable,** one JSON file made in the browser after confirming it is them (RFC 0005); core's export keeps Shopper's part as ciphertext. Supersedes 20.2 as written                                                                                              | The owner's decision: people get their data readable now                                                                                            |
