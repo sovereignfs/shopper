@@ -1400,9 +1400,11 @@ The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), 
 - **A person's own export, readable** (RFC 0005, 22.8), in both modes, from **Settings › Data**: **one JSON file**, `shopper-export-<date>.json`,
   **made in the browser,** which holds the keys. The server checks who is asking and serves the person's records as it holds them (the same records as
   core's export); the browser opens them and writes the file, so the server never reads a name to make it. **Confirmed first, as core's export is:**
-  standalone, the password again (the value the browser derives, through `ExportPanel`, as core does); in suite mode, a fresh sign-in at core
-  (`prompt=login`). The file has the contract's head (`format`, `kind: "person"`, `producer`, `takenAt`) and the same kinds and fields of record,
-  opened. It is not the contract's zip, whose writer needs Node; when `@sovereignfs/export` can write one in the browser (16.26) the file becomes it.
+  standalone, the password again (the value the browser derives, never sent; a plain form like account deletion's, since `ExportPanel` is for exports a
+  server makes and downloads once); in suite mode, a fresh sign-in at core (`prompt=login`), checked with `@sovereignfs/auth`'s `coreSignedInAt` (**built
+  in `sovereign`, not released:** until it is, suite mode's Data says core's export holds Shopper's part, and the route answers 404). The file has the contract's head (`format`, `kind: "person"`, `producer`, `takenAt`, and `readable: true`) and the same kinds and fields of record,
+  opened, **without the person's keys**: a wrapped keyring in a file passed around would open their lists. A value this browser cannot open is `null`,
+  counted in `unopened` and said on the page. It is not the contract's zip, whose writer needs Node; when `@sovereignfs/export` can write one in the browser (16.26) the file becomes it.
 - **The app's export,** standalone, for the first account, Shopper's operator, on **Settings › Data**, encrypted with age to recipients they save
   (20.3).
 - **Never in any export:** another person's email, passwords, sessions and tokens.

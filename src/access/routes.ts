@@ -147,6 +147,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/account/export',
+    who: 'signed-in',
+    note: "The session's own account's records only, for its browser to open, after the password again; standalone mode only.",
+  },
+  {
+    kind: 'route',
     address: '/api/account/profile',
     who: 'signed-in',
     note: "The session's own name only: kept in step in better-auth and in person.",

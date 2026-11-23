@@ -18,7 +18,7 @@ fully on its own. One set up both ways signs in through Sovereign only, and says
 
 **It does:** accounts (a password, or a Sovereign core); lists and items with quantities, units, categories, icons and notes; suggestions from what you buy and a
 starter catalog; ticking off, _Bought_, _Clear bought_ and undo; shopping mode; sharing a list by a link, with leaving and removing, list by list; working with no
-network, and syncing; encryption on your device; Web Push; a person's export from a Sovereign core; deleting your account.
+network, and syncing; encryption on your device; Web Push; a person's own readable export (alone) and a person's export from a Sovereign core; deleting your account.
 
 **It does not do yet:** roles other than Admin and Member; trips, shops, prices and
 totals; invitations by email, notices and the bell; live updates (a device asks every 20 seconds, every 10 in shopping mode, unless you set it); import;

@@ -145,7 +145,7 @@ delete. The content security policy allows core's address for images.
 **Accepts when:** each section opens at its address, from the avatar's menu and directly; a suite account sees core's picture and links and no password
 field; a standalone account changes its password and keeps its lists.
 
-#### 📋 22.8 — A readable export
+#### ⏳ 22.8 — A readable export
 
 **Goal:** a person downloads their data as one readable JSON file. **Design:** RFC 0005, "A readable export". **Depends on:** 22.7. **Replaces:** 20.2
 as written.
@@ -158,6 +158,20 @@ contract's zip.
 **Accepts when:** the file holds every list, item, product and category the person may see, readable (Inventory items and cards are added by 23.3
 and 24.2, which hold their own export); no other person's email; a
 wrong password downloads nothing; a request from a second person gets nothing of the first's; the server's logs hold no opened value.
+
+**Done as, standalone (0.4.0, 2026-11-23); suite mode waits for a release:** `POST /api/account/export` (`readableExport`, `src/portability/readable-route.ts`)
+takes the derived password, checks it through the package's `confirmPassword` (counted there), tries five in ten minutes per account, and serves the
+session's own account's `personRecords` (the same records core's export takes) with a head, and nothing at all for a wrong password; `src/portability/readable.ts`
+opens them in the browser (the group's keyring from the person's own wrapped record, a list's from their copy of its key or derived from the group's) and
+writes `shopper-export-<date>.json`; `ExportSection` is Settings › Data's form, which needs the app key open. **The file holds no key and no ciphertext;** a
+value that cannot be opened is `null`, counted in `unopened`, and said on the page. Deviations: **`ExportPanel` is not used,** since it is for an export a
+server makes and the person downloads once, and this is made in the browser. Tests: `readable.test.ts` (a group's own list and a shared one through a link's
+copy; no key in the file; the wrong app key and a changed value counted), `readable-route.test.ts` (a wrong password serves nothing and does not read
+the records; **a second person gets nothing of the first's, and cannot name an account**; five tries; bad requests; suite mode 404) and
+`e2e/export.spec.ts` in Chromium and WebKit (a list and two items downloaded readable, a wrong password downloads nothing). **Suite mode:** the confirmation is
+a fresh sign-in at core. `coreSignedInAt` (`@sovereignfs/auth`, `sovereign`'s `29d60b7`, unreleased auth 0.7.0) reads the sign-in time the package already
+keeps, and Shopper uses it with `prompt=login` when that is published; until then Data says core's export holds Shopper's part. Left out: the zip (16.26,
+unreleased), Inventory and cards (23.3 and 24.2).
 
 #### 📋 22.9 — Shop mode
 

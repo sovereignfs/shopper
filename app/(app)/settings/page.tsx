@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { sectionOf, one } from '@/src/account/query';
 import { DeleteAccountSection } from '@/src/account/DeleteAccountSection';
 import { EncryptionSection } from '@/src/account/EncryptionSection';
+import { ExportSection } from '@/src/account/ExportSection';
 import { NotificationsSection } from '@/src/account/NotificationsSection';
 import { PasswordSection } from '@/src/account/PasswordSection';
 import { ProfileSection } from '@/src/account/ProfileSection';
@@ -44,7 +45,16 @@ export default async function SettingsPage({
         ),
         encryption: <EncryptionSection />,
         notifications: <NotificationsSection />,
-        data: <DeleteAccountSection email={session.user.email} vaultId={vaultId} />,
+        data: (
+          <>
+            <ExportSection
+              suite={settings?.sovereign !== undefined}
+              email={session.user.email}
+              vaultId={vaultId}
+            />
+            <DeleteAccountSection email={session.user.email} vaultId={vaultId} />
+          </>
+        ),
       }}
     />
   );

@@ -14,6 +14,12 @@ cannot any more: a Sovereign sign-in is never matched to a password account by i
 Before upgrading such an instance, have each of them move what they keep to an account they reach through Sovereign. An instance set up one way
 changes nothing.
 
+### Added
+
+- **Download my data** (Settings › Data, running alone): your lists, items, products and categories, and the people on your lists by name, as one
+  readable `.json` file made on your device after you type your password again. It is not encrypted, and it holds none of your keys. Hosted by
+  Sovereign, take your Sovereign account's export for now, which holds Shopper's part encrypted; a readable download there comes with a coming release.
+
 ### Changed
 
 - **One way in** (RFC 0005): hosted by a Sovereign instance, Shopper signs people in through it only, and its `/sign-in` and `/sign-up` send the
