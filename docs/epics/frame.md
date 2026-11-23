@@ -48,7 +48,7 @@ instance configured both ways does not start.
 
 **Technical:** `icon` and `color` on `list`, encrypted in the browser, a migration on both dialects giving existing lists the cart and blue; each a
 field of the one write path (merged by field); `IconPicker` and `ColorPicker` (Tally's `src/groups/colors.ts` copied, and said); shown in the list's
-header, the sidebar (the rail's icon in place of the letter), the drawer, Home's tiles and Shop mode; the export and import carry both; §13.1's
+header, the sidebar (the rail's icon in place of the letter), the drawer and Shop mode (Home's tiles take them in 23.2); the export and import carry both; §13.1's
 registry test.
 
 **Accepts when:** a new list has the defaults; a changed icon and colour reach a second device and survive offline edits by field; the marker test
@@ -90,7 +90,7 @@ with a keyboard, the edit button opens it.
 **Goal:** Settings is `SettingsDialog`, and each section says and does what RFC 0005's table says, in both modes. **Design:** RFC 0005, "Settings".
 **Depends on:** 22.2, 16.19.
 
-**Technical:** intercepting routes for `/settings/<section>` (loaded directly, over Home); `/settings?section=` redirects. Profile from the SDK
+**Technical:** intercepting routes for `/settings/<section>` (loaded directly, over the page `/` opens: the last list until 23.2, Home after); `/settings?section=` redirects. Profile from the SDK
 session's `name`, `email` and `picture` in a suite (refreshed at sign-in, the sealed name kept in `person` as now), editable name and initials alone;
 the header's avatar the same. Security: links to core in a suite; the password change and today's encryption section alone. Preferences: the list
 view's default, This device, core's link in a suite; Appearance, time zone, language and region alone; Notifications "coming later". Data: 22.8 and
@@ -109,7 +109,8 @@ as written.
 `shopper-export-<date>.json` (the contract's head, 20.1's kinds and fields, opened). From 23.3 and 24.2, Inventory and cards are in it. With 16.26, the
 contract's zip.
 
-**Accepts when:** the file holds every list, item, product, category, Inventory item and card the person may see, readable; no other person's email; a
+**Accepts when:** the file holds every list, item, product and category the person may see, readable (Inventory items and cards are added by 23.3
+and 24.2, which hold their own export); no other person's email; a
 wrong password downloads nothing; a request from a second person gets nothing of the first's; the server's logs hold no opened value.
 
 #### 📋 22.9 — Shop mode
@@ -128,7 +129,7 @@ default; Finish in a bar fixed to the bottom with the basket's count, the list p
 **Technical:** one hook setting `document.title` from the opened name; `Shopper` until it is opened; the server's metadata for the pages with no
 encrypted name.
 
-**Accepts when:** every row of RFC 0005's table holds, and a list opened offline titles itself once the store has loaded.
+**Accepts when:** every row of RFC 0005's table holds for the pages that exist (Inventory's and the cards' titles come with 23.4 and 24.3), and a list opened offline titles itself once the store has loaded.
 
 #### 📋 22.11 — The suite's frame
 

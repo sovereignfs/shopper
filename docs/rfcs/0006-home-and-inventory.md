@@ -106,3 +106,6 @@ time", §9.4, also offering to update the Inventory item); merging a list's prod
 
 1. A pantry for a home of several people: Inventory is a person's, and on hand is theirs. A shared "what is at home" waits for kinds of group (§22.1).
 2. A schedule for recurring items (13.3's rule) and how it adds to which list.
+3. **Under which key a person's own category name is encrypted,** for 23.1 to settle: categories are the group's, the group's key is never shared, and the
+   people on a person's lists must read the names their items are grouped under. §8.3 and §13.1 as built say how a renamed starter category is read today;
+   a person's own category follows the same.

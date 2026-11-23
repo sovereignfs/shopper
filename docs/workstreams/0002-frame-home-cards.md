@@ -88,12 +88,15 @@ Points the discussion did not settle in words. Each is written as the RFCs say u
    with a password.
 7. **Inventory's details** (RFC 0006): a new name on a list makes an Inventory item automatically, marked once; a category a person made is seen by the
    people on their lists; the catalog screen (8.6) becomes Inventory.
+8. **Start-up refuses an instance configured with both ways in** (RFC 0005), rather than choosing one: an existing instance with both must choose before
+   upgrading. The owner decided a suite offers Sovereign only; refusing to start is how this plan enforces it.
+9. **Home's edges** (RFC 0006): arriving by an invitation still opens that list; a brand-new account opens Home, whose Continue is its _Groceries_.
 
 ## Prerequisites
 
 - Workstream 0001 released (12.7).
-- In `sovereign` (epic 16), released, before the leg that needs it: **16.18** (icons: `square-pen`, more) and **16.19** (`SettingsDialog`) before
-  leg 3; **16.20 to 16.24** (the frame and the launcher) before leg 5; **16.25** (`Barcode`) before leg 7. **16.17** (`prompt=create`) and **16.26**
+- In `sovereign` (epic 16), released, before the leg that needs it: **16.19** (`SettingsDialog`) before leg 3; **16.18** (icons: `square-pen`, more) and 16.19 before
+  leg 4; **16.20 to 16.24** (the frame and the launcher) before leg 5; **16.25** (`Barcode`) before leg 7. **16.17** (`prompt=create`) and **16.26**
   (a browser export writer) are not waited on. Owner: `sovereign`.
 
 ## Legs
@@ -101,7 +104,7 @@ Points the discussion did not settle in words. Each is written as the RFCs say u
 | Leg | Name                 | Epic tasks                          | Gate?              | Waits on       | Done when                                                                    |
 | --- | -------------------- | ----------------------------------- | ------------------ | -------------- | ---------------------------------------------------------------------------- |
 | 1   | The design           | 22.1, 23.1, 24.1                    | **Owner reviews**  | 12.7           | `DESIGN.md` says what RFC 0005 to 0007 build; the assumed points are settled |
-| 2   | Upstream             | 16.17 to 16.26, in `sovereign`      | **Owner releases** | —              | The releases legs 3, 5 and 7 wait on are published                           |
+| 2   | Upstream             | 16.17 to 16.26, in `sovereign`      | **Owner releases** | —              | The releases legs 3, 4, 5 and 7 wait on are published                        |
 | 3   | Sign-in and Settings | 22.2, 22.7, 22.8                    | —                  | 16.19          | Both modes sign in as decided; Settings is the dialog; the export downloads  |
 | 4   | A list               | 22.3, 22.4, 22.5, 22.6, 22.9, 22.10 | —                  | 16.18, 16.19   | Icons and colours, the header, list settings, the item column, Shop mode     |
 | 5   | The frame            | 22.11                               | **Owner reviews**  | 16.20 to 16.24 | Shopper's frame is the design system's; its copies are deleted               |

@@ -175,3 +175,4 @@ There is **no app launcher on a phone** for now. Settings is in the avatar's men
 
 1. Whether a standalone instance's password accounts get a way into a suite (not now).
 2. When 16.17 is built: until then `/sign-up` in suite mode lands one click from core's sign-up.
+3. Whether import (20.4, deferred by the owner) reads 22.8's readable JSON file, the contract's export, or both.

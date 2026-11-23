@@ -474,5 +474,5 @@ None committed (`DESIGN.md` §22.4). Each waits on a decision before it is plann
 | --- | ------------------------------ | -------------------------------------------- | -------- | ---------- | ------ |
 | 184 | [16.7](docs/epics/upstream.md) | `MoneyInput` (`sovereign`), if Tally's lands | P3       | —          | 📋     |
 
-16.4 (grocery icons, row 123) is needed by 4.8 and is started during phase 1, so that it is released by then. 16.1, 16.3 and 16.5 are started in the same
+16.4 (grocery icons, row 156) is needed by 4.8 and is started during phase 1, so that it is released by then. 16.1, 16.3 and 16.5 are started in the same
 way, a milestone ahead of the task that waits on them.

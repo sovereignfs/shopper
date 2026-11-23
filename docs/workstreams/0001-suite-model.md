@@ -33,7 +33,7 @@ households, trips and notices are built encrypted from their first line.
 - [x] A 0.1.0 database upgrades, and every household of one member opened once is encrypted with nothing lost; a shared one stays sealed and says
       so until its members can be given its keys (18.10, RFC 0001 amendment 2).
 - [ ] A push reaches a subscribed browser once, alone and hosted; turning it off stops it; deleting the account forgets the device (19.1, 19.2).
-- [ ] Core's export of a person includes Shopper's part; alone, a person and the operator each take their export from Settings; an export imports
+- [ ] Core's export of a person includes Shopper's part; alone, a person (now readable, by 22.8 of workstream 0002) and the operator each take their export from Settings; an export imports
       into a second account (20.1 to 20.4).
 - [ ] The release is published with a security review of what changed (12.7).
 
