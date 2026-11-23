@@ -21,6 +21,7 @@ async function nextPersonIs(
     picture?: string;
     locale?: string;
     zoneinfo?: string;
+    signedInSecondsAgo?: number;
   },
 ) {
   const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/sign-in-as`, {
@@ -198,6 +199,59 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     });
     // Appearance stays Shopper's, since it cannot follow Sovereign's.
     await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await signOut(page);
+  });
+
+  test('the export asks for a sign-in at Sovereign in the last few minutes, sends the person through it, and then serves their records', async ({
+    page,
+    baseURL,
+  }) => {
+    const base = baseURL ?? '';
+    // Signed in at Sovereign an hour ago, on a session that is still alive there.
+    const old = { ...person('exporter'), signedInSecondsAgo: 3600 };
+    await nextPersonIs(page, old);
+    await throughSovereign(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+    const ask = () =>
+      page.request.post('/api/account/export', {
+        headers: { origin: base, 'content-type': 'application/json' },
+        data: {},
+      });
+    // Nothing is served for a sign-in that old, and no password is asked for.
+    const refused = await ask();
+    expect(refused.status()).toBe(403);
+    expect(await refused.json()).toEqual({ code: 'SIGN_IN_AGAIN' });
+    // A password does not stand in for it.
+    const guessed = await page.request.post('/api/account/export', {
+      headers: { origin: base, 'content-type': 'application/json' },
+      data: { password: 'anything' },
+    });
+    expect(guessed.status()).toBe(403);
+
+    // The page says so and offers the way: through core with `prompt=login`, and back to Data.
+    await page.goto('/settings/data');
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog.getByText(/Shopper’s part/)).toBeVisible();
+    // The way through Sovereign, as the page's button has it.
+    await page.goto('/api/auth/sign-in/sovereign?prompt=login&returnTo=%2Fsettings%2Fdata');
+    await expect(page).toHaveURL(/\/settings\/data$/);
+    const prompts = (await (
+      await page.request.get(`http://localhost:${PORTS.coreControl}/prompts`)
+    ).json()) as (string | null)[];
+    expect(prompts.at(-1)).toBe('login');
+
+    // Signed in again just now, the same session is served: this person's own records, and the request names nothing.
+    const served = await ask();
+    expect(served.status()).toBe(200);
+    const body = (await served.json()) as {
+      head: { version: string };
+      records: { kind: string }[];
+    };
+    expect(body.head.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(body.records.some((part) => part.kind === 'person')).toBe(true);
     await page.keyboard.press('Escape');
     await signOut(page);
   });

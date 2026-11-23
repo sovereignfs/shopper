@@ -9,14 +9,16 @@ import {
   openServed,
   type ServedRecords,
 } from '../portability/readable';
-import { Alert, Button, FormField, Input } from '@sovereignfs/ui';
+import { Alert, Button, ButtonLink, FormField, Input } from '@sovereignfs/ui';
+import { toCore } from '../auth/suite';
 import styles from './Account.module.css';
 
 /**
  * Settings, Data, Download my data (RFC 0005, "A readable export"). **Made here, in the browser:** the server confirms who is asking (the password
  * again, which this derives and never sends) and serves the person's records as it holds them; this opens what was encrypted for the person with the
- * keys this browser holds, and writes one `.json` file that nothing leaves the page to make. In suite mode the confirmation is a fresh sign-in at
- * core, which waits for a release, so for now this says that core's own export holds Shopper's part.
+ * keys this browser holds, and writes one `.json` file that nothing leaves the page to make. **Hosted by a Sovereign instance there is no password:** the confirmation
+ * is a sign-in at core in the last few minutes, which the server checks; when it is older this says so and sends the person through core with `prompt=login`, which
+ * comes back to Settings › Data.
  */
 export function ExportSection({
   suite,
@@ -34,36 +36,31 @@ export function ExportSection({
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<{ unopened: number } | null>(null);
   const [working, setWorking] = useState(false);
-
-  if (suite)
-    return (
-      <div className={styles.group}>
-        <h2>Download my data</h2>
-        <p className={styles.muted}>
-          Your Sovereign account’s export holds Shopper’s part, with what you wrote still encrypted:
-          take it from your Sovereign account. A readable file made here comes in a coming release.
-        </p>
-      </div>
-    );
+  // Suite mode: the last sign-in at core was too long ago, so the person is to sign in again there.
+  const [again, setAgain] = useState(false);
 
   async function download() {
     setWorking(true);
     setProblem(null);
     setDone(null);
+    setAgain(false);
     try {
       if (keys.current.state !== 'open') {
         return setProblem(
           'Your lists are locked on this device. Unlock them first, then try again.',
         );
       }
-      // The password is derived here and never sent (RFC 0001).
-      const sent = (await shopperVault(vaultId).derive(password, addressOf(email))).signIn;
+      // Running alone the password is derived here and never sent (RFC 0001). Hosted by Sovereign there is none to give: the server asks core when they last signed in.
+      const sent = suite
+        ? {}
+        : { password: (await shopperVault(vaultId).derive(password, addressOf(email))).signIn };
       const reply = await fetch('/api/account/export', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ password: sent }),
+        body: JSON.stringify(sent),
       });
-      if (reply.status === 403) return setProblem('That is not your password.');
+      if (reply.status === 403)
+        return suite ? setAgain(true) : setProblem('That is not your password.');
       if (reply.status === 429)
         return setProblem('That was tried too many times. Wait a few minutes.');
       if (!reply.ok)
@@ -109,10 +106,31 @@ export function ExportSection({
                 : `Your data was downloaded. ${done.unopened} ${done.unopened === 1 ? 'value' : 'values'} could not be opened on this device and ${done.unopened === 1 ? 'is' : 'are'} empty in the file.`}
             </p>
           ) : null}
+          {suite ? (
+            <p className={styles.muted}>
+              Your Sovereign account’s export also holds Shopper’s part, with what you wrote still
+              encrypted.
+            </p>
+          ) : null}
+          {problem ? <Alert variant="error">{problem}</Alert> : null}
+          {again ? (
+            <Alert variant="info">
+              To say it is you, Sovereign asks you to sign in again; you come back here, and can
+              download then.
+            </Alert>
+          ) : null}
           <div className={styles.row}>
-            <Button variant="secondary" onClick={() => setOpen(true)}>
-              Download my data…
-            </Button>
+            {again ? (
+              <ButtonLink href={toCore('/settings/data', 'login')}>Sign in again</ButtonLink>
+            ) : (
+              <Button
+                variant="secondary"
+                loading={suite && working}
+                onClick={() => (suite ? void download() : setOpen(true))}
+              >
+                Download my data…
+              </Button>
+            )}
           </div>
         </>
       ) : (

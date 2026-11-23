@@ -56,9 +56,9 @@ changes nothing.
 
 ### Added
 
-- **Download my data** (Settings › Data, running alone): your lists, items, products and categories, and the people on your lists by name, as one
-  readable `.json` file made on your device after you type your password again. It is not encrypted, and it holds none of your keys. Hosted by
-  Sovereign, take your Sovereign account's export for now, which holds Shopper's part encrypted; a readable download there comes with a coming release.
+- **Download my data** (Settings › Data): your lists, items, products and categories, and the people on your lists by name, as one readable `.json` file made
+  on your device. It is not encrypted, and it holds none of your keys. Running alone you type your password again first; **hosted by Sovereign you sign in
+  there again** if your last sign-in was more than five minutes ago, and come back to Settings.
 
 ### Changed
 

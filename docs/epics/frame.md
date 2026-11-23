@@ -234,7 +234,7 @@ field; a standalone account changes its password and keeps its lists.
   `core-links` and `csp` unit tests, and the `auth`, `device`, `export`, `pwa`, `phone`, `offline`, `security` and `titles` specs moved to the new addresses.
   **Left out:** the offline shell, which has no session, writes dates as the browser does and has no picture.
 
-#### ⏳ 22.8 — A readable export
+#### ✅ 22.8 — A readable export
 
 **Goal:** a person downloads their data as one readable JSON file. **Design:** RFC 0005, "A readable export". **Depends on:** 22.7. **Replaces:** 20.2
 as written.
@@ -256,11 +256,15 @@ writes `shopper-export-<date>.json`; `ExportSection` is Settings › Data's form
 value that cannot be opened is `null`, counted in `unopened`, and said on the page. Deviations: **`ExportPanel` is not used,** since it is for an export a
 server makes and the person downloads once, and this is made in the browser. Tests: `readable.test.ts` (a group's own list and a shared one through a link's
 copy; no key in the file; the wrong app key and a changed value counted), `readable-route.test.ts` (a wrong password serves nothing and does not read
-the records; **a second person gets nothing of the first's, and cannot name an account**; five tries; bad requests; suite mode 404) and
-`e2e/export.spec.ts` in Chromium and WebKit (a list and two items downloaded readable, a wrong password downloads nothing). **Suite mode:** the confirmation is
-a fresh sign-in at core. `coreSignedInAt` (`@sovereignfs/auth`, `sovereign`'s `29d60b7`, unreleased auth 0.7.0) reads the sign-in time the package already
-keeps, and Shopper uses it with `prompt=login` when that is published; until then Data says core's export holds Shopper's part. Left out: the zip (16.26,
-unreleased), Inventory and cards (23.3 and 24.2).
+the records; **a second person gets nothing of the first's, and cannot name an account**; five tries; bad requests) and
+`e2e/export.spec.ts` in Chromium and WebKit (a list and two items downloaded readable, a wrong password downloads nothing). **Suite mode (2026-11-23, on `@sovereignfs/auth` 0.7.0):** there is no password to give; the confirmation is **a sign-in at core in the last five minutes**
+(`RECENT_SIGN_IN_MS`), which the route reads from `coreSignedInAt`, core's own claim for the session (`auth_time` in the ID token the package keeps) and never the app's clock or
+anything the request says. An older one, or one core does not say, serves nothing and answers `SIGN_IN_AGAIN` (a sign-in dated more than a minute ahead is not trusted either), and
+a password does not stand in for it; the page then says so and its button is _Sign in again_, through core with `prompt=login` and back to Settings › Data. The same five tries in ten
+minutes, the same records (the session's account's, naming nothing). Tests: `readable-route.test.ts` (recent, old, never, the boundary to the millisecond, the future, a second person,
+rate and bad requests) and `e2e/sovereign.spec.ts` (an hour-old sign-in refused, a password no stand-in, `prompt=login` and back, then served). The fake core says `auth_time` and
+honours `prompt=login`. **Not browser-tested:** the page's button in suite mode, because the fake core does not release a key and the page stops at "your lists are locked" before it
+asks the server; the route and the link it goes to are each tested. Left out: the zip (16.26, unreleased), Inventory and cards (23.3 and 24.2).
 
 #### ✅ 22.9 — Shop mode
 

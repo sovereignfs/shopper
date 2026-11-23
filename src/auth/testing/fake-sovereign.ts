@@ -22,6 +22,8 @@ export interface FakeUser {
   picture?: string;
   locale?: string;
   zoneinfo?: string;
+  /** How long ago they last signed in at Sovereign, in seconds, for the ID token's `auth_time`: a session there that is older than this app wants. 0 by default. */
+  signedInSecondsAgo?: number;
   emailVerified?: boolean;
 }
 
@@ -48,6 +50,8 @@ interface Pending {
   redirectUri: string;
   challenge: string;
   nonce: string | undefined;
+  /** The `prompt` the authorization asked for: `login` has them sign in again, so `auth_time` is now. */
+  prompt: string | undefined;
   user: FakeUser;
   overrides: LoginOverrides;
   used: boolean;
@@ -213,6 +217,7 @@ export async function startFakeSovereign(
               redirectUri,
               challenge: q.get('code_challenge') as string,
               nonce: q.get('nonce') ?? undefined,
+              prompt: q.get('prompt') ?? undefined,
               user: next.user,
               overrides: next.overrides,
               used: false,
@@ -260,6 +265,10 @@ export async function startFakeSovereign(
             ...(user.picture !== undefined ? { picture: user.picture } : {}),
             ...(user.locale !== undefined ? { locale: user.locale } : {}),
             ...(user.zoneinfo !== undefined ? { zoneinfo: user.zoneinfo } : {}),
+            // When they signed in at Sovereign: now for a `prompt=login`, as Sovereign has them sign in again, else as long ago as the test says.
+            auth_time:
+              Math.floor(Date.now() / 1000) -
+              (pending.prompt === 'login' ? 0 : (user.signedInSecondsAgo ?? 0)),
             ...(pending.nonce && !overrides.omitNonce ? { nonce: pending.nonce } : {}),
             ...overrides.claims,
           });
