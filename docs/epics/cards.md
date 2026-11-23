@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned. Workstream 0002, after 12.7 and before phase 2.
+⏳ In Progress. Workstream 0002, before phase 2: the design (24.1) is written and waits on the owner's review.
 
 ## Overview
 
@@ -43,7 +43,7 @@ private.
 
 Beyond the RFC, each in §25 for the owner: a card's invitation kept in `invitation`; a card's keys following a list's until 16.8 (24.5 asks for a new
 key when someone leaves); a third section of the list's settings for its cards; a limit; the link handed only to someone on both; the card button on
-the right of shopping mode's header.
+the right of shopping mode's header; its Admin alone inviting, as RFC 0007 says (a list's Member may).
 
 #### 📋 24.2 — Cards: the data and the keys
 

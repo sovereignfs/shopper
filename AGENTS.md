@@ -139,8 +139,8 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
   touched; a list's Admin's operation adds the role to it. **A person's Inventory and own categories are their account's alone:** the statement names
   the group whose `own_of` is the session's account (`ownerOf`), and no pull hands an `inventory_item` to anyone else (`DESIGN.md` §8.8). **A card is a list's equal** (`card_member`, `onCard`, §7.7). Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
-- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the list's
-  keys (derived from the group's, RFC 0004), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
+- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes (and a list's icon and colour, a card's fields, an Inventory item's name and note), under the list's
+  keys (derived from the group's, RFC 0004; Inventory's from the group's too, given to nobody, and a card's of its own), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
   a `WHERE`, `ORDER BY` or index. A product's identity on a list is its **name key** (`DESIGN.md` §13.3), made in the browser, never its name.
   What the server must hold itself (a person's name and email, an invitation's email, credentials) is sealed through `src/crypto/sealed.ts`
   (§13.4). A table that adds such a field adds it to §13.1's or §13.4's table and its registry test in the same change. **The words "not yet

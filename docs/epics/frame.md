@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned. Workstream 0002, after 12.7 and before phase 2.
+⏳ In Progress. Workstream 0002, before phase 2: the design (22.1) is written and waits on the owner's review.
 
 ## Overview
 
@@ -51,7 +51,8 @@ marked settled by this RFC; workstream 0001's export row pointing here.
 - `src/crypto/sealed.test.ts` finds §13.1's table by `| Household: name; list:` (it matched `list: name;`, which the list's icon and colour change).
 
 Changed from the RFC: **a list's default icon and colour are not written by a migration,** since the server cannot encrypt them and a plain value
-would say what they are: a list with neither is shown with the cart and blue (§9.1, 22.3's technical changed to match; §25 asks the owner).
+would say what they are: a list with neither is shown with the cart and blue (§9.1, 22.3's technical changed to match; §25 asks the owner). And with one way in, someone sent a link with no account at core can join only if
+core lets them sign up (§25.13).
 
 #### 📋 22.2 — Sign-in by mode
 
@@ -71,7 +72,7 @@ instance configured both ways starts in suite mode and logs it once.
 **Goal:** every list has an icon and a colour, encrypted, shown wherever the list is. **Design:** RFC 0005, "A list". **Depends on:** 22.1, 16.18.
 
 **Technical:** `icon` and `color` on `list`, two fields of its `encrypted`, written by the browser; a list with neither (every existing one) is shown
-with the cart and blue, since no migration can encrypt a default (`DESIGN.md` §9.1); each a
+with the cart and blue, since no migration can encrypt a default (proposed, `DESIGN.md` §9.1 and §25.1; RFC 0005 says a migration); each a
 field of the one write path (merged by field); `IconPicker` and `ColorPicker` (Tally's `src/groups/colors.ts` copied, and said); shown in the list's
 header, the sidebar (the rail's icon in place of the letter), the drawer and Shop mode (Home's tiles take them in 23.2); the export and import carry both; §13.1's
 registry test.

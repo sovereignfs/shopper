@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned. Workstream 0002, after 12.7 and before phase 2.
+⏳ In Progress. Workstream 0002, before phase 2: the design (23.1) is written and waits on the owner's review.
 
 ## Overview
 
