@@ -116,17 +116,18 @@ After workstream 0001's release (0.2.0) and before phase 2, Shopper is made to l
 otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens wait on releases of
 `@sovereignfs/ui` and core (16.18 to 16.25); each section says what it builds.
 
-| Area            | What changes                                                                                                                                        |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in         | **Core's or Shopper's, never both** (§15.1): in a suite, `/sign-in` goes to core at once; alone, the design system's forms                          |
-| A list          | An icon and a colour, encrypted (§9.1); the header's Shop, Share and menu (§16.5); its settings in the settings dialog; a row's tap opens it        |
-| An item         | Opens in a column beside its list, a page of its own on a phone, saving as it is left (§16.7)                                                       |
-| Shopping mode   | The list's header, _+ Add item_, _Put it straight in the basket_, and _Finish shopping_ fixed at the bottom (§11.1)                                 |
-| Settings        | `SettingsDialog`, each section at its own address; what each says by mode (§17)                                                                     |
-| A person's data | **A readable export,** one JSON file made in the browser after confirming it is them (§18.1)                                                        |
-| The frame       | The header, the sidebar and the phone's footer are `@sovereignfs/ui`'s; an app launcher in a suite (§16.2, §16.11); every page titled (§16.13)      |
-| Home            | **`/` opens Home,** with _Continue_ for the last list used, every list, and what the device can count (§16.4)                                       |
-| Inventory       | **A person's own library of what they buy,** with the starter catalog shown in it, their own categories, and suggestions drawing on it first (§8.8) |
+| Area            | What changes                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in         | **Core's or Shopper's, never both** (§15.1): in a suite, `/sign-in` goes to core at once; alone, the design system's forms                                                  |
+| A list          | An icon and a colour, encrypted (§9.1); the header's Shop, Share and menu (§16.5); its settings in the settings dialog; a row's tap opens it                                |
+| An item         | Opens in a column beside its list, a page of its own on a phone, saving as it is left (§16.7)                                                                               |
+| Shopping mode   | The list's header, _+ Add item_, _Put it straight in the basket_, and _Finish shopping_ fixed at the bottom (§11.1)                                                         |
+| Settings        | `SettingsDialog`, each section at its own address; what each says by mode (§17)                                                                                             |
+| A person's data | **A readable export,** one JSON file made in the browser after confirming it is them (§18.1)                                                                                |
+| The frame       | The header, the sidebar and the phone's footer are `@sovereignfs/ui`'s; an app launcher in a suite (§16.2, §16.11); every page titled (§16.13)                              |
+| Home            | **`/` opens Home,** with _Continue_ for the last list used, every list, and what the device can count (§16.4)                                                               |
+| Inventory       | **A person's own library of what they buy,** with the starter catalog shown in it, their own categories, and suggestions drawing on it first (§8.8)                         |
+| Loyalty cards   | **Shop cards kept, scanned, shown at the till offline, shared by a link with their own people and keys,** and opened from shopping mode on a list they are linked to (§7.7) |
 
 ## 3. User journeys
 
@@ -169,6 +170,7 @@ otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.
 | **Product**         | An entry in a list's **catalog**: what Shopper remembers about something bought on it (§8.2)                                                                 |
 | **Inventory**       | A person's own library of the things they buy, across their lists and beyond groceries, never shared; an entry is an **Inventory item** (§8.8)               |
 | **Home**            | Where Shopper opens: the last list to continue, every list, and what is going on (§16.4)                                                                     |
+| **Loyalty card**    | A shop's card, with its code, shown at the till; shared on its own, as a list is, with its own people and keys. On screen, a **card** (§7.7)                 |
 | **Starter catalog** | The common groceries Shopper ships with, shown in Inventory and offered until a list or a person has their own entry (§8.6)                                  |
 | **Category**        | A section of the shop (_Produce_, _Dairy & eggs_): a starter one, or a person's own, made in Inventory. Their order is the **aisle order** (§8.3)            |
 | **Trip**            | (Phase 2) One person's time in a shop: what they ticked, where, when, and what it cost (§10)                                                                 |
@@ -178,7 +180,7 @@ otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.
 | **Notice**          | (Phase 2) Something a person is told, in the bell (§14)                                                                                                      |
 | **Outbox**          | Changes made on a device and not yet accepted by the server (§12)                                                                                            |
 
-User-facing text says "list", "item", "catalog", "Inventory", "Home", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"; never "household" or
+User-facing text says "list", "item", "catalog", "Inventory", "Home", "card", "loyalty card", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"; never "household" or
 "group" (§7.1), "ledger", "purchase transaction", "product row", "owner", "viewer", "editor", "tenant", "client" or "plugin". On screen, ticking is "bought" and a
 trip is "shopping at Lidl".
 
@@ -268,6 +270,8 @@ same group's, in the same statement, and **an item's product is always on the it
 (`listAdminOf`). Making a list in a group is its own account's alone (`ownerOf`); a starter category is the group's, read by anyone on one of its lists.
 **Inventory is its own account's alone** (§8.8): every read and write of an `inventory_item` or of a person's own category names the group with
 `household.own_of` the account, in the statement (`ownerOf`); a list's copy of a category (`list_category`) is read and written as the list's.
+**A card is a list's equal** (§7.7): every read and write of a card names it with the account's place on it (`card_member`, `onCard`), and its Admin's
+operations add the role; a link between a list and a card (`list_card`) needs both, in the same statement.
 
 - **Sync applies the same rule per change** (§12.5): a change to a list the account is not on, or to an item or product of one, is refused, not ignored.
 - `src/access/routes.ts` lists every page, route and operation with who may use it; a test calls each as a second signed-in person, including one on
@@ -375,18 +379,39 @@ directory and the bell are phase 2.
 
 Every limit is a setting the operator can change, with a default (the names are the first design's):
 
-| Setting                              | Default | What                                                           |
-| ------------------------------------ | ------- | -------------------------------------------------------------- |
-| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`    | 20      | People on a list                                               |
-| `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`   | 20      | Groups an account has lists from, its own included             |
-| `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included                        |
-| `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                                           |
-| `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together                |
-| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included (phase 2)               |
-| `SHOPPER_LIMIT_INVENTORY_ITEMS`      | 5000    | Items in a person's Inventory, hidden starter entries included |
+| Setting                              | Default | What                                                                              |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------- |
+| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`    | 20      | People on a list                                                                  |
+| `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`   | 20      | Groups an account has lists from, its own included                                |
+| `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included                                           |
+| `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                                                              |
+| `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together                                   |
+| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included (phase 2)                                  |
+| `SHOPPER_LIMIT_INVENTORY_ITEMS`      | 5000    | Items in a person's Inventory, hidden starter entries included                    |
+| `SHOPPER_LIMIT_ACCOUNT_CARDS`        | 100     | Cards a person adds; people on a card as on a list, live links to it as to a list |
 
 A limit reached offline is found when the change syncs and goes to Couldn't sync with the sentence (§12.5). Phase 1 has the first five; Inventory
-(§8.8) brings the categories' and its own.
+(§8.8) brings the categories' and its own, and cards (§7.7) theirs.
+
+### 7.7 Loyalty cards
+
+**Shop loyalty cards are kept in Shopper** (RFC 0007): the cards shown at a checkout and shared with whoever shops. Wallet, the suite's app for what is
+private (transport, membership, identity, documents), keeps those; moving a card between the two in a suite is later (15.6).
+
+- **A card holds** the shop's or brand's name, the number, **the kind of code** (QR, EAN-13, EAN-8, UPC-A, Code 128 or Code 39) and its value, an
+  icon and a colour (as a list's, §9.1; no shop's logo, since nothing is loaded from a third party), the name on the card and a note. **Everything
+  of it is encrypted in the browser** (§13.1), under the card's own keys.
+- **Added** by scanning it with the camera, decoded on the device (§22.3, brought forward), or by typing the number and choosing its kind (an EAN's
+  or a UPC's check digit is checked). **Shown** full screen on a white surface, the code large and the number in text beneath it, the screen kept
+  on, offline (§16.14).
+- **A card is shared as a list is** (§7.2 to §7.5, RFC 0004): it has its own people, joined only by accepting an invitation by link to it; its
+  **Admin** (who added it, or to whom it passed) edits, shares and deletes it, removes people and revokes links; a **Member** sees and shows it,
+  invites and leaves. **Each card has its own keys** (§13.2), and a link to a card carries that card's keys and no other (§13.5). Leaving or being
+  removed takes the card from the device. **Sharing a card shows nothing else of the person's,** and **sharing a list shares no card.**
+- **A card's people, invitations and deleting it are online operations** (`/api/ops`), as a list's are; its fields sync, offline as well.
+- **Cards on a list:** a list's Admin links cards to the list (from the list's settings, among the cards they are on); shopping mode shows a card
+  button when the list has one (§11.1). A link (`list_card`) names a card and a list of the same group and holds nothing else; **someone on the list
+  who is not on the card is not handed the link and sees no button for it.** Linking a card to a shop is later, with shops (13.5).
 
 ## 8. The catalog
 
@@ -653,8 +678,9 @@ with a _Finish shopping_ that offers to clear what was bought (§11.3). Each is 
 
 Before phase 2 the shop picker, the total and the "shopping too" line are absent, and the line under the title reads "12 to get · 3 in basket".
 
-- **The header is the list's** (RFC 0005): back, the list's icon and name, and the progress under them. Nothing else is on the right but what a
-  feature adds there: the shop (phase 2).
+- **The header is the list's** (RFC 0005): back, the list's icon and name, and the progress under them. On the right, only what a feature adds
+  there: **the card button** when the list has a card linked that the person is on (§7.7; with several, it opens a choice, and a card opens full
+  screen, §16.14), and the shop (phase 2).
 - **Large rows,** at least 56 px, **the whole row ticking** (`CheckableListRow`), in the aisle order. A ticked row drops into **In basket** with a
   short animation, and a toast offers _Undo_.
 - **The screen stays on** (the Screen Wake Lock API, where the browser has it; where it does not, nothing is said).
@@ -698,7 +724,8 @@ Tally's counter per group, here each account's group (§7.1).
 ### 12.1 The model
 
 - **The device holds the lists the account is on, by group, and nothing else of a group:** their people (names), open and bought items, products,
-  the group's starter categories and the lists' copies of others (§8.3), **and the account's own Inventory and categories** (§8.8), and, from phase 2, shops and trips of
+  the group's starter categories and the lists' copies of others (§8.3), **the account's own Inventory and categories** (§8.8), **the cards the
+  account is on** and their links to its lists (§7.7), and, from phase 2, shops and trips of
   the last 180 days with their lines, in IndexedDB through `idb`, one database per account (`shopper-<account id>`). Screens read from it, and
   suggestions, totals and aisle order are computed from it, so everything is readable and writable offline. Older trips are fetched online when the
   history is scrolled to them.
@@ -735,7 +762,8 @@ the item's `boughtAt` and `boughtBy`.
 - **Ids are made by the device,** so a new item, product or trip exists at once and everything can point at it offline. A mutation's id makes sending
   it twice harmless: the server records what it has applied.
 - **Only what changed is sent:** a field, not a row (Tusk's Desk). That is what makes most conflicts vanish (§12.4).
-- **What syncs offline:** everything about lists, items, products, categories and the aisle order, Inventory, shops, trips and trip lines. Everything else is
+- **What syncs offline:** everything about lists, items, products, categories and the aisle order, Inventory, a card's fields and its links to
+  lists, shops, trips and trip lines. Everything else is
   online (§12.8).
 - **The validators are one module,** run by the browser before it queues and by the server before it applies.
 
@@ -747,7 +775,8 @@ was applied (with any fold, §12.4), what was refused and why, the groups the ac
 - **Order is a counter per group** (`household.seq`), as Tally's. Applying a mutation is one short transaction: increment the group's `seq`, merge each change field by field, stamp each changed field and row with the `seq`, record the mutation id, write any notice. The
   increment serialises one group's writes without holding up any other.
 - **Pull** returns, per group, rows of the reader's lists whose `seq` is past the cursor (and, for the reader's own group alone, its Inventory and
-  categories: **an `inventory_item` is handed to nobody but its group's own account,** a condition of the statement, §5.2), paged at `seq` boundaries, tombstones and aliases included,
+  categories: **an `inventory_item` is handed to nobody but its group's own account,** a condition of the statement, §5.2; and the group's cards
+  the reader is on, with the links between those cards and the reader's lists), paged at `seq` boundaries, tombstones and aliases included,
   and **names every list of the group the reader may see**: the device deletes any other it holds, with its items, people and catalog. **Joining a
   list re-stamps its rows** at the join's `seq`, so a device whose cursor is past them pulls them; an item moved to a list a reader is not on leaves a
   tombstone handed only to readers who cannot see it where it is now. A group new to the device starts at zero; one the account is on no list of any
@@ -830,7 +859,7 @@ it works offline and syncs like any other.
 Stated in the app and in the user's documentation:
 
 - **Signing in, and the first load on a device.**
-- **Inviting, accepting, revoking a link, removing someone, leaving and deleting a list for good** (`/api/ops`, which answers at once and is undone
+- **Inviting, accepting, revoking a link, removing someone, leaving and deleting a list or a card for good** (`/api/ops`, which answers at once and is undone
   with a toast on a refusal, as Tally's groups are).
 - **Settings, notices, export and import, and trips older than 180 days.** Each says so offline, and changes nothing.
 - **On iPhone, sync happens only while Shopper is open.** Safari has no Background Sync; live updates stop when the app is in the background.
@@ -862,9 +891,9 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 
 ### 13.1 What is encrypted
 
-| Encrypted in the browser, under the list's keys (Inventory and a person's own categories under their group's Inventory keys)                                                                                                                                                                         | Readable by the server                                                                                                                                                                                                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); list category: name; inventory item: name, note; shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
+| Encrypted in the browser, under the list's keys (Inventory and a person's own categories under their group's Inventory keys; a card under its own)                                                                                                                                                                                                                                 | Readable by the server                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); list category: name; inventory item: name, note; card: shop, number, kind of code, code, icon, colour, name on the card, note; shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
 
 - **Each field is its own ciphertext** (`encryptBytes` under the list's content key, `importDocumentKey`), bound to list, table, row, field and epoch,
   and stored as `e2.<epoch>.<list>.<row>.<ciphertext>`, so a value moved to another row, field or list does not open, and the server, which cannot
@@ -875,7 +904,8 @@ by a cryptographer or audited, and every place Shopper describes the feature say
   Undo, a refused change moved to another list), and the server refuses a change of list without them. Its product is one of the new list's (§9.4).
 - **Prices, shops, trips and barcodes** arrive, encrypted, with the phase that adds them.
 - **Inventory** (§8.8) and a person's own categories are bound the same way to their group in place of a list, under the group's Inventory keys
-  (§13.2); a list's copy of a category (`list_category`) is the list's, under the list's keys.
+  (§13.2); a list's copy of a category (`list_category`) is the list's, under the list's keys. **A card** (§7.7) is bound the same way to the card in
+  place of a list, under the card's keys.
 - **Field merging is unchanged** (§12.4): field stamps say which write is later, and the value is opaque. **Search, suggestions, totals, unit prices,
   aisle order and the plugin's import** run on the device, over what it has opened; the server has no copy of any of them.
 - **The server never shows, logs or decrypts** a value, and a screen that cannot open one shows `LockedState`, never ciphertext.
@@ -896,6 +926,9 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 - **A group's Inventory keys are derived from its keyring** the same way (`shopper:inventory-key:v1`, with the group's id), and are never given to
   anyone: no link carries them and no `list_key` holds them, so nobody on a shared list can open a person's Inventory or own categories, even from a
   copy of the database.
+- **A card's keyring is derived from its group's** as a list's is (`shopper:card-key:v1`, with the card's id), and someone given a card by a link
+  keeps their own copy in `card_key`, as `list_key` (`lr1.`), deleted when they leave it or are removed. Its epochs follow a list's: none is made
+  until 16.8, so removing someone from a card does not change its keys yet (§13.6).
 - **Someone given a list by a link keeps their own copy of its keyring** in `list_key`, wrapped under their own app key (`lr1.`), kept by
   `list.key.mine`, handed back to them in each pull of a list they are on, and deleted when they leave it or are removed, with the list and with the
   person. Until the server has it, the copy waits in the browser (`src/keys/pending.ts`) and is used meanwhile. A device looks for its own copy first,
@@ -928,7 +961,7 @@ Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping those only. `docs/enc
   inviter's browser stores **the list's keyring, and no other**, wrapped under it (`lk2.`, `src/keys/link.ts`), beside the token's hash; the invitation
   page keeps the fragment in the tab and removes it from the address first; accepting gives the newcomer the wrapped copy once and deletes it, and
   their browser keeps the keyring under their own app key (`list.key.mine`, §13.2). A used, revoked or expired link opens nothing. Whoever holds the
-  link can accept it (§7.3).
+  link can accept it (§7.3). **A link to a card** is the same, with **the card's keyring, and no other** (§7.7).
 - **By email or from the directory** (phase 2), the link carries no fragment, since the server sends it: the newcomer joins and waits until a device of
   someone on the list seals the key to them.
 
@@ -938,7 +971,7 @@ Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping those only. `docs/enc
   list cannot open another list's rows, even from such a copy.
 - **It does not protect against whoever runs the server,** which sends the app's code. Shopper never says the operator "cannot" read anything.
 - **The server still sees** who is on which list, how many lists and items there are, quantities and units, when things are ticked, and sizes.
-- **Removing someone from a list does not change its keys yet.** They stop receiving it at once; someone who kept the key and also got a copy of the
+- **Removing someone from a list or a card does not change its keys yet.** They stop receiving it at once; someone who kept the key and also got a copy of the
   database could read what is added to that list after.
 - **A forgotten password and a lost kit lose a password account's lists for good,** unless someone they shared a list with still has its key.
 
@@ -1152,6 +1185,7 @@ The same routes on both; only what is drawn differs. Shopper adopts it first; Tu
 | `/l/<id>/settings`           | Redirects to `?settings=general`; there is no page                                            |
 | `/shop?h=<id>&l=<id>,…`      | Shopping mode (§11); one list in phase 1 (`h` is the list's group)                            |
 | `/inventory`                 | Inventory (§16.8): a person's items and categories                                            |
+| `/cards`, `/cards/<id>`      | Loyalty cards (§16.14), and one card full screen; `?share=1` for its sharing                  |
 | `/trips`, `/trips/<id>`      | Trips (§10.5), phase 2, linked from Home                                                      |
 | `/notifications`             | Every notice (§14.1), phase 2                                                                 |
 | `/settings/<section>`        | Settings (§17): `profile`, `security`, `preferences`, `data`; `/settings?section=…` redirects |
@@ -1198,8 +1232,8 @@ their own first list.
 - **Bought (n)**, collapsed under the open items, each with who ticked it; _Clear bought_ beside it.
 - **Empty:** "Nothing on Groceries. Add something above, or pick from Often bought," with the often-bought products as chips.
 - **The list's settings** open as the settings dialog (§17) over the list, at `?settings=general`, from the menu: **General** (name, icon and colour,
-  and from phase 2 the clearing rule) and **Archive and delete** (archive or restore; delete for good, the list's Admin only, an archived list, with a
-  confirmation). **Share stays a button and a dialog of its own** (§16.9).
+  and from phase 2 the clearing rule), **Cards** (the cards linked to the list; its Admin links and unlinks them among the cards they are on, §7.7)
+  and **Archive and delete** (archive or restore; delete for good, the list's Admin only, an archived list, with a confirmation). **Share stays a button and a dialog of its own** (§16.9).
 
 **Before phase 2** the menu has no "Shop several lists"; there is no trip banner and no price on a row.
 
@@ -1318,6 +1352,14 @@ from the opened name), and until the name is open it is `Shopper`.
 **A title is kept in the browser's history,** and a history the browser syncs leaves the device with it: the one way an opened name leaves Shopper.
 Accepted (RFC 0005), and said in `docs/encryption.md`.
 
+### 16.14 Loyalty cards
+
+`/cards` (RFC 0007), in the sidebar's first block and the phone's footer: a grid of cards, the person's own then those shared with them, each with
+its colour, icon and name. _+ Add card_ starts the camera (§22.3), with typing the number and choosing its kind as the way when there is no camera
+or it is refused. **A card opens full screen** (`/cards/<id>`): a white surface, the code large (`QrCode`, or `Barcode` for the other kinds, 16.25)
+and the number in text beneath it, the screen kept on (`useWakeLock`), offline. Its Admin edits and deletes it from there; _Share_ opens its sharing
+dialog, as a list's (§16.9).
+
 ## 17. Settings
 
 **One dialog with a side navigation,** `SettingsDialog` (§16.10, 16.19), over the page it was opened from, from the avatar's menu. Every section has
@@ -1349,8 +1391,9 @@ The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), 
 
 - **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, and **every list
   they are on, whole** (its people by name only), with its items, catalog, the categories it uses (its group's starter ones and its
-  `list_category` copies), and **their own Inventory and categories** (§8.8), and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
-  own wrapped keys beside them (the group's for their own lists and Inventory, their copies for lists shared with them), so that their keys open it.
+  `list_category` copies), **their own Inventory and categories** (§8.8), **every card they are on** (§7.7, its people by name only) and its links to
+  their lists, and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
+  own wrapped keys beside them (the group's for their own lists, cards and Inventory, their copies for lists and cards shared with them), so that their keys open it.
 - **A person's own export, readable** (RFC 0005, 22.8), in both modes, from **Settings › Data**: **one JSON file**, `shopper-export-<date>.json`,
   **made in the browser,** which holds the keys. The server checks who is asking and serves the person's records as it holds them (the same records as
   core's export); the browser opens them and writes the file, so the server never reads a name to make it. **Confirmed first, as core's export is:**
@@ -1402,6 +1445,8 @@ shared record. One routine, safe to run again; the `sub` link goes last.
   (phase 2).
 - **Their Inventory and their own categories** are deleted, by `household_id`, whether or not their group stays for a list that passed on; a list's
   copy of one of their categories (`list_category`) stays with its list, as the list's.
+- **Their cards** go as their lists do: a card nobody else is on is deleted, with its links and keys; a shared card whose Admin they were passes to
+  the person on it longest; elsewhere they leave, and their copy of its keys (`card_key`) is deleted.
 - **Removed** (the rows that exist, phase by phase): notices for them, digests for and about them, their notice preferences, invitations they made
   (revoked) and to them, their device subscriptions, their group's keyring and their copies of lists' keys, their vault (`vault.deleteAccount`), their
   export jobs, their stored core token, their settings, rate counters, mail queued to them, and better-auth's rows: passkeys, two-factor, sessions,
@@ -1444,7 +1489,8 @@ vault tables and the export package's jobs (their own migrations, recorded apart
 `price_unit`; `item` has no price or `trip_id`; a list's `clearing` is `manual`. **Phase 2 adds** `shop`, `trip`, `trip_line`, `notice`,
 `notice_digest`, `notice_pref`, `mail_outbox` and `credential`, and those columns. **Workstream 0002 adds** (§2.3) a list's icon and colour, two
 fields of its `encrypted` and no column, so a list made before them has neither and is shown with the defaults (§9.1); `inventory_item` and
-`list_category` (§8.3, §8.8); and a person's own categories' names in `category`'s `encrypted`. **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
+`list_category` (§8.3, §8.8); a person's own categories' names in `category`'s `encrypted`; `card`, `card_member`, `card_key` and `list_card` (§7.7);
+and `invitation`'s and `tombstone`'s `card_id`. **The auth store is `@sovereignfs/auth`'s** (auth.md §10): its
 account tables, the core sign-in's, the session's key secret (`sv_key_secrets`) and the SDK's stores, moved there from 0.2.x's better-auth tables at
 start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` columns are left in place and read by nothing but the move.
 
@@ -1454,7 +1500,7 @@ start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` colum
 | `household`        | The group (§7.1): `id`, `own_of` (its account's `account_id`, unique; null once that account is deleted), `sealed` (name), `seq`, `encryption` (`sealed`, `encrypted`), `epoch`, `created_by`, `created_at`, `updated_at`                                                                                                                                                                          |
 | `member`           | `id`, `household_id`, `person_id`, `role`, `joined_at`, `left_at`, `seq`: the group's own account, its only member                                                                                                                                                                                                                                                                                 |
 | `list_member`      | `id`, `household_id`, `list_id`, `person_id` (unique with `list_id`), `role` (`admin`, `member`), `joined_at`, `left_at`, `seq` (§7.2)                                                                                                                                                                                                                                                             |
-| `invitation`       | `id`, `household_id`, `list_id`, `token_hash` (unique), `wrapped_key` (the list's keyring under the link's secret, §13.5), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                                                                                                                         |
+| `invitation`       | `id`, `household_id`, `list_id` or `card_id` (one of the two: an invitation is to a list or to a card, §7.7), `token_hash` (unique), `wrapped_key` (the list's or the card's keyring under the link's secret, §13.5), `sealed` (email), `core_sub`, `created_by`, `expires_at`, `sent_at`, `accepted_by`, `accepted_at`, `revoked_at`                                                              |
 | `category`         | `id`, `household_id`, `starter_key`, `sealed` or `encrypted` (name, when renamed or added; a person's own under the group's Inventory keys), `icon`, `position`, `hidden`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                             |
 | `product`          | `id`, `household_id`, `list_id`, `name_key` (unique with `household_id` and `list_id`), `sealed` (name, note, barcode, last unit price), `category_id`, `icon`, `default_quantity`, `default_unit`, `price_unit`, `times_bought`, `last_bought_at`, `last_added_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                     |
 | `list`             | `id`, `household_id`, `sealed` or `encrypted` (name, icon, colour), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                                                                                                          |
@@ -1471,10 +1517,14 @@ start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` colum
 | `account_settings` | `account_id` (the key), `last_list_id`, `inbox_seen_at`, `created_at`, `updated_at`                                                                                                                                                                                                                                                                                                                |
 | `mail_outbox`      | `id`, `account_id` or `sealed` (address), `template`, `data` (sealed JSON), `attempts`, `next_attempt_at`, `sent_at`, `failure_kind`, `created_at`                                                                                                                                                                                                                                                 |
 | `applied_mutation` | `account_id`, `id`, `household_id`, when (§12.9)                                                                                                                                                                                                                                                                                                                                                   |
-| `tombstone`        | `table`, `id`, `household_id`, `list_id` (who may be handed it), `seq`, when (§12.9)                                                                                                                                                                                                                                                                                                               |
+| `tombstone`        | `table`, `id`, `household_id`, `list_id` or `card_id` (who may be handed it), `seq`, when (§12.9)                                                                                                                                                                                                                                                                                                  |
 | `credential`       | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                                                                                                                                   |
 | `household_key`    | `household_id`, `person_id` (the key), `epoch`, `record` (the group's keyring wrapped under its account's app key), `created_at` (§13.2)                                                                                                                                                                                                                                                           |
 | `list_key`         | `list_id`, `person_id` (the key), `household_id`, `epoch`, `record` (the list's keyring wrapped under that person's app key), `created_at` (§13.2)                                                                                                                                                                                                                                                 |
+| `card`             | `id`, `household_id`, `encrypted` (shop, number, kind of code, code, icon, colour, name on the card, note), `position`, `deleted_at`, `seq`, `fseq`, `created_at` (§7.7)                                                                                                                                                                                                                           |
+| `card_member`      | `id`, `household_id`, `card_id`, `person_id` (unique with `card_id`), `role` (`admin`, `member`), `joined_at`, `left_at`, `seq`, as `list_member`                                                                                                                                                                                                                                                  |
+| `card_key`         | `card_id`, `person_id` (the key), `household_id`, `epoch`, `record` (the card's keyring wrapped under that person's app key), `created_at`, as `list_key`                                                                                                                                                                                                                                          |
+| `list_card`        | `list_id`, `card_id` (the key, a list and a card of the same group), `household_id`, `deleted_at`, `seq` (§7.7)                                                                                                                                                                                                                                                                                    |
 | `push_device`      | `id` (the push service's endpoint for the device), `account_id`, `sealed` (its keys, §13.4), `saved_at`: at most ten an account (RFC 0002)                                                                                                                                                                                                                                                         |
 | `push_outbox`      | `id`, `account_id`, `endpoint`, `message` (a kind, who did it and a path; never a name), `attempts`, `due_at`, `claimed_until`, `expires_at`                                                                                                                                                                                                                                                       |
 | `rate_bucket`      | As Tusk's. A job claims its work by a conditional update of the row it works on (`src/jobs/claim.ts`), not by a table                                                                                                                                                                                                                                                                              |
@@ -1484,7 +1534,7 @@ by list; trip lines by trip and by `(household_id, bought_at)` for suggestions; 
 invitations by list; Inventory by `(household_id, seq)` like every synced table and by `(household_id, starter_key)`; notices by account and time; the mail outbox by `next_attempt_at`; digests by `updated_at`.
 
 **The device's store** holds, per group, the lists the person is on, their people's names, items not cleared, products, the group's starter
-categories and the lists' copies of others, the account's own Inventory and categories,
+categories and the lists' copies of others, the account's own Inventory and categories, the cards the account is on and their links to its lists,
 shops, trips of the last 180 days and their lines, and aliases; and per account the cursors, the outbox, Couldn't sync, the freshness choice, the last list, the
 last-synced unread count, and view choices. Nothing else.
 
@@ -1494,7 +1544,7 @@ last-synced unread count, and view choices. Nothing else.
 
 As Tusk's §24: a strict CSP with a per-request nonce, `connect-src 'self'`, no `'unsafe-inline'`; nothing third-party loads, and in suite mode
 `img-src` adds core's own address alone, for the person's picture (§6.2) and the launcher's icons (§16.2); what people write is
-rendered as text, never as HTML. **Logs hold no item, product, list, shop or person names, notes, prices or addresses:** an id and a kind
+rendered as text, never as HTML. **The camera's frames never leave the device** (§22.3): a card or a barcode is decoded in the browser. **Logs hold no item, product, list, shop or person names, notes, prices or addresses:** an id and a kind
 of failure. Every route, operation and mutation finds the session and carries the permission in its statement (§5.2); a route that changes something
 checks `Origin`; `/api/live` checks the session on connect and closes when it ends. An invitation token is random, stored hashed, compared in constant
 time, and its page reveals the inviter's name only. **Rate limits:** invitations and resends, sign-up, sync requests, live
@@ -1590,7 +1640,8 @@ Everything the first design put in phase 1 that 0.1.0 leaves out (§2.2). Each i
 
 ### 22.3 Phase 4: capture
 
-- **Barcode scanning,** decoded on the device: the browser's `BarcodeDetector` where there is one, otherwise a WebAssembly decoder bundled with
+- **Barcode scanning,** decoded on the device, **built before phase 2 with loyalty cards** (§7.7, 24.4, RFC 0007), which phase 4 uses for products:
+  the six kinds of code a card may have, read by the browser's `BarcodeDetector` where there is one, otherwise a WebAssembly decoder bundled with
   Shopper (ZXing's, licence checked for AGPL compatibility); the camera through `getUserMedia`, never leaving the device. A scan finds the list's
   product by barcode (unsealed in memory on the device, which holds the catalog), or offers to make one.
 - **Lookup by barcode,** for a barcode the list does not know: **the server** asks a product database (Open Food Facts, by barcode only, with no
@@ -1644,6 +1695,16 @@ this file (22.1, 23.1, 24.1) found these, each written here as proposed and wait
    copy (`list_category`), so that nothing a change points at is another group's.
 6. **All lists** (§9.7): RFC 0006 makes _All lists_ Home's tiles; proposed that phase 2's view of every open item in one place is not built, rather
    than kept as a page beside Home.
+7. **Where a card's invitation is kept** (§20.3): RFC 0007 does not say. Proposed: `invitation` with a `card_id` in place of its `list_id`, so that
+   one token store, one page and one set of rules serve both.
+8. **A card's keys when someone leaves** (§13.2): 24.5 asks for a new key; a list makes none until 16.8. Proposed: a card follows a list, and both get
+   new epochs together when 16.8 is released.
+9. **Where a list's cards are linked** (§16.5): RFC 0007 says "from the list's settings", which have two sections. Proposed: a third, **Cards**.
+10. **Limits for cards** (§7.6): proposed `SHOPPER_LIMIT_ACCOUNT_CARDS`, 100, with a card's people and links as a list's.
+11. **Who is handed a card's link to a list** (§7.7, §12.3): proposed only someone on both, so that a person on the list learns nothing of a card they
+    are not on, not even that it exists.
+12. **Shopping mode's header** (§11.1): RFC 0005 leaves nothing on the right; RFC 0007 puts the card button there. Proposed: the card button, and
+    phase 2's shop beside it.
 
 ## 26. Decision log
 
@@ -1698,4 +1759,5 @@ this file (22.1, 23.1, 24.1) found these, each written here as proposed and wait
 | 2026-11-23 | **The suite's frame, Settings as `SettingsDialog`, an item beside its list, a list's icon and colour (encrypted), page titles set by the browser** (RFC 0005); the frame and the dialog are built in `@sovereignfs/ui` first                                                               | Shopper looks and behaves as the suite's apps do, and reusable UI is the design system's                                                            |
 | 2026-11-23 | **Home is where Shopper opens,** with _Continue_ for the last list; _All lists_ is Home's (RFC 0006). Supersedes the landing on the last list (§16.4 as it was)                                                                                                                            | The owner's decision: Continue keeps the last list one tap away                                                                                     |
 | 2026-11-23 | **Inventory, a person's own library of what they buy,** never shared, with the starter catalog layered under it and their own categories, copied per list as a list uses them (RFC 0006). The catalog screen is Inventory; the pantry, staples and repeating items are Inventory's         | Sharing it would break RFC 0004; copying the starter into every account would freeze it                                                             |
+| 2026-11-23 | **Loyalty cards in Shopper, shop cards only,** each with its own people and keys, shared by a link as a list is, linked to lists for shopping mode; six kinds of code; scanning on the device brought forward from phase 4 (RFC 0007)                                                      | Shopper alone would otherwise have none, and sharing with the people one shops with would wait on Wallet; Wallet stays for what is private          |
 | 2026-11-23 | **A person's own export is readable,** one JSON file made in the browser after confirming it is them (RFC 0005); core's export keeps Shopper's part as ciphertext. Supersedes 20.2 as written                                                                                              | The owner's decision: people get their data readable now                                                                                            |

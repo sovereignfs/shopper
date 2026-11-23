@@ -17,7 +17,7 @@ private.
 
 ## Tasks
 
-#### 📋 24.1 — The design
+#### ✅ 24.1 — The design
 
 **Goal:** `DESIGN.md` says what RFC 0007 builds. **Depends on:** 22.1.
 
@@ -26,6 +26,24 @@ private.
 `docs/sharing.md`; 14.1 pointing here.
 
 **Accepts when:** the design says who sees a card, and that sharing a list shares no card.
+
+**Done as:** `DESIGN.md` says what RFC 0007 builds:
+
+- §2.3's row; §4 (**loyalty card**, and "card" among the words); §5.2 (**a card is a list's equal**, `onCard`, and a link needing both); §7.6 (a limit,
+  proposed); a new **§7.7 Loyalty cards** (what a card holds, adding and showing it, its people and keys, online operations, cards on a list, and
+  **sharing a list shares no card**).
+- §11.1 (the card button in shopping mode's header); §12.1 to §12.3 and §12.8 (the store, what syncs, the pull hands a card and its links only to its
+  people, the online operations); §13.1 (a card's fields, under its own keys), §13.2 (a card's keyring and `card_key`), §13.5 (a link to a card) and
+  §13.6.
+- §16.3 (`/cards`, `/cards/<id>`), §16.5 (the list's settings' **Cards** section), a new **§16.14 Loyalty cards**; §18.1 (cards in the export), §19
+  (cards pass on as lists do), §20.3 (`card`, `card_member`, `card_key`, `list_card`; `invitation`'s and `tombstone`'s `card_id`) and the device's
+  store; §21 (the camera's frames); §22.3 (scanning built with cards); §25 (six points for the owner's review); §26 (a row).
+- `AGENTS.md`: joining a card only by accepting, its operations online, `onCard`, the one path's tables, the device's store and the words.
+  `docs/sharing.md`: cards and Inventory, as coming. 14.1 already pointed here.
+
+Beyond the RFC, each in §25 for the owner: a card's invitation kept in `invitation`; a card's keys following a list's until 16.8 (24.5 asks for a new
+key when someone leaves); a third section of the list's settings for its cards; a limit; the link handed only to someone on both; the card button on
+the right of shopping mode's header.
 
 #### 📋 24.2 — Cards: the data and the keys
 

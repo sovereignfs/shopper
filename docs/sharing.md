@@ -42,5 +42,10 @@ _Share_, on a list, opens the sharing dialog. **Make a link** gives one, shown o
 
 Roles beyond Admin and Member; inviting by email; trips, shops and prices. [`ROADMAP.md`](../ROADMAP.md) has the order.
 
+**Coming in a later release:** **loyalty cards**, shared the way lists are. A card will have its own people, joined only by accepting a link to that
+card, which carries the card's key and no other. **Sharing a list will share no card,** and sharing a card nothing else of yours; a card linked to a
+list opens from shopping mode only for the people on both. **Your Inventory**, your own library of what you buy, **will be shared with nobody**: the
+people on a list you share see the names of the categories its items use, and nothing else of it.
+
 Each list has its own catalog, the products it remembers: what someone adds on a list you share never finds or changes a product of another of your
 lists. A name you use on another list still comes up as a suggestion.
