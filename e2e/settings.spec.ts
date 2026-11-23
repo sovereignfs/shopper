@@ -119,3 +119,42 @@ test('Preferences: how a list shows its items and how Shopper looks are kept on 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await dialog(page).getByRole('radio', { name: 'System' }).click();
 });
+
+test('Preferences: a time zone and a language are kept on the account and change how dates are written', async ({
+  page,
+  baseURL,
+}) => {
+  await signUp(page);
+  await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
+  // An item says when it was added: the browser's own until something is chosen.
+  const added = async () => {
+    await page.getByRole('button', { name: 'Edit Milk' }).click();
+    const text = (await page.getByText(/^Added by/).textContent()) ?? '';
+    await page.keyboard.press('Escape');
+    return text;
+  };
+  const before = await added();
+
+  await page.goto('/settings/preferences');
+  const prefs = dialog(page);
+  await prefs.getByLabel('Language and region').selectOption('de-DE');
+  await expect(prefs.getByText('Saved.')).toBeVisible();
+  await prefs.getByLabel('Time zone').selectOption('Pacific/Auckland');
+  await expect(prefs.getByText('Saved.')).toBeVisible();
+  // Kept on the account: a reload has them.
+  await page.reload();
+  await expect(dialog(page).getByLabel('Language and region')).toHaveValue('de-DE');
+  await expect(dialog(page).getByLabel('Time zone')).toHaveValue('Pacific/Auckland');
+  await dialog(page).getByRole('button', { name: /close/i }).click();
+
+  // The date is written in German, and in Auckland's time.
+  await expect.poll(added, { timeout: 15_000 }).toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/);
+  expect(before).not.toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/);
+
+  // Back to the browser's own.
+  await page.goto('/settings/preferences');
+  await dialog(page).getByLabel('Language and region').selectOption('');
+  await expect(dialog(page).getByText('Saved.')).toBeVisible();
+  await dialog(page).getByLabel('Time zone').selectOption('');
+  await expect(dialog(page).getByText('Saved.')).toBeVisible();
+});

@@ -216,8 +216,11 @@ header's avatar draws too), with _Edit in Sovereign_; **Security** is links to c
 appearance, language and notifications are Sovereign's and links there, keeping the list's view and This device; **Data** keeps the readable export's line and links to
 core's _Delete account_ in place of Shopper's own form. **The content security policy gains core's origin for images alone** (`img-src`, from `edgeSettings().coreOrigin`
 through the proxy), tested to leave every other directive as it was. The fake core has a `picture` and serves one (`/avatar.png`). Tests: `e2e/sovereign.spec.ts` in
-Chromium and WebKit (the policy, the avatar, each section's read-only content and links), `core-links.test.ts`, `csp.test.ts`. **Still to do:** what standalone adds to
-Preferences (time zone, language and region).
+Chromium and WebKit (the policy, the avatar, each section's read-only content and links), `core-links.test.ts`, `csp.test.ts`. **Standalone** adds **time zone and language and region** to Preferences, kept on the account through `@sovereignfs/auth`'s own update (its `timezone` and `locale`, which it checks),
+read by the signed-in layout into a `FormatProvider`, and **used**: the item's date, a link's expiry and This device's times are written in them (`src/format/regional.ts`,
+pure, with `Intl`; not chosen, the browser's own, as before). Hosted by Sovereign the same two come from core's claims and are not edited here. Tests: `regional.test.ts`
+and the new case in `e2e/settings.spec.ts` (German and Auckland change the date, kept across a reload). **Left out:** the offline shell, which has no session, writes dates as the
+browser does.
 
 #### ⏳ 22.8 — A readable export
 

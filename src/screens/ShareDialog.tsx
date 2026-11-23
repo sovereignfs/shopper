@@ -1,5 +1,6 @@
 'use client';
 
+import { useFormat } from '../format/FormatProvider';
 import { useCallback, useEffect, useState } from 'react';
 import { Avatar, Button, ConfirmDialog, CopyButton, Dialog } from '@sovereignfs/ui';
 import { type ListData } from '../local/listview';
@@ -19,9 +20,6 @@ interface Link {
   readonly canRevoke: boolean;
 }
 
-const day = (at: number): string =>
-  new Date(at).toLocaleDateString(undefined, { dateStyle: 'medium' });
-
 /**
  * **Sharing a list** (DESIGN.md §16.9, RFC 0004): a dialog at `?share=1`, opened by **Share** on a list. It says first that the people you share with see
  * and edit this list and nothing else of yours, then lists the list's people (an Admin marked; an address only where the
@@ -31,6 +29,8 @@ const day = (at: number): string =>
  * says so when there is no network, changing nothing.
  */
 export function ShareDialog({ data, onClose }: { data: Found; onClose: () => void }) {
+  // "12 Nov 2026", in the time zone and language the person chose.
+  const { dateOnly: day } = useFormat();
   const { client, keysOf } = useLocal();
   const { household, list, members, me } = data;
   // The list's Admin, not the group's (RFC 0004): whoever made it, or whom it passed to.

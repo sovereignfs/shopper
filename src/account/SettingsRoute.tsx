@@ -11,6 +11,7 @@ import { accountHasPassword } from '../auth/password';
 import { corePicture } from '../auth/profile';
 import { authSettings } from '../auth/server';
 import { requireSession } from '../auth/session';
+import { localeOf, timeZoneOf } from '../format/regional';
 import { getVaultId } from '../keys/server/vault';
 import styles from './Account.module.css';
 
@@ -66,7 +67,15 @@ export async function SettingsRoute({
             <EncryptionSection />
           </div>
         ),
-        preferences: <PreferencesSection core={core} />,
+        preferences: (
+          <PreferencesSection
+            core={core}
+            regional={{
+              locale: localeOf(session.user.locale),
+              timeZone: timeZoneOf(session.user.timezone),
+            }}
+          />
+        ),
         data: (
           <div className={styles.panel}>
             <ExportSection suite={core !== null} email={session.user.email} vaultId={vaultId} />

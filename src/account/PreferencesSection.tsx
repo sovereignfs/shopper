@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SegmentedControl } from '@sovereignfs/ui';
+import { useRouter } from 'next/navigation';
+import { Alert, FormField, SegmentedControl, Select } from '@sovereignfs/ui';
+import { authClient } from '../auth/client';
 import { coreLink } from '../auth/core-links';
+import { LOCALES, timeZones, type Regional } from '../format/regional';
 import { readView, type View, writeView } from '../lists/view-preference';
 import { chooseTheme, readTheme, type ThemeChoice } from '../theme/preferences';
 import { NotificationsSection } from './NotificationsSection';
@@ -14,12 +17,22 @@ import styles from './Account.module.css';
  * looks. Hosted by a Sovereign instance, appearance, language and notifications are Sovereign's, and this says so and goes there (`core`): Shopper keeps no
  * copy of them. What is chosen here about how this device draws things is kept in this browser (`src/lists/view-preference.ts`, `src/theme/preferences.ts`).
  */
-export function PreferencesSection({ core }: { core: string | null }) {
+export function PreferencesSection({
+  core,
+  regional,
+}: {
+  core: string | null;
+  /** The account's time zone and language, which running alone are chosen here. */
+  regional: Regional;
+}) {
   return (
     <div className={styles.panel}>
       <ListsPreference />
       {core === null ? (
-        <AppearancePreference />
+        <>
+          <AppearancePreference />
+          <RegionalPreference regional={regional} />
+        </>
       ) : (
         <div className={styles.group}>
           <h2>Appearance, language and notifications</h2>
@@ -86,6 +99,98 @@ function AppearancePreference() {
           { value: 'dark', label: 'Dark' },
         ]}
       />
+    </div>
+  );
+}
+
+/** How a language and region are named to the person, in their own language where the platform can. */
+function localeLabel(tag: string): string {
+  try {
+    const name = new Intl.DisplayNames([tag], { type: 'language' }).of(tag);
+    return name ? `${name} (${tag})` : tag;
+  } catch {
+    return tag;
+  }
+}
+
+/**
+ * The time zone and the language and region dates are written in, **kept on the account** (so every device has them) through `@sovereignfs/auth`, which checks
+ * them. Not chosen, they are the browser's own. Needs a connection, and says so when there is none; core's are core's, so this is only for running alone.
+ */
+function RegionalPreference({ regional }: { regional: Regional }) {
+  const router = useRouter();
+  const [problem, setProblem] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  // What is shown is what was chosen, at once; the server's answer follows with the refresh.
+  const [zone, setZone] = useState(regional.timeZone ?? '');
+  const [tag, setTag] = useState(regional.locale ?? '');
+  const zones = timeZones();
+  // What the account has that is not in the lists (a language core or an older Shopper kept) is still shown, so that choosing nothing else changes nothing.
+  const tags =
+    regional.locale && !LOCALES.includes(regional.locale) ? [regional.locale, ...LOCALES] : LOCALES;
+  const names =
+    regional.timeZone && !zones.includes(regional.timeZone) ? [regional.timeZone, ...zones] : zones;
+
+  async function save(change: { timezone: string | null } | { locale: string | null }) {
+    setProblem(null);
+    setSaved(false);
+    try {
+      const result = await authClient.updateUser(change);
+      if (result.error) return setProblem('That could not be saved. Check it and try again.');
+      setSaved(true);
+      // Every date on the page is written with what the account says.
+      router.refresh();
+    } catch {
+      setProblem('This needs a connection. Try again when you are back online.');
+    }
+  }
+
+  return (
+    <div className={styles.group}>
+      <h2>Time zone and language</h2>
+      <p className={styles.muted}>
+        How dates are written. Kept on your account; the browser’s own until you choose.
+      </p>
+      {problem ? <Alert variant="error">{problem}</Alert> : null}
+      {saved ? <Alert variant="success">Saved.</Alert> : null}
+      <FormField label="Time zone">
+        {(field) => (
+          <Select
+            {...field}
+            value={zone}
+            onChange={(event) => {
+              setZone(event.target.value);
+              void save({ timezone: event.target.value || null });
+            }}
+          >
+            <option value="">This browser’s</option>
+            {names.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone.replaceAll('_', ' ')}
+              </option>
+            ))}
+          </Select>
+        )}
+      </FormField>
+      <FormField label="Language and region">
+        {(field) => (
+          <Select
+            {...field}
+            value={tag}
+            onChange={(event) => {
+              setTag(event.target.value);
+              void save({ locale: event.target.value || null });
+            }}
+          >
+            <option value="">This browser’s</option>
+            {tags.map((each) => (
+              <option key={each} value={each}>
+                {localeLabel(each)}
+              </option>
+            ))}
+          </Select>
+        )}
+      </FormField>
     </div>
   );
 }

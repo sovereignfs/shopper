@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Alert, Button, ConfirmDialog, Select } from '@sovereignfs/ui';
 import { canMove } from '../local/describe';
 import type { FailedEntry } from '../local/db';
+import { useFormat } from '../format/FormatProvider';
 import { useLocal, useLocalQuery } from '../local/react';
 import { resetDevice } from '../local/reset';
 import { failedOf, lastSyncedAt, listsOf, persistenceGranted } from '../local/store';
@@ -22,10 +23,8 @@ interface Row {
   targets: ListRow[];
 }
 
-const when = (at: number) =>
-  new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-
 export function ThisDeviceSection() {
+  const { dateTime: when } = useFormat();
   const { accountId, client } = useLocal();
   const device = useLocalQuery(async (db) => ({
     syncedAt: await lastSyncedAt(db),
@@ -190,6 +189,7 @@ function FailedRow({
   onMove(listId: string): Promise<void>;
   onDiscard(): void;
 }) {
+  const { dateTime: when } = useFormat();
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const chosen = target || targets[0]?.id || '';

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { corePicture } from '@/src/auth/profile';
+import { FormatProvider } from '@/src/format/FormatProvider';
+import { localeOf, timeZoneOf } from '@/src/format/regional';
 import { requireSession } from '@/src/auth/session';
 import { KeyPrompt } from '@/src/keys/KeyPrompt';
 import { KeysProvider, type PageKeySource } from '@/src/keys/keys';
@@ -46,15 +48,25 @@ export default async function AppLayout({
           keys={source}
         />
         <UndoProvider>
-          <ShellFrame
-            account={
-              <AccountMenu name={session.user.name} email={session.user.email} picture={picture} />
-            }
+          {/* How dates are written: the account's time zone and language, which the person chose in Settings (or core says), and the browser's for what is not. */}
+          <FormatProvider
+            locale={localeOf(session.user.locale)}
+            timeZone={timeZoneOf(session.user.timezone)}
           >
-            <KeyPrompt />
-            {children}
-            {modal}
-          </ShellFrame>
+            <ShellFrame
+              account={
+                <AccountMenu
+                  name={session.user.name}
+                  email={session.user.email}
+                  picture={picture}
+                />
+              }
+            >
+              <KeyPrompt />
+              {children}
+              {modal}
+            </ShellFrame>
+          </FormatProvider>
         </UndoProvider>
       </LocalProvider>
     </KeysProvider>

@@ -21,16 +21,13 @@ import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { addQuantity, isQuantity, subtractQuantity } from '../quantity/decimal';
 import { UNITS, isUnit, stepFor, type Unit } from '../quantity/units';
 import { type ListData, listViewOf } from '../local/listview';
+import { useFormat } from '../format/FormatProvider';
 import { useLocal } from '../local/react';
 import styles from './ItemPanel.module.css';
 
 type Found = Extract<ListData, { found: true }>;
 
 const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
-
-/** The shorter the better in a sentence: "12 Nov 2026, 14:03". */
-const when = (at: number): string =>
-  new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
  * **An item**, beside its list (RFC 0005, DESIGN.md §16.7, §9.4): the content of the right column that is there while `?item=<id>` is set, and a page of
@@ -58,6 +55,8 @@ export function ItemPanel({
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
   const { client } = useLocal();
+  // "12 Nov 2026, 14:03", in the time zone and language the person chose.
+  const { dateTime: when } = useFormat();
   const product = data.products.find((each) => each.id === item.productId);
   // What is being typed, until it is left: `null` is "what the item says".
   const [name, setName] = useState<string | null>(null);
