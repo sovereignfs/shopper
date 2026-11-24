@@ -70,6 +70,7 @@ export function InventoryPanel({
   const [name, setName] = useState<string | null>(null);
   const [target, setTarget] = useState<string>('');
   const [added, setAdded] = useState<{ list: string; message: string } | null>(null);
+  const [addProblem, setAddProblem] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -167,45 +168,51 @@ export function InventoryPanel({
    */
   function addToList() {
     if (!client || chosen === '') return;
+    setAdded(null);
     enqueue(async () => {
-      const now = layerInventory(await client.read(inventoryOf)).find(
-        (each) => each.key === entry.key,
-      );
-      const view = await listViewOf(client.db, chosen);
-      if (!now || !view.found || !view.me) return;
-      const category = await categoryOnList(
-        client.db,
-        {
-          encrypted: async (household) => (await keysOf(household)).encrypted,
-          ringOf: async (household, list) => (await keysOf(household, list)).ring,
-        },
-        env(),
-        { entry: now, list: view.list },
-      );
-      const planned = planAddFromInventory(
-        env(),
-        {
-          list: view.list,
-          products: view.products,
-          items: view.items,
-          categories: view.categories,
-          me: view.me,
-        },
-        now,
-        category,
-      );
-      if (!planned) return;
-      if ('refused' in planned) {
-        setProblem(planned.refused);
-        return;
+      try {
+        const now = layerInventory(await client.read(inventoryOf)).find(
+          (each) => each.key === entry.key,
+        );
+        const view = await listViewOf(client.db, chosen);
+        if (!now) return setAddProblem('That item is not in Inventory any more.');
+        // A list whose people the device has not heard of yet cannot be added to: who adds is one of them.
+        if (!view.found || !view.me)
+          return setAddProblem('That list is not ready on this device yet.');
+        const category = await categoryOnList(
+          client.db,
+          {
+            encrypted: async (household) => (await keysOf(household)).encrypted,
+            ringOf: async (household, list) => (await keysOf(household, list)).ring,
+          },
+          env(),
+          { entry: now, list: view.list },
+        );
+        const planned = planAddFromInventory(
+          env(),
+          {
+            list: view.list,
+            products: view.products,
+            items: view.items,
+            categories: view.categories,
+            me: view.me,
+          },
+          now,
+          category,
+        );
+        if (!planned) return setAddProblem('That item has no name to add.');
+        if ('refused' in planned) return setAddProblem(planned.refused);
+        setAddProblem(null);
+        const undo = await client.commit(planned.mutation);
+        const message = `${planned.message} to ${view.list.name}`;
+        setAdded({ list: view.list.id, message });
+        offerUndo(message, () => {
+          if (undo) return void client.commit(undo);
+        });
+      } catch {
+        // What the device could not write is said, not swallowed: the line of writes goes on.
+        setAddProblem('Could not add it. Try again.');
       }
-      setProblem(null);
-      const undo = await client.commit(planned.mutation);
-      const message = `${planned.message} to ${view.list.name}`;
-      setAdded({ list: view.list.id, message });
-      offerUndo(message, () => {
-        if (undo) return void client.commit(undo);
-      });
     });
   }
 
@@ -365,6 +372,7 @@ export function InventoryPanel({
                     onChange={(event) => {
                       setTarget(event.target.value);
                       setAdded(null);
+                      setAddProblem(null);
                     }}
                   >
                     {data.lists.map((list) => (
@@ -379,6 +387,11 @@ export function InventoryPanel({
                 <Button variant="secondary" size="sm" onClick={addToList}>
                   Add to list
                 </Button>
+                {addProblem ? (
+                  <span className={styles.problem} role="alert">
+                    {addProblem}
+                  </span>
+                ) : null}
                 {added ? (
                   <span className={styles.added} role="status">
                     {added.message} · <Link href={`/l/${added.list}`}>Open list</Link>

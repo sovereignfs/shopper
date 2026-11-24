@@ -262,7 +262,7 @@ const placed = async (page: Page, name: string): Promise<Placed[]> =>
     (row) => row.name === name && row.deletedAt === null,
   );
 
-test('Add to a list puts an item on the list with its own category, icon, unit and quantity, one more when it is open, and Undo takes it off', async ({
+test('Add to a list puts an item on the list with its own category, icon, unit and quantity, one more when it is open, and Undo takes off what it added', async ({
   page,
 }) => {
   await signUp(page);
@@ -286,6 +286,18 @@ test('Add to a list puts an item on the list with its own category, icon, unit a
   const snacks = (
     await deviceRows<{ id: string; starterKey: string | null }>(page, account, 'category')
   ).find((row) => row.starterKey === 'snacks-sweets');
+  expect((await placed(page, 'Banana'))[0]).toMatchObject({
+    quantity: '6',
+    unit: 'pcs',
+    icon: 'banana',
+    categoryId: snacks?.id,
+  });
+
+  // Undo of a fresh add takes the item off the list (the product, which is the catalog learning, stays), and adding again puts it back as it was.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await placed(page, 'Banana')).length, { timeout: 10_000 }).toBe(0);
+  await banana.getByRole('button', { name: 'Add to list' }).click();
+  await expect.poll(async () => (await placed(page, 'Banana')).length, { timeout: 10_000 }).toBe(1);
   expect((await placed(page, 'Banana'))[0]).toMatchObject({
     quantity: '6',
     unit: 'pcs',

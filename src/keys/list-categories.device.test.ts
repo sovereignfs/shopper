@@ -712,9 +712,9 @@ describe(`an Inventory item added to a list (${leg})`, () => {
       category,
     );
     if (!planned || 'refused' in planned) throw new Error('nothing planned');
-    await d.client.commit(planned.mutation);
+    const undo = await d.client.commit(planned.mutation);
     await d.client.sync();
-    return { planned, category };
+    return { planned, category, undo };
   }
 
   it('makes the list’s copy of a category of the person’s own, once, as a Member on another person’s list, accepted, and the Admin reads it', async () => {
@@ -740,6 +740,17 @@ describe(`an Inventory item added to a list (${leg})`, () => {
     const item = view.items.find((row) => row.name === `Spade ${MARKER}`);
     expect(item?.categoryId).toBe(first.category.id);
     expect(item?.icon).toBeNull();
+
+    // Undo of that add takes the item off and leaves the copy, which a Member cannot delete: an undo that took it too would be refused whole.
+    expect(first.undo).not.toBeNull();
+    await g.client.commit(first.undo);
+    await g.client.sync();
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+    const after = await a.client.read((db) => listViewOf(db, ada.list));
+    if (!after.found) throw new Error('not found');
+    expect(after.items.filter((row) => row.name === `Spade ${MARKER}`)).toEqual([]);
+    expect((await copiesOn(a, ada.list)).map((row) => row.name)).toEqual([`Garden ${MARKER}`]);
 
     // A second item of the same category finds the copy and makes no other.
     const second = await addFrom(g, rake, ada.list);
