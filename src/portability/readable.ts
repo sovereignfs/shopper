@@ -1,6 +1,7 @@
 import {
   type Keyring,
   boundTo,
+  deriveInventoryKeyring,
   deriveListKeyring,
   openField,
   unwrapKeyring,
@@ -48,12 +49,18 @@ const KEYS = new Set(['household_key', 'list_key']);
 const text = (value: unknown): string | undefined =>
   typeof value === 'string' && value !== '' ? value : undefined;
 
-/** The keyring of each list this person can open, from their own records of keys: their copies first, else derived from the group's. */
+/**
+ * The keys this person can open with, from their own records of keys: **a list's**, their copy first, else derived from the group's; and **a group's Inventory keys**, derived
+ * from the group's own keyring (§13.2), which are the keys of their own Inventory and their own categories, bound to the group in the place of a list.
+ */
 async function listRings(
   served: readonly ServedRecords[],
   appKey: CryptoKey,
   person: string,
-): Promise<(list: string) => Promise<Keyring | undefined>> {
+): Promise<{
+  list: (list: string) => Promise<Keyring | undefined>;
+  inventory: (household: string) => Promise<Keyring | undefined>;
+}> {
   const of = (kind: string) => served.find((each) => each.kind === kind)?.records ?? [];
   const households = new Map<string, Keyring>();
   for (const row of of('household_key')) {
@@ -77,17 +84,27 @@ async function listRings(
     if (list && record) copies.set(list, record);
   }
   const rings = new Map<string, Keyring | undefined>();
-  return async (list) => {
-    if (rings.has(list)) return rings.get(list);
-    let ring: Keyring | undefined;
-    const copy = copies.get(list);
-    if (copy) ring = await unwrapListKeyring(appKey, copy, { person, list });
-    if (!ring) {
-      const group = households.get(householdOf.get(list) ?? '');
-      if (group) ring = await deriveListKeyring(group, list);
-    }
-    rings.set(list, ring);
-    return ring;
+  const inventoryRings = new Map<string, Keyring | undefined>();
+  return {
+    list: async (list) => {
+      if (rings.has(list)) return rings.get(list);
+      let ring: Keyring | undefined;
+      const copy = copies.get(list);
+      if (copy) ring = await unwrapListKeyring(appKey, copy, { person, list });
+      if (!ring) {
+        const group = households.get(householdOf.get(list) ?? '');
+        if (group) ring = await deriveListKeyring(group, list);
+      }
+      rings.set(list, ring);
+      return ring;
+    },
+    inventory: async (household) => {
+      if (inventoryRings.has(household)) return inventoryRings.get(household);
+      const group = households.get(household);
+      const ring = group ? await deriveInventoryKeyring(group, household) : undefined;
+      inventoryRings.set(household, ring);
+      return ring;
+    },
   };
 }
 
@@ -98,7 +115,7 @@ export async function openServed(
   head: { readonly version: string; readonly takenAt: string },
 ): Promise<ReadableExport> {
   const person = text(served.find((each) => each.kind === 'person')?.records[0]?.id) ?? '';
-  const ringOf = await listRings(served, appKey, person);
+  const rings = await listRings(served, appKey, person);
   const records: Record<string, Record<string, unknown>[]> = {};
   let unopened = 0;
   for (const part of served) {
@@ -122,7 +139,12 @@ export async function openServed(
       const opened: Record<string, string | null> = {};
       for (const [field, value] of Object.entries(content ?? {})) {
         const bound = typeof value === 'string' ? boundTo(value) : undefined;
-        const ring = bound ? await ringOf(bound.list) : undefined;
+        // A person's own Inventory and own categories are bound to their group, in the place of a list, and opened under its Inventory keys (§13.2).
+        const ring = !bound
+          ? undefined
+          : kind === 'inventory_item' || kind === 'category'
+            ? await rings.inventory(bound.list)
+            : await rings.list(bound.list);
         const clear =
           bound && ring && typeof value === 'string'
             ? await openField(

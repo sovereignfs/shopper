@@ -1,6 +1,7 @@
 import type { InventoryRow } from '../actions/rows';
 import type { Unit } from '../quantity/units';
-import { STARTER_CATALOG, type StarterEntry } from './starter';
+import { canonicalName } from './canonical';
+import { STARTER_CATALOG, type StarterEntry, starterEntryByKey } from './starter';
 
 /**
  * **Inventory as the person sees it** (DESIGN.md §8.6, §8.8): the starter catalog **layered** under their own rows and never copied into an account, so that
@@ -91,3 +92,24 @@ export function layerInventory(
 /** What is offered to the person as they add (§8.5): every entry that is not hidden. A hidden starter entry is offered nowhere until it is shown again. */
 export const offered = (entries: readonly InventoryEntry[]): InventoryEntry[] =>
   entries.filter((entry) => !entry.hidden);
+
+/**
+ * **Whether the person's Inventory has a name already** (§8.8): an item of their own, or a starter entry (renamed or not, hidden or not: a hidden one is one they chose to
+ * be rid of, and typing its name is not a new name), by **canonical name**, so that capitals, spaces and a starter's plural do not make a second. A deleted row is not
+ * there. This is what a new name typed on a list asks before it makes an Inventory item: it makes one only for a name the person does not have.
+ */
+export function inventoryHas(
+  rows: readonly InventoryRow[],
+  name: string,
+  catalog: readonly StarterEntry[] = STARTER_CATALOG,
+): boolean {
+  const wanted = canonicalName(name);
+  return layerInventory(rows, catalog).some(
+    (entry) =>
+      canonicalName(entry.name) === wanted ||
+      // A starter entry a person renamed is still that entry: its own name and its aliases are the name too (typing "bread" after renaming it _Sourdough_ is not a new name).
+      (entry.starterKey !== null &&
+        canonicalName(starterEntryByKey(entry.starterKey)?.name ?? '') === wanted) ||
+      entry.aliases.some((alias) => canonicalName(alias) === wanted),
+  );
+}

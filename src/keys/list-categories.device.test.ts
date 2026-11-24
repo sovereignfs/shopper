@@ -23,10 +23,13 @@ import { OPERATIONS } from '../households/ops';
 import { SyncClient } from '../local/client';
 import { type LocalDatabase, deleteLocal, localName, openLocal } from '../local/db';
 import { listViewOf, categoriesOfList } from '../local/listview';
+import { planAdd } from '../lists/adding';
 import { rowListOf } from '../local/row-list';
 import {
   categoriesOf,
   failedOf,
+  inventoryContextOf,
+  inventoryOf,
   itemsOf,
   listCategoriesOf,
   listsOf,
@@ -608,5 +611,62 @@ describe(`a list’s copies of people’s categories on devices (${leg})`, () =>
     ).find((p) => p.listId === hardware && p.name === 'Mallet');
     expect(made?.categoryId).toBe(carry?.product);
     expect((await copiesOn(a, hardware)).map((row) => row.id)).toContain(carry?.product);
+  });
+});
+
+describe(`a new name added to a list makes an Inventory item (${leg})`, () => {
+  it('of the person who typed it, in their own group and not in the group the list is in, once, encrypted, and none for a name they have', async () => {
+    const { ada, grace, a, g } = await world('Fill');
+    const typed = {
+      kind: 'new',
+      name: `Zucchini bags ${MARKER}`,
+      icon: null,
+      quantity: null,
+      unit: null,
+    } as const;
+    // Grace, a Member of Ada's Groceries, adds a name nobody has typed: the item goes on Ada's list, and the Inventory item goes to Grace's own group.
+    const plan = async () => {
+      const now = await g.client.read((db) => listViewOf(db, ada.list));
+      if (!now.found || !now.me) throw new Error('not found');
+      const inventory = await g.client.read(inventoryContextOf);
+      const planned = planAdd(
+        env(),
+        {
+          list: now.list,
+          products: now.products,
+          items: now.items,
+          categories: now.categories,
+          me: now.me,
+          ...(inventory ? { inventory } : {}),
+        },
+        typed,
+      );
+      if (!planned || 'refused' in planned) throw new Error('nothing planned');
+      return planned;
+    };
+    const first = await plan();
+    expect(first.mutation.householdId).toBe(ada.household);
+    expect(first.also?.householdId).toBe(grace.household);
+    await g.client.commit(first.mutation);
+    if (first.also) await g.client.commit(first.also);
+    await g.client.sync();
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+    const mine = await g.client.read(inventoryOf);
+    expect(mine.map((row) => [row.name, row.recurring])).toEqual([[typed.name, false]]);
+    // Ada's Inventory is her own: nothing of Grace's reached it, and the server holds none of it in plain text.
+    expect(await a.client.read(inventoryOf)).toEqual([]);
+    const rows = await dbAll<Record<string, unknown>>(
+      database,
+      sql`SELECT * FROM ${appTable(database, 'inventory_item')}`,
+    );
+    expect(rows.filter((row) => row.household_id === ada.household)).toEqual([]);
+    const hers = rows.filter((row) => row.household_id === grace.household);
+    expect(hers).toHaveLength(1);
+    expect(hers[0]?.sealed).toBe('');
+    expect(JSON.stringify(hers)).not.toContain(MARKER);
+    // The same name again: the list has its product now, and her Inventory has the item, so nothing more is made.
+    const again = await plan();
+    expect(again.also).toBeUndefined();
   });
 });

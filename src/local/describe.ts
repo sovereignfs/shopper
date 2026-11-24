@@ -7,7 +7,8 @@ import type { ListRow } from './rows';
  * milk"), with the reason; a tick that was refused says so in a toast; and a change that added something to a list can be **moved to another list**, which
  * is a new mutation made from the refused one.
  */
-export type Kind = 'add' | 'tick' | 'untick' | 'delete' | 'clear' | 'archive' | 'list' | 'edit';
+export type Kind =
+  'add' | 'tick' | 'untick' | 'delete' | 'clear' | 'archive' | 'list' | 'inventory' | 'edit';
 
 export interface Described {
   readonly kind: Kind;
@@ -26,6 +27,10 @@ export function describeMutation(mutation: Mutation, nameOf: Name): Described {
   const items = changes.filter((change) => change.table === 'item');
   const added = items.find((change) => change.create);
   if (added) return { kind: 'add', what: `Added ${named(added) ?? 'an item'}` };
+  // What a new name made in the person's Inventory (§8.8): refused for a limit, it is not an item that was put on a list.
+  const filled = changes.find((change) => change.table === 'inventory_item' && change.create);
+  if (filled)
+    return { kind: 'inventory', what: `Added ${named(filled) ?? 'an item'} to Inventory` };
   const madeList = changes.find((change) => change.table === 'list' && change.create);
   if (madeList) return { kind: 'list', what: `Made the list ${named(madeList) ?? ''}`.trim() };
 

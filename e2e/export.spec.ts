@@ -54,6 +54,13 @@ test('a person downloads their lists and items as one readable file, and a wrong
   expect(file.export).toMatchObject({ format: 1, kind: 'person', readable: true });
   expect(file.unopened).toBe(0);
   expect(file.records.item?.map((row) => row.name).sort()).toEqual(['Oat milk', 'zorblax bread']);
+  // A name typed that was new made an item of the person's own Inventory (§8.8), which the file holds opened, with its name (it is bound to the group, under its Inventory keys).
+  expect(
+    file.records.inventory_item
+      ?.filter((row) => row.starter_key === null)
+      .map((row) => row.name)
+      .sort(),
+  ).toEqual(['zorblax bread']);
   expect(file.records.list?.length).toBeGreaterThan(0);
   expect(file.records.person?.[0]).toMatchObject({ email, name: 'Ada Lovelace' });
   // Readable, and with nothing that opens the person's lists: no key, wrapped or not, and no ciphertext.

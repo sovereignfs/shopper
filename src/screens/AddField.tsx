@@ -8,6 +8,7 @@ import { isGroceryIcon } from '../catalog/icons';
 import { type Suggestion, suggest } from '../catalog/suggest';
 import { type ListData, listViewOf } from '../local/listview';
 import { useLocal } from '../local/react';
+import { inventoryContextOf } from '../local/store';
 import { inBasket, planAdd, suggestionMeta } from '../lists/adding';
 import styles from './ListScreen.module.css';
 
@@ -70,6 +71,7 @@ export function AddField({
     queue.current = queue.current.then(async () => {
       const now = await listViewOf(client.db, list.id);
       if (!now.found) return;
+      const inventory = await inventoryContextOf(client.db);
       const planned = planAdd(
         env(),
         {
@@ -78,6 +80,7 @@ export function AddField({
           items: now.items,
           categories: now.categories,
           me,
+          ...(inventory ? { inventory } : {}),
         },
         suggestion,
       );
@@ -89,6 +92,9 @@ export function AddField({
       setRefused(null);
       const mutation = basket ? inBasket(planned.mutation, me, Date.now()) : planned.mutation;
       await change(mutation, planned.message);
+      // A new name makes an Inventory item of the person's own, after the list's and with nothing said (§8.8): what could not be written for it (a limit, a group the
+      // device has not heard of) is not for the person to hear of while they add.
+      if (planned.also) await client.commit(planned.also).catch(() => undefined);
       // Written, so whoever opened the field may close it; a refusal leaves it open, with the reason.
       onAdded?.();
     });

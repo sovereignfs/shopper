@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Change, Mutation } from '../actions/format';
 import { suggest } from '../catalog/suggest';
+import type { InventoryRow } from '../actions/rows';
 import type { CategoryRow } from '../local/rows';
 import { HOUSEHOLD, PERSON, env, item, list, product } from '../actions/test-support';
 import {
@@ -214,5 +215,97 @@ describe('adding from a suggestion', () => {
       name: 'Sheep cheese',
     });
     expect(changesOf(mutation, 'item')[0]?.fields).not.toHaveProperty('boughtAt');
+  });
+});
+
+describe('a new name makes an Inventory item (DESIGN.md §8.8)', () => {
+  const OWN = '50000000-0000-4000-8000-0000000000aa';
+  const row = (over: Partial<InventoryRow> = {}): InventoryRow => ({
+    id: crypto.randomUUID(),
+    householdId: OWN,
+    starterKey: null,
+    name: null,
+    note: null,
+    categoryId: null,
+    icon: null,
+    unit: null,
+    quantity: null,
+    recurring: false,
+    hidden: false,
+    deletedAt: null,
+    createdAt: 1,
+    seq: 1,
+    ...over,
+  });
+  const withInventory = (rows: InventoryRow[] = [], over: Partial<Adding> = {}) =>
+    context({ inventory: { household: OWN, rows }, ...over });
+
+  it('is a separate mutation to the reader’s own group, marked once, after the list’s and apart from it, for a name typed that Inventory does not have', () => {
+    const done = planned(planAdd(env(), withInventory(), typed('Zucchini bags')));
+    expect(done.mutation.householdId).toBe(HOUSEHOLD);
+    expect(done.also?.householdId).toBe(OWN);
+    expect(done.also?.householdId).not.toBe(done.mutation.householdId);
+    expect(done.also?.mutationId).not.toBe(done.mutation.mutationId);
+    expect(done.also?.changes).toHaveLength(1);
+    expect(done.also?.changes[0]).toMatchObject({
+      table: 'inventory_item',
+      create: true,
+      fields: { name: 'Zucchini bags', recurring: 0, hidden: 0 },
+    });
+  });
+
+  it('makes none for a name it has, by canonical name: an item of their own (capitals, spaces, a starter’s plural), a starter entry, a hidden one, and one renamed', () => {
+    const has = (rows: InventoryRow[], name: string) =>
+      planned(planAdd(env(), withInventory(rows), typed(name))).also;
+    expect(has([row({ name: 'Oat milk' })], 'oat  MILK')).toBeUndefined();
+    expect(has([], 'Bananas')).toBeUndefined();
+    expect(has([], 'bread')).toBeUndefined();
+    expect(has([row({ name: 'Good bin bags', hidden: true })], 'good bin bags')).toBeUndefined();
+    expect(has([row({ starterKey: 'bread', name: 'Sourdough' })], 'Sourdough')).toBeUndefined();
+    // A starter entry they renamed is still that entry: the name it had is not a new name either.
+    expect(has([row({ starterKey: 'bread', name: 'Sourdough' })], 'Bread')).toBeUndefined();
+    // A name they deleted is new again: the server folds it into the deleted row and brings it back.
+    expect(has([row({ name: 'Old thing', deletedAt: 5 })], 'Old thing')).toBeDefined();
+    // And a name that is neither.
+    expect(has([row({ name: 'Oat milk' })], 'Hemp milk')).toBeDefined();
+  });
+
+  it('makes none for a starter suggestion, for what the list has a product of already, nor where the device has no group of the reader’s own', () => {
+    const [starter] = suggest({ text: 'banan', products: [], items: [] });
+    expect(planned(planAdd(env(), withInventory(), only(starter))).also).toBeUndefined();
+    const milk = product({ name: 'Oat milk', categoryId: DAIRY });
+    expect(
+      planned(planAdd(env(), withInventory([], { products: [milk] }), typed('Oat milk'))).also,
+    ).toBeUndefined();
+    expect(planned(planAdd(env(), context(), typed('Zucchini bags'))).also).toBeUndefined();
+  });
+
+  it('carries what another list’s product it came from remembers, and still asks whether Inventory has the name', () => {
+    const elsewhere = product({
+      listId: 'another-list',
+      name: 'Hemp milk',
+      categoryId: DAIRY,
+      defaultQuantity: '2',
+      defaultUnit: 'L',
+      icon: 'milk',
+    });
+    const done = planned(
+      planAdd(env(), withInventory([], { products: [elsewhere] }), typed('Hemp milk')),
+    );
+    expect(done.also?.changes[0]?.fields).toMatchObject({
+      name: 'Hemp milk',
+      icon: 'milk',
+      unit: 'L',
+      quantity: '2',
+    });
+    expect(
+      planned(
+        planAdd(
+          env(),
+          withInventory([row({ name: 'Hemp milk' })], { products: [elsewhere] }),
+          typed('Hemp milk'),
+        ),
+      ).also,
+    ).toBeUndefined();
   });
 });

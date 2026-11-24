@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Mutation } from '../actions/format';
 import { addItem, clearBought, deleteItem, editItem, tickItem, untickItem } from '../actions/items';
+import { makeInventoryItem } from '../actions/inventory';
 import { archiveList, makeList } from '../actions/lists';
 import { env, item, list } from '../actions/test-support';
 import { canMove, describeMutation, refusalToast, remake } from './describe';
@@ -82,6 +83,19 @@ describe('moving a refused change to another list', () => {
         changes: [{ table: 'item', id: item().id, fields: { listId: target.id } }],
       }),
     ).toBe(true);
+  });
+
+  it('says what a new name made in Inventory was, and that it is not something to move to another list (§8.8)', () => {
+    const made = makeInventoryItem(e(), { householdId: target.householdId, name: 'Zucchini bags' });
+    expect(describeMutation(made, names())).toEqual({
+      kind: 'inventory',
+      what: 'Added Zucchini bags to Inventory',
+    });
+    expect(canMove(made)).toBe(false);
+    expect(refusalToast({ kind: 'inventory', what: 'x' }, 'Inventory is full.')).toEqual({
+      title: `Couldn't sync a change`,
+      message: 'Inventory is full. It is kept in Settings.',
+    });
   });
 
   it('makes a new mutation with a new id, the item on the other list after its last, the product in its catalog', () => {

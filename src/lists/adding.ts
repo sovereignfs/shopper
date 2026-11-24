@@ -1,7 +1,9 @@
 import { addItem, addToOpen } from '../actions/items';
 import type { Env } from '../actions/env';
 import type { Mutation } from '../actions/format';
-import type { ItemRow, ListRow, ProductRow } from '../actions/rows';
+import { makeInventoryItem } from '../actions/inventory';
+import type { InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
+import { inventoryHas } from '../catalog/inventory';
 import { OTHER } from '../catalog/categories';
 import { canonicalName } from '../catalog/canonical';
 import { guessCategory } from '../catalog/guess';
@@ -31,10 +33,20 @@ export interface Adding {
   readonly categories: readonly CategoryRow[];
   /** The reader's person id in the household. */
   readonly me: string;
+  /**
+   * The reader's own Inventory (§8.8), as the device holds it, and **their own group**, which is the one it lives in, whatever list this is: a new name added here makes an
+   * Inventory item of theirs (`Planned.also`). Absent where the device has no group of the reader's own yet, and nothing is made.
+   */
+  readonly inventory?: { readonly household: string; readonly rows: readonly InventoryRow[] };
 }
 
 export interface Planned {
   readonly mutation: Mutation;
+  /**
+   * **A new name makes an Inventory item** (DESIGN.md §8.8): a separate mutation to the reader's own group, beside the list's (a list may be another person's group), for a name
+   * their Inventory does not have, marked once. It is written after the list's and says nothing to the reader: nobody keeps Inventory up by hand.
+   */
+  readonly also?: Mutation;
   /** What Undo's toast says: "Added oat milk", "Added one more oat milk". */
   readonly message: string;
 }
@@ -140,6 +152,11 @@ export function planAdd(
         by: me,
       }),
       message: `Added ${template.name}`,
+      ...fills(env, context, template.name, {
+        icon: template.icon,
+        unit: template.defaultUnit,
+        quantity: template.defaultQuantity,
+      }),
     };
   }
   if (product) {
@@ -180,6 +197,36 @@ export function planAdd(
       by: me,
     }),
     message: `Added ${suggestion.kind === 'new' ? name : (entry?.name ?? name)}`,
+    // A starter entry is in the person's Inventory already (the starter is a layer under it), so it is a name they have; text nobody has typed is not.
+    ...fills(env, context, suggestion.kind === 'new' ? name : (entry?.name ?? name), {}),
+  };
+}
+
+/**
+ * The Inventory item a new name makes (§8.8): **marked once**, of the reader's own group, for a name their Inventory does not have, with what the product it came from
+ * remembers when it came from one. Nothing when the device has no group of the reader's own, or the name is there already.
+ */
+function fills(
+  env: Env,
+  context: Adding,
+  name: string,
+  from: {
+    icon?: string | null | undefined;
+    unit?: ProductRow['defaultUnit'];
+    quantity?: string | null | undefined;
+  },
+): { also?: Mutation } {
+  const { inventory } = context;
+  if (!inventory || inventoryHas(inventory.rows, name)) return {};
+  return {
+    also: makeInventoryItem(env, {
+      householdId: inventory.household,
+      name,
+      recurring: false,
+      ...(from.icon ? { icon: from.icon } : {}),
+      ...(from.unit ? { unit: from.unit } : {}),
+      ...(from.quantity ? { quantity: from.quantity } : {}),
+    }),
   };
 }
 

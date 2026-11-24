@@ -22,7 +22,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   lists are kept encrypted on your device, so is your Inventory: your device encrypts it under keys of its own, which no link to a list ever carries, and the server holds only what it
   cannot read. That encryption is not yet audited. A list you share can now carry **the names of the categories its items use** (a copy of one of
   your own, under the list's keys), so that the people on it read those and nothing else of your categories, once your lists are kept encrypted; nothing in Shopper offers it yet. Your own **categories** are yours alone in the same way: anyone else on a list you share sees only the starter categories by their usual
-  names, and not what you called them. A new setting, `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` (default 100), says how many categories a group can have.
+  names, and not what you called them. A new setting, `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` (default 100), says how many categories a group can have. A name you add to a list that your Inventory does not have yet is added to
+  it, marked once, without asking, in your own group whichever list you were on.
 
 ### Fixed
 

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deriveInventoryKeyring,
+  deriveListKeyring,
   newKeyring,
   sealField,
   wrapKeyring,
   wrapListKeyring,
-  deriveListKeyring,
 } from '../keys/household';
 import { exportFileName, exportFileText, openServed, type ServedRecords } from './readable';
 
@@ -15,6 +16,9 @@ const H = '11111111-1111-4111-8111-111111111111';
 const LIST = '44444444-4444-4444-8444-444444444444';
 const SHARED = '55555555-5555-4555-8555-555555555555';
 const ITEM = '22222222-2222-4222-8222-222222222222';
+const INVENTORY = '66666666-6666-4666-8666-666666666666';
+const CATEGORY = '77777777-7777-4777-8777-777777777777';
+const COPY = '88888888-8888-4888-8888-888888888888';
 const HEAD = { version: '0.4.0', takenAt: '2026-11-23T10:00:00.000Z' };
 
 /** What the server serves for a person with one moved group: their own list, an item on it, and a list shared with them through a link's copy of its key. */
@@ -22,6 +26,7 @@ async function served(key: CryptoKey) {
   const group = newKeyring();
   const own = await deriveListKeyring(group, LIST);
   const sharedRing = newKeyring();
+  const inventory = await deriveInventoryKeyring(group, H);
   const records: ServedRecords[] = [
     {
       kind: 'person',
@@ -94,6 +99,65 @@ async function served(key: CryptoKey) {
         },
       ],
     },
+    // The person's own Inventory and own categories (§8.8, §8.3): bound to their group, in the place of a list, under the group's Inventory keys; and a list's copy of
+    // one of their categories, which is the list's, under its keys.
+    {
+      kind: 'inventory_item_encrypted',
+      endToEnd: true,
+      records: [
+        {
+          id: INVENTORY,
+          household_id: H,
+          content: {
+            name: await sealField(
+              inventory,
+              { list: H, table: 'inventory_item', row: INVENTORY, field: 'name' },
+              'Good bin bags',
+            ),
+            note: await sealField(
+              inventory,
+              { list: H, table: 'inventory_item', row: INVENTORY, field: 'note' },
+              'the strong ones',
+            ),
+          },
+        },
+      ],
+    },
+    {
+      kind: 'category_encrypted',
+      endToEnd: true,
+      records: [
+        {
+          id: CATEGORY,
+          household_id: H,
+          content: {
+            name: await sealField(
+              inventory,
+              { list: H, table: 'category', row: CATEGORY, field: 'name' },
+              'Hardware',
+            ),
+          },
+        },
+      ],
+    },
+    {
+      kind: 'list_category_encrypted',
+      endToEnd: true,
+      records: [
+        {
+          id: COPY,
+          household_id: H,
+          list_id: LIST,
+          content: {
+            name: await sealField(
+              own,
+              { list: LIST, table: 'list_category', row: COPY, field: 'name' },
+              'Hardware',
+            ),
+          },
+        },
+      ],
+    },
     {
       kind: 'household_key',
       endToEnd: true,
@@ -141,6 +205,17 @@ describe('a readable export, opened in the browser', () => {
       { id: ITEM, listId: LIST, name: 'Oat milk', note: '1 litre, the green one' },
     ]);
     expect(file.records.person).toEqual([{ id: PERSON, name: 'Ada', email: 'ada@example.com' }]);
+    // Their own Inventory and categories are opened under the group's Inventory keys, and a list's copy under the list's.
+    expect(file.records.inventory_item).toEqual([
+      {
+        id: INVENTORY,
+        household_id: H,
+        name: 'Good bin bags',
+        note: 'the strong ones',
+      },
+    ]);
+    expect(file.records.category?.[0]).toMatchObject({ id: CATEGORY, name: 'Hardware' });
+    expect(file.records.list_category?.[0]).toMatchObject({ id: COPY, name: 'Hardware' });
     expect(file.records.member?.[0]).toMatchObject({ name: 'Ada', role: 'admin' });
   });
 
@@ -158,7 +233,7 @@ describe('a readable export, opened in the browser', () => {
     const all = await served(key);
     // Another app key: nothing opens. The plain rows are still there.
     const wrong = await openServed(all, await appKey(), HEAD);
-    expect(wrong.unopened).toBe(6);
+    expect(wrong.unopened).toBe(10);
     expect(wrong.records.list?.map((row) => row.name)).toEqual([null, null]);
     expect(wrong.records.item?.[0]).toMatchObject({ name: null, note: null });
     expect(wrong.records.person).toHaveLength(1);

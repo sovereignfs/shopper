@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InventoryRow } from '../actions/rows';
-import { layerInventory, offered } from './inventory';
+import { inventoryHas, layerInventory, offered } from './inventory';
 import { STARTER_CATALOG, starterEntryByKey } from './starter';
 
 const row = (over: Partial<InventoryRow>): InventoryRow => ({
@@ -120,5 +120,26 @@ describe('Inventory, the starter catalog layered under a person’s own rows (RF
     ]);
     expect(entries.some((entry) => entry.overridden)).toBe(false);
     expect(offered(entries)).toHaveLength(entries.length);
+  });
+});
+
+describe('whether Inventory has a name (§8.8)', () => {
+  it('is yes for an item of their own, a starter entry by its name or an alias, a renamed entry by its new name, and a hidden one, whatever the capitals, spaces or plural', () => {
+    const withAlias = STARTER_CATALOG.find((entry) => entry.aliases.length > 0);
+    if (!withAlias) throw new Error('the starter catalog has no entry with an alias');
+    expect(inventoryHas([], withAlias.name)).toBe(true);
+    expect(inventoryHas([], `  ${withAlias.aliases[0]?.toUpperCase()}  `)).toBe(true);
+    expect(inventoryHas([row({ name: 'Good bin bags' })], 'good   BIN bags')).toBe(true);
+    expect(inventoryHas([row({ starterKey: 'bread', name: 'Sourdough' })], 'sourdough')).toBe(true);
+    // A starter entry that was renamed is still that entry: the name it had is the name too.
+    expect(inventoryHas([row({ starterKey: 'bread', name: 'Sourdough' })], 'Bread')).toBe(true);
+    expect(inventoryHas([row({ starterKey: 'bread', hidden: true })], 'bread')).toBe(true);
+    expect(inventoryHas([row({ name: 'Old gloves', hidden: true })], 'Old gloves')).toBe(true);
+  });
+
+  it('is no for a name it does not have, and for one whose row was deleted', () => {
+    expect(inventoryHas([row({ name: 'Good bin bags' })], 'Bad bin bags')).toBe(false);
+    expect(inventoryHas([row({ name: 'Old gloves', deletedAt: 4 })], 'Old gloves')).toBe(false);
+    expect(inventoryHas([], 'Zorblax')).toBe(false);
   });
 });

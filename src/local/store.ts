@@ -715,6 +715,17 @@ export async function inventoryOf(db: LocalDatabase): Promise<InventoryRow[]> {
   return (await db.getAll('inventory_item')).filter(live);
 }
 
+/**
+ * **The reader's own Inventory and the group it lives in** (§8.8): what a new name added to a list needs to make an Inventory item of the reader's, whichever group the list is
+ * in. `undefined` where the device has no group of the reader's own yet.
+ */
+export async function inventoryContextOf(
+  db: LocalDatabase,
+): Promise<{ household: string; rows: InventoryRow[] } | undefined> {
+  const own = (await db.getAll('household')).find((each) => each.own);
+  return own ? { household: own.id, rows: await inventoryOf(db) } : undefined;
+}
+
 export async function productsOf(db: LocalDatabase, householdId: string): Promise<ProductRow[]> {
   return (await db.getAllFromIndex('product', 'byHousehold', householdId)).filter(live);
 }

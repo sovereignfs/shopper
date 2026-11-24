@@ -77,7 +77,7 @@ skipped, counts and the week's, own before shared with whose and who is on it; a
 counts and Continue following the last list, archived behind the toggle, offline, and the phone's footer). The e2e `signUp` helper now goes on from Home to the list (`home: true` stays), as
 most specs want the list; `frame.spec.ts`'s remembered-per-kind test is on Home and the list.
 
-#### ⏳ 23.3 — Inventory: the data
+#### ✅ 23.3 — Inventory: the data
 
 **Goal:** a person's own items and their changes to the starter, kept in their group and read by them alone. **Design:** RFC 0006, "The data".
 **Depends on:** 23.1.
@@ -230,8 +230,27 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   **Run on, all green:** `pnpm run verify`; the unit suite on a file database, PostgreSQL 16 and sqld (115 files, 920 tests and 4 skipped each; the first sqld run hit 60-second `beforeAll` timeouts in unrelated
   files on a loaded machine, and passed whole on a fresh container); the browser suite on Chromium and WebKit (293 passed, 6 skipped, 11.2 minutes), the new test that moves an item through the panel and `keys.spec.ts:40`
   on both, and the one failure the known WebKit flake of the locked key (`keys.spec.ts:8`).
-- **Left to do, so 23.3 is not ✅:** (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
-  tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
+- **Step 6, done: a new name makes an Inventory item, and the property tests over categories.** `planAdd` (`src/lists/adding.ts`) now returns, beside the list's mutation, **a separate mutation to the
+  reader's own group** (`Planned.also`) that makes an Inventory item, **marked once**, for a name the reader's Inventory does not have: a typed name (not a starter entry's, which the starter layer has) or a
+  name taken from another list's product, which brings that product's icon, unit and quantity. "Has" is `inventoryHas` (`src/catalog/inventory.ts`): by canonical name (capitals, spaces and a starter's plural
+  do not make a second), an item of their own, a starter entry by its name or an alias, a renamed one, a hidden one; a deleted row is not there (the server folds the make into it and restores it). The own group
+  is the one in the device's household store with `own`, whichever group the list is in (`inventoryContextOf`): Grace typing on Ada's list makes the item in Grace's group and none in Ada's, encrypted,
+  with no plain text at the server. The add field commits it after the list's and says nothing (a refusal, as for a full Inventory, reads in Couldn't sync as "Added X to Inventory"); the often-bought
+  chips add an existing product and make none. **Seen to fail when removed:** the has-check, the own group, the mark, the alias, the deleted row; a browser test types a name and checks the item, once, and
+  none for a starter's name. **The readable export** (`src/portability/readable.ts`) now opens a person's own Inventory and categories under the group's Inventory keys (they are bound to the group in the place of a list, and it tried a list's keys, so
+  every such value counted as `unopened` and came out `null`: found when this step made the first Inventory item from the browser, by the export test, and tested with the Inventory, a category and a list's copy). **The property tests over categories** (`src/sync/categories.property.test.ts`, with two cases a random run seldom reaches said outright): whatever order of changes the owner and
+  a Member of each list send, naming nothing, a starter category, a copy of either list, a deleted copy or the owner's own, **every item and product names a starter category or a copy on its own list**, and
+  **every reader is given the category of every item and product they are given, and none of the owner's own categories but the owner**; seen to fail without the reference rule, the own-list rule, the
+  check on a move, the pull's category condition and its copy condition. The order-of-arrival properties for categories and copies are in their own tests (5a, 5b). **Run on, all green:** `pnpm run verify`;
+  the unit suite on a file database, PostgreSQL 16 and sqld (116 files, 929 tests and 4 skipped each); the browser suite on Chromium and WebKit (296 passed, 6 skipped, none failed, 10.7 minutes), the new test of a typed
+  name, the export test (which found the readable export's gap), the item-move test and `keys.spec.ts:40` among them, on both.
+- **Done as (23.3, 0.7.0, 2026-11-24): every "Accepts when" holds.** A person on a shared list reads the name of a category its items use (a copy under the list's keys) and of no other of the owner's; a
+  starter entry renamed shows the new name and keeps the entry's key; a hidden entry is offered nowhere; a person on one of the group's lists pulls no `inventory_item` (seen to fail with the condition
+  removed); the property tests hold with Inventory rows and with categories. **What was left out:** the import, since there is no importer in this repository yet (epic 12's: it takes `inventory_item` and a
+  person's own categories when it is built, and the export already holds them); the screens (23.4); Inventory in suggestions, **with §8.8's "a list's new product is made from the adding person's
+  Inventory item", which nothing builds yet and 23.5 does** (a new product still takes the starter's or the guess's category, icon and unit); and the points for the owner below. **For the owner:** an add
+  undone from its toast leaves the item it made in Inventory (a typo stays there until it is tidied or deleted); a deleted item comes back when its name is added again (the server folds the make into it);
+  one new name is two changes where a count is shown ("2 changes could not be sent"), the list's and Inventory's; and a renamed starter entry still counts as having its old name.
 - **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it. **Step 5's new synced tables enter the household's move in the same
   commit** (a person's own categories and `list_category` are content its device encrypts too): a test holds the manifest to `SYNCED_TABLES`, so a table added without its move fails it. An Inventory
   change whose keys are missing would land in Couldn't sync with the list sentence ("That list is not shared with you any more"); it cannot happen yet (a device that does not hold the group cannot
