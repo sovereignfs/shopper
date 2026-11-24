@@ -1218,7 +1218,7 @@ their own first list.
 | **Running low, and staples to add**                                                                     | With the pantry (13.1, 13.2)  |
 
 - **Everything on Home is computed on the device** from the rows it holds, offline, as suggestions are (§8.5); nothing is stored for it. Who is on a
-  list shows as initials until `AvatarStack` is released (16.3).
+  list shows as the design system's `AvatarStack` (16.3, in `@sovereignfs/ui` 0.107.0), on a list of more than one person.
 - **A brand-new account** opens Home, whose Continue is its _Groceries_, with one line: "Add what you need. To shop with others, press Share." **A
   person who arrived by an invitation** lands on that list, not on Home.
 - **On a phone** Home is the footer's left icon (§16.11), and it links to Inventory.

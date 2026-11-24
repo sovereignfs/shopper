@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 done (22.2, 22.7 and 22.8, with 22.8's suite half and 22.2's `prompt=create` on `@sovereignfs/auth` 0.7.0); leg 4 done (22.3 to 22.6, 22.9 and 22.10, on ui 0.107.0); leg 5 done (22.11, approved by the owner on 2026-11-24); legs 6 to 8 to go; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 done (22.2, 22.7 and 22.8, with 22.8's suite half and 22.2's `prompt=create` on `@sovereignfs/auth` 0.7.0); leg 4 done (22.3 to 22.6, 22.9 and 22.10, on ui 0.107.0); leg 5 done (22.11, approved by the owner on 2026-11-24); leg 6 begun (23.2, Home, done; 23.3 to 23.5, Inventory, to go); legs 7 and 8 to go; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -224,6 +224,10 @@ side), with Inventory arriving at 23.4. Two more gaps to raise in `sovereign`: a
 only a button does not close it, which "New list" uses), and the 22.8 suite button for the readable export has not been opened in a browser against a real core. Data-layer tests ran on the `file:` database only. **Known:** `e2e/lists.spec.ts`'s two focus checks (_New list_'s field, the sidebar with the network cut) failed in WebKit once, with
 three browser runs going at once, and pass alone (three times over); `NewListDialog` takes focus in the first half second, which a loaded machine can miss. **Open for the owner:** signing out leaves the
 person's sealed refresh token (the SDK's behaviour), until they sign in again or are deleted.
+
+**Leg 6 is begun** (0.7.0, on `develop`, 2026-11-24): **23.2** (Home) is built, committed and verified. `/` opens Home, with Continue, a tile for every list and what is at a glance, from the
+device alone. It turned up a leg 5 bug (a client reads `/home`, the page `/` is rewritten to, so Home was never marked current): fixed in the same commit, with `addressOf`. The signed-in frame draws no
+`main` landmark, a gap to raise in `sovereign`. **23.3 to 23.5** (Inventory) are next, and 23.3 is staged so that no commit holds a table someone else can reach: see its epic.
 
 **Leg 4 is done** (0.5.0, on `develop`, 2026-11-23): with `@sovereignfs/ui` 0.107.0 pinned (in `minimumReleaseAgeExclude` until it is a day old), **22.3 to 22.6, 22.9 and
 22.10** are built, committed and verified; the leg's owner gate is none. Two gaps to raise in `sovereign`: `IconPicker`'s options have no accessible names, and its
