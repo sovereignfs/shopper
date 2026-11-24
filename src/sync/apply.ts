@@ -305,13 +305,20 @@ async function applyChange(
         ? spec.derive({ household, ring, sealed: sealedFields })
         : {};
 
-  // A name already in the list's catalog is another product's (21.3): a new one is folded into it, and a rename is refused. Another list's never.
+  // A name already in the table's scope is another row's: a new one is folded into it, and a rename is refused. The scope is a list's catalog for a product
+  // (21.3: another list's never) and the whole group for what is the group's alone (an Inventory item, §8.8).
   if (derived.name_key !== undefined) {
     const list = existing ? existing.list_id : change.fields.listId;
+    const scope =
+      spec.nameScope === 'group'
+        ? sql`1 = 1`
+        : typeof list === 'string'
+          ? sql`list_id = ${list}`
+          : sql`list_id IS NULL`;
     const same = await dbGet<{ id: string }>(
       database,
       sql`SELECT id FROM ${t} WHERE household_id = ${household} AND name_key = ${derived.name_key} AND id <> ${change.id}
-          AND ${typeof list === 'string' ? sql`list_id = ${list}` : sql`list_id IS NULL`}`,
+          AND ${scope}`,
     );
     if (same) {
       // Renaming to a name that is taken is a person's decision, and is refused with the merge offered (task 5.6); making one is folded.
@@ -534,9 +541,11 @@ async function checkAuthorship(
 /**
  * **A change touches only lists its sender is on** (RFC 0004): a list itself, or an item on it (where it is, and where it is moved to). A new list is made
  * only by the group's own account, in its own group. A product is the group's until 21.3 gives it a list, and anyone on the group may write one. Every
- * refusal reads as not found, as for a row of another group.
+ * refusal reads as not found, as for a row of another group. **A table with no rule here is refused,** not let through: a new synced table says who may write
+ * it in this function, or nothing may.
  */
-async function checkListAccess(
+/** Exported for its test, which asks it about a table it has no rule for; nothing else calls it. */
+export async function checkListAccess(
   deps: ApplyDeps,
   spec: TableSpec,
   household: string,
@@ -602,8 +611,10 @@ async function checkListAccess(
     } else if (typeof sent === 'string') {
       if (!(await allowed(onList(database, sent, accountId)))) throw notFound();
     } else if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    return undefined;
   }
-  return undefined;
+  // No rule for this table: nobody may write it (it reads as not found, as every refusal does).
+  throw notFound();
 }
 
 /**

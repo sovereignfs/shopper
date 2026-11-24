@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, join, leave, somebody, type Someone } from '../access/test-support';
-import type { Mutation } from '../actions/format';
+import type { Mutation, SyncedTable } from '../actions/format';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbGet } from '../db/exec';
@@ -11,7 +11,8 @@ import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import type { Limits } from '../limits/config';
 import { productNameKey } from '../catalog/product-key';
-import { type ApplyResult, applyMutation } from './apply';
+import { type ApplyResult, applyMutation, checkListAccess } from './apply';
+import { TABLES, type TableSpec } from './tables';
 import { mergeChange } from './merge';
 
 const { leg } = testTarget();
@@ -262,6 +263,32 @@ describe(`what is refused (${leg})`, () => {
     ).toMatchObject({ status: 'refused', reason: 'not_found' });
     expect(await seqOf(ada.household)).toBe(seq);
     expect(await productRow(id)).toBeUndefined();
+  });
+
+  it('a table that has no rule for who may write it is refused, not let through, though its sender is in the household', async () => {
+    // A spec for a table the access check has no branch for, as a table added without one would be. A mutation names only tables that `validate.ts` knows, so the
+    // check is asked directly: it is what stands between `memberOf`, which lets any member in, and a row of a table nobody has said who may write.
+    const unruled: TableSpec = {
+      ...(TABLES.product as TableSpec),
+      table: 'unruled' as unknown as SyncedTable,
+    };
+    await expect(
+      checkListAccess(deps(), unruled, ada.household, ada.accountId, {
+        table: unruled.table,
+        id: crypto.randomUUID(),
+        create: true,
+        fields: { name: 'Nobody may', createdAt: 1 },
+      }),
+    ).rejects.toMatchObject({ reason: 'not_found' });
+    // The tables that have a rule are as they were: a member on the list writes its product.
+    await expect(
+      checkListAccess(deps(), TABLES.product as TableSpec, ada.household, ada.accountId, {
+        table: 'product',
+        id: crypto.randomUUID(),
+        create: true,
+        fields: { name: 'Fine', createdAt: 1, listId: ada.list },
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('a household that does not exist reads the same as one that is not the account’s', async () => {

@@ -33,6 +33,11 @@ export interface TableSpec {
     ring: KeyRing;
     sealed: Readonly<Record<string, string | number | null>>;
   }): Record<string, string | number | null>;
+  /**
+   * Where a name key is unique: **in a list's catalog** (the default: a product, 21.3) or **in the whole group** (a table that is the group's alone, as an
+   * Inventory item is, §8.8). A row made under a name already in its scope is folded into that one; a rename into one is refused.
+   */
+  readonly nameScope?: 'list' | 'group';
   /** The limit a new row of this table counts against, and how to count what is already there. */
   readonly limit?: { kind: LimitKind; of(limits: Limits): number };
 }
