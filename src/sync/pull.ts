@@ -4,7 +4,15 @@ import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet } from '../db/exec';
 import { appTable } from '../db/tables';
-import { listAdminOf, memberOf, onList, ownerOf } from '../access/membership';
+import {
+  cardAdminOf,
+  listAdminOf,
+  memberOf,
+  onCard,
+  onList,
+  ownerOf,
+  reaches,
+} from '../access/membership';
 import { STARTER_CATEGORIES } from '../catalog/categories';
 import { readHousehold } from '../households/households';
 import { canSeeEmail } from '../people/visibility';
@@ -46,7 +54,7 @@ export async function pullHousehold(
     sql`SELECT h.encryption, h.epoch, k.record, me.id AS person, CASE WHEN h.own_of = ${accountId} THEN 1 ELSE 0 END AS own FROM ${appTable(database, 'household')} h
         LEFT JOIN ${appTable(database, 'person')} me ON me.account_id = ${accountId}
         LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id AND k.person_id = me.id AND h.own_of = ${accountId}
-        WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
+        WHERE h.id = ${household} AND ${reaches(database, household, accountId)}`,
   );
   // The reader's own copies of the keys of lists they are on and did not make (RFC 0004): only theirs, only of lists they are on now.
   const listKeys = await dbAll<{ list_id: string; record: string }>(
@@ -55,6 +63,15 @@ export async function pullHousehold(
         JOIN ${appTable(database, 'person')} me ON me.id = k.person_id AND me.account_id = ${accountId}
         WHERE k.household_id = ${household} AND ${onList(database, sql`k.list_id`, accountId)}
         ORDER BY k.list_id`,
+  );
+
+  // The reader's own copies of the keys of cards they are on (RFC 0007): only theirs, only of cards they are on now.
+  const cardKeys = await dbAll<{ card_id: string; record: string }>(
+    database,
+    sql`SELECT k.card_id, k.record FROM ${appTable(database, 'card_key')} k
+        JOIN ${appTable(database, 'person')} me ON me.id = k.person_id AND me.account_id = ${accountId}
+        WHERE k.household_id = ${household} AND ${onCard(database, sql`k.card_id`, accountId)}
+        ORDER BY k.card_id`,
   );
 
   // **Only the reader's lists** (RFC 0004): a list, its items and their tombstones and aliases only if the reader is on that list; a product only if an
@@ -79,6 +96,10 @@ export async function pullHousehold(
     tombstones,
     aliases,
     visibleLists,
+    cards,
+    cardMembers,
+    cardTombstones,
+    visibleCards,
   ] = await Promise.all([
     take('list', onList(database, sql`r.id`, accountId)),
     take('item', onList(database, sql`r.list_id`, accountId)),
@@ -104,7 +125,7 @@ export async function pullHousehold(
     dbAll<Raw>(
       database,
       sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
-          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+          AND r.card_id IS NULL AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
           -- What a fold or a delete of an Inventory item or of an own category leaves is of no list, and is the group's own account's alone, as the rows are.
           AND (r.table_name NOT IN ('inventory_item', 'category') OR ${own})
           -- An item moved away from a list (RFC 0004) is gone only for a reader who cannot see it where it is now.
@@ -123,6 +144,30 @@ export async function pullHousehold(
       database,
       sql`SELECT l.id FROM ${t('list')} l WHERE l.household_id = ${household} AND ${onList(database, sql`l.id`, accountId)} ORDER BY l.id`,
     ),
+    // **A card is its people's, and nobody else's** (§7.7, RFC 0007): a condition of each statement, as a list's is, **whatever else the reader is on in the group**. A person on a card
+    // only is on no list, so every statement above is closed to them, and these are all they are handed.
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('card')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${onCard(database, sql`r.id`, accountId)}
+          ORDER BY r.seq, r.id LIMIT ${pageRows + 1}`,
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${cardAdminOf(database, sql`m.card_id`, accountId)} AS viewer_is_admin
+          FROM ${t('card_member')} m JOIN ${t('person')} p ON p.id = m.person_id
+          WHERE m.household_id = ${household} AND m.seq > ${cursor} AND ${onCard(database, sql`m.card_id`, accountId)}
+          ORDER BY m.seq, m.id LIMIT ${pageRows + 1}`,
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND r.card_id IS NOT NULL AND ${onCard(database, sql`r.card_id`, accountId)}
+          ORDER BY r.seq LIMIT ${pageRows + 1}`,
+    ),
+    // Every card the reader may see in this group, whatever its seq: the device forgets any other it holds.
+    dbAll<{ id: string }>(
+      database,
+      sql`SELECT c.id FROM ${t('card')} c WHERE c.household_id = ${household} AND ${onCard(database, sql`c.id`, accountId)} ORDER BY c.id`,
+    ),
   ]);
 
   // The page ends at a seq that is whole: where a table overflowed, just before the seq of its first row past the page, and never before the cursor.
@@ -138,6 +183,9 @@ export async function pullHousehold(
     members,
     tombstones,
     aliases,
+    cards,
+    cardMembers,
+    cardTombstones,
   ]) {
     if (rows.length > pageRows) {
       more = true;
@@ -158,6 +206,7 @@ export async function pullHousehold(
       epoch: Number(state?.epoch ?? 0),
       keyring: state?.record ?? null,
       lists: Object.fromEntries(listKeys.map((row) => [row.list_id, row.record])),
+      cards: Object.fromEntries(cardKeys.map((row) => [row.card_id, row.record])),
       person: state?.person ?? null,
     },
     lists: within(lists).map((row) => listOf(row, ring)),
@@ -168,7 +217,10 @@ export async function pullHousehold(
     listCategories: within(listCategories).map((row) => listCategoryOf(row)),
     members: within(members).map((row) => memberRow(row, ring, accountId)),
     visibleLists: visibleLists.map((row) => row.id),
-    tombstones: within(tombstones).map((row) => ({
+    cards: within(cards).map((row) => cardOf(row)),
+    cardMembers: within(cardMembers).map((row) => cardMemberRow(row, ring, accountId)),
+    visibleCards: visibleCards.map((row) => row.id),
+    tombstones: [...within(tombstones), ...within(cardTombstones)].map((row) => ({
       table: String(row.table_name),
       id: String(row.id),
       seq: seqOf(row),
@@ -329,6 +381,33 @@ function categoryOf(row: Raw, ring: KeyRing, own: boolean) {
     seq: seqOf(row),
     ...(own ? encryptedOf(row) : {}),
   };
+}
+
+/** A card: its fields are the device's ciphertext, field by field, and the server holds nothing it can read of it. */
+function cardOf(row: Raw) {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    shop: '',
+    number: '',
+    kind: 'qr',
+    code: '',
+    icon: null,
+    color: null,
+    holder: null,
+    note: null,
+    position: row.position,
+    deletedAt: num(row.deleted_at),
+    createdAt: Number(row.created_at),
+    seq: seqOf(row),
+    ...encryptedOf(row),
+  };
+}
+
+/** A person on a card, as the reader may see them (§6.1): the same rule as a list's people, an address only where `canSeeEmail` allows. */
+function cardMemberRow(row: Raw, ring: KeyRing, accountId: string) {
+  const { listId: _listId, ...rest } = memberRow({ ...row, list_id: null }, ring, accountId);
+  return { ...rest, cardId: row.card_id };
 }
 
 function memberRow(row: Raw, ring: KeyRing, accountId: string) {

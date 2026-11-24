@@ -1,5 +1,6 @@
 import '../zod-jitless';
 import { z } from 'zod';
+import { CODE_KINDS, MAX_CARD_CODE_LENGTH, MAX_CARD_NUMBER_LENGTH } from '../cards/kinds';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import { isGroceryIcon } from '../catalog/icons';
 import { NAME_KEY } from '../keys/household';
@@ -46,6 +47,7 @@ export const SYNCED_TABLES = [
   'inventory_item',
   'category',
   'list_category',
+  'card',
 ] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
@@ -88,6 +90,13 @@ const listIcon = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'not an icon')
   .max(40);
 const listColor = z.string().refine(isListColor, 'not a colour');
+/** A card's number and the value its code carries (§7.7): text with no control character, of a length a card has. */
+const cardText = (most: number) =>
+  z
+    .string()
+    .min(1)
+    .max(most)
+    .refine((text) => !hasControl(text) && !/[\n\r]/.test(text), 'a control character');
 const nullable = <T extends z.ZodType>(schema: T) => z.union([schema, z.null()]);
 /** A flag, as a mutation says it. */
 const flag = z.union([z.literal(0), z.literal(1)]);
@@ -199,6 +208,24 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['listId', 'sourceKey', 'name', 'position'],
   },
+  // A loyalty card (§7.7): only in a group that has moved, every field of what the person wrote encrypted under the card's own keys. The device holds it plain as it holds every row, and
+  // the transport encrypts each field at the sync; a group the server seals has none (`apply.ts` refuses a card there, whichever form was sent).
+  card: {
+    fields: {
+      shop: name,
+      number: cardText(MAX_CARD_NUMBER_LENGTH),
+      kind: z.enum(CODE_KINDS),
+      code: cardText(MAX_CARD_CODE_LENGTH),
+      icon: nullable(listIcon),
+      color: nullable(listColor),
+      holder: nullable(name),
+      note: nullable(note),
+      position,
+      deletedAt: nullable(time),
+      createdAt: time,
+    },
+    required: ['shop', 'number', 'kind', 'code', 'position', 'createdAt'],
+  },
 };
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
@@ -209,6 +236,7 @@ export const CONTENT: Record<SyncedTable, readonly string[]> = {
   inventory_item: ['name', 'note'],
   category: ['name'],
   list_category: ['name'],
+  card: ['shop', 'number', 'kind', 'code', 'icon', 'color', 'holder', 'note'],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */

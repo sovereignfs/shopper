@@ -20,6 +20,7 @@ import * as sqliteApp from '../db/schema/sqlite/app';
 import { appTable } from '../db/tables';
 import { AUTH_TABLES, freshDatabase, testTarget } from '../db/test-support';
 import { householdsOf, membersOf, readHousehold } from '../households/households';
+import { addCardMember } from '../cards/members';
 import { createInvitation } from '../households/invitations';
 import { personById } from '../people/people';
 import { addItem } from '../actions/items';
@@ -52,6 +53,11 @@ const DECIDED_APP: Record<string, string> = {
   list: 'a household’s, deleted with it',
   list_category:
     'a list’s copy of a person’s category (§8.3): deleted with its list and with its household; a copy a person made on a list of someone else’s stays with the list, as what they added does',
+  card: 'a card (§7.7): deleted with a card nobody else is on and with its household; one a person shared stays with the people on it, the Admin passing to the person on it longest',
+  card_member:
+    'ended (left_at) on a card that carries on, the Admin passing to the person on it longest; deleted with a card nobody else is on',
+  card_key:
+    'a person’s copy of a card’s keys: deleted with the person, when they leave the card, and with the card',
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
     'a list’s, deleted with it (21.3); what a person added stays under their name, with no account',
@@ -254,7 +260,12 @@ describe(`deleting a person (${leg})`, () => {
     ]);
 
     const done = await deletePerson(deps(), ada.accountId);
-    expect(done).toEqual({ passed: 1, deleted: 0, left: 1 });
+    expect(done).toEqual({
+      passed: 1,
+      deleted: 0,
+      left: 1,
+      cards: { passed: 0, deleted: 0, left: 0 },
+    });
 
     // Nothing personal of Ada's is left: the sign-in store, the counters, the link from her person to her account.
     for (const [table, where] of [
@@ -363,6 +374,7 @@ describe(`deleting a person (${leg})`, () => {
             householdProducts: 5000,
             inventoryItems: 5000,
             householdCategories: 100,
+            accountCards: 100,
           },
         },
         ada.accountId,
@@ -407,6 +419,7 @@ describe(`deleting a person (${leg})`, () => {
             householdProducts: 5000,
             inventoryItems: 5000,
             householdCategories: 100,
+            accountCards: 100,
           },
         },
         account,
@@ -463,6 +476,204 @@ describe(`deleting a person (${leg})`, () => {
     expect(await copies(carries.id)).toBe(1);
   });
 
+  it('deletes a card nobody else is on with its people and keys, passes a shared card to the person on it longest, and keeps the group while anyone is only on a card (24.2)', async () => {
+    const ada = await somebody(app, 'Ada-cards');
+    const grace = await somebody(app, 'Grace-cards');
+    // Ada's group has moved. Grace is on no list of it, only on a card: a shared card carries on, and with it the group.
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    const cipher = (card: string) => `e2.1.${card}.${card}.${'A'.repeat(24)}`;
+    const send = (changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
+          },
+        },
+        ada.accountId,
+        { mutationId: crypto.randomUUID(), householdId: ada.household, changes },
+      );
+    const card = (card: string) => ({
+      table: 'card',
+      id: card,
+      create: true,
+      fields: {
+        shop: cipher(card),
+        number: cipher(card),
+        kind: cipher(card),
+        code: cipher(card),
+        position: 'a1',
+        createdAt: 1,
+      },
+    });
+    const alone = crypto.randomUUID();
+    const shared = crypto.randomUUID();
+    expect((await send([card(alone), card(shared)])).status).toBe('applied');
+    await addCardMember(app, {
+      household: ada.household,
+      card: shared,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: Date.now(),
+    });
+    for (const [cardId, person] of [
+      [alone, ada.personId],
+      [shared, ada.personId],
+      [shared, grace.personId],
+    ] as const)
+      await dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
+            VALUES (${cardId}, ${person}, ${ada.household}, 1, 'cr1.record', 1)`,
+      );
+    await seedAuth(ada);
+    const members = (id: string) =>
+      count(app, appTable(app, 'card_member'), sql`card_id = ${id} AND left_at IS NULL`);
+    expect(await members(alone)).toBe(1);
+    expect(await members(shared)).toBe(2);
+
+    await deletePerson(deps(), ada.accountId);
+    // The card nobody else was on is gone with its people and its keys.
+    expect(await count(app, appTable(app, 'card'), sql`id = ${alone}`)).toBe(0);
+    expect(await count(app, appTable(app, 'card_member'), sql`card_id = ${alone}`)).toBe(0);
+    expect(await count(app, appTable(app, 'card_key'), sql`card_id = ${alone}`)).toBe(0);
+    // The shared one stays with Grace, now its Admin, and Ada's copy of its keys is gone with her.
+    expect(await count(app, appTable(app, 'card'), sql`id = ${shared}`)).toBe(1);
+    expect(await members(shared)).toBe(1);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_member'),
+        sql`card_id = ${shared} AND person_id = ${grace.personId} AND role = 'admin' AND left_at IS NULL`,
+      ),
+    ).toBe(1);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_key'),
+        sql`card_id = ${shared} AND person_id = ${ada.personId}`,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_key'),
+        sql`card_id = ${shared} AND person_id = ${grace.personId}`,
+      ),
+    ).toBe(1);
+    // The group carries on for the one who is only on a card.
+    expect(await count(app, appTable(app, 'household'), sql`id = ${ada.household}`)).toBe(1);
+  });
+
+  it('ends the membership of a person who is on someone else’s card only, deletes every copy of card keys they hold, and leaves the card to the rest (24.2)', async () => {
+    const ada = await somebody(app, 'Ada-guest-card');
+    const grace = await somebody(app, 'Grace-guest-card');
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    const cipher = (card: string) => `e2.1.${card}.${card}.${'A'.repeat(24)}`;
+    const mine = crypto.randomUUID();
+    const left = crypto.randomUUID();
+    const result = await applyMutation(
+      {
+        database: app,
+        ring: TEST_RING,
+        limits: {
+          householdMembers: 20,
+          accountHouseholds: 20,
+          householdLists: 100,
+          listOpenItems: 500,
+          householdProducts: 5000,
+          inventoryItems: 5000,
+          householdCategories: 100,
+          accountCards: 100,
+        },
+      },
+      ada.accountId,
+      {
+        mutationId: crypto.randomUUID(),
+        householdId: ada.household,
+        changes: [mine, left].map((id) => ({
+          table: 'card',
+          id,
+          create: true,
+          fields: {
+            shop: cipher(id),
+            number: cipher(id),
+            kind: cipher(id),
+            code: cipher(id),
+            position: 'a1',
+            createdAt: 1,
+          },
+        })),
+      },
+    );
+    expect(result.status).toBe('applied');
+    // Grace is on one of Ada's cards and on no list; of the other she was a Member and has left, and the server still holds her copy of its keys.
+    await addCardMember(app, {
+      household: ada.household,
+      card: mine,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: 1,
+    });
+    await addCardMember(app, {
+      household: ada.household,
+      card: left,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: 1,
+    });
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'card_member')} SET left_at = 5 WHERE card_id = ${left} AND person_id = ${grace.personId}`,
+    );
+    for (const card of [mine, left])
+      await dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
+            VALUES (${card}, ${grace.personId}, ${ada.household}, 1, 'cr1.grace', 1)`,
+      );
+    await seedAuth(grace);
+
+    const outcome = await deletePerson(deps(), grace.accountId);
+    // Her membership of the card she was on is over, and the card is Ada's still, with its Admin.
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_member'),
+        sql`person_id = ${grace.personId} AND left_at IS NULL`,
+      ),
+    ).toBe(0);
+    expect(await count(app, appTable(app, 'card_key'), sql`person_id = ${grace.personId}`)).toBe(0);
+    expect(await count(app, appTable(app, 'card'), sql`id IN (${mine}, ${left})`)).toBe(2);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_member'),
+        sql`card_id = ${mine} AND person_id = ${ada.personId} AND role = 'admin' AND left_at IS NULL`,
+      ),
+    ).toBe(1);
+    // Counted as cards, and not as lists.
+    expect(outcome.cards).toEqual({ passed: 0, deleted: 0, left: 1 });
+    expect(outcome.left).toBe(0);
+  });
+
   it('deletes a person’s Inventory whether or not their group stays for a list that passed on, with what folds of it left, and leaves another person’s alone (23.3)', async () => {
     const ada = await somebody(app, 'Ada-inventory');
     const grace = await somebody(app, 'Grace-inventory');
@@ -481,6 +692,7 @@ describe(`deleting a person (${leg})`, () => {
             householdProducts: 5000,
             inventoryItems: 5000,
             householdCategories: 100,
+            accountCards: 100,
           },
         },
         account,
@@ -583,7 +795,12 @@ describe(`deleting a person (${leg})`, () => {
   it('deletes a household nobody else is in, with everything of it', async () => {
     const solo = await somebody(app, 'Solo');
     await seedAuth(solo);
-    expect(await deletePerson(deps(), solo.accountId)).toEqual({ passed: 0, deleted: 1, left: 0 });
+    expect(await deletePerson(deps(), solo.accountId)).toEqual({
+      passed: 0,
+      deleted: 1,
+      left: 0,
+      cards: { passed: 0, deleted: 0, left: 0 },
+    });
     expect(await count(app, appTable(app, 'household'), sql`id = ${solo.household}`)).toBe(0);
     expect(await count(app, appTable(app, 'member'), sql`household_id = ${solo.household}`)).toBe(
       0,
@@ -596,7 +813,12 @@ describe(`deleting a person (${leg})`, () => {
     await join(app, twice.household, other);
     await seedAuth(twice);
     await deletePerson(deps(), twice.accountId);
-    expect(await deletePerson(deps(), twice.accountId)).toEqual({ passed: 0, deleted: 0, left: 0 });
+    expect(await deletePerson(deps(), twice.accountId)).toEqual({
+      passed: 0,
+      deleted: 0,
+      left: 0,
+      cards: { passed: 0, deleted: 0, left: 0 },
+    });
     expect(
       (await membersOf(app, TEST_RING, twice.list, other.accountId))?.find((m) => m.self)?.role,
     ).toBe('admin');
@@ -630,6 +852,7 @@ describe(`deleting a person (${leg})`, () => {
       passed: 0,
       deleted: 0,
       left: 0,
+      cards: { passed: 0, deleted: 0, left: 0 },
     });
   });
 });

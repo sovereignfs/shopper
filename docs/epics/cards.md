@@ -44,7 +44,7 @@ Beyond the RFC, each settled with the owner at the leg's review (§26): a card's
 key when someone leaves); a third section of the list's settings for its cards; a limit; the link handed only to someone on both; the card button on
 the right of shopping mode's header; its Admin alone inviting, as RFC 0007 says (a list's Member may).
 
-#### 📋 24.2 — Cards: the data and the keys
+#### ⏳ 24.2 — Cards: the data and the keys
 
 **Goal:** a card is kept, encrypted, with its own people and keys. **Design:** RFC 0007, "A card", "Sharing a card". **Depends on:** 24.1.
 
@@ -54,6 +54,29 @@ route in `src/access/routes.ts` with a test as a second person; `People.deletePe
 registry test.
 
 **Accepts when:** a card's rows hold nothing readable (the marker test); a second person reads nothing of a card they are not on.
+
+**Built in two steps, each its own commit,** as `list_category` was (the server and the store, then the device's logic):
+
+- **Step 1, done (0.8.0, 2026-11-24): the server and the device's store.** `card`, `card_member` and `card_key` on both dialects (`0020_add_cards`, generated), and `tombstone.card_id`
+  (`invitation.card_id` comes with 24.5). **A card is only ever in a group that has moved** (its keys are derived from the group's keyring): the server refuses one in a group it seals,
+  whichever form was sent, and does not hold it (`cardsNeedMove`, as copies are), and a plain value for a card in a group that has moved is held and never written, so the marker is in no row of
+  any table. **Every field is a ciphertext bound to the card** in the place a list is (`e2.<epoch>.<card>.<card>.…`, `checkBoundToList`), so a value made for another card is refused;
+  `deriveCardKeyring` (`shopper:card-key:v1`, the card's id) opens nothing of another card, of a list or of the group's Inventory, and none of those opens it. **The permission is in the
+  statement:** `onCard` and `cardAdminOf` (`src/access/membership.ts`); the group's own account alone makes a card and is its Admin (`addCardMember`), only the Admin changes or deletes it, and a
+  refusal reads as not found. **`reaches`** (on the group, or on one of its cards) is what a device syncs a group by (the household, the pull's gate and a mutation's), and `memberOf` is unchanged,
+  so a person on a card only is handed that card, its people, their own copy of its keys and the tombstones that name it, and **nothing else of the group** (no list, item, product, starter category,
+  alias, or a tombstone of no card), and the group is not a place in their sidebar. A join stamps the card, its people and its tombstones (`stampCard`, for 24.5, as `stampList` is for a list). The limit
+  `SHOPPER_LIMIT_ACCOUNT_CARDS` (100; in `.env.example` and the README, and no change to the Dockerfile, `compose.yml` or the manifest). `People.deletePerson`: a card nobody else is on is deleted with its
+  people, keys and records, one that is shared passes to the person on it longest, and the group stays while anyone is on a card; the export holds the cards a person is on (ciphertext, with their own copy
+  of the keys), their people by name only, and nothing of another card; the household's move answers for no card. **On the device:** the version 6 store (`card`, `card_member`; nothing reset), the pull
+  merge, a card the reader is no longer on forgotten with its people, a tombstone of a card, and a household forgotten whole. **Seen to fail when removed:** the Admin rule, the group's own account making
+  one, the refusal in a sealed group, the binding to the card, the maker as its Admin, each of the pull's conditions (the cards, their people, the key copies, the tombstones, the reach), a join's stamps,
+  the export's conditions, the deletion's passing on, and each of the device's forgettings.
+  **Left out of step 1, recorded:** the confirmation that says what deleting an account would do (`previewLeaving`) says nothing of cards yet (a card counts apart in what `deletePerson`
+  returns, `cards`); the version 5 to 6 upgrade of the device's store ran in fake-indexeddb only (23.3 ran its step also in real WebKit); and the readable export cannot open a card until step 2
+  (it serves a card's ciphertext and the person's own copy of its keys, and counts what it cannot open). A refused change to a card has no sentence of its own in Couldn't sync yet.
+- **Step 2:** the device's logic: a card's keys on a device (the derivation, a link's copy, `card_key` kept and handed back), encrypting and opening a card in the transport, the actions that make and
+  change one, the readable export's opening of cards, and `card.delete` as an online operation.
 
 #### 📋 24.3 — The cards screen, and showing one
 

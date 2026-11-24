@@ -1,6 +1,8 @@
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 import type { Mutation } from '../actions/format';
 import type {
+  CardMemberRow,
+  CardRow,
   CategoryRow,
   HouseholdRecord,
   InventoryRow,
@@ -16,7 +18,7 @@ import type {
  * The browser's working copy (DESIGN.md §12.1): IndexedDB through `idb`, **one database per account**, named for it, so that a second account on the same
  * device sees nothing of the first and signing out can delete exactly one. The UI reads and writes only this; the server is something the sync loop talks to.
  *
- * - `household`, `list`, `item`, `product`, `category`, `list_category`, `inventory_item`, `member`
+ * - `household`, `list`, `item`, `product`, `category`, `list_category`, `inventory_item`, `member`, `card`, `card_member`
  *                  the rows as the device shows them: the server's, with this device's unanswered edits laid over (`store.ts`).
  * - `shadow`       for a row that has unanswered edits, the row as the server last had it, so that an edit can be taken back and a pull can be merged under
  *                  the edits. A row with no unanswered edit has none; one the device made and the server has not answered has `row: null`.
@@ -71,6 +73,14 @@ export interface LocalSchema extends DBSchema {
     value: MemberRow;
     indexes: { byHousehold: string; byList: string };
   };
+  /** The cards the account is on (RFC 0007), their fields opened under each card's keys: a card is its people's alone, so only those a device's account is on are here. */
+  card: { key: string; value: CardRow; indexes: { byHousehold: string } };
+  /** The people of those cards, one row a person a card. */
+  card_member: {
+    key: [string, string];
+    value: CardMemberRow;
+    indexes: { byHousehold: string; byCard: string };
+  };
   shadow: { key: [string, string]; value: Shadow };
   outbox: { key: number; value: OutboxEntry };
   failed: { key: number; value: FailedEntry };
@@ -89,6 +99,8 @@ export const WRITE_STORES = [
   'list_category',
   'inventory_item',
   'member',
+  'card',
+  'card_member',
   'shadow',
   'outbox',
   'failed',
@@ -96,7 +108,7 @@ export const WRITE_STORES = [
 ] as const;
 
 /** The version of the stores. A change to them adds a step to `upgrade` and raises this; it never edits an earlier step. */
-export const LOCAL_VERSION = 5;
+export const LOCAL_VERSION = 6;
 
 /** The database for an account (DESIGN.md §12.1). */
 export const localName = (accountId: string): string => `shopper-${accountId}`;
@@ -155,6 +167,13 @@ export async function openLocal(
         const copies = db.createObjectStore('list_category', { keyPath: 'id' });
         copies.createIndex('byHousehold', 'householdId');
         copies.createIndex('byList', 'listId');
+      }
+      // Version 6 (DESIGN.md §7.7, task 24.2): the cards the account is on, and their people. Nothing is reset: no card was ever written before, so no cursor has passed any of them.
+      if (oldVersion < 6) {
+        db.createObjectStore('card', { keyPath: 'id' }).createIndex('byHousehold', 'householdId');
+        const people = db.createObjectStore('card_member', { keyPath: ['cardId', 'personId'] });
+        people.createIndex('byHousehold', 'householdId');
+        people.createIndex('byCard', 'cardId');
       }
     },
     // Another tab is deleting this account's database (it signed out, or the account was deleted): this connection is in the way, so it lets go. Without it

@@ -37,6 +37,7 @@ const LIMITS: Limits = {
   householdProducts: 5000,
   inventoryItems: 5000,
   householdCategories: 100,
+  accountCards: 100,
 };
 const MARKER = 'MARKERmv4';
 /** A list's icon and colour, as a person chose them: names a design system might one day have, and a colour no swatch offers. */
@@ -192,6 +193,8 @@ async function answer(
   const inventoryRing = await deriveInventoryKeyring(ring, household);
   // A group the server seals has no copy of a category on a list (§8.3), so there is none to answer.
   rows.list_category = [];
+  // Nor a card (§7.7): a card is only ever made in a group that has moved.
+  rows.card = [];
   // A category's name is for the group too, under the same keys, with no name key (§8.3).
   rows.category = [];
   for (const row of manifest.rows.category) {

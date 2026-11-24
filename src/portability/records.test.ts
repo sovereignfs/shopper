@@ -7,9 +7,21 @@ import { sealRow } from '../crypto/sealed';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
+import { addCardMember } from '../cards/members';
+import type { Limits } from '../limits/config';
 import { applyMutation } from '../sync/apply';
 import { personRecords } from './records';
 
+const LIMITS: Limits = {
+  householdMembers: 20,
+  accountHouseholds: 20,
+  householdLists: 100,
+  listOpenItems: 500,
+  householdProducts: 5000,
+  inventoryItems: 5000,
+  householdCategories: 100,
+  accountCards: 100,
+};
 let database: Database;
 let ada: Someone;
 let grace: Someone;
@@ -213,6 +225,7 @@ describe(`a person's export (${testTarget().leg})`, () => {
           householdProducts: 5000,
           inventoryItems: 5000,
           householdCategories: 100,
+          accountCards: 100,
         },
       },
       host.accountId,
@@ -245,5 +258,92 @@ describe(`a person's export (${testTarget().leg})`, () => {
     expect(others.some((part) => part.kind === 'list')).toBe(true);
     expect(others.some((part) => part.kind === 'inventory_item')).toBe(false);
     expect(JSON.stringify(others)).not.toContain('good tea');
+  });
+
+  it('holds the cards a person is on, with their people by name only and their own copies of the cards’ keys, for them alone, in a group they are on no list of (24.2)', async () => {
+    const owner = await somebody(database, 'Cardholder');
+    const guest = await somebody(database, 'Cardguest');
+    const stranger = await somebody(database, 'Cardstranger');
+    await dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${owner.household}`,
+    );
+    const shared = crypto.randomUUID();
+    const alone = crypto.randomUUID();
+    const value = (card: string) => `e2.1.${card}.${card}.${'A'.repeat(24)}`;
+    const result = await applyMutation(
+      { database, ring: TEST_RING, limits: LIMITS },
+      owner.accountId,
+      {
+        mutationId: crypto.randomUUID(),
+        householdId: owner.household,
+        changes: [shared, alone].map((id) => ({
+          table: 'card',
+          id,
+          create: true,
+          fields: {
+            shop: value(id),
+            number: value(id),
+            kind: value(id),
+            code: value(id),
+            position: 'a1',
+            createdAt: 1,
+          },
+        })),
+      },
+    );
+    expect(result.status).toBe('applied');
+    await addCardMember(database, {
+      household: owner.household,
+      card: shared,
+      person: guest.personId,
+      role: 'member',
+      seq: 9,
+      now: 1,
+    });
+    for (const [card, who, record] of [
+      [shared, owner, 'cr1.owner.shared'],
+      [shared, guest, 'cr1.guest.shared'],
+      [alone, owner, 'cr1.owner.alone'],
+    ] as const)
+      await dbRun(
+        database,
+        sql`INSERT INTO ${appTable(database, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
+            VALUES (${card}, ${who.personId}, ${owner.household}, 1, ${record}, 1)`,
+      );
+
+    const theirs = await personRecords(database, TEST_RING, guest.accountId);
+    const cards = theirs.find((part) => part.kind === 'card_encrypted');
+    expect(cards?.endToEnd).toBe(true);
+    expect(cards?.records.map((row) => row.id)).toEqual([shared]);
+    expect(cards?.records[0]).toMatchObject({ content: { shop: value(shared) } });
+    // The people of the card, by name only, and the guest's own copy of its keys, and no one else's.
+    const people = theirs.find((part) => part.kind === 'card_member');
+    expect(people?.records.map((row) => [row.card, row.role]).sort()).toEqual([
+      [shared, 'admin'],
+      [shared, 'member'],
+    ]);
+    expect(JSON.stringify(people)).not.toContain('@');
+    expect(theirs.find((part) => part.kind === 'card_key')?.records).toEqual([
+      { household: owner.household, card: shared, epoch: 1, record: 'cr1.guest.shared' },
+    ]);
+    // Nothing else of the group: none of its lists (the guest has their own group's), and not the other card, nor its key, nor the owner's.
+    const ofOwner = theirs
+      .filter((part) => part.kind === 'list' || part.kind === 'list_encrypted')
+      .flatMap((part) => part.records)
+      .filter((row) => row.household_id === owner.household);
+    expect(ofOwner).toEqual([]);
+    expect(JSON.stringify(theirs)).not.toContain(alone);
+    expect(JSON.stringify(theirs)).not.toContain('cr1.owner');
+    // The owner has both cards; a stranger has none.
+    const mine = await personRecords(database, TEST_RING, owner.accountId);
+    expect(
+      mine
+        .find((part) => part.kind === 'card_encrypted')
+        ?.records.map((row) => row.id)
+        .sort(),
+    ).toEqual([shared, alone].sort());
+    const none = await personRecords(database, TEST_RING, stranger.accountId);
+    expect(none.some((part) => part.kind.startsWith('card'))).toBe(false);
   });
 });

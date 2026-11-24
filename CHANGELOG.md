@@ -6,6 +6,17 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.0] - 2026-11-24
+
+### Changed
+
+- **Under the hood:** Shopper's server and your device can now hold **loyalty cards** (RFC 0007), which nothing in Shopper offers yet. A card has its own people and its own keys, as a list does: each
+  thing you write on it (the shop, the number, the kind of code, the code itself, an icon, a colour, the name on the card, a note) is encrypted on your device under keys of that card alone,
+  and the server holds only ciphertext, **so a card can be kept only once your lists are encrypted on your devices** (every account made in a browser is, at its first load); before that the
+  server refuses one, and says so. Only the card's Admin changes or deletes it; someone on a card sees that card and the people on it and **nothing else of the group it is in**, even though
+  they are not on any list there, and the group is not a place in their sidebar. A card goes with its Admin's account when nobody else is on it, and passes to the person on it longest when
+  someone is. A new setting, `SHOPPER_LIMIT_ACCOUNT_CARDS` (default 100), says how many cards a person can have. That encryption is not yet audited.
+
 ## [0.7.0] - 2026-11-24
 
 ### Added

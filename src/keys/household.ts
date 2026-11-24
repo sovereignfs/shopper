@@ -10,6 +10,8 @@ import { decryptBytes, encryptBytes, importDocumentKey } from '@sovereignfs/sdk/
  * - **A list's keyring** (RFC 0004, task 21.4) is derived from the group's, epoch by epoch (`deriveListKeyring`: HKDF, `shopper:list-key:v1`, the list's
  *   id), so that the account's devices hold every list's keys with nothing more stored, and **a list's keyring tells nothing of another list's**. It is
  *   what a link to the list carries, and what someone on the list keeps, wrapped under their own app key (`wrapListKeyring`).
+ * - **A card's keyring** (task 24.2, RFC 0007) is derived from the group's the same way (`deriveCardKeyring`: HKDF, `shopper:card-key:v1`, the card's id): a link to a card carries
+ *   these keys and no other, and neither a list's keys nor the group's Inventory keys open it.
  * - **A group's Inventory keyring** (task 23.3, RFC 0006) is derived from the group's the same way (`deriveInventoryKeyring`: HKDF,
  *   `shopper:inventory-key:v1`, the group's id) and **is given to nobody**: no link carries it and no list's keyring is derived from it or opens it, so
  *   someone on a shared list of the group opens none of the person's Inventory, even from a copy of the database. Its values are bound to the group in
@@ -115,6 +117,15 @@ export async function deriveListKeyring(group: Keyring, list: string): Promise<K
 export async function deriveInventoryKeyring(group: Keyring, household: string): Promise<Keyring> {
   if (!ID.test(household)) throw new TypeError('a group id is a UUID');
   return derive(group, 'shopper:inventory-key:v1', household);
+}
+
+/**
+ * **A card's keyring, from its group's** (DESIGN.md §13.2, task 24.2, RFC 0007): the same derivation under a label of its own, with the card's id. It opens nothing a list's keys or the
+ * group's Inventory keys open and none of those opens it, and another card's keys open nothing of this one, so a card can be given to someone by a link that carries these keys alone.
+ */
+export async function deriveCardKeyring(group: Keyring, card: string): Promise<Keyring> {
+  if (!ID.test(card)) throw new TypeError('a card id is a UUID');
+  return derive(group, 'shopper:card-key:v1', card);
 }
 
 async function derive(group: Keyring, label: string, id: string): Promise<Keyring> {

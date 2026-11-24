@@ -273,12 +273,14 @@ same group's, in the same statement, and **an item's product is always on the it
 **Inventory is its own account's alone** (§8.8): every read and write of an `inventory_item` or of a person's own category names the group with
 `household.own_of` the account, in the statement (`ownerOf`); a list's copy of a category (`list_category`) is read and written as the list's.
 **A card is a list's equal** (§7.7): every read and write of a card names it with the account's place on it (`card_member`, `onCard`), and its Admin's
-operations add the role; a link between a list and a card (`list_card`) needs both, in the same statement.
+operations add the role (`cardAdminOf`); a link between a list and a card (`list_card`) needs both, in the same statement. **Making a card is its group's own account's alone** (`ownerOf`), and
+**someone on a card and no list reaches the group by it** (`reaches`: the gate of a pull and of a mutation, and the household a device is shown), which opens nothing else of it: every other statement
+of the group names a list or the group's own account, and is closed to them.
 
 - **Sync applies the same rule per change** (§12.5): a change to a list the account is not on, or to an item or product of one, is refused, not ignored.
 - `src/access/routes.ts` lists every page, route and operation with who may use it; a test calls each as a second signed-in person, including one on
   another list of the same group, and expects not found.
-- **Pull and the live stream hand a device only its lists:** a list the account leaves or is taken off stops arriving, each pull names the lists the
+- **Pull and the live stream hand a device only its lists and its cards:** a list or a card the account leaves or is taken off stops arriving, each pull names the lists and the cards the
   reader may see, and the device deletes the rest (§12.3).
 
 ## 6. People and accounts
@@ -411,6 +413,11 @@ private (transport, membership, identity, documents), keeps those; moving a card
   and leaves. **Each card has its own keys** (§13.2), and a link to a card carries that card's keys and no other (§13.5). Leaving or being
   removed takes the card from the device. **Sharing a card shows nothing else of the person's,** and **sharing a list shares no card.**
 - **A card's people, invitations and deleting it are online operations** (`/api/ops`), as a list's are; its fields sync, offline as well.
+- **A card is only ever in a group that has moved** (§13.7): its keys are derived from the group's keyring, which a group the server still seals does not have, and the server never holds a
+  card's number in a form it can read. A card made in a group the server seals is **refused** (`unsupported`, not held, whichever form was sent), and a plain value for a card in a group that has
+  moved is held and never written. **Only the group's own account makes a card** (a person's cards are made in their own group, as their lists are); it is the card's Admin.
+- **A person on a card only reaches the group by it** (`reaches`: on the group, or on one of its cards): their device syncs the group, and the pull hands them that card, its people and their own copy
+  of its keys, and **nothing else of the group**, since every other statement of it is closed to someone on no list (`memberOf`). The group is not a place in their sidebar.
 - **Cards on a list:** a list's Admin links cards to the list (from the list's settings, among the cards they are on); shopping mode shows a card
   button when the list has one (§11.1). A link (`list_card`) names a card and a list of the same group and holds nothing else; **someone on the list
   who is not on the card is not handed the link and sees no button for it.** Linking a card to a shop is later, with shops (13.5).
@@ -818,17 +825,17 @@ the item's `boughtAt` and `boughtBy`.
 ### 12.3 The endpoint
 
 `POST /api/sync`, with the session cookie and `Origin` checked. A request carries the outbox in order, and a cursor per group; the answer carries what
-was applied (with any fold, §12.4), what was refused and why, the groups the account is on a list of, and the changes since each cursor.
+was applied (with any fold, §12.4), what was refused and why, the groups the account is on a list or a card of, and the changes since each cursor.
 
 - **Order is a counter per group** (`household.seq`), as Tally's. Applying a mutation is one short transaction: increment the group's `seq`, merge each change field by field, stamp each changed field and row with the `seq`, record the mutation id, write any notice. The
   increment serialises one group's writes without holding up any other.
 - **Pull** returns, per group, rows of the reader's lists whose `seq` is past the cursor (and, for the reader's own group alone, its Inventory and
   categories: **an `inventory_item` is handed to nobody but its group's own account,** a condition of the statement, §5.2; and the group's cards
   the reader is on, with the links between those cards and the reader's lists), paged at `seq` boundaries, tombstones and aliases included,
-  and **names every list of the group the reader may see**: the device deletes any other it holds, with its items, people and catalog. **Joining a
+  and **names every list of the group the reader may see, and every card**: the device deletes any other it holds, with its items, people and catalog (a card, with its people). **Joining a
   list re-stamps its rows** at the join's `seq`, so a device whose cursor is past them pulls them; an item moved to a list a reader is not on leaves a
-  tombstone handed only to readers who cannot see it where it is now. A group new to the device starts at zero; one the account is on no list of any
-  more is named as gone, and the device deletes its copy.
+  tombstone handed only to readers who cannot see it where it is now. A group new to the device starts at zero; one the account is on no list or card of any
+  more is named as gone, and the device deletes its copy. **A person on a card and no list is handed that card, its people, their own copy of its keys and the tombstones that name it, and nothing else of the group.**
 - **A device syncs** after a write (debounced, 300 ms), on load, when the tab regains focus, when it comes back online, when the live stream says so
   (§12.6), on its freshness interval while visible (0.1.0: there is no live stream, and the interval is the operator's
   `SHOPPER_SYNC_INTERVAL_SECONDS`), and through Background Sync where there is one. One tab syncs at a time (Web Locks); the others
@@ -939,9 +946,9 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 
 ### 13.1 What is encrypted
 
-| Encrypted in the browser, under the list's keys (Inventory and a person's own categories under their group's Inventory keys; a card under its own)                                                                                                                                                                                                                                 | Readable by the server                                                                                                                                                                                                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); list category: name; inventory item: name, note; card: shop, number, kind of code, code, icon, colour, name on the card, note; shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
+| Encrypted in the browser, under the list's keys (Inventory and a person's own categories under their group's Inventory keys; a card under its own)                                                                                                                                                                                                                                                | Readable by the server                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Household: name; list: name, icon, colour; item: name, note, price; product: name, note, barcode, last unit price; category: name (a starter category is its key until renamed); list category: name; inventory item: name, note; card: shop, number, kind (of code), code, icon, colour, holder (the name on the card), note; shop: name; trip: receipt total; trip line: name, list name, price | Ids, `household_id`, `list_id`, `product_id`, `category_id`, `trip_id`, quantities and units, the icons of items, products and categories, positions, times, ticks, roles, who is on which list, counts, `seq`, the field stamps, name keys, the key epoch, sizes |
 
 - **Each field is its own ciphertext** (`encryptBytes` under the list's content key, `importDocumentKey`), bound to list, table, row, field and epoch,
   and stored as `e2.<epoch>.<list>.<row>.<ciphertext>`, so a value moved to another row, field or list does not open, and the server, which cannot
@@ -1036,7 +1043,7 @@ starter entry; the device derives the group's **Inventory keys** from the keyrin
 each item's name key (§13.3), from the starter entry's name for an override that keeps it; its categories that hold content (a name a person gave a starter, and their own) are
 encrypted the same way, for the group, with no name key, and the fourteen starter categories nobody named have nothing to move; **a group the server still seals has no list's copy of a category** (§8.3), so there is none to move; the server answers for every row, each value bound to the group and to its own row,
 each with a name key, in the same transaction. A device that finds an override of a starter entry it does not have, or two rows that come to one name key, does not move
-the group (it would be refused on every attempt) until a version that can. Lists shared after the move carry their keys in their links.
+the group (it would be refused on every attempt) until a version that can. Lists shared after the move carry their keys in their links. **A group the server seals has no card** (§7.7), so there is none to move.
 
 ## 14. Notices (phase 2)
 
@@ -1595,7 +1602,7 @@ start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` colum
 | `credential`       | As Tusk's: core refresh tokens under envelope encryption (§15.3)                                                                                                                                                                                                                                                                                                                                   |
 | `household_key`    | `household_id`, `person_id` (the key), `epoch`, `record` (the group's keyring wrapped under its account's app key), `created_at` (§13.2)                                                                                                                                                                                                                                                           |
 | `list_key`         | `list_id`, `person_id` (the key), `household_id`, `epoch`, `record` (the list's keyring wrapped under that person's app key), `created_at` (§13.2)                                                                                                                                                                                                                                                 |
-| `card`             | `id`, `household_id`, `encrypted` (shop, number, kind of code, code, icon, colour, name on the card, note), `position`, `deleted_at`, `seq`, `fseq`, `created_at` (§7.7)                                                                                                                                                                                                                           |
+| `card`             | `id`, `household_id`, `sealed` (always empty: a card is only ever in a group that has moved), `encrypted` (shop, number, kind, code, icon, colour, holder, note), `position`, `deleted_at`, `seq`, `fseq`, `created_at` (§7.7)                                                                                                                                                                     |
 | `card_member`      | `id`, `household_id`, `card_id`, `person_id` (unique with `card_id`), `role` (`admin`, `member`), `joined_at`, `left_at`, `seq`, as `list_member`                                                                                                                                                                                                                                                  |
 | `card_key`         | `card_id`, `person_id` (the key), `household_id`, `epoch`, `record` (the card's keyring wrapped under that person's app key), `created_at`, as `list_key`                                                                                                                                                                                                                                          |
 | `list_card`        | `list_id`, `card_id` (the key, a list and a card of the same group), `household_id`, `deleted_at`, `seq` (§7.7)                                                                                                                                                                                                                                                                                    |

@@ -43,6 +43,8 @@ export function limitSentence(kind: LimitKind, limit: number, name?: string): st
       return name
         ? `A list can have at most ${plural(limit, 'category', 'categories')} of people’s own on it, and this one has them all.`
         : `You can have at most ${plural(limit, 'category', 'categories')}, hidden ones included, and you have them all.`;
+    case 'accountCards':
+      return `You can have at most ${plural(limit, 'card', 'cards')}, and you have them all.`;
   }
 }
 

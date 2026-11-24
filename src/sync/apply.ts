@@ -6,7 +6,8 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { listAdminOf, memberOf, onList, ownerOf } from '../access/membership';
+import { cardAdminOf, listAdminOf, onList, ownerOf, reaches } from '../access/membership';
+import { addCardMember } from '../cards/members';
 import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
 import {
@@ -21,6 +22,7 @@ import { mergeChange } from './merge';
 import { OTHER } from '../catalog/categories';
 import {
   Refusal,
+  cardsNeedMove,
   copiesNeedMove,
   duplicate,
   invalid,
@@ -93,7 +95,7 @@ export async function applyMutation(
       ? await dbGet<{ encryption: string }>(
           database,
           // Only a member learns how a household's content travels: for anyone else it is plain, and the mutation reads as not found (§5.2).
-          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId} AND ${memberOf(database, householdId, accountId)}`,
+          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId} AND ${reaches(database, householdId, accountId)}`,
         )
       : undefined;
   const mode: ContentMode = state?.encryption === 'encrypted' ? 'encrypted' : 'plain';
@@ -150,7 +152,7 @@ async function run(
   const stepped = await dbGet<{ seq: number | string; encryption: string }>(
     database,
     sql`UPDATE ${appTable(database, 'household')} SET seq = seq + 1, updated_at = ${now}
-        WHERE id = ${mutation.householdId} AND ${memberOf(database, mutation.householdId, accountId)} RETURNING seq, encryption`,
+        WHERE id = ${mutation.householdId} AND ${reaches(database, mutation.householdId, accountId)} RETURNING seq, encryption`,
   );
   if (!stepped) throw notFound();
   // It moved between the check and this statement, or was sent in the other form: the whole mutation waits for the device to send it again (and this
@@ -177,6 +179,8 @@ async function run(
     // which would keep it and everything after it in the outbox for ever.
     if (spec.table === 'list_category' && stepped.encryption !== 'encrypted')
       throw copiesNeedMove();
+    // A card is every field a ciphertext under its own keys (§7.7): a group the server seals has none to make it under, and the server never holds a card in a form it can read.
+    if (spec.table === 'card' && stepped.encryption !== 'encrypted') throw cardsNeedMove();
     if (moved) throw new Held();
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
     // An item moved to another list leaves the devices of those on the first and not on the second (RFC 0004): a tombstone of no list, which the pull
@@ -205,6 +209,22 @@ async function run(
         await addListMember(database, {
           household: mutation.householdId,
           list: change.id,
+          person: me.id,
+          role: 'admin',
+          seq,
+          now,
+        });
+    }
+    // A card made now has its maker as its Admin (RFC 0007), as a list has.
+    if (spec.table === 'card' && raw.create && outcome.written.includes(change.id)) {
+      const me = await dbGet<{ id: string }>(
+        database,
+        sql`SELECT id FROM ${appTable(database, 'person')} WHERE account_id = ${accountId}`,
+      );
+      if (me)
+        await addCardMember(database, {
+          household: mutation.householdId,
+          card: change.id,
           person: me.id,
           role: 'admin',
           seq,
@@ -752,6 +772,19 @@ export async function checkListAccess(
     }
     return undefined;
   }
+  if (spec.table === 'card') {
+    // **A card is its Admin's** (§7.7): changed and deleted by the person who added it or to whom it passed, and made by the group's own account alone (a person's cards are made in their
+    // own group, as their lists are). Someone who is only a Member of a card sees and shows it and changes nothing of it: a refusal that reads as not found.
+    const existing = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${appTable(database, 'card')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const ok = existing
+      ? await allowed(cardAdminOf(database, change.id, accountId))
+      : await allowed(ownerOf(database, household, accountId));
+    if (!ok) throw notFound();
+    return undefined;
+  }
   if (spec.table === 'list_category') {
     const existing = await dbGet<{ list_id: string; source_key: string }>(
       database,
@@ -1028,6 +1061,15 @@ function checkBoundToList(
     for (const field of spec.sealed) {
       const value = change.fields[field];
       if (typeof value === 'string' && boundTo(value)?.list !== list) throw otherList();
+    }
+    return;
+  }
+  // **A card is bound to itself** (§13.1): each field is a ciphertext under the card's own keys, and the slot a list has is the card's id, so that a value made for one card does not open as
+  // another's, and the people on a card hold the keys of that card and no other.
+  if (spec.table === 'card') {
+    for (const field of spec.sealed) {
+      const value = change.fields[field];
+      if (typeof value === 'string' && boundTo(value)?.list !== change.id) throw otherList();
     }
     return;
   }

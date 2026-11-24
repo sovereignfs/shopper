@@ -18,6 +18,8 @@ import {
 } from './db';
 import { type Kind, describeMutation } from './describe';
 import {
+  type CardMemberRow,
+  type CardRow,
   type CategoryRow,
   type HouseholdRecord,
   type InventoryRow,
@@ -355,6 +357,8 @@ async function takeHousehold(
     ['inventory_item', pull.inventory ?? []],
     // The copies of people's categories on the lists the reader is on (§8.3), a server from before them sending none.
     ['list_category', pull.listCategories ?? []],
+    // The cards the reader is on (RFC 0007), a server from before them sending none: through the same merge, so that what waits to be sent is not overwritten by a pull.
+    ['card', pull.cards ?? []],
     // The group's categories, through the same merge as the rest now that the owner can change them: what waits to be sent is not overwritten by a pull.
     ['category', pull.categories],
   ];
@@ -377,6 +381,10 @@ async function takeHousehold(
     await tx
       .objectStore('member')
       .put({ ...(raw as unknown as MemberRow), householdId: pull.household });
+  for (const raw of pull.cardMembers ?? [])
+    await tx
+      .objectStore('card_member')
+      .put({ ...(raw as unknown as CardMemberRow), householdId: pull.household });
 
   for (const gone of pull.tombstones) {
     if (isSynced(gone.table)) {
@@ -386,6 +394,10 @@ async function takeHousehold(
       await tx.objectStore('shadow').delete([gone.table, gone.id]);
       touched.delete(keyOf(gone.table, gone.id));
     }
+    // A card deleted took its people with it (RFC 0007), and left a tombstone for the card alone.
+    if (gone.table === 'card')
+      for (const member of await tx.objectStore('card_member').index('byCard').getAll(gone.id))
+        await tx.objectStore('card_member').delete([member.cardId, member.personId]);
     // A list deleted for good took its items and its catalog with it, and left a tombstone for the list alone.
     if (gone.table === 'list') {
       for (const item of await tx.objectStore('item').index('byList').getAll(gone.id)) {
@@ -398,6 +410,27 @@ async function takeHousehold(
   }
   for (const alias of pull.aliases) await repoint(tx, alias.table, alias.from, alias.to, touched);
   if (pull.visibleLists) await forgetHidden(tx, pull.household, pull.visibleLists, touched);
+  if (pull.visibleCards) await forgetHiddenCards(tx, pull.household, pull.visibleCards, touched);
+}
+
+/**
+ * **The device keeps only the cards it may see** (RFC 0007): the pull names them, and any other card of the group the device holds goes, with its people. That is what leaving or being
+ * removed from a card does on the device. A card made here and not yet sent has a shadow, and stays until the server has answered for it.
+ */
+async function forgetHiddenCards(
+  tx: Tx,
+  household: string,
+  visible: readonly string[],
+  touched: Set<string>,
+): Promise<void> {
+  const keep = new Set(visible);
+  for (const card of await tx.objectStore('card').index('byHousehold').getAll(household)) {
+    if (keep.has(card.id) || (await tx.objectStore('shadow').get(['card', card.id]))) continue;
+    for (const member of await tx.objectStore('card_member').index('byCard').getAll(card.id))
+      await tx.objectStore('card_member').delete([member.cardId, member.personId]);
+    await tx.objectStore('card').delete(card.id);
+    touched.delete(keyOf('card', card.id));
+  }
 }
 
 /**
@@ -561,6 +594,7 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
     ['category', await tx.objectStore('category').index('byHousehold').getAll(id)],
     ['inventory_item', await tx.objectStore('inventory_item').index('byHousehold').getAll(id)],
     ['list_category', await tx.objectStore('list_category').index('byHousehold').getAll(id)],
+    ['card', await tx.objectStore('card').index('byHousehold').getAll(id)],
   ] as const;
   for (const [table, rows] of owned) {
     for (const row of rows) {
@@ -585,6 +619,8 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
   }
   for (const member of await tx.objectStore('member').index('byHousehold').getAll(id))
     await tx.objectStore('member').delete([member.listId, member.personId]);
+  for (const member of await tx.objectStore('card_member').index('byHousehold').getAll(id))
+    await tx.objectStore('card_member').delete([member.cardId, member.personId]);
   await tx.objectStore('household').delete(id);
 }
 
@@ -761,6 +797,18 @@ export async function listCategoriesOf(
   return (await db.getAllFromIndex('list_category', 'byList', listId))
     .filter(live)
     .sort(byPosition);
+}
+
+/** The cards the account is on, live, in the order the person put them (RFC 0007): the cards of every group a device holds one of, since a card is its people's and not a group's. */
+export async function cardsOf(db: LocalDatabase): Promise<CardRow[]> {
+  return (await db.getAll('card')).filter(live).sort(byPosition);
+}
+
+/** The people on a card now (RFC 0007). */
+export async function cardMembersOf(db: LocalDatabase, cardId: string): Promise<CardMemberRow[]> {
+  return (await db.getAllFromIndex('card_member', 'byCard', cardId)).filter(
+    (member) => member.leftAt === null,
+  );
 }
 
 /** The people on a list now (RFC 0004). */

@@ -71,7 +71,9 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
             ? name === 'note' ||
               (table === 'list' && name !== 'name') ||
               // An Inventory override that keeps the starter's name has none (the starter entry is named instead), and a starter category has the code's.
-              ((table === 'inventory_item' || table === 'category') && name === 'name')
+              ((table === 'inventory_item' || table === 'category') && name === 'name') ||
+              // A card's icon, colour and the name on it may be cleared (the shop, the number, the kind and the code may not).
+              (table === 'card' && (name === 'icon' || name === 'color' || name === 'holder'))
               ? z.union([cipher, z.null()])
               : cipher
             : spec.fields[name];

@@ -74,3 +74,12 @@ first block has **Loyalty cards**; on a phone it is the footer's right icon.
 1. **Moving a card between Shopper and Wallet:** later, a candidate (15.6), through each app's export and import.
 2. **A card linked to a shop:** later, when shops exist (13.5): a card can then be linked to a shop as well as a list, and Shop mode shows it when
    shopping there.
+
+## Settled in building (2026-11-24), for the owner's review
+
+3. **A card is only ever in a group that has moved:** its keys are derived from the group's keyring, which a group the server seals has none of, so the server refuses a card there (not held) and a
+   device keeps cards for once its group has moved. Nothing of a card is ever sealed by the server. DESIGN.md §7.7 and §13.7 say it.
+4. **Only the group's own account makes a card,** as only it makes a list; it is the card's Admin, and a Member of a card changes nothing of it. A person given a card by a link never makes cards in
+   the group they are given it from.
+5. **Someone on a card only reaches the group by it:** their device syncs the group and is handed that card, its people and their own copy of its keys, and nothing else of the group; the group is not
+   a place in their sidebar. DESIGN.md §7.7 says it.

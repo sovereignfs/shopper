@@ -44,7 +44,7 @@ export interface ReadableExport {
 
 const ENCRYPTED = /^(.+)_encrypted$/;
 /** The kinds that hold the person's keys, which are not written out. */
-const KEYS = new Set(['household_key', 'list_key']);
+const KEYS = new Set(['household_key', 'list_key', 'card_key']);
 
 const text = (value: unknown): string | undefined =>
   typeof value === 'string' && value !== '' ? value : undefined;

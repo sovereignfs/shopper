@@ -154,6 +154,7 @@ describe(`leaving a household (${leg})`, () => {
         householdProducts: 5000,
         inventoryItems: 5000,
         householdCategories: 100,
+        accountCards: 100,
       },
       now: 1_800_000_000_001,
     });

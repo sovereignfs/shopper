@@ -188,4 +188,18 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
       per: 'list',
     },
   },
+  // A loyalty card (§7.7): every field of what the person wrote is a ciphertext under the card's keys, so nothing here is plain but its place and its times. A person makes cards in their
+  // own group only, so the group's live cards are the person's.
+  card: {
+    table: 'card',
+    sql: 'card',
+    sealed: ['shop', 'number', 'kind', 'code', 'icon', 'color', 'holder', 'note'],
+    plain: [
+      { field: 'position', column: 'position' },
+      { field: 'deletedAt', column: 'deleted_at' },
+      { field: 'createdAt', column: 'created_at' },
+    ],
+    refs: {},
+    limit: { kind: 'accountCards', of: (limits) => limits.accountCards },
+  },
 };

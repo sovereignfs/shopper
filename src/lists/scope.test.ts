@@ -34,6 +34,7 @@ const LIMITS: Limits = {
   householdProducts: 5000,
   inventoryItems: 5000,
   householdCategories: 100,
+  accountCards: 100,
 };
 const env = (): Env => ({ now: 1_800_000_000_000, newId: () => crypto.randomUUID() });
 

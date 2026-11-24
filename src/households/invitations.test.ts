@@ -39,6 +39,7 @@ const LIMITS: Limits = {
   householdProducts: 5000,
   inventoryItems: 5000,
   householdCategories: 100,
+  accountCards: 100,
 };
 const NOW = 1_800_000_000_000;
 

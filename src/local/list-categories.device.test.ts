@@ -53,6 +53,7 @@ const deps = (): EndpointDeps => ({
     householdProducts: 5000,
     inventoryItems: 5000,
     householdCategories: 100,
+    accountCards: 100,
   },
   intervalSeconds: 20,
 });
@@ -101,7 +102,8 @@ describe('the store of copies, version 5', () => {
     old.close();
     const upgraded = await openLocal('', name);
     expect(upgraded.version).toBe(LOCAL_VERSION);
-    expect(LOCAL_VERSION).toBe(5);
+    // Version 5 is the one that gave the store its copies; a later version keeps them (6 gave it cards, task 24.2).
+    expect(LOCAL_VERSION).toBeGreaterThanOrEqual(5);
     expect((await upgraded.get('household', 'h1'))?.cursor).toBe(7);
     expect(await upgraded.count('inventory_item')).toBe(1);
     await upgraded.put('list_category', {

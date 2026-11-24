@@ -12,6 +12,10 @@ import { appTable } from '../db/tables';
  * - `adminOf`: the same, as an Admin: the group's own account.
  * - `onList`: the account is an active person of the list (`list_member`): what lets it see and change the list, its items and its products.
  * - `listAdminOf`: the same, as the list's Admin.
+ * - `onCard`: the account is an active person of the card (`card_member`, DESIGN.md §7.7): what lets it see a card and the card's people, as `onList` does a list.
+ * - `cardAdminOf`: the same, as the card's Admin, who alone changes and deletes it.
+ * - `reaches`: the account is on the group **or on one of its cards**: what a device syncs the group by (the household it is shown, the gate of a pull and of a mutation). It reads
+ *   nothing by itself: a person on a card only is on no list, so `memberOf` is false for them and every statement that reads a list's rows stays closed to them.
  *
  * `household` and `list` are a column of the statement's own table (`h.id`, `i.list_id`), or a bound value: either is an SQL fragment.
  */
@@ -39,6 +43,28 @@ function onListWhere(database: Database, list: SQL | string, accountId: string, 
   // Aliases of its own (`lm`, `lp`), as `exists` has, so that an outer column passed in is never read as the subquery's.
   return sql`EXISTS (SELECT 1 FROM ${appTable(database, 'list_member')} lm JOIN ${appTable(database, 'person')} lp ON lp.id = lm.person_id
     WHERE lm.list_id = ${target} AND lp.account_id = ${accountId} AND lm.left_at IS NULL${extra})`;
+}
+
+export function onCard(database: Database, card: SQL | string, accountId: string): SQL {
+  return onCardWhere(database, card, accountId, sql``);
+}
+
+export function cardAdminOf(database: Database, card: SQL | string, accountId: string): SQL {
+  return onCardWhere(database, card, accountId, sql` AND cm.role = 'admin'`);
+}
+
+function onCardWhere(database: Database, card: SQL | string, accountId: string, extra: SQL): SQL {
+  const target = typeof card === 'string' ? sql`${card}` : card;
+  // Aliases of its own (`cm`, `cp`), as `onListWhere` has, so that an outer column passed in is never read as the subquery's.
+  return sql`EXISTS (SELECT 1 FROM ${appTable(database, 'card_member')} cm JOIN ${appTable(database, 'person')} cp ON cp.id = cm.person_id
+    WHERE cm.card_id = ${target} AND cp.account_id = ${accountId} AND cm.left_at IS NULL${extra})`;
+}
+
+export function reaches(database: Database, household: SQL | string, accountId: string): SQL {
+  const target = typeof household === 'string' ? sql`${household}` : household;
+  return sql`(${memberOf(database, household, accountId)} OR EXISTS (SELECT 1 FROM ${appTable(database, 'card_member')} km
+    JOIN ${appTable(database, 'person')} kp ON kp.id = km.person_id
+    WHERE km.household_id = ${target} AND kp.account_id = ${accountId} AND km.left_at IS NULL))`;
 }
 
 export function adminOf(database: Database, household: SQL | string, accountId: string): SQL {

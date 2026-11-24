@@ -1,3 +1,4 @@
+import type { CodeKind } from '../cards/kinds';
 import type { Unit } from '../quantity/units';
 
 /**
@@ -123,5 +124,26 @@ export interface ListCategoryRow {
   readonly icon: string | null;
   readonly position: string;
   readonly deletedAt: number | null;
+  readonly seq: number;
+}
+
+/**
+ * **A loyalty card as a device holds it** (§7.7): the person's words opened under the card's keys (the device holds every row plain; the transport encrypts and opens each field),
+ * what kind of code it is and the value that code carries.
+ */
+export interface CardRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly shop: string;
+  readonly number: string;
+  readonly kind: CodeKind;
+  readonly code: string;
+  readonly icon: string | null;
+  readonly color: string | null;
+  readonly holder: string | null;
+  readonly note: string | null;
+  readonly position: string;
+  readonly deletedAt: number | null;
+  readonly createdAt: number;
   readonly seq: number;
 }

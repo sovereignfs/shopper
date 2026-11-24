@@ -241,6 +241,28 @@ export const listCategory = app.table(
 );
 
 /**
+ * **A loyalty card** (DESIGN.md §7.7, RFC 0007), a row of its group: the shop, the number, the kind of code and its value, the icon, the colour, the name on the card and the note are
+ * **one ciphertext per field under the card's own keys** (`encrypted`, §13.1), and the server holds nothing readable of a card. Only a group that has moved has any (a device makes the
+ * keys), so `sealed` is always empty; it is there as `list_category`'s is, so that the one write path treats the table as it treats the rest. `position` orders the person's cards; a card's
+ * people are `card_member`, and **who may read it is the statement's condition** (`onCard`), never the group's.
+ */
+export const card = app.table(
+  'card',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    position: position('position').notNull(),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [index('card_household_seq_idx').on(table.householdId, table.seq)],
+);
+
+/**
  * **Every mutation the server has applied** (DESIGN.md §12.3), by the account that sent it and the id the device made, with the household's `seq` it
  * was applied at. A mutation sent again, because an answer was lost, finds its row and **writes nothing**: it is answered as it was. Pruned after ninety
  * days with the history (task 6.6, phase 2). Not a row of a household's: it is the account's, and goes with it (`deletePerson`).
@@ -293,6 +315,8 @@ export const tombstone = app.table(
     householdId: ref('household_id').notNull(),
     // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
     listId: ref('list_id'),
+    // The card the row is about (RFC 0007): who may see it, as a list's is. None for what is a list's or the group's.
+    cardId: ref('card_id'),
     tableName: text('table_name').notNull(),
     id: ref('id').notNull(),
     seq: counter('seq').notNull(),
@@ -469,5 +493,48 @@ export const listMember = app.table(
     uniqueIndex('list_member_list_person_idx').on(table.listId, table.personId),
     index('list_member_person_idx').on(table.personId),
     index('list_member_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **A person on a card** (DESIGN.md §7.7), as `list_member` is for a list: a card's people are its own, joined only by accepting an invitation to it, and its **Admin** (who added it, or
+ * to whom it passed) edits and deletes it. `left_at` keeps the person named on what they did.
+ */
+export const cardMember = app.table(
+  'card_member',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    cardId: ref('card_id').notNull(),
+    personId: ref('person_id').notNull(),
+    role: text('role').notNull(),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('card_member_card_person_idx').on(table.cardId, table.personId),
+    index('card_member_person_idx').on(table.personId),
+    index('card_member_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **A person's own copy of a card's keyring** (DESIGN.md §13.2), wrapped under that person's app key, as `list_key` is for a list: handed back to them in each pull of a card they are on,
+ * and deleted when they leave it or are removed, with the card and with the person. A card's keys are derived from its group's, and someone given a card by a link keeps this copy.
+ */
+export const cardKey = app.table(
+  'card_key',
+  {
+    cardId: ref('card_id').notNull(),
+    personId: ref('person_id').notNull(),
+    householdId: ref('household_id').notNull(),
+    epoch: counter('epoch').notNull(),
+    record: text('record').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.cardId, table.personId] }),
+    index('card_key_person_idx').on(table.personId),
   ],
 );

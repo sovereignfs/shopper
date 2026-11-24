@@ -34,6 +34,7 @@ const MOVED: readonly MovedTable[] = [
   'inventory_item',
   'category',
   'list_category',
+  'card',
 ];
 
 export interface MoveDeps {
@@ -79,7 +80,7 @@ const listOfRow = (
   row: { id: string; list_id?: string | null },
   household: string,
 ): string =>
-  table === 'list'
+  table === 'list' || table === 'card'
     ? row.id
     : table === 'inventory_item' || table === 'category'
       ? household
@@ -133,7 +134,7 @@ export async function moveManifest(
       starter_key?: string | null;
     }>(
       database,
-      table === 'list'
+      table === 'list' || table === 'card'
         ? sql`SELECT id, sealed FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
         : table === 'inventory_item'
           ? sql`SELECT id, sealed, starter_key FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
@@ -181,6 +182,8 @@ export const moveInput = z.object({
     category: z.array(movedRow).default([]),
     // A list's copies of people's categories (§8.3): a group the server still seals has none (a copy is refused there), so there is nothing to answer, and a device sends none.
     list_category: z.array(movedRow).default([]),
+    // A card (§7.7) is every field a ciphertext under its own keys, which a group the server still seals has none of, so the server refuses one there: nothing to answer for.
+    card: z.array(movedRow).default([]),
   }),
 });
 
@@ -213,7 +216,7 @@ export async function moveHousehold(
         tx,
         table === 'category'
           ? categoriesWithContent(tx, household, false)
-          : table === 'list' || table === 'inventory_item'
+          : table === 'list' || table === 'inventory_item' || table === 'card'
             ? sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`
             : sql`SELECT id, list_id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
       );

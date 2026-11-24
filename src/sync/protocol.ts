@@ -41,6 +41,8 @@ export interface HouseholdPull {
     readonly epoch: number;
     readonly keyring: string | null;
     readonly lists?: Readonly<Record<string, string>>;
+    /** The reader's own copies of the keys of cards they are on (RFC 0007), by card; a server from before cards sends none. */
+    readonly cards?: Readonly<Record<string, string>>;
     /** The reader's own person, whom the keyring is wrapped for. */
     readonly person: string | null;
   };
@@ -59,6 +61,12 @@ export interface HouseholdPull {
   readonly members: readonly Record<string, unknown>[];
   /** Every list of this group the reader may see now (RFC 0004): the device forgets any other it holds. */
   readonly visibleLists?: readonly string[];
+  /** The cards the reader is on in this group (RFC 0007), their fields ciphertext under each card's keys; a server from before cards sends none. A card is its people's alone. */
+  readonly cards?: readonly Record<string, unknown>[];
+  /** The people of the reader's cards, one row a person a card (`cardId`), as the reader may see them (§6.1). */
+  readonly cardMembers?: readonly Record<string, unknown>[];
+  /** Every card of this group the reader may see now: the device forgets any other it holds. */
+  readonly visibleCards?: readonly string[];
   readonly tombstones: readonly { table: string; id: string; seq: number }[];
   readonly aliases: readonly {
     table: string;
