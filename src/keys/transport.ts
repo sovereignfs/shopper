@@ -230,6 +230,8 @@ export function encryptingTransport(
 
 const NO_KEYS =
   'That list is not shared with you any more, so this change could not be sent. It is kept here.';
+const NO_INVENTORY_KEYS =
+  'Your Inventory could not be opened on this device, so this change could not be sent. It is kept here.';
 const UNKNOWN_ENTRY =
   'This change names an entry of the starter catalog that this version of Shopper does not have, so it could not be sent. It is kept here.';
 
@@ -287,7 +289,15 @@ async function encryptOutbox(
       continue;
     }
     if (!encrypted) {
-      refused.push({ mutationId: mutation.mutationId, reason: 'not_found', sentence: NO_KEYS });
+      // A change to Inventory or to the person's categories has no list to name: it is their group's own keys that are not here.
+      const ofInventory = mutation.changes.every(
+        (change) => change.table === 'inventory_item' || change.table === 'category',
+      );
+      refused.push({
+        mutationId: mutation.mutationId,
+        reason: 'not_found',
+        sentence: ofInventory ? NO_INVENTORY_KEYS : NO_KEYS,
+      });
       continue;
     }
     outbox.push(encrypted);

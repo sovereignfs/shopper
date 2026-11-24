@@ -261,6 +261,7 @@ test('what is a person’s is not cacheable, every page carries a nonce policy, 
     '/settings',
     `/l/${ada.lists[0]!.id}`,
     `/shop?l=${ada.lists[0]!.id}`,
+    '/inventory',
     '/sign-in',
     '/invite/' + 'A'.repeat(43),
   ]) {

@@ -19,7 +19,6 @@ import {
   deleteInventoryItem,
   makeInventoryItem,
   overrideStarterEntry,
-  restoreInventoryItem,
 } from '../actions/inventory';
 import type { InventoryRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
@@ -80,34 +79,48 @@ export function InventoryPanel({
     };
   }, []);
 
-  /** One change to this entry, made when its turn comes, from the row as the device holds it then. */
-  function write(fields: InventoryFields & { name?: string | null }) {
-    if (!client) return;
-    queue.current = queue.current
-      .then(async () => {
-        const rows = await client.read(inventoryOf);
-        const row = rowOfEntry(rows, entry);
-        const mutation = row
-          ? changeInventoryItem(env(), row, fields)
-          : entry.starterKey !== null
-            ? overrideStarterEntry(env(), {
-                householdId: data.household,
-                starterKey: entry.starterKey,
-                ...(typeof fields.name === 'string' ? { name: fields.name } : {}),
-                ...Object.fromEntries(Object.entries(fields).filter(([key]) => key !== 'name')),
-              })
-            : null;
-        if (mutation) await client.commit(mutation);
-      })
-      .catch(() => undefined);
+  /** A task, run when every one before it has ended: a task that fails is the person's to see on the next read, and never stops the ones after it. */
+  function enqueue(task: () => Promise<void>) {
+    queue.current = queue.current.then(task).catch(() => undefined);
   }
 
-  /** Whether another entry of Inventory has the name already, which the server would refuse: said here, and nothing written. */
-  async function taken(next: string): Promise<boolean> {
-    if (!client) return false;
-    const found = entryNamed(layerInventory(await client.read(inventoryOf)), next);
-    return found !== undefined && found.key !== entry.key;
+  /** The values a change gives, for an entry of the starter that has no row yet: what is cleared (`null`) is what the starter already has, so it makes nothing. */
+  const given = (fields: InventoryFields): InventoryFields =>
+    Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null));
+
+  /** One change to this entry, from the row as the device holds it now. A starter entry's first change makes its override. */
+  async function apply(fields: InventoryFields & { name?: string | null }) {
+    if (!client) return;
+    const row = rowOfEntry(await client.read(inventoryOf), entry);
+    let mutation = null;
+    if (row) mutation = changeInventoryItem(env(), row, fields);
+    else if (entry.starterKey !== null) {
+      const { name: renamed, ...rest } = fields;
+      const wanted = given(rest);
+      if (typeof renamed === 'string' || Object.keys(wanted).length > 0)
+        mutation = overrideStarterEntry(env(), {
+          householdId: data.household,
+          starterKey: entry.starterKey,
+          ...(typeof renamed === 'string' ? { name: renamed } : {}),
+          ...wanted,
+        });
+    }
+    if (mutation) await client.commit(mutation);
   }
+
+  /** One change to this entry, made when its turn comes: **a delete is in the same line**, so that a field written as it was left cannot land after it and make the row again. */
+  const write = (fields: InventoryFields & { name?: string | null }) =>
+    enqueue(() => apply(fields));
+
+  /** Whether another entry of Inventory has the name already, which the server would refuse: said, and nothing written. Read in the line too, from the device as it is then. */
+  const rename = (typed: string) =>
+    enqueue(async () => {
+      if (!client) return;
+      const found = entryNamed(layerInventory(await client.read(inventoryOf)), typed);
+      const already = found !== undefined && found.key !== entry.key;
+      setProblem(already ? 'Inventory has that name already.' : null);
+      if (!already) await apply({ name: typed });
+    });
 
   const commitName = () => {
     const typed = (name ?? entry.name).trim();
@@ -116,10 +129,7 @@ export function InventoryPanel({
       setProblem(null);
       return;
     }
-    void taken(typed).then((already) => {
-      setProblem(already ? 'Inventory has that name already.' : null);
-      if (!already) write({ name: typed });
-    });
+    rename(typed);
   };
   const nameHandlers = useCommitOnEnterOrBlur(commitName);
   const commitNote = () => {
@@ -147,28 +157,19 @@ export function InventoryPanel({
     (category) => !category.hidden || category.id === entry.categoryId,
   );
 
-  async function remove() {
-    if (!client) return;
-    const rows = await client.read(inventoryOf);
-    const row = rowOfEntry(rows, entry);
-    const mutation = row ? deleteInventoryItem(env(), row) : null;
-    if (!mutation) return;
-    const undo = await client.commit(mutation);
-    onClose();
-    offerUndo(entry.mine ? `Deleted ${entry.name}` : `Took back changes to ${entry.name}`, () => {
-      if (undo) return void client.commit(undo);
+  /** Deletes an item of their own, or takes back what was changed of a starter entry, with Undo. In the line of writes, after whatever was written as it was left. */
+  const remove = () =>
+    enqueue(async () => {
+      if (!client) return;
+      const row = rowOfEntry(await client.read(inventoryOf), entry);
+      const mutation = row ? deleteInventoryItem(env(), row) : null;
+      if (!mutation) return;
+      const undo = await client.commit(mutation);
+      onClose();
+      offerUndo(entry.mine ? `Deleted ${entry.name}` : `Took back changes to ${entry.name}`, () => {
+        if (undo) return void client.commit(undo);
+      });
     });
-  }
-
-  function restore() {
-    if (!client) return;
-    queue.current = queue.current.then(async () => {
-      const rows = await client.read(inventoryOf);
-      const row = rowOfEntry(rows, entry);
-      const mutation = row ? restoreInventoryItem(env(), row) : null;
-      if (mutation) await client.commit(mutation);
-    });
-  }
 
   return (
     // Escape is a shortcut to the Close button, which is the control; the panel takes focus when it opens, so that a key pressed in it is heard here.
@@ -192,7 +193,7 @@ export function InventoryPanel({
         ) : null}
         <h2>Inventory</h2>
         {mobile ? null : (
-          <Button variant="ghost" size="sm" aria-label="Close the entry" onClick={onClose}>
+          <Button variant="ghost" size="sm" aria-label="Close the item" onClick={onClose}>
             <Icon name="x" size="sm" aria-hidden />
           </Button>
         )}
@@ -257,7 +258,7 @@ export function InventoryPanel({
                   write({ unit: isUnit(event.target.value) ? (event.target.value as Unit) : null })
                 }
               >
-                <option value="">None</option>
+                <option value="">{entry.mine ? 'None' : 'As the starter has it'}</option>
                 {UNITS.map((each) => (
                   <option key={each.key} value={each.key}>
                     {each.key}
@@ -306,7 +307,7 @@ export function InventoryPanel({
         </div>
         <div className={styles.actions}>
           {entry.hidden ? (
-            <Button variant="secondary" size="sm" onClick={restore}>
+            <Button variant="secondary" size="sm" onClick={() => write({ hidden: false })}>
               Show again
             </Button>
           ) : (
@@ -315,7 +316,7 @@ export function InventoryPanel({
             </Button>
           )}
           {rowOfEntry(data.rows, entry) ? (
-            <button type="button" className={styles.delete} onClick={() => void remove()}>
+            <button type="button" className={styles.delete} onClick={remove}>
               {entry.mine ? 'Delete' : 'Take back my changes'}
             </button>
           ) : null}

@@ -237,6 +237,7 @@ As Tusk's: `app/` for routes, `src/` for everything else, tests beside the code.
 | `src/people/`             | Persons (§6.1)                                                                                                                                                     |
 | `src/households/`         | The group, invitations, a list's people and roles, the operations (§7)                                                                                             |
 | `src/catalog/`            | Normalising names, the starter catalog and its icons, categories, Inventory's layering over the starter, units, suggestion ranking (§8) — pure                     |
+| `src/inventory/`          | The Inventory screen's view: searching, filtering and grouping its entries in the aisle order (§16.8) — pure                                                       |
 | `src/cards/`              | Loyalty cards: their kinds of code, check digits, decoding a scan on the device (§7.7, §22.3)                                                                      |
 | `src/quantity/`           | Decimal quantities, units, unit prices, money in minor units, a trip's total (§9.3, §10.4) — pure; currencies **from Ledger**                                      |
 | `src/actions/`            | Each recorded action as a pure function from intent to a mutation, and the validators (§12.2) — shared with the browser                                            |

@@ -211,6 +211,43 @@ describe('the transport', () => {
     expect(JSON.stringify(sent)).not.toContain(MARKER);
   });
 
+  it('refuses a change to Inventory whose group keys are not here, in words about Inventory and not a list', async () => {
+    const key = await appKey();
+    const kept = storage();
+    new EncryptionMemory(kept, 'k').markEncrypted(H);
+    const memory = new EncryptionMemory(kept, 'k');
+    const transport = encryptingTransport(
+      async () => ({
+        kind: 'ok' as const,
+        answer: answerOf([
+          pullOf({ encryption: { state: 'encrypted', epoch: 1, keyring: null, person: P } }),
+        ]),
+      }),
+      { appKey: () => key },
+      memory,
+      noRows,
+    );
+    const inventory: Mutation = {
+      mutationId: crypto.randomUUID(),
+      householdId: H,
+      changes: [
+        {
+          table: 'inventory_item',
+          id: ROW,
+          create: true,
+          fields: { name: 'Zorblax', createdAt: 1 },
+        },
+      ],
+    };
+    const request = { version: 2, outbox: [inventory], cursors: { [H]: 3 } };
+    await transport(request);
+    const second = await transport(request);
+    const refused = second.kind === 'ok' ? second.answer.refused : [];
+    expect(refused.map((r) => r.mutationId)).toEqual([inventory.mutationId]);
+    expect(refused[0]?.sentence).toMatch(/Inventory/);
+    expect(refused[0]?.sentence).not.toMatch(/list/i);
+  });
+
   it('uses a copy of a list’s keys the server has not taken yet', async () => {
     const key = await appKey();
     const groceries = await deriveListKeyring(newKeyring(), LIST);

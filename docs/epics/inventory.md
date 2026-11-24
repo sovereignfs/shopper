@@ -254,7 +254,7 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
 - **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it. **Step 5's new synced tables enter the household's move in the same
   commit** (a person's own categories and `list_category` are content its device encrypts too): a test holds the manifest to `SYNCED_TABLES`, so a table added without its move fails it. An Inventory
   change whose keys are missing would land in Couldn't sync with the list sentence ("That list is not shared with you any more"); it cannot happen yet (a device that does not hold the group cannot
-  make the change, and a locked key holds it), so its own sentence waits for the screen (23.4).
+  make the change, and a locked key holds it); its own sentence ("Your Inventory could not be opened on this device…", for a change to Inventory or a category, and not the list's) is added with the screen (23.4).
 
 #### 🚧 23.4 — Inventory: the screen
 
@@ -273,7 +273,7 @@ device, `src/screens/InventoryScreen.tsx` and `InventoryPanel.tsx` draw it, and 
 (`starter:<key>`, `own:<id>` or `new`), an address that names nothing closes itself **after asking the device again** (the screen's copy of what the device holds is read a moment
 after a write, and an item just made would otherwise close its own panel). A field is written as it is left; **writes to one entry are made one after another, each from the row the
 device holds when its turn comes**, so that two quick changes to an untouched starter entry (recurring, then hide) make one override row and not two, which the fold would keep
-the first of. A rename onto a name Inventory has is refused in the panel, and _+ Add item_ with a name it has opens that entry. The sidebar's first block and Home link to it, the shell
+the first of. A rename onto a name Inventory has is refused in the panel (checked in the same line, from the device as it is then), a delete is in that line too, so that a field left as the delete is pressed cannot land after it and make the row again, and clearing what the starter fills in (a unit, a quantity) is the starter's value again and makes no row of its own. and _+ Add item_ with a name it has opens that entry. The sidebar's first block and Home link to it, the shell
 answers `/inventory` offline, and `src/access/routes.ts` lists the page. **2:** _Add to a list_. **3:** the Categories tab.
 
 #### 📋 23.5 — Inventory in suggestions

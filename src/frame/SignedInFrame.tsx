@@ -27,7 +27,7 @@ import { Wordmark } from './Wordmark';
  * launcher (`launcher`). **The same routes on both:** the frame decides what is drawn by the screen, and nothing here changes an address; no Shopper file asks for a width
  * (`src/ui/no-fork.test.ts`). The right column for an item is not the frame's: the list and shopping mode place it (`ItemBeside`), where the item's data is.
  *
- * The page the service worker keeps, before the device has a working copy to read, has no lists to show, and shows Home alone.
+ * The page the service worker keeps, before the device has a working copy to read, has no lists to show, and shows Home and Inventory alone.
  */
 export function SignedInFrame({
   account,

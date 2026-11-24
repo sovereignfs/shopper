@@ -10,6 +10,7 @@ import {
   recordViolations,
   signUp,
   test,
+  waitMoved,
 } from './helpers';
 
 /**
@@ -98,6 +99,8 @@ test('an item made, changed, hidden and shown again with no network reaches a se
   await expect(screen(page)).toBeVisible({ timeout: 30_000 });
   await expect(entry(page, 'Banana')).toBeVisible({ timeout: 15_000 });
   const account = await accountOf(page);
+  // After the group has moved to the device's encryption, so that what follows is written and read in that form and not in a race with the move.
+  await waitMoved(page, baseURL ?? '');
 
   await offline(context);
 
@@ -134,13 +137,20 @@ test('an item made, changed, hidden and shown again with no network reaches a se
   await zorblax.getByRole('button', { name: 'Show again' }).click();
   await expect(zorblax.getByRole('button', { name: 'Hide' })).toBeVisible();
 
-  // A starter entry the person has not changed has no row: two quick changes to it (recurring, then hide) are one row that holds both.
-  await panel(page, 'Inventory: Zorblax').getByRole('button', { name: 'Close the entry' }).click();
+  // A starter entry the person has not changed has no row: two changes to it made in the same instant (recurring, then hide) are one row that holds both. Two clicks of a
+  // person are far enough apart for the first to be written before the second; these are not, which is what the line of writes is for.
+  await panel(page, 'Inventory: Zorblax').getByRole('button', { name: 'Close the item' }).click();
   await expect(page).toHaveURL('/inventory');
   await entry(page, 'Banana').click();
   const banana = panel(page, 'Inventory: Banana');
-  await banana.getByRole('switch', { name: 'Recurring' }).click();
-  await banana.getByRole('button', { name: 'Hide' }).click();
+  await expect(banana).toBeVisible();
+  await page.evaluate(() => {
+    const open = document.querySelector('aside[aria-label="Inventory: Banana"]');
+    (open?.querySelector('button[role="switch"][aria-label="Recurring"]') as HTMLElement).click();
+    [...(open?.querySelectorAll('button') ?? [])]
+      .find((button) => button.textContent === 'Hide')
+      ?.click();
+  });
   await expect
     .poll(async () => (await rowsOf(page)).filter((row) => row.starterKey !== null), {
       timeout: 10_000,
@@ -177,6 +187,68 @@ test('an item made, changed, hidden and shown again with no network reaches a se
   await second.context.close();
 });
 
+test('deleting an item takes it off with Undo, a field left as it is deleted does not bring it back, and a starter entry’s changes are taken back', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory');
+  await expect(entry(page, 'Banana')).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole('button', { name: 'Add item' }).first().click();
+  await panel(page, 'New item of Inventory').getByLabel('Name').fill('Quuxle');
+  await panel(page, 'New item of Inventory').getByRole('button', { name: 'Add item' }).click();
+  const quuxle = panel(page, 'Inventory: Quuxle');
+  await expect(quuxle).toBeVisible();
+
+  // The note is typed and not yet left; Delete is pressed, which leaves it first. The write the leaving makes is in the line before the delete, and does not follow it.
+  await quuxle.getByLabel('Note').fill('typed last');
+  await quuxle.getByRole('button', { name: 'Delete' }).click();
+  await expect(entry(page, 'Quuxle')).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: 'Deleted Quuxle' })).toBeVisible();
+  const names = async () => (await rowsOf(page)).map((row) => row.name);
+  await expect.poll(names, { timeout: 10_000 }).toEqual([]);
+  await expect
+    .poll(async () => (await deviceRows(page, await accountOf(page), 'outbox')).length, {
+      timeout: 30_000,
+    })
+    .toBe(0);
+  expect(await names()).toEqual([]);
+  await expect(entry(page, 'Quuxle')).toHaveCount(0);
+
+  // Undo brings it back, with what was written.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(entry(page, 'Quuxle')).toBeVisible();
+  await expect.poll(names, { timeout: 10_000 }).toEqual(['Quuxle']);
+  expect((await rowsOf(page))[0]?.note).toBe('typed last');
+
+  // A starter entry changed can be taken back: it is the starter's again, and the row is gone.
+  await entry(page, 'Banana').click();
+  const banana = panel(page, 'Inventory: Banana');
+  await banana.getByRole('switch', { name: 'Recurring' }).click();
+  await expect
+    .poll(async () => (await rowsOf(page)).filter((row) => row.starterKey !== null), {
+      timeout: 10_000,
+    })
+    .toHaveLength(1);
+  await banana.getByRole('button', { name: 'Take back my changes' }).click();
+  await expect(banana).toHaveCount(0);
+  await expect
+    .poll(async () => (await rowsOf(page)).filter((row) => row.starterKey !== null), {
+      timeout: 10_000,
+    })
+    .toHaveLength(0);
+  await expect(entry(page, 'Banana')).toBeVisible();
+  await entry(page, 'Banana').click();
+  await expect(banana.getByRole('switch', { name: 'Recurring' })).not.toBeChecked();
+
+  // Clearing what the starter fills in is the starter's value again, and makes no row of its own.
+  await banana.getByLabel('Quantity').fill('');
+  await banana.getByLabel('Quantity').blur();
+  await expect(banana.getByLabel('Quantity')).toHaveValue('6');
+  expect((await rowsOf(page)).filter((row) => row.starterKey !== null)).toHaveLength(0);
+});
+
 test('a keyboard reaches an entry and its fields, and Escape closes it; Inventory opens with no network', async ({
   page,
   context,
@@ -199,7 +271,7 @@ test('a keyboard reaches an entry and its fields, and Escape closes it; Inventor
   // WebKit does not Tab to a button unless the system is set to (Safari's own default), so the order is checked in Chromium, which does.
   if (test.info().project.name === 'chromium') {
     await page.keyboard.press('Tab');
-    await expect(banana.getByRole('button', { name: 'Close the entry' })).toBeFocused();
+    await expect(banana.getByRole('button', { name: 'Close the item' })).toBeFocused();
   }
   await page.keyboard.press('Escape');
   await expect(banana).toHaveCount(0);
