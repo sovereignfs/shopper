@@ -113,15 +113,37 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   the test: its poll can pass on the household from before the reset, and the read after it finds it cleared), which failed 3 of 6 runs on this build and 3 of 8 on the commit before it. A first run on
   a machine in swap pressure (load about 80) had failed 93 of WebKit's tests on timeouts and was thrown away. The device store was also opened in real WebKit, fresh at version 4 and upgraded from
   version 3, keeping its data and the booleans.
-- **Left to do, so 23.3 is not ✅:** (4) **encrypted mode.** A group that has moved to device encryption (which every account made in a browser is) takes no Inventory yet: apply refuses it as
-  unsupported, and the household's move (`src/keys/server/move.ts`) does not carry Inventory. Needs the group's Inventory keys (`shopper:inventory-key:v1`, given to nobody), the device's name key
-  under them, values bound to the group in place of a list (`checkBoundToList` an explicit rule, not a bypass), and the move to take a group's Inventory with it. **Until it lands nothing in a browser
-  writes Inventory.** (5) **A person's own categories and `list_category`:** categories are still the group's and fixed; the pull gives every member every category (`1 = 1`) and unseals a renamed one with
+- **Step 4, done: encrypted mode.** A group that has moved to device encryption (which every account made in a browser is) now takes Inventory, and the household's move carries it, **in the same
+  change** (taking encrypted Inventory while the move skipped it would have left a moved group with sealed rows and its content lost). **Keys:** `deriveInventoryKeyring(group, household)` (HKDF,
+  `shopper:inventory-key:v1`, the group's id), from the group's own keyring alone (`EncryptionMemory.inventoryKeyring`, never from a copy of a list's keys that a link gave), so no link carries it and
+  no list's keys open it (a test derives it apart from the code, with the label, and shows `deriveListKeyring(group, household)` opening nothing of it). **Values** are
+  `e2.<epoch>.<household>.<row>.<ciphertext>`: the group in the place of a list, the table in the document id. **Name key:** `deviceInventoryNameKey` is `listNameKey` over the Inventory keys with
+  the group's id, so a product's key of the same name differs; the device makes it with every make and every name, **`null` too** (an override given back to the starter's name has the starter
+  entry's), and the validator asks for it exactly then (`derive` never runs in an encrypted group, so the server takes it as sent: a name key with no name, or a name with no key, is not taken).
+  **On the server:** `checkBoundToList` has an explicit rule for `inventory_item` (the slot is the group; a value for a list, for another group, or an Inventory value put into an item is refused as not
+  found), `checkNamed` keeps a row of the person's own named (what `derive` did in a group the server seals), the owner-only rule is unchanged, and the pull already carried the ciphertext. **The move:**
+  the manifest lists the group's Inventory with each row's starter entry; the input has an `inventory_item` array (`default([])`, so a cached shell from before still moves a group with none, and a
+  group with some refuses it as incomplete); each row must carry a name key and a value bound to the group and its own row; the real `Mover` seals them. A rotation leaves an encrypted row and
+  the name key its device made alone (it has no envelope; a test seeds a sealed row beside them). **Seen to fail when removed:** the binding rule, `checkNamed`, the validator's rule, the move's
+  binding, its name-key requirement and its table (server); the Inventory keys' label, the Mover's table, the pull's opening, the name key of a `null` name and the Mover's duplicate check (device).
+  **Run on, all green:** `pnpm run verify`; the unit suite on a file database, PostgreSQL 16 and sqld (108 files, 865 tests and 4 skipped each); the browser suite on Chromium and WebKit on a quiet machine
+  (292 passed, 6 skipped, none failed, 10.8 minutes), `keys.spec.ts:40` (a new account's group moves through the real route, with the new input) among them. The device tests drive the real `Mover` and the real transport against the server (made before the move, opened on a second device, renamed, given back, two devices folding with the
+  note opening through the alias, a guest's device holding none, an entry this version does not have), and the order-of-arrival property holds with ciphertext notes and flags.
+  **Decisions to know:** (a) an override of a starter entry this version does not have is refused **on the device** into Couldn't sync with a sentence of its own (the name key cannot be made),
+  and the Mover leaves a group alone while a row has one, or two rows come to one name key (a catalog that differs between the server and a cached shell would otherwise fail the move on every
+  attempt); (b) a mutation with a ciphertext and no name key is valid in the form a sealed household takes, so the server **holds** it (as it holds any plain-valid mutation) and does not refuse it; a
+  device always sends the key; (c) **the move's body is capped at 2 MiB** (`MAX_BODY`), shared with the rest: a group at its limits for products and Inventory together may not fit, and the Mover then
+  waits ("later") without saying why, which is an open question for the owner and no worse than it was for products; (d) a person whose own group has a shared list does not move (existing rule,
+  §13.7), so their Inventory stays sealed by the server with the rest.
+- **Left to do, so 23.3 is not ✅:** (5) **A person's own categories and `list_category`:** categories are still the group's and fixed; the pull gives every member every category (`1 = 1`) and unseals a renamed one with
   the ring, so own categories need their names filtered for non-owners, an item's `categoryId` held to a starter category or a `list_category` of its own list (`checkReferences` accepts any live category of
   the group today), and §20.3's `list_category.category_id` read for whether it points into another person's group (which would break the same-group rule: raise it with the owner, do not code around it).
   (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
   tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
-- **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it, and the household move's Inventory with step 4.
+- **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it. **Step 5's new synced tables enter the household's move in the same
+  commit** (a person's own categories and `list_category` are content its device encrypts too): a test holds the manifest to `SYNCED_TABLES`, so a table added without its move fails it. An Inventory
+  change whose keys are missing would land in Couldn't sync with the list sentence ("That list is not shared with you any more"); it cannot happen yet (a device that does not hold the group cannot
+  make the change, and a locked key holds it), so its own sentence waits for the screen (23.4).
 
 #### 📋 23.4 — Inventory: the screen
 

@@ -50,6 +50,26 @@ describe(`a person's export (${testTarget().leg})`, () => {
     expect(JSON.stringify(byKind.list?.records)).toContain('Groceries');
   });
 
+  it('holds a moved group’s Inventory as its ciphertext, end to end, with the name key its device made and nothing the server could read', async () => {
+    const id = crypto.randomUUID();
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'inventory_item')} (id, household_id, starter_key, name_key, sealed, encrypted, created_at)
+          VALUES (${id}, ${ada.household}, ${null}, ${'n3.' + 'A'.repeat(43)}, ${''}, ${JSON.stringify({ name: 'e2.1.h.r.AAAA', note: 'e2.1.h.r.BBBB' })}, ${1})`,
+    );
+    const parts = await personRecords(database, TEST_RING, ada.accountId);
+    const part = parts.find((each) => each.kind === 'inventory_item_encrypted');
+    expect(part?.endToEnd).toBe(true);
+    expect(part?.records).toHaveLength(1);
+    expect(part?.records[0]).toMatchObject({
+      id,
+      content: { name: 'e2.1.h.r.AAAA', note: 'e2.1.h.r.BBBB' },
+    });
+    // Nor does anyone else's export hold it.
+    const others = await personRecords(database, TEST_RING, grace.accountId);
+    expect(others.some((each) => each.kind.startsWith('inventory_item'))).toBe(false);
+  });
+
   it('names the other members and gives none of their addresses, nor anything the contract forbids', async () => {
     const parts = await personRecords(database, TEST_RING, ada.accountId);
     const text = JSON.stringify(parts);

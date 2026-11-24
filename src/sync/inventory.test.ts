@@ -8,7 +8,7 @@ import { productNameKey } from '../catalog/product-key';
 import { starterEntryByKey } from '../catalog/starter';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
-import { dbGet, dbRun } from '../db/exec';
+import { dbGet } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
@@ -320,33 +320,6 @@ describe(`the account’s own Inventory on the server (${leg})`, () => {
         mutation(owner.household, [make(ids[2] ?? '', { name: 'Limited 2' })]),
       ),
     );
-  });
-
-  it('takes none in a group that has moved to device encryption, until it has keys of its own to be encrypted under', async () => {
-    const mover = await somebody(database, 'Mover');
-    await dbRun(
-      database,
-      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${mover.household}`,
-    );
-    // In the form the group is no longer in, it waits to be sent again encrypted; in the form it is in, it is refused for the moment, never stored.
-    expect(
-      await applyMutation(
-        deps(),
-        mover.accountId,
-        mutation(mover.household, [
-          make(crypto.randomUUID(), { name: 'Plain in an encrypted group' }),
-        ]),
-      ),
-    ).toMatchObject({ status: 'held' });
-    const cipher = `e2.1.${crypto.randomUUID()}.${crypto.randomUUID()}.AAAAAAAAAAAAAAAAAAAAAA`;
-    const id = crypto.randomUUID();
-    const refused = await applyMutation(
-      deps(),
-      mover.accountId,
-      mutation(mover.household, [make(id, { name: cipher })]),
-    );
-    expect(refused).toMatchObject({ status: 'refused', reason: 'unsupported' });
-    expect(await rowOf(id)).toBeUndefined();
   });
 });
 

@@ -148,6 +148,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
             const item = await db.get('item', id);
             return item ? { name: item.name, note: item.note } : undefined;
           },
+          // An Inventory item's starter entry as this device holds it (never changed once made): the name key of a change that gives its name back to the starter.
+          async (id) => (await db.get('inventory_item', id))?.starterKey,
         ),
         channel: channel ?? undefined,
       });

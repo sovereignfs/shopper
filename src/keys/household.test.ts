@@ -3,7 +3,9 @@ import {
   FIELD_VALUE,
   NAME_KEY,
   boundTo,
+  deriveInventoryKeyring,
   deriveListKeyring,
+  deviceInventoryNameKey,
   listNameKey,
   newKeyring,
   openField,
@@ -127,5 +129,87 @@ describe('the name key', () => {
     expect(await listNameKey(ring, LIST2, 'oat milk')).not.toBe(key);
     expect(await listNameKey(ring, LIST, 'oat milks')).not.toBe(key);
     expect(await listNameKey(newKeyring(1), LIST, 'oat milk')).not.toBe(key);
+  });
+});
+
+describe('a group’s Inventory keyring (§13.2, task 23.3)', () => {
+  it('is derived from the group’s, the same every time, for its group alone, and is neither the group’s nor any list’s', async () => {
+    const group = newKeyring();
+    const inventory = await deriveInventoryKeyring(group, H);
+    expect(await deriveInventoryKeyring(group, H)).toEqual(inventory);
+    expect((await deriveInventoryKeyring(group, OTHER))[1]).not.toEqual(inventory[1]);
+    expect((await deriveInventoryKeyring(newKeyring(), H))[1]).not.toEqual(inventory[1]);
+    expect(inventory[1]).not.toEqual(group[1]);
+    // Even with the group's id in the place of a list's, the list derivation is another key: nothing a list's keys hold opens it, and it opens nothing of a list's.
+    expect((await deriveListKeyring(group, H))[1]).not.toEqual(inventory[1]);
+  });
+
+  it('is the HKDF it says it is, so that a wrong label is noticed and not only a round trip', async () => {
+    const group = newKeyring();
+    const base = await crypto.subtle.importKey('raw', group[1] ?? new Uint8Array(), 'HKDF', false, [
+      'deriveBits',
+    ]);
+    const expected = new Uint8Array(
+      await crypto.subtle.deriveBits(
+        {
+          name: 'HKDF',
+          hash: 'SHA-256',
+          salt: new Uint8Array(),
+          info: new TextEncoder().encode(`shopper:inventory-key:v1|${H}`),
+        },
+        base,
+        256,
+      ),
+    );
+    expect((await deriveInventoryKeyring(group, H))[1]).toEqual(expected);
+    // And a list's, which this change must not have moved: its label and its id, as they were.
+    const listExpected = new Uint8Array(
+      await crypto.subtle.deriveBits(
+        {
+          name: 'HKDF',
+          hash: 'SHA-256',
+          salt: new Uint8Array(),
+          info: new TextEncoder().encode(`shopper:list-key:v1|${LIST}`),
+        },
+        base,
+        256,
+      ),
+    );
+    expect((await deriveListKeyring(group, LIST))[1]).toEqual(listExpected);
+  });
+
+  it('opens a value written for the group and not under a list’s keys, nor a list’s value, and binds it to its row, table and field', async () => {
+    const group = newKeyring();
+    const inventory = await deriveInventoryKeyring(group, H);
+    const at = { list: H, table: 'inventory_item', row: ROW, field: 'name' };
+    const value = await sealField(inventory, at, 'Good bin bags');
+    expect(boundTo(value)).toEqual({ list: H, row: ROW });
+    expect(await openField(inventory, at, value)).toBe('Good bin bags');
+    // The list derivation with the group's id, the one a careless call would use, opens nothing of it.
+    expect(await openField(await deriveListKeyring(group, H), at, value)).toBeUndefined();
+    // Moved to another table, field, row or group, it does not open (an item's, a note's, another row's).
+    expect(await openField(inventory, { ...at, table: 'item' }, value)).toBeUndefined();
+    expect(await openField(inventory, { ...at, field: 'note' }, value)).toBeUndefined();
+    expect(await openField(inventory, { ...at, row: OTHER }, value)).toBeUndefined();
+    expect(await openField(inventory, { ...at, list: OTHER }, value)).toBeUndefined();
+    // A list's value opens under the list's keys alone, never under the group's Inventory keys.
+    const list = await deriveListKeyring(group, LIST);
+    const itemValue = await sealField(list, target, 'Oat milk');
+    expect(await openField(inventory, target, itemValue)).toBeUndefined();
+  });
+
+  it('gives the name key of an Inventory item: the same for a name on every epoch, a group’s own, and never the name key of a product of any list', async () => {
+    const group = newKeyring(1);
+    const inventory = await deriveInventoryKeyring(group, H);
+    const key = await deviceInventoryNameKey(inventory, H, 'oat milk');
+    expect(key).toMatch(NAME_KEY);
+    const later = { ...group, ...newKeyring(2) };
+    expect(
+      await deviceInventoryNameKey(await deriveInventoryKeyring(later, H), H, 'oat milk'),
+    ).toBe(key);
+    expect(await deviceInventoryNameKey(inventory, OTHER, 'oat milk')).not.toBe(key);
+    expect(await deviceInventoryNameKey(inventory, H, 'oat milks')).not.toBe(key);
+    // A product of the same name on a list with the group's id has another key: they are not folded into each other.
+    expect(await listNameKey(await deriveListKeyring(group, H), H, 'oat milk')).not.toBe(key);
   });
 });

@@ -18,7 +18,9 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 ### Changed
 
 - **Under the hood, nothing to see yet:** Shopper's server and your device can now hold your **Inventory** (RFC 0006), the library of what you buy that Home and the add field will use. It is yours
-  alone: no one on a list you share can reach it, and it is deleted with your account. A new setting, `SHOPPER_LIMIT_INVENTORY_ITEMS` (default 5000), says how many items it can hold.
+  alone: no one on a list you share can reach it, and it is deleted with your account. A new setting, `SHOPPER_LIMIT_INVENTORY_ITEMS` (default 5000), says how many items it can hold. When your
+  lists are kept encrypted on your device, so is your Inventory: your device encrypts it under keys of its own, which no link to a list ever carries, and the server holds only what it
+  cannot read. That encryption is not yet audited.
 
 ### Fixed
 

@@ -1,11 +1,14 @@
 import { CONTENT, type Mutation, type SyncedTable } from '../actions/format';
 import { canonicalName } from '../catalog/canonical';
+import { starterEntryByKey } from '../catalog/starter';
 import type { Transport } from '../local/transport';
 import { readPending } from './pending';
 import type { HouseholdPull, SyncAnswer, SyncRequest } from '../sync/protocol';
 import {
   type Keyring,
+  deriveInventoryKeyring,
   deriveListKeyring,
+  deviceInventoryNameKey,
   listNameKey,
   openField,
   sealField,
@@ -25,6 +28,8 @@ import {
  * - **A change for a list whose keys this device will not get is refused here,** into Couldn't sync, rather than holding everything after it: a list the
  *   person was removed from while the change waited offline. The server would refuse it anyway.
  * - **A value is opened only for its list and the row it was encrypted for, or one folded into it** (the pull's aliases).
+ * - **An Inventory item is encrypted for its group** (task 23.3), in the place of a list, under the group's Inventory keys, which are derived from the
+ *   group's keyring alone (`EncryptionMemory.inventoryKeyring`) and never from a copy of a list's keys that a link gave: nobody else has them.
  */
 export interface KeySide {
   /** The app key, while this browser holds it (`useKeys`); undefined while locked. */
@@ -40,11 +45,19 @@ export type ListOf = (table: SyncedTable, id: string) => Promise<string | undefi
 /** An item's name and note as the device holds it: what goes again, encrypted for the new list, with a change of list that does not carry them. */
 export type ContentOf = (id: string) => Promise<{ name: string; note: string | null } | undefined>;
 
+/** The starter entry an Inventory item overrides, as the device holds it (never changed once made): what a change that names no starter entry needs for the name key. */
+export type StarterOf = (id: string) => Promise<string | null | undefined>;
+
+/** An Inventory override of a starter entry this version of Shopper does not have: its name key cannot be made here. */
+export class UnknownEntry extends Error {}
+
 /** What the device remembers of each group's encryption: its state, kept across restarts, and the keys, in memory only. */
 export class EncryptionMemory {
   private readonly encrypted: Set<string>;
   private readonly rings = new Map<string, Keyring>();
   private readonly listRings = new Map<string, Keyring>();
+  /** A group's Inventory keys, derived from its keyring and kept in memory only. */
+  private readonly inventoryRings = new Map<string, Keyring>();
   private readonly records = new Map<string, { record: string; person: string }>();
   private readonly listRecords = new Map<string, { record: string; person: string }>();
   /** Groups a pull has said this session how to open: a list of one still without keys is one this device will not get keys for. */
@@ -102,6 +115,7 @@ export class EncryptionMemory {
     if (known?.record === record) return;
     this.records.set(household, { record, person });
     this.rings.delete(household);
+    this.inventoryRings.delete(household);
   }
 
   /** The group's keyring, opened with the app key the first time it is asked for: its own account's only. */
@@ -138,9 +152,27 @@ export class EncryptionMemory {
     return ring;
   }
 
+  /**
+   * **A group's Inventory keyring** (§13.2), derived from the group's own keyring and from nothing else: a list's copy of keys, which a link gives, is never
+   * a way to it. `undefined` while the group's keyring is not open (a locked app key).
+   */
+  async inventoryKeyring(
+    household: string,
+    appKey: CryptoKey | undefined,
+  ): Promise<Keyring | undefined> {
+    const open = this.inventoryRings.get(household);
+    if (open) return open;
+    const group = await this.keyring(household, appKey);
+    if (!group) return undefined;
+    const ring = await deriveInventoryKeyring(group, household);
+    this.inventoryRings.set(household, ring);
+    return ring;
+  }
+
   /** Sets a group's keyring this device just made (the move), so that it is used at once. */
   setKeyring(household: string, ring: Keyring): void {
     this.rings.set(household, ring);
+    this.inventoryRings.delete(household);
     this.heard.add(household);
   }
 
@@ -169,6 +201,7 @@ export function encryptingTransport(
   /** Told of the groups that came back still sealed by the server, so that they can be moved (`Mover`). */
   onPlain?: (households: readonly string[]) => void,
   contentOf: ContentOf = async () => undefined,
+  starterOf: StarterOf = async () => undefined,
 ): Transport {
   return async (request) => {
     const appKey = keys.appKey();
@@ -178,6 +211,7 @@ export function encryptingTransport(
       appKey,
       listOf,
       contentOf,
+      starterOf,
     );
     const result = await inner({ ...request, outbox });
     if (result.kind !== 'ok') return result;
@@ -196,6 +230,8 @@ export function encryptingTransport(
 
 const NO_KEYS =
   'That list is not shared with you any more, so this change could not be sent. It is kept here.';
+const UNKNOWN_ENTRY =
+  'This change names an entry of the starter catalog that this version of Shopper does not have, so it could not be sent. It is kept here.';
 
 /**
  * The outbox as it goes: a moved group's mutations encrypted, a group whose keys cannot be opened yet held back with everything after it, and a change
@@ -207,6 +243,7 @@ async function encryptOutbox(
   appKey: CryptoKey | undefined,
   listOf: ListOf,
   contentOf: ContentOf,
+  starterOf: StarterOf,
 ): Promise<{
   outbox: unknown[];
   held: Set<string>;
@@ -231,11 +268,24 @@ async function encryptOutbox(
       held.add(household);
       continue;
     }
-    const encrypted = await encryptMutation(
-      await withContent(mutation, listAt, contentOf),
-      (list) => memory.listKeyring(household, list, appKey),
-      listAt,
-    );
+    let encrypted: Mutation | undefined;
+    try {
+      encrypted = await encryptMutation(
+        await withContent(mutation, listAt, contentOf),
+        (list) => memory.listKeyring(household, list, appKey),
+        listAt,
+        (group) => memory.inventoryKeyring(group, appKey),
+        starterOf,
+      );
+    } catch (error) {
+      if (!(error instanceof UnknownEntry)) throw error;
+      refused.push({
+        mutationId: mutation.mutationId,
+        reason: 'invalid',
+        sentence: UNKNOWN_ENTRY,
+      });
+      continue;
+    }
     if (!encrypted) {
       refused.push({ mutationId: mutation.mutationId, reason: 'not_found', sentence: NO_KEYS });
       continue;
@@ -317,9 +367,23 @@ export async function encryptMutation(
   mutation: Mutation,
   ringOf: (list: string) => Promise<Keyring | undefined>,
   listOf: ListOf,
+  /** A group's Inventory keys, for a change to an Inventory item (§13.2): never a list's. */
+  inventoryRingOf: (household: string) => Promise<Keyring | undefined> = async () => undefined,
+  starterOf: StarterOf = async () => undefined,
 ): Promise<Mutation | undefined> {
   const changes = [];
   for (const change of mutation.changes) {
+    if (change.table === 'inventory_item') {
+      const sealed = await encryptInventory(
+        change,
+        mutation.householdId,
+        inventoryRingOf,
+        starterOf,
+      );
+      if (!sealed) return undefined;
+      changes.push(sealed);
+      continue;
+    }
     const fields: Record<string, string | number | null> = { ...change.fields };
     const content = CONTENT[change.table].filter((field) => typeof fields[field] === 'string');
     const naming = change.table === 'product' && typeof change.fields.name === 'string';
@@ -341,6 +405,45 @@ export async function encryptMutation(
   return { ...mutation, changes };
 }
 
+/**
+ * **An Inventory item's change, encrypted for its group** (§13.1, §13.3): each text field under the group's Inventory keys, bound to the group (in the place of
+ * a list), the table, the row and the field; and its name key, made beside the name, or, for an override that keeps the starter's name (or goes back to it),
+ * from the starter entry's. The server cannot make it in a group that has moved, so it takes one with every make and every change that says a name.
+ * `undefined` if the group's keys are not open; `UnknownEntry` if the starter entry is not one this version has.
+ */
+async function encryptInventory(
+  change: Mutation['changes'][number],
+  household: string,
+  inventoryRingOf: (household: string) => Promise<Keyring | undefined>,
+  starterOf: StarterOf,
+): Promise<Mutation['changes'][number] | undefined> {
+  const fields: Record<string, string | number | null> = { ...change.fields };
+  const content = CONTENT.inventory_item.filter((field) => typeof fields[field] === 'string');
+  const naming = change.create === true || 'name' in change.fields;
+  if (content.length === 0 && !naming) return change;
+  const ring = await inventoryRingOf(household);
+  if (!ring) return undefined;
+  for (const field of content)
+    fields[field] = await sealField(
+      ring,
+      { list: household, table: 'inventory_item', row: change.id, field },
+      String(fields[field]),
+    );
+  if (naming) {
+    const starter =
+      typeof change.fields.starterKey === 'string'
+        ? change.fields.starterKey
+        : ((await starterOf(change.id)) ?? '');
+    const name =
+      typeof change.fields.name === 'string'
+        ? change.fields.name
+        : starterEntryByKey(starter)?.name;
+    if (name === undefined) throw new UnknownEntry();
+    fields.nameKey = await deviceInventoryNameKey(ring, household, canonicalName(name));
+  }
+  return { ...change, fields };
+}
+
 /** The answer as the device takes it: a moved group's rows opened, and a group it cannot open left out, so that its cursor stays. */
 async function openAnswer(
   answer: SyncAnswer,
@@ -357,39 +460,54 @@ async function openAnswer(
     memory.markEncrypted(pull.household);
     memory.hear(pull.household, pull.encryption);
     if (!appKey) continue;
-    const opened = await openPull((list) => memory.listKeyring(pull.household, list, appKey), pull);
+    const opened = await openPull(
+      (list) => memory.listKeyring(pull.household, list, appKey),
+      pull,
+      (group) => memory.inventoryKeyring(group, appKey),
+    );
     // Held this round for want of its keys, which this answer brought: another round at once sends what was held, rather than at the next interval.
     if (opened) households.push(held.has(pull.household) ? { ...opened, more: true } : opened);
   }
   return { ...answer, households };
 }
 
-const TABLE_OF: Record<'lists' | 'items' | 'products', SyncedTable> = {
+const TABLE_OF: Record<'lists' | 'items' | 'products' | 'inventory', SyncedTable> = {
   lists: 'list',
   items: 'item',
   products: 'product',
+  inventory: 'inventory_item',
 };
 
 /** Every row of a moved group's pull, its content opened under its list's keys; `undefined` if a value does not open, so that none of the page is taken. */
 export async function openPull(
   ringOf: (list: string) => Promise<Keyring | undefined>,
   pull: HouseholdPull,
+  inventoryRingOf: (household: string) => Promise<Keyring | undefined> = async () => undefined,
 ): Promise<HouseholdPull | undefined> {
   const aliasesOf = (table: SyncedTable, row: string) =>
     pull.aliases.filter((each) => each.table === table && each.to === row).map((each) => each.from);
-  const out: Record<'lists' | 'items' | 'products', Record<string, unknown>[]> = {
+  const out: Record<'lists' | 'items' | 'products' | 'inventory', Record<string, unknown>[]> = {
     lists: [],
     items: [],
     products: [],
+    inventory: [],
   };
-  for (const key of ['lists', 'items', 'products'] as const) {
+  for (const key of ['lists', 'items', 'products', 'inventory'] as const) {
     const table = TABLE_OF[key];
-    for (const row of pull[key]) {
+    for (const row of pull[key] ?? []) {
       const { encrypted, ...rest } = row as Record<string, unknown> & {
         encrypted?: Record<string, string>;
       };
       const id = String(row.id);
-      const list = table === 'list' ? id : typeof row.listId === 'string' ? row.listId : undefined;
+      // A list's own id, an Inventory item's group (in the place of a list: its keys are the group's Inventory keys, §13.2), else the list it is on.
+      const list =
+        table === 'list'
+          ? id
+          : table === 'inventory_item'
+            ? pull.household
+            : typeof row.listId === 'string'
+              ? row.listId
+              : undefined;
       const fields: Record<string, unknown> = { ...rest };
       for (const field of CONTENT[table]) {
         const value = encrypted?.[field];
@@ -397,7 +515,11 @@ export async function openPull(
           if (field !== 'name') fields[field] = null;
           continue;
         }
-        const ring = list ? await ringOf(list) : undefined;
+        const ring = !list
+          ? undefined
+          : table === 'inventory_item'
+            ? await inventoryRingOf(list)
+            : await ringOf(list);
         const text =
           ring && list
             ? await openField(ring, { list, table, row: id, field }, value, aliasesOf(table, id))

@@ -91,6 +91,17 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
         ok: false,
         problem: `change ${index + 1}: a product's name and its name key go together`,
       };
+    // An encrypted Inventory item's name key comes with every make and every change that says a name, `null` (the starter entry's) too, since the server cannot
+    // make one there; and it is never sent alone (§13.3).
+    if (
+      mode === 'encrypted' &&
+      table === 'inventory_item' &&
+      'nameKey' in clean !== (Boolean(create) || 'name' in clean)
+    )
+      return {
+        ok: false,
+        problem: `change ${index + 1}: an inventory_item's name key goes with a new item and with a name`,
+      };
     if (create) {
       const missing = spec.required.filter((name) => !(name in clean));
       if (missing.length > 0)

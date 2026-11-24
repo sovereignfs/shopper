@@ -118,7 +118,8 @@ async function encrypted(who: Someone, key: CryptoKey) {
   const rows: Record<
     string,
     { id: string; fields: Record<string, string | null>; nameKey?: string }[]
-  > = {};
+    // These groups have no Inventory (`inventory.device.test.ts` moves one that has).
+  > = { inventory_item: [] };
   for (const table of ['list', 'item', 'product'] as const) {
     rows[table] = [];
     for (const row of manifest.rows[table]) {

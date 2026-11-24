@@ -986,8 +986,11 @@ Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping those only. `docs/enc
 every row under its list's keys, and `POST` writes them all, empties the sealed content, keeps the keyring and marks the group encrypted, in one
 transaction, only if its `seq` has not moved and every value is for its own row and list. **A group with anyone else on one of its lists, or a link to one of them waiting** (made while it was sealed, so carrying no keys), **does not move**
 (they could not be given keys without a link): it stays sealed by the server, and loses nothing. **Its Inventory and its account's own categories**
-(§8.8) are sealed by the server too, as the rest of its content is, and move with it. Lists shared after the move carry their keys in their
-links.
+(§8.8) are sealed by the server too, as the rest of its content is, and move with it: the manifest holds every `inventory_item` of the group, deleted or not, each with its
+starter entry; the device derives the group's **Inventory keys** from the keyring it has just made (§13.2), encrypts each value for the group in the place of a list, and makes
+each item's name key (§13.3), from the starter entry's name for an override that keeps it; the server answers for every row, each value bound to the group and to its own row,
+each with a name key, in the same transaction. A device that finds an override of a starter entry it does not have, or two rows that come to one name key, does not move
+the group (it would be refused on every attempt) until a version that can. Lists shared after the move carry their keys in their links.
 
 ## 14. Notices (phase 2)
 

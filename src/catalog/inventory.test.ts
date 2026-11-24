@@ -104,4 +104,21 @@ describe('Inventory, the starter catalog layered under a person’s own rows (RF
     expect(own.map((entry) => entry.name)).toEqual(['Axe grease', 'Zinc cream']);
     expect(entries.slice(-2).every((entry) => entry.mine)).toBe(true);
   });
+
+  it('passes over an override of an entry this version does not have, and a row with no name at all, whatever they hold, and shows everything else as before', () => {
+    // In a group its device encrypts the server cannot tell a newer version's override from any other, so an older shell pulls it: it must be there, unseen, and
+    // break nothing.
+    const entries = layerInventory([
+      row({ starterKey: 'an-entry-of-a-later-version', name: null, hidden: true }),
+      row({ starterKey: 'another-of-a-later-version', name: 'Seen by no one', note: 'x' }),
+      row({ name: null }),
+      row({ name: 'Zinc cream' }),
+    ]);
+    expect(entries).toHaveLength(STARTER_CATALOG.length + 1);
+    expect(entries.filter((entry) => entry.mine).map((entry) => entry.name)).toEqual([
+      'Zinc cream',
+    ]);
+    expect(entries.some((entry) => entry.overridden)).toBe(false);
+    expect(offered(entries)).toHaveLength(entries.length);
+  });
 });

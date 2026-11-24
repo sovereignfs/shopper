@@ -1,9 +1,12 @@
 import { canonicalName } from '../catalog/canonical';
+import { starterEntryByKey } from '../catalog/starter';
 import type { SyncedTable } from '../actions/format';
 import type { EncryptionMemory } from './transport';
 import {
   type Keyring,
+  deriveInventoryKeyring,
   deriveListKeyring,
+  deviceInventoryNameKey,
   listNameKey,
   newKeyring,
   sealField,
@@ -20,9 +23,14 @@ type Fetch = typeof fetch;
 
 interface ManifestRow {
   id: string;
-  /** Its list (a list's own id): whose keys, derived from the group's, its values are encrypted under (RFC 0004). */
+  /**
+   * Its list (a list's own id): whose keys, derived from the group's, its values are encrypted under (RFC 0004). An Inventory item's is its group, whose
+   * Inventory keys (derived from the group's, §13.2) its values are encrypted under.
+   */
   list: string;
   fields: Record<string, string | null>;
+  /** An Inventory item's starter entry (null for one of the person's own): the name its name key is made from when it has none of its own. */
+  starterKey?: string | null;
 }
 
 export class Mover {
@@ -81,9 +89,21 @@ export class Mover {
       string,
       { id: string; fields: Record<string, string | null>; nameKey?: string }[]
     > = {};
-    for (const table of ['list', 'item', 'product'] as const) {
+    // The group's Inventory keys, made from the keyring just made and kept by nobody else (§13.2).
+    const inventoryRing = await deriveInventoryKeyring(ring, household);
+    for (const table of ['list', 'item', 'product', 'inventory_item'] as const) {
       rows[table] = [];
+      const taken = new Set<string>();
       for (const row of manifest.rows[table] ?? []) {
+        if (table === 'inventory_item') {
+          const made = await inventoryRow(inventoryRing, household, row);
+          // A starter entry this version does not have, or two rows that come to one name key (a skewed catalog between the server and this device): the unique key
+          // would refuse the whole move on every attempt, so it waits for a version that can.
+          if (!made || taken.has(made.nameKey ?? '')) return 'cannot';
+          taken.add(made.nameKey ?? '');
+          rows[table].push(made);
+          continue;
+        }
         // A product from before lists had catalogs has no list, and its group cannot move until the server gives it one.
         if (!row.list) return 'cannot';
         const keys = await listRing(row.list);
@@ -123,4 +143,30 @@ export class Mover {
     this.memory.setKeyring(household, ring);
     return 'moved';
   }
+}
+
+/** An Inventory item's row, answered: each value encrypted for its group under its Inventory keys, and its name key. `undefined` if it has no name to make one from. */
+async function inventoryRow(
+  inventoryRing: Keyring,
+  household: string,
+  row: ManifestRow,
+): Promise<{ id: string; fields: Record<string, string | null>; nameKey?: string } | undefined> {
+  const name =
+    row.fields.name ?? (row.starterKey ? starterEntryByKey(row.starterKey)?.name : undefined);
+  if (name === undefined || name === null) return undefined;
+  const fields: Record<string, string | null> = {};
+  for (const [field, value] of Object.entries(row.fields))
+    fields[field] =
+      value === null
+        ? null
+        : await sealField(
+            inventoryRing,
+            { list: household, table: 'inventory_item', row: row.id, field },
+            value,
+          );
+  return {
+    id: row.id,
+    fields,
+    nameKey: await deviceInventoryNameKey(inventoryRing, household, canonicalName(name)),
+  };
 }

@@ -244,10 +244,6 @@ async function applyChange(
 ): Promise<Outcome> {
   const { database, ring } = deps;
   const t = appTable(database, spec.sql);
-  // An Inventory item in a group that has moved to device encryption has its own keys to be encrypted under (23.3, step 4): until a device can do that the server
-  // takes none, and a group's Inventory is never half in plain text.
-  if (spec.table === 'inventory_item' && deps.mode === 'encrypted')
-    throw unsupported('an encrypted group’s Inventory');
   // A change that names a product that was folded into another names the other (`fold.ts`).
   let change = await repointRefs(database, household, spec, incoming);
   const existing = await dbGet<Row>(
@@ -278,7 +274,10 @@ async function applyChange(
   }
 
   await checkReferences(deps, spec, household, change);
-  if (deps.mode === 'encrypted') checkBoundToList(spec, change, existing);
+  if (deps.mode === 'encrypted') {
+    checkBoundToList(spec, change, existing, household);
+    if (spec.table === 'inventory_item') checkNamed(change, existing);
+  }
 
   // An item made for a product that is already open on the list, in the same unit, is folded into it, unless it was made with "add another anyway".
   if (spec.table === 'item' && !existing && !change.separate) {
@@ -858,11 +857,39 @@ async function afterItemWritten(
 }
 
 /**
+ * **An Inventory item has a name, or the starter entry that has one** (§8.8), in a group that has moved too, where the server cannot read the name and `derive`
+ * does not run: a change that says `name: null` on a row with no starter entry would leave a row nothing can show, and it is refused. A make is held to the same
+ * by the validator (a name or a starter entry), and a name always comes with the name key its device made (`validate.ts`).
+ */
+function checkNamed(change: Change, existing: Row | undefined): void {
+  if (change.fields.name !== null) return;
+  const starter = existing ? existing.starter_key : change.fields.starterKey;
+  if (typeof starter !== 'string' || starter === '')
+    throw invalid('an Inventory item of the person’s own has a name');
+}
+
+/**
  * **In a group that has moved, a value is for its row's list** (RFC 0004, task 21.4): each list has its own keys, so a value encrypted for another list
  * could be opened by nobody on the row's. The row's list is a list's own id, else the list it is on after this change. An item that changes list comes
  * with its name and note encrypted again for the new one, or the old list's values would stay on it.
  */
-function checkBoundToList(spec: TableSpec, change: Change, existing: Row | undefined): void {
+function checkBoundToList(
+  spec: TableSpec,
+  change: Change,
+  existing: Row | undefined,
+  household: string,
+): void {
+  // **An Inventory item's values are for its group** (§13.1, §13.2): bound to the group in the place of a list, since the keys are the group's Inventory keys and
+  // nobody else's. An explicit rule, not a case of the one below, which would find no list and refuse every value; and a value bound to a list is refused, so
+  // that a list's ciphertext cannot be put into a person's Inventory, nor an Inventory's into a list. The row is not checked here (the server cannot open the
+  // value, and a fold moves a row's later values to the row that stands, §12.4): the device opens a value for its row or one folded into it.
+  if (spec.table === 'inventory_item') {
+    for (const field of spec.sealed) {
+      const value = change.fields[field];
+      if (typeof value === 'string' && boundTo(value)?.list !== household) throw otherList();
+    }
+    return;
+  }
   const was = existing ? (existing.list_id as string | null | undefined) : undefined;
   const sent = change.fields.listId;
   const list =
