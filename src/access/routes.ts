@@ -153,9 +153,15 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/account/apps',
+    who: 'signed-in',
+    note: 'The apps core lists for the session’s own person only, as them with their own refresh token, in suite mode (404 alone); the request names no one, and a failure at core is an empty answer, never an error.',
+  },
+  {
+    kind: 'route',
     address: '/api/account/export',
     who: 'signed-in',
-    note: "The session's own account's records only, for its browser to open, after the password again; standalone mode only.",
+    note: "The session's own account's records only, for its browser to open: after the password again, or, hosted by Sovereign, a sign-in at core in the last five minutes.",
   },
   {
     kind: 'route',

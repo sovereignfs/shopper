@@ -311,7 +311,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 
 | #   | ID                              | Task                     | Priority | Depends on        | Status |
 | --- | ------------------------------- | ------------------------ | -------- | ----------------- | ------ |
-| 114 | [22.11](docs/epics/frame.md)    | The suite's frame        | P1       | 22.3, 16.20–16.24 | ⏳     |
+| 114 | [22.11](docs/epics/frame.md)    | The suite's frame        | P1       | 22.3, 16.20–16.24 | ✅     |
 | 115 | [23.2](docs/epics/inventory.md) | Home                     | P1       | 23.1, 22.3, 22.11 | 📋     |
 | 116 | [23.3](docs/epics/inventory.md) | Inventory: the data      | P1       | 23.1              | 📋     |
 | 117 | [23.4](docs/epics/inventory.md) | Inventory: the screen    | P1       | 23.3, 22.6, 22.11 | 📋     |

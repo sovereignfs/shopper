@@ -1102,6 +1102,9 @@ refresh token dropped. Shopper keeps a bounded form and one rate limit in front 
   the app the `keys` scope once the operator allows it (not a scope the sign-in asks for);
   `signIn.export` (20.1), core's ask for a person's part of their export (§18.1); `SHOPPER_VAPID_PRIVATE_KEY` (19.1), the push key (RFC 0002).
 
+- **`offline_access`, from 0.6.0:** Shopper asks core for it **for the launcher** (§16.2): the person's refresh token is what lets it call core as them, `listMyApps`,
+  and it asks for no capability of its own. A person who signed in before gets the launcher after their next sign-in at core; an operator re-reads the manifest to
+  register the scope. The token is kept as below.
 - **`directory` and `offline_access`** (phase 2: **0.1.0 asks for `openid`, `profile` and `email` only**, and the manifest above is what phase 2 ships)
   are for finding people to invite in core's directory, which the SDK does as the person (`sv.as({ sub })`) with
   their refresh token. That token is a credential, kept only through envelope encryption (`credential`, §20.3). If a core refuses the scopes, or the

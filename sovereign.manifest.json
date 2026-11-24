@@ -13,7 +13,7 @@
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
     "export": "/api/sovereign/export",
-    "scopes": ["openid", "profile", "email"]
+    "scopes": ["openid", "profile", "email", "offline_access"]
   },
   "encryption": {
     "return": "/keys/return"

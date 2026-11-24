@@ -304,7 +304,7 @@ running. Tests: `title.test.ts` (the table's rows) and `e2e/titles.spec.ts` in C
 outlast its page), seen to fail against the code before. **Left out:** Home's `Home · Shopper`, since `/` still draws the last list and so carries
 its title; it comes with 23.2.
 
-#### ⏳ 22.11 — The suite's frame
+#### ✅ 22.11 — The suite's frame
 
 **Goal:** the header, sidebar and phone's footer are the design system's, with the launcher in a suite. **Design:** RFC 0005, "The frame". **Depends
 on:** 22.3, 16.20 to 16.24.
@@ -318,7 +318,7 @@ and Loyalty cards link to their pages once 23.4 and 24.3 land.
 **Accepts when:** the sidebar's three states are remembered per kind of page; the rail shows list icons; the phone's footer and header reach the same
 places by the same addresses as the sidebar; the launcher lists a suite's apps and is absent alone and on a phone; the `no-fork` test passes.
 
-**In progress; the frame is the design system's (0.6.0, 2026-11-24, on ui 0.107.0); the launcher waits for a decision:** `SignedInFrame` (`src/frame/SignedInFrame.tsx`) is `AppFrame`
+**Done as (0.6.0, 2026-11-24, on ui 0.107.0), with the owner's word on the launcher's scope:** `SignedInFrame` (`src/frame/SignedInFrame.tsx`) is `AppFrame`
 with Shopper's wordmark (`Wordmark`, a link home), the blocks (`blocksOf`, pure, from the places the device holds: **Home**; **My lists** with its icon in its colour, the open count and
 _New list_; **Shared with me** with whose it is under its name; **Archived** when asked), the avatar's menu and, on a phone, the design system's footer and drawer. Rows are Next's `Link`.
 **_New list_ is a dialog** (`NewListDialog`), since a rail has no room to type in and the drawer would close under the keyboard. **The archived toggle is under the blocks, not a row of
@@ -330,4 +330,15 @@ carried across once** from `shopper.sidebar` to the design system's `sv.sidebar.
 drawer by its own name and, **until the loyalty cards have a page (24.3), Settings** (the design system's footer needs one icon each side); Inventory and Loyalty cards join the sidebar and the
 footer with 23.4 and 24.3; the footer is not drawn in shopping mode, which has the whole screen. The item's right column stays where the list and shopping mode place it (`ItemBeside`), not in
 the frame's `detail`. Tests: `blocks.test.ts`, `migrate.test.ts`, `page-kind.test.ts`, and `lists`, `list`, `phone`, `settings`, `share`, `invite` and `sovereign` specs for the new headings
-(_My lists_, _Shared with me_), the dialog, the toggle, the drawer's name and the footer. **Left to the owner's decision:** the launcher (below).
+(_My lists_, _Shared with me_), the dialog, the toggle, the drawer's name and the footer. **The launcher** (suite mode only; `ShopperLauncher`, in the header at the right of the frame, never on a phone): the design system's `AppsLauncher` over the apps core lists for the person,
+`GET /api/account/apps` asking `listMyApps` through the SDK **as the session's own person with their own refresh token** (the request names no one; any failure at core, a core that lists no
+apps or a person with no token yet is `{ apps: null }`, which leaves what the device had), held to what a page may draw by `tilesOf` (a name is a line; **an icon is only an address on core's own
+origin**, else the app's first letter; an address to open is `http` or `https` and never `javascript:`; Shopper itself is left out) and **kept on the device per account** (`shopper.apps.<account>`,
+held to the same on the way out, gone at sign-out with the rest of the person by `forgetIdentity`), so that it opens with no network, the offline shell included (when the key comes from core).
+**The owner chose (2026-11-24) to add `offline_access` to Shopper's scopes** (`SOVEREIGN_SCOPES` and the manifest, which a test holds to each other) so that the person's refresh token exists:
+the SDK keeps it sealed under `SHOPPER_ENCRYPTION_KEY` (`sdkTokenStore`), it asks for no capability of its own, **an operator re-reads the manifest to register the scope, and a person signed in
+before gets the launcher after their next sign-in at core**. The fake core issues a refresh token for `offline_access`, rotates it as core does (and counts one used twice), says `apps` in its
+instance document and lists what a test sets. Tests: `launcher-apps.test.ts`, `identity.test.ts` (sign-out takes the apps with the rest, and not another account's), `e2e/sovereign.spec.ts` (the
+list, the app it is in and an address that is no address left out, an icon from another site not drawn, the refresh token used and never twice, none on a phone, the device's list when core
+is out of reach, gone at sign-out, a signed-out request refused) and `e2e/frame.spec.ts` (alone: no launcher and no route). **Not set by a floor:** an older core lists no `apps` and the launcher is not drawn;
+the manifest's `core` floor is the owner's call (the platform's 0.141.0 lists the apps, 0.140.0 opens the sign-up, 0.142.0 has `coreSignedInAt`).

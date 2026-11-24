@@ -3,7 +3,7 @@
 ## Status
 
 📋 Planned. **All of epic 10 is phase 2.** 0.1.0 signs in through a core (2.3) and answers its two notices (2.4), and uses nothing else of it: it asks
-for no scope beyond `openid`, `profile` and `email`.
+for no scope beyond `openid`, `profile` and `email`, until 0.6.0, which adds `offline_access` for the launcher (22.11).
 
 ## Overview
 
@@ -32,7 +32,7 @@ Shopper's own channels.
 
 **Goal:** finding someone on the instance by name. **Design:** §7.3, §15.3. **Depends on:** 2.3, 3.4.
 
-**Technical:** the manifest's scopes gain `offline_access` and `directory` (the operator grants them again, and a person is asked again at their next
+**Technical:** the manifest's scopes gain `directory` (and `offline_access`, unless 22.11 has asked for it already; the operator grants them again, and a person is asked again at their next
 sign-in), and the `credential` table arrives by a new migration; the person's refresh token captured at core sign-in into the SDK's `tokenStore`, kept in `credential` under envelope encryption (as
 Tally's 11.2 answers how better-auth hands it over; if that needs an SDK change, it is raised in `sovereign` and this waits);
 `sv.as({ sub }).directory.searchUsers` behind the Invite field when the person has granted `directory`; choosing a result makes an invitation

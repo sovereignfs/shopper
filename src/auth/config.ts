@@ -46,8 +46,11 @@ export const SOVEREIGN_PROVIDER_ID = 'sovereign';
 /**
  * What Shopper asks core for at sign-in. The manifest (`sovereign.manifest.json`) says the same, which a test holds it to (task 1.10). Core's key
  * release is not a scope asked for here: the manifest's `encryption` gives the app the `keys` scope once the operator allows it (RFC 0001, 18.3).
+ *
+ * `offline_access` is what gives Shopper the person's **refresh token**, which the SDK keeps sealed under `SHOPPER_ENCRYPTION_KEY` (`sdkTokenStore`) so that Shopper can
+ * call core **as the person** later: today to ask which apps they may open, for the launcher (RFC 0005, 22.11). It asks for no capability of its own.
  */
-export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email'];
+export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email', 'offline_access'];
 
 export const MIN_SECRET_LENGTH = 32;
 const DEFAULT_PASSWORD_MIN_LENGTH = 10;

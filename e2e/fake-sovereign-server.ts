@@ -23,6 +23,20 @@ createServer((req, res) => {
       .end(JSON.stringify(fake.authorizations.map((url) => url.searchParams.get('prompt'))));
     return;
   }
+  // The apps Sovereign's launcher lists, for the app's own launcher; and how its refresh tokens were used.
+  if (req.method === 'POST' && req.url === '/apps') {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      fake.setApps(JSON.parse(body));
+      res.writeHead(204).end();
+    });
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/refreshes') {
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(fake.refreshes));
+    return;
+  }
   if (req.method === 'POST' && req.url === '/sign-in-as') {
     let body = '';
     req.on('data', (chunk) => (body += chunk));

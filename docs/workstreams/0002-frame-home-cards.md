@@ -1,6 +1,6 @@
 # Workstream 0002 — The suite's frame, Home, Inventory and loyalty cards
 
-**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 done (22.2, 22.7 and 22.8, with 22.8's suite half and 22.2's `prompt=create` on `@sovereignfs/auth` 0.7.0); leg 4 done (22.3 to 22.6, 22.9 and 22.10, on ui 0.107.0); legs 5 to 8 to go; see "Where it stands"\
+**Status:** ⏳ In Progress: leg 1 done and approved by the owner on 2026-11-23; leg 2 built in `sovereign`, waiting for its releases; leg 3 done (22.2, 22.7 and 22.8, with 22.8's suite half and 22.2's `prompt=create` on `@sovereignfs/auth` 0.7.0); leg 4 done (22.3 to 22.6, 22.9 and 22.10, on ui 0.107.0); leg 5 built (22.11, waiting for the owner's review); legs 6 to 8 to go; see "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\
@@ -213,7 +213,15 @@ was started with 12.7's release published as v0.2.0 and its roadmap row still op
   `sovereign` tracks it as its epic 21 and workstream 0012. Its `@sovereignfs/ui` 0.107.0 has the icons, `SettingsDialog`,
   `MobileFooter`'s label, `Header`'s brand, `AppSidebar`, `AppFrame` and `Barcode`; `@sovereignfs/export` 0.4.0 writes in a page; core 0.86.0,
   the SDK 2.12.0 and `@sovereignfs/auth` 0.7.0 carry `prompt=create`. **16.23** (the apps a person can open) is core's `listMyApps`, with a
-  person's token and no new scope, as the owner chose; its icons are served from core's own address. Legs 3, 4, 5 and 7 wait for the owner to release them, as the table says.
+  person's token, which exists only for an app that asks for `offline_access` (the owner chose that at 22.11, 2026-11-24); its icons are served from core's own address. Legs 3, 4, 5 and 7 wait for the owner to release them, as the table says.
+
+**Leg 5 is built** (0.6.0, on `develop`, 2026-11-24): **22.11**, with `@sovereignfs/ui` 0.107.0's `AppFrame`, `AppSidebar`, `Header`, `MobileFooter` and `AppsLauncher` in place of Shopper's
+own shell (deleted, `no-fork` holds). **The owner gate is review, not yet given:** this is the frame every later screen stands in, and the launcher added `offline_access` to the scopes, by the owner's
+word of 2026-11-24 (an operator re-reads the manifest; a person signed in before gets the launcher after their next sign-in). For the owner: the manifest's `core` floor (`>=0.126.0 <1.0.0`) is
+**not raised**, though `prompt=create` needs 0.140.0, the launcher's list 0.141.0 and the readable export's recent sign-in 0.142.0, each degrading on an older core (the export may ask to sign in again
+if an older core sends no `auth_time`, not checked); the phone's footer holds Home and Settings until 24.3 gives its right side the loyalty cards (`MobileFooter` wants a matched icon each
+side), with Inventory arriving at 23.4. Two more gaps to raise in `sovereign`: a sidebar row closes the phone's drawer on any click, so a row that only opens something is unusable there (an `action` that is
+only a button does not close it, which "New list" uses), and the 22.8 suite button for the readable export has not been opened in a browser against a real core. Data-layer tests ran on the `file:` database only.
 
 **Leg 4 is done** (0.5.0, on `develop`, 2026-11-23): with `@sovereignfs/ui` 0.107.0 pinned (in `minimumReleaseAgeExclude` until it is a day old), **22.3 to 22.6, 22.9 and
 22.10** are built, committed and verified; the leg's owner gate is none. Two gaps to raise in `sovereign`: `IconPicker`'s options have no accessible names, and its

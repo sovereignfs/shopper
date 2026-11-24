@@ -55,6 +55,8 @@ export function forgetIdentity(): void {
     window.localStorage.removeItem(KEY_SOURCE_KEY);
     // Which of the account's households have moved (RFC 0001, `src/keys/transport.ts`).
     if (who) window.localStorage.removeItem(`shopper.encrypted.${who.id}`);
+    // The apps core listed for the account, for the launcher (`src/frame/launcher-apps.ts`).
+    if (who) window.localStorage.removeItem(`shopper.apps.${who.id}`);
   } catch {
     // Nothing to remove from.
   }

@@ -8,6 +8,15 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.6.0] - 2026-11-24
 
+**Before upgrading, hosted by Sovereign:** Shopper now asks Sovereign for `offline_access`, so that it can ask which apps you may open as you. Re-read the manifest
+(`sv app add` again, or the Console's technical settings) so that Sovereign registers it; until then people sign in as before and get no launcher. Someone already signed in
+gets it after their next sign-in at Sovereign. No other scope is asked for.
+
+### Added
+
+- **The apps you may open**, hosted by Sovereign: a launcher at the right of the header (on a wide screen) lists them, from what Sovereign says, and opens with no network from what your
+  device kept; it is gone when you sign out. It needs Sovereign 0.141.0 or later to list anything; before that there is no launcher.
+
 ### Changed
 
 - **The frame is the suite's** (RFC 0005): the header, the sidebar and the phone's footer are the design system's, the same as in the other apps. The sidebar has **Home**, then

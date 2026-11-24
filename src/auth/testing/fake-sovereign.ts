@@ -52,9 +52,20 @@ interface Pending {
   nonce: string | undefined;
   /** The `prompt` the authorization asked for: `login` has them sign in again, so `auth_time` is now. */
   prompt: string | undefined;
+  /** What was asked for: `offline_access` is what gets a refresh token. */
+  scope: readonly string[];
   user: FakeUser;
   overrides: LoginOverrides;
   used: boolean;
+}
+
+/** One of the apps the launcher lists, as Sovereign's `listMyApps` answers it (`GET /api/v1/apps`). */
+export interface FakeApp {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  launchUrl: string;
 }
 
 export interface FakeSovereign {
@@ -66,6 +77,10 @@ export interface FakeSovereign {
   signInAs(user: FakeUser, overrides?: LoginOverrides): void;
   /** Answer the next authorization request with a refusal, the way a person clicking Deny would. */
   denyNext(): void;
+  /** The apps Sovereign's launcher lists, for every person with an access token (none until set). */
+  setApps(apps: readonly FakeApp[]): void;
+  /** How many times a refresh token was exchanged, and how many times one that was already used was sent (core treats that as theft). */
+  refreshes: { used: number; reused: number };
   /**
    * A signed notice, as Sovereign sends an app when a person's session ends (\`logout\`: the back-channel logout token of OpenID Connect) or they delete their
    * account (\`account-deleted\`): typed, for this client, good for two minutes, with a \`jti\` of its own, signed with the key it publishes. Core's carry the
@@ -103,6 +118,11 @@ export async function startFakeSovereign(
   const codes = new Map<string, Pending>();
   const accessTokens = new Map<string, FakeUser>();
   const accessTokensIssued: string[] = [];
+  /** Refresh tokens by the person they are for; a token is used once and a new one is given in its place, as core does. */
+  const refreshTokens = new Map<string, FakeUser>();
+  const spent = new Set<string>();
+  const refreshes = { used: 0, reused: 0 };
+  let apps: readonly FakeApp[] = [];
   let next: { user: FakeUser; overrides: LoginOverrides } | undefined;
   let deny = false;
   const authorizations: URL[] = [];
@@ -218,6 +238,7 @@ export async function startFakeSovereign(
               challenge: q.get('code_challenge') as string,
               nonce: q.get('nonce') ?? undefined,
               prompt: q.get('prompt') ?? undefined,
+              scope: (q.get('scope') ?? '').split(/[ +]/).filter(Boolean),
               user: next.user,
               overrides: next.overrides,
               used: false,
@@ -237,6 +258,29 @@ export async function startFakeSovereign(
             : [form.get('client_id'), form.get('client_secret')];
           if (id !== clientId || secret !== clientSecret)
             return json(401, { error: 'invalid_client' });
+          if (form.get('grant_type') === 'refresh_token') {
+            const presented = form.get('refresh_token') ?? '';
+            const who = refreshTokens.get(presented);
+            if (!who) {
+              // A token already used is stolen, as core sees it: every token of the person ends.
+              if (spent.has(presented)) refreshes.reused += 1;
+              return json(400, { error: 'invalid_grant' });
+            }
+            refreshTokens.delete(presented);
+            spent.add(presented);
+            refreshes.used += 1;
+            const fresh = randomBytes(24).toString('hex');
+            const rotated = randomBytes(24).toString('hex');
+            accessTokens.set(fresh, who);
+            refreshTokens.set(rotated, who);
+            return json(200, {
+              access_token: fresh,
+              token_type: 'Bearer',
+              expires_in: 900,
+              refresh_token: rotated,
+              scope: 'openid profile email offline_access',
+            });
+          }
           const pending = codes.get(form.get('code') ?? '');
           if (
             !pending ||
@@ -272,12 +316,18 @@ export async function startFakeSovereign(
             ...(pending.nonce && !overrides.omitNonce ? { nonce: pending.nonce } : {}),
             ...overrides.claims,
           });
+          // A refresh token, only for what asked for `offline_access`: what lets the app call as the person later.
+          const refresh = pending.scope.includes('offline_access')
+            ? randomBytes(24).toString('hex')
+            : undefined;
+          if (refresh) refreshTokens.set(refresh, user);
           return json(200, {
             access_token: accessToken,
             token_type: 'Bearer',
             expires_in: 3600,
-            scope: 'openid profile email',
+            scope: pending.scope.length > 0 ? pending.scope.join(' ') : 'openid profile email',
             id_token: idToken,
+            ...(refresh ? { refresh_token: refresh } : {}),
           });
         }
 
@@ -296,6 +346,19 @@ export async function startFakeSovereign(
             ...(user.zoneinfo !== undefined ? { zoneinfo: user.zoneinfo } : {}),
           });
         }
+        // The instance document, which says what the Core API serves, and the apps the launcher lists, for a person with an access token.
+        if (url.pathname === '/.well-known/sovereign-instance')
+          return json(200, {
+            name: 'Fake Sovereign',
+            api: { versions: ['v1'], capabilities: ['directory', 'apps'] },
+          });
+        if (url.pathname === '/api/v1/apps') {
+          const who = accessTokens.get(
+            /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1] ?? '',
+          );
+          if (!who) return json(401, { error: 'invalid_token' });
+          return json(200, { apps });
+        }
         json(404, { error: 'not_found' });
       } catch (error) {
         json(500, { error: String(error) });
@@ -313,6 +376,8 @@ export async function startFakeSovereign(
     noticeToken,
     signInAs: (user, overrides = {}) => void (next = { user, overrides }),
     denyNext: () => void (deny = true),
+    setApps: (list) => void (apps = list),
+    refreshes,
     authorizations,
     accessTokensIssued,
     tokenRequests,

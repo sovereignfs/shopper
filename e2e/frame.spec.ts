@@ -87,6 +87,14 @@ test('a page for no one in particular has the header with the wordmark and the p
   await expect(page.getByRole('banner').getByRole('link', { name: 'Shopper' })).toBeVisible();
 });
 
+test('running alone there is no launcher, and no route to ask core for one', async ({ page }) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apps' })).toHaveCount(0);
+  // The route is not there without a core, for a person who is signed in; for no one it is a refusal.
+  expect((await page.request.get('/api/account/apps')).status()).toBe(404);
+});
+
 test('the wordmark goes home without leaving the page', async ({ page }) => {
   await signUp(page);
   const list = await listId(page);

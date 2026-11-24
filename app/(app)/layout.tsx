@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { accountFacts } from '@/src/auth/profile';
+import { authSettings } from '@/src/auth/server';
 import { AccountProvider } from '@/src/account/AccountProvider';
 import { requireSession } from '@/src/auth/session';
 import { KeyPrompt } from '@/src/keys/KeyPrompt';
@@ -8,6 +9,7 @@ import { keySourceOf } from '@/src/keys/server/source';
 import { LocalProvider } from '@/src/local/react';
 import { AccountMenu } from '@/src/screens/AccountMenu';
 import { RememberIdentity } from '@/src/screens/RememberIdentity';
+import { ShopperLauncher } from '@/src/frame/ShopperLauncher';
 import { SignedInFrame } from '@/src/frame/SignedInFrame';
 import { UndoProvider } from '@/src/screens/Undo';
 
@@ -29,6 +31,7 @@ export default async function AppLayout({
   const found = await keySourceOf(session.user.id);
   // In suite mode the person's picture, time zone and language are core's (RFC 0005); running alone the zone and language are the account's and there is no picture.
   const { picture, locale, timeZone } = await accountFacts(session);
+  const core = authSettings()?.sovereign?.issuer;
   // What the page needs to open the key (RFC 0001), read for each request: never built into the bundle.
   const source: PageKeySource | undefined =
     found?.kind === 'vault'
@@ -50,6 +53,10 @@ export default async function AppLayout({
           {/* The name and the time zone and language dates are written in, which Settings changes without refreshing a route (core's, in suite mode). */}
           <AccountProvider name={session.user.name} locale={locale} timeZone={timeZone}>
             <SignedInFrame
+              launcher={
+                // In suite mode only: the apps the person may open on the instance, from core (RFC 0005).
+                core ? <ShopperLauncher accountId={session.user.id} core={core} /> : undefined
+              }
               account={
                 <AccountMenu
                   name={session.user.name}

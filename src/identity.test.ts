@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseIdentity } from './identity';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { forgetIdentity, parseIdentity } from './identity';
 
 describe('who is remembered on the device', () => {
   it('reads exactly an identity and nothing else', () => {
@@ -27,5 +27,28 @@ describe('who is remembered on the device', () => {
       name: 'x',
       email: 'y',
     });
+  });
+});
+
+describe('leaving a device', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('takes from it everything kept for the account, the apps the launcher listed too, and nothing kept for another account', () => {
+    const data: Record<string, string> = {
+      'shopper.me': '{"id":"ada","name":"Ada","email":"ada@example.com"}',
+      'shopper.keys': '{}',
+      'shopper.encrypted.ada': '["h"]',
+      'shopper.apps.ada': '[{"id":"tusk"}]',
+      'shopper.apps.grace': '[{"id":"tusk"}]',
+      'shopper.encrypted.grace': '["h"]',
+    };
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => data[key] ?? null,
+        removeItem: (key: string) => void Reflect.deleteProperty(data, key),
+      },
+    });
+    forgetIdentity();
+    expect(Object.keys(data).sort()).toEqual(['shopper.apps.grace', 'shopper.encrypted.grace']);
   });
 });

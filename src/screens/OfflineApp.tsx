@@ -10,6 +10,7 @@ import { KeysProvider, parseKeySource } from '../keys/keys';
 import { LocalProvider } from '../local/react';
 import { answersOffline } from '../sw/shared';
 import { PlainFrame } from '../frame/PlainFrame';
+import { ShopperLauncher } from '../frame/ShopperLauncher';
 import { SignedInFrame } from '../frame/SignedInFrame';
 import { AccountMenu } from './AccountMenu';
 import { HomeScreen } from './HomeScreen';
@@ -50,7 +51,15 @@ export function OfflineApp() {
     <KeysProvider source={keySource}>
       <LocalProvider accountId={who.id}>
         <UndoProvider>
-          <SignedInFrame account={<AccountMenu name={who.name} email={who.email} />}>
+          <SignedInFrame
+            account={<AccountMenu name={who.name} email={who.email} />}
+            // In suite mode (the key comes from core) the apps this device kept for the account, with no network to ask for more.
+            launcher={
+              keySource?.kind === 'core' ? (
+                <ShopperLauncher accountId={who.id} core={keySource.core} />
+              ) : undefined
+            }
+          >
             <Screen />
           </SignedInFrame>
         </UndoProvider>

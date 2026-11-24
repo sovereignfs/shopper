@@ -1,5 +1,13 @@
 import { expect, type Page } from '@playwright/test';
-import { accountOf, anotherDevice, deviceRows, makeLink, test, signOutFromMenu } from './helpers';
+import {
+  PHONE,
+  accountOf,
+  anotherDevice,
+  deviceRows,
+  makeLink,
+  test,
+  signOutFromMenu,
+} from './helpers';
 import { PORTS } from './ports';
 
 /**
@@ -254,6 +262,102 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     expect(body.records.some((part) => part.kind === 'person')).toBe(true);
     await page.keyboard.press('Escape');
     await signOut(page);
+  });
+
+  test('the launcher lists the apps Sovereign says the person may open, from what the device kept when core is out of reach, and is gone with the person', async ({
+    page,
+  }) => {
+    const core = `http://localhost:${PORTS.coreAuth}`;
+    const control = `http://localhost:${PORTS.coreControl}`;
+    const apps = [
+      {
+        id: 'tusk',
+        name: 'Tusk',
+        description: null,
+        icon: `${core}/avatar.png`,
+        launchUrl: 'https://tusk.example.com/',
+      },
+      // The app the launcher is in is left out, and so is what cannot be opened by an address, and an icon from another site is not drawn.
+      {
+        id: 'shopper-e2e-client',
+        name: 'Shopper',
+        description: null,
+        icon: null,
+        launchUrl: 'https://shopper.example.com/',
+      },
+      { id: 'bad', name: 'Bad', description: null, icon: null, launchUrl: 'javascript:alert(1)' },
+      {
+        id: 'tally',
+        name: 'Tally',
+        description: null,
+        icon: 'https://elsewhere.example.com/i.png',
+        launchUrl: 'https://tally.example.com/',
+      },
+    ];
+    expect((await page.request.post(`${control}/apps`, { data: apps })).ok()).toBe(true);
+    const who = person('launcher');
+    await nextPersonIs(page, who);
+    await throughSovereign(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // The launcher is at the right of the header, with the apps as links; the app it is in and an app with no address to open are not there.
+    const launcher = page.getByRole('banner').getByRole('button', { name: 'Apps' });
+    await expect(launcher).toBeVisible({ timeout: 15_000 });
+    await launcher.click();
+    const tusk = page.getByRole('link', { name: 'Tusk' });
+    await expect(tusk).toHaveAttribute('href', 'https://tusk.example.com/');
+    await expect(tusk.locator('img')).toHaveAttribute('src', `${core}/avatar.png`);
+    await expect(page.getByRole('link', { name: 'Tally' })).toHaveAttribute(
+      'href',
+      'https://tally.example.com/',
+    );
+    // An icon from another site is not drawn: the app is its first letter.
+    await expect(page.getByRole('link', { name: 'Tally' }).locator('img')).toHaveCount(0);
+    await expect(page.locator('a[href="https://shopper.example.com/"]')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Bad' })).toHaveCount(0);
+    await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // Shopper called core as the person: its refresh token was used, once for the list, and never twice.
+    const refreshes = (await (await page.request.get(`${control}/refreshes`)).json()) as {
+      used: number;
+      reused: number;
+    };
+    expect(refreshes.used).toBeGreaterThan(0);
+    expect(refreshes.reused).toBe(0);
+
+    // The device kept the list for the account, and only for it.
+    const kept = await page.evaluate(() =>
+      Object.keys(window.localStorage).filter((key) => key.startsWith('shopper.apps.')),
+    );
+    expect(kept).toHaveLength(1);
+
+    // There is no launcher on a phone, whatever the person has to open.
+    await page.setViewportSize(PHONE);
+    await expect(page.getByRole('button', { name: 'Open the navigation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Apps' })).toHaveCount(0);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // With core out of reach the launcher is what the device kept.
+    await page.route('**/api/account/apps', (route) => route.abort());
+    await page.reload();
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Apps' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.unroute('**/api/account/apps');
+
+    // Signing out takes the list from the device with the rest of the person.
+    await signOut(page);
+    expect(
+      await page.evaluate(() =>
+        Object.keys(window.localStorage).filter((key) => key.startsWith('shopper.apps.')),
+      ),
+    ).toEqual([]);
+
+    // A request that names no session is refused, and one that does is answered for that person alone.
+    expect((await page.request.get('/api/account/apps')).status()).toBe(401);
   });
 
   test('the same person signs in again as the same account, and signing out is local', async ({
