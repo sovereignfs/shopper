@@ -1309,8 +1309,10 @@ list's own products are tidied where they are used, from an item's panel (§16.7
   and by **mine, starter or hidden**. An item opens in the right column (as an item of a list does, §16.7): its name, category, icon, unit, quantity,
   note, recurring, hide or restore, and **Add to a list**. _+ Add item_ at the top. **Add to a list** puts the item on a list the person is on (the one used last first) with its name,
   quantity, unit and icon and its category as it is on that list: a starter category is that list's group's row, a category of their own is the list's copy of it, made in the same change
-  where there is none (§8.3), and an item with no category, or whose category is hidden or deleted, takes the guess its name says. A product of that name that the list has wins, as it
-  does for the add field (one more of what is open); the Inventory note is the person's and is not carried to a list.
+  where there is none (§8.3), and an item with no category, or whose category is hidden or deleted, takes the guess its name says. **What the person set in Inventory wins** over what a
+  product of that name on the list remembers (the owner's decision, 2026-11-24): the item takes Inventory's category, icon, unit and quantity, the product is left as it is, and what
+  Inventory has no value for (an empty field, a category it had only the guess for) is the product's. One more of what is open is still one more. The Inventory note is the person's and
+  is not carried to a list.
 - **Categories:** the aisle order as a draggable list (`DragHandleRow`, a keyboard way too), each with rename, icon and hide; _Add category_ at the
   end (§8.3).
 

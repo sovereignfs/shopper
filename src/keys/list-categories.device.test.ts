@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, callAs, somebody, type Someone } from '../access/test-support';
 import type { Env } from '../actions/env';
 import { deleteCategory, makeCategory, renameCategory } from '../actions/categories';
-import { makeInventoryItem } from '../actions/inventory';
+import { changeInventoryItem, makeInventoryItem } from '../actions/inventory';
 import { layerInventory } from '../catalog/inventory';
 import { addItem, editItem } from '../actions/items';
 import { makeList } from '../actions/lists';
@@ -774,6 +774,54 @@ describe(`an Inventory item added to a list (${leg})`, () => {
     }
   });
 
+  it('takes the category Inventory has over the one the list’s product remembers, as a Member, and leaves the product', async () => {
+    const { ada, a, g } = await world('AddProduct');
+    const garden = await ownCategory(g, 'Garden');
+    const tools = await ownCategory(g, 'Tools');
+    const spade = await ownItem(g, 'Spade', garden);
+    // The first add makes the product, which remembers Garden; Undo takes the item off and leaves it.
+    const first = await addFrom(g, spade, ada.list);
+    await g.client.commit(first.undo);
+    await g.client.sync();
+    const products = () =>
+      dbAll<Record<string, unknown>>(
+        database,
+        sql`SELECT * FROM ${appTable(database, 'product')} WHERE household_id = ${ada.household}`,
+      );
+    const before = await products();
+    expect(before).toHaveLength(1);
+    // Inventory is changed to Tools; adding again puts the item under Tools, a second copy, and the product is as it was.
+    const row = (await g.client.read(inventoryOf)).find((each) => `own:${each.id}` === spade);
+    if (!row) throw new Error('no row');
+    const moved = changeInventoryItem(env(), row, { categoryId: tools });
+    if (moved) await g.client.commit(moved);
+    await g.client.sync();
+    const second = await addFrom(g, spade, ada.list);
+    expect(second.category.copy).not.toBeNull();
+    expect(second.category.id).not.toBe(first.category.id);
+    expect(second.planned.mutation.changes.map((each) => each.table)).toEqual([
+      'list_category',
+      'product',
+      'item',
+    ]);
+    expect(
+      second.planned.mutation.changes.find((each) => each.table === 'product')?.create,
+    ).toBeUndefined();
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+    const view = await a.client.read((db) => listViewOf(db, ada.list));
+    if (!view.found) throw new Error('not found');
+    expect(
+      view.items.find((row) => row.name === 'Spade' && row.deletedAt === null)?.categoryId,
+    ).toBe(second.category.id);
+    expect(view.products.find((row) => row.name === 'Spade')?.categoryId).toBe(first.category.id);
+    expect(await products()).toHaveLength(1);
+    expect((await copiesOn(a, ada.list)).map((row) => row.name).sort()).toEqual([
+      'Garden',
+      'Tools',
+    ]);
+  });
+
   it('puts the copy on the person’s own list too, and a starter category is the list’s group’s row and not an id of the person’s group', async () => {
     const { ada, grace, a, g } = await world('AddStarter');
     const garden = await ownCategory(a, 'Garden');
@@ -797,7 +845,7 @@ describe(`an Inventory item added to a list (${leg})`, () => {
     expect(adas?.id).toBeDefined();
     expect(hers?.id).not.toBe(adas?.id);
     const added = await addFrom(g, 'starter:banana', ada.list);
-    expect(added.category).toEqual({ id: adas?.id, copy: null });
+    expect(added.category).toEqual({ id: adas?.id, copy: null, guessed: false });
     await a.client.sync();
     expect(await failedOf(g.db)).toEqual([]);
     const view = await a.client.read((db) => listViewOf(db, ada.list));

@@ -31,6 +31,7 @@ interface Row {
   hidden: boolean;
   note: string | null;
   quantity: string | null;
+  categoryId: string | null;
   deletedAt: number | null;
 }
 const rowsOf = async (page: Page): Promise<Row[]> =>
@@ -293,19 +294,31 @@ test('Add to a list puts an item on the list with its own category, icon, unit a
     categoryId: snacks?.id,
   });
 
-  // Undo of a fresh add takes the item off the list (the product, which is the catalog learning, stays), and adding again puts it back as it was.
+  // Undo of a fresh add takes the item off the list (the product, which is the catalog learning, stays and remembers Snacks and sweets).
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect.poll(async () => (await placed(page, 'Banana')).length, { timeout: 10_000 }).toBe(0);
+  // What the person set in Inventory wins over the product: Banana is moved to Drinks there, and adding it again puts it under Drinks.
+  await banana.getByLabel('Category').selectOption({ label: 'Drinks' });
+  await expect
+    .poll(
+      async () =>
+        (await rowsOf(page)).find((row) => row.starterKey === 'banana')?.categoryId ?? null,
+      { timeout: 10_000 },
+    )
+    .not.toBe(snacks?.id);
   await banana.getByRole('button', { name: 'Add to list' }).click();
   await expect.poll(async () => (await placed(page, 'Banana')).length, { timeout: 10_000 }).toBe(1);
+  const drinks = (
+    await deviceRows<{ id: string; starterKey: string | null }>(page, account, 'category')
+  ).find((row) => row.starterKey === 'drinks');
   expect((await placed(page, 'Banana'))[0]).toMatchObject({
     quantity: '6',
     unit: 'pcs',
     icon: 'banana',
-    categoryId: snacks?.id,
+    categoryId: drinks?.id,
   });
 
-  // The list has it under Snacks and sweets, and one more of it is a second Add.
+  // The list has it under Drinks, and one more of it is a second Add.
   await banana.getByRole('button', { name: 'Add to list' }).click();
   await expect(banana.getByRole('status')).toContainText('Added one more Banana to Groceries');
   await expect
@@ -325,7 +338,7 @@ test('Add to a list puts an item on the list with its own category, icon, unit a
   expect(await deviceRows(page, account, 'failed')).toEqual([]);
   await banana.getByRole('link', { name: 'Open list' }).click();
   await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole('heading', { name: 'Snacks & sweets' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Drinks' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Banana/ })).toBeVisible();
 });
 

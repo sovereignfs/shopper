@@ -383,35 +383,116 @@ describe('an Inventory item added to a list (DESIGN.md §16.8)', () => {
     });
   });
 
-  it('is one more of what is open on the list, by name, and the list’s product wins over the item’s fields', () => {
+  it('is one more of what is open on the list, by name, with nothing of the item’s applied to it', () => {
     const own = product({
       name: 'zorblax',
       categoryId: PRODUCE,
       defaultQuantity: '9',
-      defaultUnit: 'kg',
+      defaultUnit: 'pcs',
     });
     const open = item({
       productId: own.id,
       name: 'zorblax',
       quantity: '2',
-      unit: 'kg',
+      unit: 'pcs',
       categoryId: PRODUCE,
     });
     const bumped = done(
       planAddFromInventory(env(), context({ products: [own], items: [open] }), entry, here),
     );
     expect(bumped.message).toBe('Added one more zorblax');
-    expect(changesOf(bumped.mutation, 'item')[0]).toMatchObject({ id: open.id });
+    expect(changesOf(bumped.mutation, 'item')).toHaveLength(1);
+    expect(changesOf(bumped.mutation, 'item')[0]).toMatchObject({
+      id: open.id,
+      fields: { quantity: '3' },
+    });
     expect(changesOf(bumped.mutation, 'item')[0]?.create).toBeUndefined();
-    // Not open: an item of that product, with what the product remembers, and no second product.
-    const again = done(planAddFromInventory(env(), context({ products: [own] }), entry, here));
-    expect(changesOf(again.mutation, 'product')[0]?.create).toBeUndefined();
-    expect(changesOf(again.mutation, 'item')[0]?.fields).toMatchObject({
-      productId: own.id,
+    expect(changesOf(bumped.mutation, 'item')[0]?.fields.categoryId).toBeUndefined();
+  });
+
+  it('takes what the person set in Inventory over what the list’s product remembers, and leaves the product as it is', () => {
+    // A name typed on the list made the product, which remembers Produce, 9 kg; Inventory has since been given another category, unit and quantity.
+    const own = product({
+      name: 'zorblax',
+      categoryId: PRODUCE,
+      defaultQuantity: '9',
+      defaultUnit: 'kg',
+      icon: 'apple',
+    });
+    const { mutation, message, also } = done(
+      planAddFromInventory(env(), context({ products: [own] }), entry, here),
+    );
+    expect(message).toBe('Added zorblax');
+    expect(also).toBeUndefined();
+    expect(changesOf(mutation, 'item')[0]).toMatchObject({
+      create: true,
+      fields: {
+        productId: own.id,
+        name: 'zorblax',
+        categoryId: DAIRY,
+        quantity: '3',
+        unit: 'pack',
+        icon: 'cookie',
+      },
+    });
+    // The product is only touched to say it was added: no field of what it remembers is written, and no second one is made.
+    const touched = changesOf(mutation, 'product');
+    expect(touched).toHaveLength(1);
+    expect(touched[0]?.create).toBeUndefined();
+    expect(Object.keys(touched[0]?.fields ?? {})).toEqual(['lastAddedAt']);
+  });
+
+  it('leaves to the product what Inventory has no value for: an empty field, and a category it only had the guess for', () => {
+    const own = product({
+      name: 'Zorblax',
+      categoryId: PRODUCE,
+      defaultQuantity: '9',
+      defaultUnit: 'kg',
+      icon: 'apple',
+    });
+    const { mutation } = done(
+      planAddFromInventory(
+        env(),
+        context({ products: [own] }),
+        { name: 'Zorblax', quantity: null, unit: null, icon: null },
+        { id: OTHER, copy: null, guessed: true },
+      ),
+    );
+    expect(changesOf(mutation, 'item')[0]?.fields).toMatchObject({
       categoryId: PRODUCE,
       quantity: '9',
       unit: 'kg',
+      icon: 'apple',
     });
+    // With no product the guess is the category, as for any new name.
+    const fresh = done(
+      planAddFromInventory(
+        env(),
+        context(),
+        { name: 'Zorblax', quantity: null, unit: null, icon: null },
+        { id: OTHER, copy: null, guessed: true },
+      ),
+    );
+    expect(changesOf(fresh.mutation, 'item')[0]?.fields.categoryId).toBe(OTHER);
+  });
+
+  it('puts the copy first when it takes Inventory’s category over the product’s', () => {
+    const own = product({ name: 'Zorblax', categoryId: PRODUCE });
+    const copy: Change = {
+      table: 'list_category',
+      id: '70000000-0000-4000-8000-000000000002',
+      create: true,
+      fields: { listId: list().id, sourceKey: 'k', name: 'Nails', position: 'a3' },
+    };
+    const { mutation } = done(
+      planAddFromInventory(env(), context({ products: [own] }), entry, { id: copy.id, copy }),
+    );
+    expect(mutation.changes.map((each) => each.table)).toEqual([
+      'list_category',
+      'product',
+      'item',
+    ]);
+    expect(changesOf(mutation, 'item')[0]?.fields.categoryId).toBe(copy.id);
   });
 
   it('never uses another list’s product, and adds nothing for no name', () => {

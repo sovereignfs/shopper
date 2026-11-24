@@ -137,17 +137,22 @@ function addOfProduct(env: Env, context: Adding, product: ProductRow): Planned |
 }
 
 /**
- * **An Inventory item added to a list** (DESIGN.md §16.8, _Add to a list_), pure. A product of this list's catalog by that name wins, as it does for the add field: one more
- * of what is open, else an item of it, with what it remembers. **Otherwise the product is made from the item's own fields**, not the starter's or a guess: its name, quantity,
- * unit and icon, **and its category as it is on this list** (`category`, which the caller works out, `categoryOnList`: the list's own row of a starter category, or a copy of one
- * of the person's own, made here, in the same mutation and first). The Inventory note is not carried: it is the person's, and a list may be shared. No `also`: the item is in
- * Inventory already.
+ * **An Inventory item added to a list** (DESIGN.md §16.8, _Add to a list_), pure. **What the person set in Inventory wins:** the item takes its name, quantity, unit and icon, and its
+ * category as it is on this list (`category`, which the caller works out, `categoryOnList`: the list's own row of a starter category, or a copy of one of the person's own, made
+ * here, in the same mutation and first). What Inventory has no value for (a field it leaves empty, a category it had only the guess for) is what the list's product remembers, if
+ * the list has one, else the guess. One more of what is open on the list is still one more, with nothing of Inventory's applied to it. A product of this list's catalog is **left as
+ * it is**: only a new one is made, from the item's own fields. The Inventory note is not carried: it is the person's, and a list may be shared. No `also`: the item is in Inventory
+ * already.
  */
 export function planAddFromInventory(
   env: Env,
   context: Adding,
   entry: Pick<InventoryEntry, 'name' | 'quantity' | 'unit' | 'icon'>,
-  category: { readonly id: string | null; readonly copy: Change | null },
+  category: {
+    readonly id: string | null;
+    readonly copy: Change | null;
+    readonly guessed?: boolean;
+  },
 ): Planned | Refused | null {
   const { list, products, items, me } = context;
   const name = entry.name.trim();
@@ -156,20 +161,43 @@ export function planAddFromInventory(
     products.filter((each) => each.listId === list.id || each.listId === null),
     name,
   );
-  if (product) return addOfProduct(env, context, product);
-  const added = addItem(env, {
-    list,
-    name,
-    ...(entry.quantity ? { quantity: entry.quantity } : {}),
-    unit: entry.unit,
-    icon: entry.icon,
-    categoryId: category.id,
-    last: lastPositionIn(items, category.id),
-    by: me,
-  });
+  const withCopy = (mutation: Mutation): Mutation =>
+    category.copy ? { ...mutation, changes: [category.copy, ...mutation.changes] } : mutation;
+  if (product) {
+    if (openItemOf(items, product.id)) return addOfProduct(env, context, product);
+    // The category Inventory has on this list, if it has one: a guess is not Inventory's, and the product's stands.
+    const categoryId = category.guessed ? product.categoryId : category.id;
+    return {
+      mutation: withCopy(
+        addItem(env, {
+          list,
+          product,
+          name: product.name,
+          ...(entry.quantity ? { quantity: entry.quantity } : {}),
+          ...(entry.unit ? { unit: entry.unit } : {}),
+          ...(entry.icon ? { icon: entry.icon } : {}),
+          categoryId,
+          last: lastPositionIn(items, categoryId),
+          by: me,
+        }),
+      ),
+      message: `Added ${product.name}`,
+    };
+  }
   return {
     // The copy first: what names it is checked against the list's copies as the mutation is applied, in order.
-    mutation: category.copy ? { ...added, changes: [category.copy, ...added.changes] } : added,
+    mutation: withCopy(
+      addItem(env, {
+        list,
+        name,
+        ...(entry.quantity ? { quantity: entry.quantity } : {}),
+        unit: entry.unit,
+        icon: entry.icon,
+        categoryId: category.id,
+        last: lastPositionIn(items, category.id),
+        by: me,
+      }),
+    ),
     message: `Added ${name}`,
   };
 }

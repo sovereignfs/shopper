@@ -163,10 +163,11 @@ export async function categoryOnList(
     entry: Pick<InventoryEntry, 'name' | 'categoryId' | 'categoryKey'>;
     list: { id: string; householdId: string };
   },
-): Promise<{ id: string | null; copy: Change | null }> {
+): Promise<{ id: string | null; copy: Change | null; guessed: boolean }> {
   const { entry, list } = input;
   const household = list.householdId;
   const guess = async () => ({
+    guessed: true,
     id: categoryOfNew(
       entry.name,
       await productsOf(db, household),
@@ -185,7 +186,7 @@ export async function categoryOnList(
     const there = (await categoriesOf(db, household)).find(
       (each) => each.starterKey === starter && !each.hidden,
     );
-    return there ? { id: there.id, copy: null } : guess();
+    return there ? { id: there.id, copy: null, guessed: false } : guess();
   }
   if (!chosen) return guess();
   const sourceKey = await sourceKeyOn(keys, household, list.id, chosen.id);
@@ -202,5 +203,5 @@ export async function categoryOnList(
     copies,
     last: positions.length === 0 ? null : positions.reduce((a, b) => (a > b ? a : b)),
   });
-  return { id: plan.id, copy: plan.change };
+  return { id: plan.id, copy: plan.change, guessed: false };
 }
