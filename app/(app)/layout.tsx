@@ -8,7 +8,7 @@ import { keySourceOf } from '@/src/keys/server/source';
 import { LocalProvider } from '@/src/local/react';
 import { AccountMenu } from '@/src/screens/AccountMenu';
 import { RememberIdentity } from '@/src/screens/RememberIdentity';
-import { ShellFrame } from '@/src/screens/ShellFrame';
+import { SignedInFrame } from '@/src/frame/SignedInFrame';
 import { UndoProvider } from '@/src/screens/Undo';
 
 // Everything for someone who is signed in (DESIGN.md §16.2): the session is checked here, and the frame is the one the offline shell makes too.
@@ -49,7 +49,7 @@ export default async function AppLayout({
         <UndoProvider>
           {/* The name and the time zone and language dates are written in, which Settings changes without refreshing a route (core's, in suite mode). */}
           <AccountProvider name={session.user.name} locale={locale} timeZone={timeZone}>
-            <ShellFrame
+            <SignedInFrame
               account={
                 <AccountMenu
                   name={session.user.name}
@@ -61,7 +61,7 @@ export default async function AppLayout({
               <KeyPrompt />
               {children}
               {modal}
-            </ShellFrame>
+            </SignedInFrame>
           </AccountProvider>
         </UndoProvider>
       </LocalProvider>

@@ -252,7 +252,11 @@ test.describe('on a phone', () => {
     baseURL,
   }) => {
     await inTheShop(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
-    await expect(page.locator('footer').getByRole('button', { name: 'Lists' })).toHaveCount(0);
+    await expect(
+      page
+        .getByRole('navigation', { name: 'App navigation' })
+        .getByRole('button', { name: 'Lists' }),
+    ).toHaveCount(0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);

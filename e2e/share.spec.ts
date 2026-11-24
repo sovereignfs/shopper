@@ -55,9 +55,9 @@ async function joinThrough(
   await guest.page.getByRole('button', { name: 'Create account' }).click();
   await keepKit(guest.page);
   await guest.page.getByRole('button', { name: 'Join' }).click();
-  // Landed on the list just joined: it is under Shared with you once the device has pulled it.
+  // Landed on the list just joined: it is under Shared with me once the device has pulled it.
   await expect(
-    guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+    guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
   ).toBeVisible({ timeout: 30_000 });
   return { ...guest, email };
 }
@@ -236,9 +236,9 @@ test('the sidebar names lists, never a group, and Share is on a list (RFC 0004)'
   await signUp(page, { name: 'Ada' });
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
   const sidebar = page.getByRole('navigation', { name: 'Shopper' });
-  await expect(sidebar.getByRole('heading', { name: 'Your lists' })).toBeVisible();
+  await expect(sidebar.getByRole('heading', { name: 'My lists' })).toBeVisible();
   await expect(sidebar.getByRole('button', { name: 'Share' })).toHaveCount(0);
-  await expect(sidebar).not.toContainText(/household|group|My lists/i);
+  await expect(sidebar).not.toContainText(/household|group/i);
   await openShare(page);
   await expect(page).toHaveURL(/\?share=1$/);
 });

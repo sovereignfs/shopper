@@ -304,7 +304,7 @@ running. Tests: `title.test.ts` (the table's rows) and `e2e/titles.spec.ts` in C
 outlast its page), seen to fail against the code before. **Left out:** Home's `Home · Shopper`, since `/` still draws the last list and so carries
 its title; it comes with 23.2.
 
-#### 📋 22.11 — The suite's frame
+#### ⏳ 22.11 — The suite's frame
 
 **Goal:** the header, sidebar and phone's footer are the design system's, with the launcher in a suite. **Design:** RFC 0005, "The frame". **Depends
 on:** 22.3, 16.20 to 16.24.
@@ -317,3 +317,17 @@ and Loyalty cards link to their pages once 23.4 and 24.3 land.
 
 **Accepts when:** the sidebar's three states are remembered per kind of page; the rail shows list icons; the phone's footer and header reach the same
 places by the same addresses as the sidebar; the launcher lists a suite's apps and is absent alone and on a phone; the `no-fork` test passes.
+
+**In progress; the frame is the design system's (0.6.0, 2026-11-24, on ui 0.107.0); the launcher waits for a decision:** `SignedInFrame` (`src/frame/SignedInFrame.tsx`) is `AppFrame`
+with Shopper's wordmark (`Wordmark`, a link home), the blocks (`blocksOf`, pure, from the places the device holds: **Home**; **My lists** with its icon in its colour, the open count and
+_New list_; **Shared with me** with whose it is under its name; **Archived** when asked), the avatar's menu and, on a phone, the design system's footer and drawer. Rows are Next's `Link`.
+**_New list_ is a dialog** (`NewListDialog`), since a rail has no room to type in and the drawer would close under the keyboard. **The archived toggle is under the blocks, not a row of
+one** (`ArchivedToggle`): the design system's rows close the phone's drawer on any click, and listing lists is not going anywhere (a gap for `sovereign`: a row that only expands
+something). A page for no one in particular (the front page, a page not found, the shell when it does not know who is signed in) is `PlainFrame`: the design system's `Header` with
+the wordmark, and the page. **Deleted:** `AppShell`, `SidebarToggle`, `sidebar.ts` (with its test: the rules are the design system's, tested there), `useSidebar`, `mobile-nav`,
+`ShellFrame`, `screens/AppFrame`, `AppSidebar`, `ListsNav` and `PhoneFooter`; `no-fork.test.ts` no longer lists a Shopper file that asks for a width. **The sidebar's remembered choices are
+carried across once** from `shopper.sidebar` to the design system's `sv.sidebar.shopper` (same shape; `migrateSidebar`, never over a choice already made). **The footer** is Home, the lists'
+drawer by its own name and, **until the loyalty cards have a page (24.3), Settings** (the design system's footer needs one icon each side); Inventory and Loyalty cards join the sidebar and the
+footer with 23.4 and 24.3; the footer is not drawn in shopping mode, which has the whole screen. The item's right column stays where the list and shopping mode place it (`ItemBeside`), not in
+the frame's `detail`. Tests: `blocks.test.ts`, `migrate.test.ts`, `page-kind.test.ts`, and `lists`, `list`, `phone`, `settings`, `share`, `invite` and `sovereign` specs for the new headings
+(_My lists_, _Shared with me_), the dialog, the toggle, the drawer's name and the footer. **Left to the owner's decision:** the launcher (below).

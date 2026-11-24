@@ -1,0 +1,23 @@
+/* The app's wordmark, already a link home: lowercase, in the design system's own face at its heaviest and drawn close, so that it reads as a mark and not as a title. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--sv-color-text-primary);
+  text-decoration: none;
+  border-radius: var(--sv-radius-md);
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.wordmark {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  /* The letters of a lowercase word sit low: a little room under, so that it centres by its x-height and not by its box. */
+  padding-bottom: 3px;
+}

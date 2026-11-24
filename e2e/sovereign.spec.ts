@@ -105,7 +105,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
         timeout: 30_000,
       });
       await expect(
-        page.getByRole('navigation', { name: 'Shopper' }).getByText('Your lists'),
+        page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
       ).toBeVisible();
       await signOut(page);
     }
@@ -272,7 +272,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       timeout: 30_000,
     });
     await expect(
-      page.getByRole('navigation', { name: 'Shopper' }).getByText('Your lists'),
+      page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
     ).toHaveCount(1);
     await signOut(page);
   });
@@ -298,7 +298,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await expect(guest.page).toHaveURL(link.path.split('#')[0] ?? link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
-      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
     ).toBeVisible({ timeout: 30_000 });
     await guest.context.close();
   });
@@ -408,7 +408,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await guest.page.goto(link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
-      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
     ).toBeVisible({ timeout: 30_000 });
 
     const deleted = await sendDeletion(page, await noticeFrom(page, 'account-deleted', leaver.sub));

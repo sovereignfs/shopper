@@ -2,8 +2,8 @@ import { expect } from '@playwright/test';
 import { PHONE, offline, online, recordViolations, signUp, test } from './helpers';
 
 /**
- * The shell's places (task 8.1), in a browser: the sidebar is filled from the device, a list is made where the button was and opened, the one open is marked,
- * the keyboard and a pointer take the same way, and a phone's drawer closes when a list is chosen.
+ * The frame's places (tasks 8.1 and 22.11), in a browser: the sidebar is `@sovereignfs/ui`'s, filled from the device; a list is made in a dialog on the device and opened, the
+ * one open is marked, the keyboard and a pointer take the same way, and a phone's drawer closes when a list is chosen.
  */
 const sidebar = (page: import('@playwright/test').Page) =>
   page.getByRole('navigation', { name: 'Shopper' });
@@ -13,7 +13,7 @@ test('the sidebar shows the person’s own lists once the device has them, with 
 }) => {
   const violations = await recordViolations(page);
   await signUp(page);
-  await expect(sidebar(page).getByRole('heading', { name: 'Your lists' })).toBeVisible({
+  await expect(sidebar(page).getByRole('heading', { name: 'My lists' })).toBeVisible({
     timeout: 15_000,
   });
   await expect(sidebar(page).getByRole('link', { name: 'Groceries' })).toBeVisible();
@@ -21,17 +21,19 @@ test('the sidebar shows the person’s own lists once the device has them, with 
   expect(await violations()).toEqual([]);
 });
 
-test('a list is made where the button was, on the device, and opened; the one open is marked', async ({
+test('a list is made in a dialog, on the device, and opened; the one open is marked', async ({
   page,
 }) => {
   await signUp(page);
   await sidebar(page).getByRole('button', { name: 'New list' }).click({ timeout: 15_000 });
-  const field = page.getByRole('textbox', { name: 'Name of the new list' });
+  const dialog = page.getByRole('dialog', { name: 'New list' });
+  const field = dialog.getByRole('textbox', { name: 'Name of the new list' });
   await expect(field).toBeFocused();
   await field.fill('Hardware store');
   await field.press('Enter');
 
   await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}$/);
+  await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1, name: 'Hardware store' })).toBeVisible();
   const link = sidebar(page).getByRole('link', { name: /Hardware store/ });
   await expect(link).toHaveAttribute('aria-current', 'page');
@@ -39,11 +41,8 @@ test('a list is made where the button was, on the device, and opened; the one op
     'aria-current',
     'page',
   );
-  // The server takes it, and the mark of a list it has not answered for goes.
-  await expect(link.getByRole('img', { name: 'Not synced yet' })).toHaveCount(0, {
-    timeout: 15_000,
-  });
-  // The field is gone and the button is back.
+  // The server takes it, and what said it had not answered for the list goes.
+  await expect(link).not.toContainText('Not synced yet', { timeout: 15_000 });
   await expect(sidebar(page).getByRole('button', { name: 'New list' })).toBeVisible();
 
   // It is still there after a reload, from the device, and the page for it is the same one.
@@ -52,17 +51,52 @@ test('a list is made where the button was, on the device, and opened; the one op
   await expect(sidebar(page).getByRole('link', { name: /Hardware store/ })).toBeVisible();
 });
 
-test('Escape and an empty name put the button back and make nothing', async ({ page }) => {
+test('Cancel, Escape and an empty name make nothing', async ({ page }) => {
   await signUp(page);
   const button = sidebar(page).getByRole('button', { name: 'New list' });
+  const dialog = page.getByRole('dialog', { name: 'New list' });
   await button.click({ timeout: 15_000 });
-  await page.getByRole('textbox', { name: 'Name of the new list' }).fill('Never made');
+  await dialog.getByRole('textbox', { name: 'Name of the new list' }).fill('Never made');
   await page.keyboard.press('Escape');
-  await expect(button).toBeVisible();
+  await expect(dialog).toHaveCount(0);
   await button.click();
-  await page.getByRole('textbox', { name: 'Name of the new list' }).blur();
-  await expect(button).toBeVisible();
-  await expect(sidebar(page).getByRole('link')).toHaveCount(1);
+  // Nothing to make: the button says so, and Enter does not.
+  await expect(dialog.getByRole('button', { name: 'Make the list' })).toBeDisabled();
+  await dialog.getByRole('textbox', { name: 'Name of the new list' }).press('Enter');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(sidebar(page).getByRole('link', { name: /Never made/ })).toHaveCount(0);
+});
+
+test('archived lists are behind a toggle under the blocks, listed and marked when it is asked to', async ({
+  page,
+}) => {
+  await signUp(page);
+  await sidebar(page).getByRole('button', { name: 'New list' }).click({ timeout: 15_000 });
+  await page.getByRole('textbox', { name: 'Name of the new list' }).fill('Old plans');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Old plans' })).toBeVisible();
+  // Archived from its settings, which Back closes.
+  await page.getByRole('button', { name: 'List menu' }).click();
+  await page.getByRole('menuitem', { name: 'List settings' }).click();
+  await page.getByRole('button', { name: 'Archive and delete' }).click();
+  await page.getByRole('button', { name: 'Archive this list' }).click();
+  await page.goBack();
+  await expect(sidebar(page).getByRole('link', { name: /Old plans/ })).toHaveCount(0);
+
+  const toggle = sidebar(page).getByRole('button', { name: /Archived \(1\)/ });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  const archived = sidebar(page).getByRole('link', { name: /Old plans \(archived\)/ });
+  await expect(archived).toBeVisible();
+  await expect(sidebar(page).getByRole('region', { name: 'Archived' })).toBeVisible();
+  // It opens the list, which says it is archived.
+  await archived.click();
+  await expect(page.getByText('This list is archived.')).toBeVisible();
+  await sidebar(page).getByRole('button', { name: 'Hide archived' }).click();
+  await expect(sidebar(page).getByRole('link', { name: /Old plans/ })).toHaveCount(0);
+  await expect(sidebar(page).getByRole('button', { name: /Archived \(1\)/ })).toBeVisible();
 });
 
 test('the lists are reached by the keyboard as by a pointer, and a list that is not there says so', async ({
@@ -95,11 +129,14 @@ test('the sidebar is read from the device, so it is there with the network cut',
     timeout: 15_000,
   });
   await offline(context);
-  // Still drawn, still asking for a name: nothing here waits for the server.
+  // Still drawn, still asking for a name: nothing here waits for the server, and a list is made with the network cut.
   await expect(sidebar(page).getByRole('link', { name: 'Groceries' })).toBeVisible();
   await sidebar(page).getByRole('button', { name: 'New list' }).click();
-  await expect(page.getByRole('textbox', { name: 'Name of the new list' })).toBeFocused();
-  await page.keyboard.press('Escape');
+  const field = page.getByRole('textbox', { name: 'Name of the new list' });
+  await expect(field).toBeFocused();
+  await field.fill('Made offline');
+  await field.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Made offline' })).toBeVisible();
   await online(context);
 });
 
@@ -109,7 +146,7 @@ test.describe('on a phone', () => {
   test('the drawer holds the lists, and closes when one is chosen', async ({ page }) => {
     await signUp(page);
     await page.getByRole('button', { name: 'Open the navigation' }).click();
-    const drawer = page.getByRole('dialog', { name: 'Navigation' });
+    const drawer = page.getByRole('dialog', { name: 'Shopper' });
     await drawer.getByRole('link', { name: 'Groceries' }).click({ timeout: 15_000 });
     await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}$/);
     await expect(drawer).toHaveCount(0);

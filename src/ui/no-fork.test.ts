@@ -12,11 +12,6 @@ const ROOT = path.resolve(__dirname, '..', '..');
 
 /** Files that draw differently by width, and why. */
 const RENDERING_ONLY: Record<string, string> = {
-  'src/ui/useSidebar.ts': 'whether the sidebar is drawn (a phone has the drawer)',
-  'src/ui/SidebarToggle.tsx':
-    'what the header button does to what is drawn: hides the sidebar, or opens the drawer',
-  'src/screens/ShellFrame.tsx':
-    'whether the navigation drawer is drawn (a phone has it in place of the sidebar)',
   'src/screens/ItemEditor.tsx':
     'whether an open item is a column beside its list or a page in place of it: the address is `?item=` either way',
   'src/theme/script.ts': 'the colour scheme the device prefers, not a width',

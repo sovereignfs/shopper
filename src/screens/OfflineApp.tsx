@@ -8,13 +8,12 @@ import { isId } from '../actions/format';
 import { type Identity, readIdentity, readKeySource } from '../identity';
 import { KeysProvider, parseKeySource } from '../keys/keys';
 import { LocalProvider } from '../local/react';
-import { site } from '../site';
 import { answersOffline } from '../sw/shared';
-import { AppShell } from '../ui/AppShell';
+import { PlainFrame } from '../frame/PlainFrame';
+import { SignedInFrame } from '../frame/SignedInFrame';
 import { AccountMenu } from './AccountMenu';
 import { HomeScreen } from './HomeScreen';
 import { ListScreen } from './ListScreen';
-import { ShellFrame } from './ShellFrame';
 import { ShopScreen } from './ShopScreen';
 import { UndoProvider } from './Undo';
 
@@ -38,22 +37,22 @@ export function OfflineApp() {
   if (who === undefined) return null;
   if (who === null)
     return (
-      <AppShell name={site.name}>
+      <PlainFrame>
         <EmptyState
           icon="list-todo"
           heading="Shopper"
           description="Sign in to use Shopper. This needs a connection."
           action={<Link href="/sign-in">Sign in</Link>}
         />
-      </AppShell>
+      </PlainFrame>
     );
   return (
     <KeysProvider source={keySource}>
       <LocalProvider accountId={who.id}>
         <UndoProvider>
-          <ShellFrame account={<AccountMenu name={who.name} email={who.email} />}>
+          <SignedInFrame account={<AccountMenu name={who.name} email={who.email} />}>
             <Screen />
-          </ShellFrame>
+          </SignedInFrame>
         </UndoProvider>
       </LocalProvider>
     </KeysProvider>

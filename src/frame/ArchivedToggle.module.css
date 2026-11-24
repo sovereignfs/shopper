@@ -1,0 +1,33 @@
+/* Under the sidebar's blocks: the toggle for the archived lists, a row like the sidebar's own. On a rail only its icon shows. */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+  width: 100%;
+  min-height: 36px;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-muted);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+.rail {
+  justify-content: center;
+}
+
+@media (hover: hover) {
+  .toggle:hover {
+    color: var(--sv-color-text-primary);
+    background: var(--sv-color-surface-sunken);
+  }
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: -2px;
+}

@@ -6,6 +6,16 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.6.0] - 2026-11-24
+
+### Changed
+
+- **The frame is the suite's** (RFC 0005): the header, the sidebar and the phone's footer are the design system's, the same as in the other apps. The sidebar has **Home**, then
+  **My lists** (each with its icon in its colour and how many items are open, and _New list_) and **Shared with me** (with whose each is under its name); it is full, a rail of
+  icons or hidden, as you left it for that kind of page on this device, and what you had chosen before is kept. **_New list_ asks for the name in a dialog.** Archived lists are behind
+  a toggle under the lists. On a phone the footer is Home, the lists' drawer and Settings, and the header's button opens the same drawer; shopping mode has no footer, as before.
+  _Your lists_ is now _My lists_, and _Shared with you_ _Shared with me_.
+
 ## [0.5.0] - 2026-11-23
 
 ### Fixed
