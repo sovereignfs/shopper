@@ -304,10 +304,11 @@ async function explain(
   for (const change of mutation.changes) {
     const row = await (
       tx.objectStore(change.table) as unknown as {
-        get(id: string): Promise<{ name?: string; listId?: string } | undefined>;
+        get(id: string): Promise<{ name?: string; shop?: string; listId?: string } | undefined>;
       }
     ).get(change.id);
-    if (row?.name) names.set(keyOf(change.table, change.id), row.name);
+    const called = row?.name ?? row?.shop;
+    if (called) names.set(keyOf(change.table, change.id), called);
     if (change.table === 'list') lists.add(change.id);
     if (typeof change.fields.listId === 'string') lists.add(change.fields.listId);
     else if (typeof row?.listId === 'string') lists.add(row.listId);

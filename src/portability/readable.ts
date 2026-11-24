@@ -1,9 +1,11 @@
 import {
   type Keyring,
   boundTo,
+  deriveCardKeyring,
   deriveInventoryKeyring,
   deriveListKeyring,
   openField,
+  unwrapCardKeyring,
   unwrapKeyring,
   unwrapListKeyring,
 } from '../keys/household';
@@ -60,6 +62,7 @@ async function listRings(
 ): Promise<{
   list: (list: string) => Promise<Keyring | undefined>;
   inventory: (household: string) => Promise<Keyring | undefined>;
+  card: (card: string) => Promise<Keyring | undefined>;
 }> {
   const of = (kind: string) => served.find((each) => each.kind === kind)?.records ?? [];
   const households = new Map<string, Keyring>();
@@ -83,6 +86,20 @@ async function listRings(
     const record = text(row.record);
     if (list && record) copies.set(list, record);
   }
+  // A card's keys (RFC 0007): the person's own copy of them first, else derived from the group's, as a list's are.
+  const cardHouseholds = new Map<string, string>();
+  for (const row of of('card_encrypted')) {
+    const id = text(row.id);
+    const household = text(row.household_id) ?? text(row.householdId);
+    if (id && household) cardHouseholds.set(id, household);
+  }
+  const cardCopies = new Map<string, string>();
+  for (const row of of('card_key')) {
+    const card = text(row.card);
+    const record = text(row.record);
+    if (card && record) cardCopies.set(card, record);
+  }
+  const cardRings = new Map<string, Keyring | undefined>();
   const rings = new Map<string, Keyring | undefined>();
   const inventoryRings = new Map<string, Keyring | undefined>();
   return {
@@ -96,6 +113,18 @@ async function listRings(
         if (group) ring = await deriveListKeyring(group, list);
       }
       rings.set(list, ring);
+      return ring;
+    },
+    card: async (card) => {
+      if (cardRings.has(card)) return cardRings.get(card);
+      let ring: Keyring | undefined;
+      const copy = cardCopies.get(card);
+      if (copy) ring = await unwrapCardKeyring(appKey, copy, { person, card });
+      if (!ring) {
+        const group = households.get(cardHouseholds.get(card) ?? '');
+        if (group) ring = await deriveCardKeyring(group, card);
+      }
+      cardRings.set(card, ring);
       return ring;
     },
     inventory: async (household) => {
@@ -139,12 +168,14 @@ export async function openServed(
       const opened: Record<string, string | null> = {};
       for (const [field, value] of Object.entries(content ?? {})) {
         const bound = typeof value === 'string' ? boundTo(value) : undefined;
-        // A person's own Inventory and own categories are bound to their group, in the place of a list, and opened under its Inventory keys (§13.2).
+        // A person's own Inventory and own categories are bound to their group, in the place of a list, and opened under its Inventory keys (§13.2); a card is bound to itself and opened under its own.
         const ring = !bound
           ? undefined
           : kind === 'inventory_item' || kind === 'category'
             ? await rings.inventory(bound.list)
-            : await rings.list(bound.list);
+            : kind === 'card'
+              ? await rings.card(bound.list)
+              : await rings.list(bound.list);
         const clear =
           bound && ring && typeof value === 'string'
             ? await openField(

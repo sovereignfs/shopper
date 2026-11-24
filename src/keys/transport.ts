@@ -6,12 +6,14 @@ import { readPending } from './pending';
 import type { HouseholdPull, SyncAnswer, SyncRequest } from '../sync/protocol';
 import {
   type Keyring,
+  deriveCardKeyring,
   deriveInventoryKeyring,
   deriveListKeyring,
   deviceInventoryNameKey,
   listNameKey,
   openField,
   sealField,
+  unwrapCardKeyring,
   unwrapKeyring,
   unwrapListKeyring,
 } from './household';
@@ -28,6 +30,8 @@ import {
  * - **A change for a list whose keys this device will not get is refused here,** into Couldn't sync, rather than holding everything after it: a list the
  *   person was removed from while the change waited offline. The server would refuse it anyway.
  * - **A value is opened only for its list and the row it was encrypted for, or one folded into it** (the pull's aliases).
+ * - **A card is encrypted for itself** (task 24.2, RFC 0007): each field under the card's own keys, bound to the card in the place of a list. A card's keys are the reader's own copy of them, given by a
+ *   link, else derived from the group's keyring (`EncryptionMemory.cardKeyring`); a person on a card only has the first.
  * - **An Inventory item is encrypted for its group** (task 23.3), in the place of a list, under the group's Inventory keys, which are derived from the
  *   group's keyring alone (`EncryptionMemory.inventoryKeyring`) and never from a copy of a list's keys that a link gave: nobody else has them.
  */
@@ -60,6 +64,8 @@ export class EncryptionMemory {
   private readonly inventoryRings = new Map<string, Keyring>();
   private readonly records = new Map<string, { record: string; person: string }>();
   private readonly listRecords = new Map<string, { record: string; person: string }>();
+  private readonly cardRings = new Map<string, Keyring>();
+  private readonly cardRecords = new Map<string, { record: string; person: string }>();
   /** Groups a pull has said this session how to open: a list of one still without keys is one this device will not get keys for. */
   private readonly heard = new Set<string>();
 
@@ -97,6 +103,7 @@ export class EncryptionMemory {
     keys: {
       keyring: string | null;
       lists?: Readonly<Record<string, string>>;
+      cards?: Readonly<Record<string, string>>;
       person: string | null;
     },
   ): void {
@@ -107,6 +114,11 @@ export class EncryptionMemory {
       if (this.listRecords.get(list)?.record === record) continue;
       this.listRecords.set(list, { record, person: keys.person });
       this.listRings.delete(list);
+    }
+    for (const [card, record] of Object.entries(keys.cards ?? {})) {
+      if (this.cardRecords.get(card)?.record === record) continue;
+      this.cardRecords.set(card, { record, person: keys.person });
+      this.cardRings.delete(card);
     }
   }
 
@@ -153,6 +165,29 @@ export class EncryptionMemory {
   }
 
   /**
+   * **A card's keyring** (RFC 0007): the reader's own copy of it if they have one (given by a link, handed back in every pull of a card they are on), else derived from the group's keyring, which only
+   * the group's own account holds. `undefined` if neither is here (or the app key is locked): a person on a card only has the copy and nothing to derive it from.
+   */
+  async cardKeyring(
+    household: string,
+    card: string,
+    appKey: CryptoKey | undefined,
+  ): Promise<Keyring | undefined> {
+    const open = this.cardRings.get(card);
+    if (open) return open;
+    const known = this.cardRecords.get(card);
+    let ring: Keyring | undefined;
+    if (known && appKey)
+      ring = await unwrapCardKeyring(appKey, known.record, { person: known.person, card });
+    if (!ring) {
+      const group = await this.keyring(household, appKey);
+      if (group) ring = await deriveCardKeyring(group, card);
+    }
+    if (ring) this.cardRings.set(card, ring);
+    return ring;
+  }
+
+  /**
    * **A group's Inventory keyring** (§13.2), derived from the group's own keyring and from nothing else: a list's copy of keys, which a link gives, is never
    * a way to it. `undefined` while the group's keyring is not open (a locked app key).
    */
@@ -179,6 +214,11 @@ export class EncryptionMemory {
   /** Sets a list's keyring this device was just given by a link, so that it is used at once. */
   setListKeyring(list: string, ring: Keyring): void {
     this.listRings.set(list, ring);
+  }
+
+  /** Sets a card's keyring this device was just given by a link, so that it is used at once. */
+  setCardKeyring(card: string, ring: Keyring): void {
+    this.cardRings.set(card, ring);
   }
 }
 
@@ -232,6 +272,8 @@ const NO_KEYS =
   'That list is not shared with you any more, so this change could not be sent. It is kept here.';
 const NO_INVENTORY_KEYS =
   'Your Inventory could not be opened on this device, so this change could not be sent. It is kept here.';
+const NO_CARD_KEYS =
+  'That card could not be opened on this device, so this change could not be sent. It is kept here.';
 const UNKNOWN_ENTRY =
   'This change names an entry of the starter catalog that this version of Shopper does not have, so it could not be sent. It is kept here.';
 
@@ -278,6 +320,7 @@ async function encryptOutbox(
         listAt,
         (group) => memory.inventoryKeyring(group, appKey),
         starterOf,
+        (card) => memory.cardKeyring(household, card, appKey),
       );
     } catch (error) {
       if (!(error instanceof UnknownEntry)) throw error;
@@ -293,10 +336,12 @@ async function encryptOutbox(
       const ofInventory = mutation.changes.every(
         (change) => change.table === 'inventory_item' || change.table === 'category',
       );
+      // A change to a card names the card's own keys, which a person who has been taken off it will not get.
+      const ofCard = mutation.changes.every((change) => change.table === 'card');
       refused.push({
         mutationId: mutation.mutationId,
         reason: 'not_found',
-        sentence: ofInventory ? NO_INVENTORY_KEYS : NO_KEYS,
+        sentence: ofCard ? NO_CARD_KEYS : ofInventory ? NO_INVENTORY_KEYS : NO_KEYS,
       });
       continue;
     }
@@ -380,9 +425,17 @@ export async function encryptMutation(
   /** A group's Inventory keys, for a change to an Inventory item (§13.2): never a list's. */
   inventoryRingOf: (household: string) => Promise<Keyring | undefined> = async () => undefined,
   starterOf: StarterOf = async () => undefined,
+  /** A card's own keys, for a change to a card (§13.2): never a list's. */
+  cardRingOf: (card: string) => Promise<Keyring | undefined> = async () => undefined,
 ): Promise<Mutation | undefined> {
   const changes = [];
   for (const change of mutation.changes) {
+    if (change.table === 'card') {
+      const sealed = await encryptCard(change, cardRingOf);
+      if (!sealed) return undefined;
+      changes.push(sealed);
+      continue;
+    }
     if (change.table === 'inventory_item') {
       const sealed = await encryptInventory(
         change,
@@ -419,6 +472,28 @@ export async function encryptMutation(
     changes.push({ ...change, fields });
   }
   return { ...mutation, changes };
+}
+
+/**
+ * **A card's change, encrypted for itself** (§13.1, RFC 0007): each text field under the card's own keys, bound to the card in the place of a list, the table, the row and the field. A field
+ * cleared says `null` and is sent as it is. `undefined` if the card's keys are not open here.
+ */
+async function encryptCard(
+  change: Mutation['changes'][number],
+  cardRingOf: (card: string) => Promise<Keyring | undefined>,
+): Promise<Mutation['changes'][number] | undefined> {
+  const fields: Record<string, string | number | null> = { ...change.fields };
+  const content = CONTENT.card.filter((field) => typeof fields[field] === 'string');
+  if (content.length === 0) return change;
+  const ring = await cardRingOf(change.id);
+  if (!ring) return undefined;
+  for (const field of content)
+    fields[field] = await sealField(
+      ring,
+      { list: change.id, table: 'card', row: change.id, field },
+      String(fields[field]),
+    );
+  return { ...change, fields };
 }
 
 /**
@@ -506,6 +581,7 @@ async function openAnswer(
       (list) => memory.listKeyring(pull.household, list, appKey),
       pull,
       (group) => memory.inventoryKeyring(group, appKey),
+      (card) => memory.cardKeyring(pull.household, card, appKey),
     );
     // Held this round for want of its keys, which this answer brought: another round at once sends what was held, rather than at the next interval.
     if (opened) households.push(held.has(pull.household) ? { ...opened, more: true } : opened);
@@ -531,6 +607,7 @@ export async function openPull(
   ringOf: (list: string) => Promise<Keyring | undefined>,
   pull: HouseholdPull,
   inventoryRingOf: (household: string) => Promise<Keyring | undefined> = async () => undefined,
+  cardRingOf: (card: string) => Promise<Keyring | undefined> = async () => undefined,
 ): Promise<HouseholdPull | undefined> {
   const aliasesOf = (table: SyncedTable, row: string) =>
     pull.aliases.filter((each) => each.table === table && each.to === row).map((each) => each.from);
@@ -590,6 +667,30 @@ export async function openPull(
       out[key].push(fields);
     }
   }
+  // The cards the reader is on (RFC 0007), each field opened under the card's own keys and bound to the card; a card whose keys are not here, or a value that does not open, takes no page.
+  const cards: Record<string, unknown>[] = [];
+  for (const row of pull.cards ?? []) {
+    const { encrypted, ...rest } = row as Record<string, unknown> & {
+      encrypted?: Record<string, string>;
+    };
+    const id = String(row.id);
+    const fields: Record<string, unknown> = { ...rest };
+    for (const field of CONTENT.card) {
+      const value = encrypted?.[field];
+      if (value === undefined) {
+        // A field a card does not have is nothing (the shop, the number, the kind and the code are never absent).
+        if (!['shop', 'number', 'kind', 'code'].includes(field)) fields[field] = null;
+        continue;
+      }
+      const ring = await cardRingOf(id);
+      const text = ring
+        ? await openField(ring, { list: id, table: 'card', row: id, field }, value)
+        : undefined;
+      if (text === undefined) return undefined;
+      fields[field] = text;
+    }
+    cards.push(fields);
+  }
   // A folded item's second note, carried for a device to join (§12.4): shown joined with the first on every device alike.
   for (const alias of pull.aliases) {
     if (!alias.carried || alias.table !== 'item') continue;
@@ -603,5 +704,5 @@ export async function openPull(
     const first = typeof item.note === 'string' && item.note !== '' ? item.note : null;
     if (first !== text) item.note = first === null ? text : `${first}\n${text}`;
   }
-  return { ...pull, ...out };
+  return { ...pull, ...out, ...(pull.cards ? { cards } : {}) };
 }

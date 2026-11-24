@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deriveCardKeyring,
   deriveInventoryKeyring,
   deriveListKeyring,
   newKeyring,
   sealField,
+  wrapCardKeyring,
   wrapKeyring,
   wrapListKeyring,
 } from '../keys/household';
@@ -19,6 +21,8 @@ const ITEM = '22222222-2222-4222-8222-222222222222';
 const INVENTORY = '66666666-6666-4666-8666-666666666666';
 const CATEGORY = '77777777-7777-4777-8777-777777777777';
 const COPY = '88888888-8888-4888-8888-888888888888';
+const CARD = '99999999-9999-4999-8999-999999999999';
+const SHARED_CARD = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const HEAD = { version: '0.4.0', takenAt: '2026-11-23T10:00:00.000Z' };
 
 /** What the server serves for a person with one moved group: their own list, an item on it, and a list shared with them through a link's copy of its key. */
@@ -27,6 +31,18 @@ async function served(key: CryptoKey) {
   const own = await deriveListKeyring(group, LIST);
   const sharedRing = newKeyring();
   const inventory = await deriveInventoryKeyring(group, H);
+  // A card of the person's own (its keys derived from the group's) and one shared with them, whose keys they hold a copy of (RFC 0007).
+  const ownCard = await deriveCardKeyring(group, CARD);
+  const sharedCard = await deriveCardKeyring(newKeyring(), SHARED_CARD);
+  const cardContent = async (ring: typeof ownCard, card: string, text: Record<string, string>) =>
+    Object.fromEntries(
+      await Promise.all(
+        Object.entries(text).map(async ([field, value]) => [
+          field,
+          await sealField(ring, { list: card, table: 'card', row: card, field }, value),
+        ]),
+      ),
+    );
   const records: ServedRecords[] = [
     {
       kind: 'person',
@@ -159,6 +175,44 @@ async function served(key: CryptoKey) {
       ],
     },
     {
+      kind: 'card_encrypted',
+      endToEnd: true,
+      records: [
+        {
+          id: CARD,
+          household_id: H,
+          content: await cardContent(ownCard, CARD, {
+            shop: 'Tesco',
+            number: '634004024001234567',
+            kind: 'ean13',
+            code: '5000000000000',
+          }),
+        },
+        {
+          id: SHARED_CARD,
+          household_id: 'other-household',
+          content: await cardContent(sharedCard, SHARED_CARD, {
+            shop: 'Boots',
+            number: '77',
+            kind: 'qr',
+            code: 'https://example.com/boots',
+          }),
+        },
+      ],
+    },
+    {
+      kind: 'card_key',
+      endToEnd: true,
+      records: [
+        {
+          household: 'other-household',
+          card: SHARED_CARD,
+          epoch: 1,
+          record: await wrapCardKeyring(key, sharedCard, { person: PERSON, card: SHARED_CARD }),
+        },
+      ],
+    },
+    {
       kind: 'household_key',
       endToEnd: true,
       records: [
@@ -219,10 +273,41 @@ describe('a readable export, opened in the browser', () => {
     expect(file.records.member?.[0]).toMatchObject({ name: 'Ada', role: 'admin' });
   });
 
+  it('opens a person’s cards under the card’s own keys: their own card from the group’s, one shared with them from their copy of its keys (RFC 0007)', async () => {
+    const key = await appKey();
+    const file = await openServed(await served(key), key, HEAD);
+    expect(file.unopened).toBe(0);
+    expect(file.records.card).toEqual([
+      {
+        id: CARD,
+        household_id: H,
+        shop: 'Tesco',
+        number: '634004024001234567',
+        kind: 'ean13',
+        code: '5000000000000',
+      },
+      {
+        id: SHARED_CARD,
+        household_id: 'other-household',
+        shop: 'Boots',
+        number: '77',
+        kind: 'qr',
+        code: 'https://example.com/boots',
+      },
+    ]);
+    // Their copy of a card's keys is never in the file, and a card whose keys they do not hold is counted and not left out.
+    expect(JSON.stringify(file)).not.toContain('card_key');
+    const without = (await served(key)).filter((part) => part.kind !== 'card_key');
+    const partial = await openServed(without, key, HEAD);
+    expect(partial.unopened).toBe(4);
+    expect(partial.records.card?.[1]).toMatchObject({ shop: null, number: null });
+    expect(partial.records.card?.[0]).toMatchObject({ shop: 'Tesco' });
+  });
+
   it('holds no key, wrapped or not, and no ciphertext', async () => {
     const key = await appKey();
     const text = exportFileText(await openServed(await served(key), key, HEAD));
-    expect(text).not.toMatch(/hk1\.|lr1\.|e2\.\d/);
+    expect(text).not.toMatch(/hk1\.|lr1\.|cr1\.|e2\.\d/);
     expect(text).not.toContain('household_key');
     expect(text).not.toContain('list_key');
     expect(text.endsWith('}\n')).toBe(true);
@@ -233,7 +318,7 @@ describe('a readable export, opened in the browser', () => {
     const all = await served(key);
     // Another app key: nothing opens. The plain rows are still there.
     const wrong = await openServed(all, await appKey(), HEAD);
-    expect(wrong.unopened).toBe(10);
+    expect(wrong.unopened).toBe(18);
     expect(wrong.records.list?.map((row) => row.name)).toEqual([null, null]);
     expect(wrong.records.item?.[0]).toMatchObject({ name: null, note: null });
     expect(wrong.records.person).toHaveLength(1);

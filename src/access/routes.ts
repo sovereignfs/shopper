@@ -195,6 +195,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'operation',
+    address: 'card.delete',
+    who: 'admin',
+    note: 'A card’s Admin deletes it, its people and their copies of its keys (RFC 0007); a Member of the card, a person on a list of its group, an outsider and an unknown card read as not found.',
+  },
+  {
+    kind: 'operation',
     address: 'invite.create',
     who: 'member',
     note: 'Any member makes a link for the household; its token is returned once and only its hash is stored. An outsider reads as not found.',

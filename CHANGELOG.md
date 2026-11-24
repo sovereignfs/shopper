@@ -15,7 +15,7 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   and the server holds only ciphertext, **so a card can be kept only once your lists are encrypted on your devices** (every account made in a browser is, at its first load); before that the
   server refuses one, and says so. Only the card's Admin changes or deletes it; someone on a card sees that card and the people on it and **nothing else of the group it is in**, even though
   they are not on any list there, and the group is not a place in their sidebar. A card goes with its Admin's account when nobody else is on it, and passes to the person on it longest when
-  someone is. A new setting, `SHOPPER_LIMIT_ACCOUNT_CARDS` (default 100), says how many cards a person can have. That encryption is not yet audited.
+  someone is, and an Admin can delete a card, which takes it from every device. Your readable export opens the cards you are on. A new setting, `SHOPPER_LIMIT_ACCOUNT_CARDS` (default 100), says how many cards a person can have. That encryption is not yet audited.
 
 ## [0.7.0] - 2026-11-24
 

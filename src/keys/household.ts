@@ -29,6 +29,7 @@ export type Keyring = Readonly<Record<number, Uint8Array<ArrayBuffer>>>;
 const KEY_BYTES = 32;
 const RECORD = 'hk1';
 const LIST_RECORD = 'lr1';
+const CARD_RECORD = 'cr1';
 const VALUE = 'e2';
 const ID = /^[0-9a-f-]{36}$/;
 const B64 = /^[A-Za-z0-9_-]+$/;
@@ -64,6 +65,8 @@ const keyringData = (person: string, household: string) =>
   utf8(`shopper/keyring/v1|${person}|${household}`);
 const listKeyringData = (person: string, list: string) =>
   utf8(`shopper/list-keyring/v1|${person}|${list}`);
+const cardKeyringData = (person: string, card: string) =>
+  utf8(`shopper/card-keyring/v1|${person}|${card}`);
 
 /** The group's keyring wrapped under the account's own app key: `hk1.<nonce>.<ciphertext>`. */
 export function wrapKeyring(
@@ -99,6 +102,24 @@ export function unwrapListKeyring(
   bound: { person: string; list: string },
 ): Promise<Keyring | undefined> {
   return unwrap(LIST_RECORD, listKeyringData(bound.person, bound.list), key, record);
+}
+
+/** A card's keyring wrapped under a person's own app key, or a link's key: `cr1.<nonce>.<ciphertext>`, bound to them and the card (RFC 0007). */
+export function wrapCardKeyring(
+  key: CryptoKey,
+  keyring: Keyring,
+  bound: { person: string; card: string },
+): Promise<string> {
+  return wrap(CARD_RECORD, cardKeyringData(bound.person, bound.card), key, keyring);
+}
+
+/** A card's keyring a record holds, or `undefined` for one this key does not open, or that was made for another person or card. */
+export function unwrapCardKeyring(
+  key: CryptoKey,
+  record: string,
+  bound: { person: string; card: string },
+): Promise<Keyring | undefined> {
+  return unwrap(CARD_RECORD, cardKeyringData(bound.person, bound.card), key, record);
 }
 
 /**

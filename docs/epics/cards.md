@@ -44,7 +44,7 @@ Beyond the RFC, each settled with the owner at the leg's review (§26): a card's
 key when someone leaves); a third section of the list's settings for its cards; a limit; the link handed only to someone on both; the card button on
 the right of shopping mode's header; its Admin alone inviting, as RFC 0007 says (a list's Member may).
 
-#### ⏳ 24.2 — Cards: the data and the keys
+#### ✅ 24.2 — Cards: the data and the keys
 
 **Goal:** a card is kept, encrypted, with its own people and keys. **Design:** RFC 0007, "A card", "Sharing a card". **Depends on:** 24.1.
 
@@ -75,8 +75,19 @@ registry test.
   **Left out of step 1, recorded:** the confirmation that says what deleting an account would do (`previewLeaving`) says nothing of cards yet (a card counts apart in what `deletePerson`
   returns, `cards`); the version 5 to 6 upgrade of the device's store ran in fake-indexeddb only (23.3 ran its step also in real WebKit); and the readable export cannot open a card until step 2
   (it serves a card's ciphertext and the person's own copy of its keys, and counts what it cannot open). A refused change to a card has no sentence of its own in Couldn't sync yet.
-- **Step 2:** the device's logic: a card's keys on a device (the derivation, a link's copy, `card_key` kept and handed back), encrypting and opening a card in the transport, the actions that make and
-  change one, the readable export's opening of cards, and `card.delete` as an online operation.
+- **Step 2, done (0.8.0, 2026-11-24): the device's logic.** `deriveCardKeyring` already stood; **`wrapCardKeyring` and `unwrapCardKeyring`** (`cr1.`, bound to the person and the card, so a list's wrapper opens
+  none) are what a link and `card_key` carry. `EncryptionMemory.cardKeyring` uses **the reader's own copy first**, handed back in every pull (`hear` takes `encryption.cards`), else derives from the group's
+  keyring; **a person on a card only has the copy alone**, and a card whose keys are not here takes no page, so the group's cursor stays and the next pull brings it (a locked key behaves as a list's does). The
+  transport encrypts each field of a card under the card's keys, bound to the card in the place of a list (`encryptCard`), and opens a pull's cards the same way; a change for a card whose keys this device
+  will not get is refused into Couldn't sync in words about the card (`NO_CARD_KEYS`, "Changed the card Boots") and sends what came after it. `src/actions/cards.ts`: `makeCard`, `changeCard` (only what differs; a
+  cleared icon, colour, holder or note says `null`, which the validator now takes for a card in the only form it has), `moveCard` and `canChange` (what the screen offers; the server holds the Admin rule). **`card.delete`**
+  (`src/households/card-ops.ts`, its dispatcher scope `card`, in `routes.ts`): an Admin's online operation that removes the card, its people and every copy of its keys in one transaction and steps the counter; no
+  tombstone is written, since its people are gone with it and the pull's `visibleCards` makes every device forget it (a tombstone for the group would say a card was there). **The readable export opens cards**
+  under the person's own copy of the keys, else the group's derived ones, and never writes a key. **Seen to fail when removed:** the encrypting, the keys a send needs, the opening on a pull, the reader's own copy,
+  its binding to the card, a list's label in place of the card's, the Admin condition in the statement (called directly) and in the dispatcher, the people deleted with the card, the sentence of a refused change, and
+  each of the export's two ways to the keys. Proved through the real `Mover` and the server on all three databases: a card made on a device is held as ciphertext only (the marker is in no row), another device
+  of the person opens it, a person on it and on no list opens it with their own copy alone and nothing else of the group, is held until it arrives, cannot change it, takes the Admin's change, and loses the card when
+  the Admin deletes it.
 
 #### 📋 24.3 — The cards screen, and showing one
 

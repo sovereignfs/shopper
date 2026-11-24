@@ -3,6 +3,7 @@ import {
   FIELD_VALUE,
   NAME_KEY,
   boundTo,
+  deriveCardKeyring,
   deriveInventoryKeyring,
   deriveListKeyring,
   deviceInventoryNameKey,
@@ -10,8 +11,10 @@ import {
   newKeyring,
   openField,
   sealField,
+  unwrapCardKeyring,
   unwrapKeyring,
   unwrapListKeyring,
+  wrapCardKeyring,
   wrapKeyring,
   wrapListKeyring,
 } from './household';
@@ -211,5 +214,49 @@ describe('a group’s Inventory keyring (§13.2, task 23.3)', () => {
     expect(await deviceInventoryNameKey(inventory, H, 'oat milks')).not.toBe(key);
     // A product of the same name on a list with the group's id has another key: they are not folded into each other.
     expect(await listNameKey(await deriveListKeyring(group, H), H, 'oat milk')).not.toBe(key);
+  });
+});
+
+describe('a card’s keyring (task 24.2, RFC 0007)', () => {
+  const CARD = '66666666-6666-4666-8666-666666666666';
+  const CARD2 = '77777777-7777-4777-8777-777777777777';
+  const person = '88888888-8888-4888-8888-888888888888';
+  const where = { list: CARD, table: 'card', row: CARD, field: 'number' };
+
+  it('is derived from the group’s, for the card alone: another card’s keys, a list’s of the same id, the group’s Inventory keys and the group’s own open nothing of it, and it opens none of theirs', async () => {
+    const group = newKeyring();
+    const card = await deriveCardKeyring(group, CARD);
+    expect(await deriveCardKeyring(group, CARD)).toEqual(card);
+    const value = await sealField(card, where, 'secret-number');
+    expect(await openField(card, where, value)).toBe('secret-number');
+    for (const other of [
+      await deriveCardKeyring(group, CARD2),
+      await deriveListKeyring(group, CARD),
+      await deriveInventoryKeyring(group, CARD),
+      group,
+    ])
+      expect(await openField(other, where, value)).toBeUndefined();
+    // And the card's keys open a list's value, an Inventory value and the group's value of the same place: none.
+    for (const made of [
+      await sealField(await deriveListKeyring(group, CARD), where, 'x'),
+      await sealField(await deriveInventoryKeyring(group, CARD), where, 'x'),
+      await sealField(group, where, 'x'),
+    ])
+      expect(await openField(card, where, made)).toBeUndefined();
+    await expect(deriveCardKeyring(group, 'not-an-id')).rejects.toThrow();
+  });
+
+  it('is wrapped under a person’s own key for that person and that card alone, and a list’s wrapper is not a card’s', async () => {
+    const key = await appKey();
+    const card = await deriveCardKeyring(newKeyring(), CARD);
+    const record = await wrapCardKeyring(key, card, { person, card: CARD });
+    expect(record.startsWith('cr1.')).toBe(true);
+    expect(await unwrapCardKeyring(key, record, { person, card: CARD })).toEqual(card);
+    expect(await unwrapCardKeyring(key, record, { person, card: CARD2 })).toBeUndefined();
+    expect(await unwrapCardKeyring(key, record, { person: OTHER, card: CARD })).toBeUndefined();
+    expect(await unwrapCardKeyring(await appKey(), record, { person, card: CARD })).toBeUndefined();
+    const listRecord = await wrapListKeyring(key, card, { person, list: CARD });
+    expect(await unwrapCardKeyring(key, listRecord, { person, card: CARD })).toBeUndefined();
+    expect(await unwrapListKeyring(key, record, { person, list: CARD })).toBeUndefined();
   });
 });

@@ -8,7 +8,16 @@ import type { ListRow } from './rows';
  * is a new mutation made from the refused one.
  */
 export type Kind =
-  'add' | 'tick' | 'untick' | 'delete' | 'clear' | 'archive' | 'list' | 'inventory' | 'edit';
+  | 'add'
+  | 'tick'
+  | 'untick'
+  | 'delete'
+  | 'clear'
+  | 'archive'
+  | 'list'
+  | 'inventory'
+  | 'card'
+  | 'edit';
 
 export interface Described {
   readonly kind: Kind;
@@ -23,7 +32,9 @@ const text = (value: FieldValue | undefined): string | undefined =>
 /** What a mutation did, in a few words. `nameOf` finds the name of a row the mutation does not carry the name of (an edit of an existing item). */
 export function describeMutation(mutation: Mutation, nameOf: Name): Described {
   const changes = mutation.changes;
-  const named = (change: Change) => text(change.fields.name) ?? nameOf(change.table, change.id);
+  // A card is named by its shop (§7.7), as everything else is by its name.
+  const named = (change: Change) =>
+    text(change.fields.name) ?? text(change.fields.shop) ?? nameOf(change.table, change.id);
   const items = changes.filter((change) => change.table === 'item');
   const added = items.find((change) => change.create);
   if (added) return { kind: 'add', what: `Added ${named(added) ?? 'an item'}` };
@@ -38,6 +49,9 @@ export function describeMutation(mutation: Mutation, nameOf: Name): Described {
       kind: 'inventory',
       what: `Added the category ${named(madeCategory) ?? ''}`.trim(),
     };
+  // A card made on a device (§7.7): refused for the limit, or for a group that has not moved, it is the card that is not kept.
+  const madeCard = changes.find((change) => change.table === 'card' && change.create);
+  if (madeCard) return { kind: 'card', what: `Added the card ${named(madeCard) ?? ''}`.trim() };
   const madeList = changes.find((change) => change.table === 'list' && change.create);
   if (madeList) return { kind: 'list', what: `Made the list ${named(madeList) ?? ''}`.trim() };
 
@@ -59,6 +73,12 @@ export function describeMutation(mutation: Mutation, nameOf: Name): Described {
     return typeof only.fields.deletedAt === 'number'
       ? { kind: 'inventory', what: `Deleted the category ${category}` }
       : { kind: 'inventory', what: `Changed the category ${category}` };
+  }
+  if (only.table === 'card') {
+    const card = named(only) ?? 'a card';
+    return typeof only.fields.deletedAt === 'number'
+      ? { kind: 'card', what: `Put away the card ${card}` }
+      : { kind: 'card', what: `Changed the card ${card}` };
   }
   const name = named(only) ?? (only.table === 'list' ? 'a list' : 'an item');
   if (typeof only.fields.boughtAt === 'number') return { kind: 'tick', what: `Ticked ${name}` };
