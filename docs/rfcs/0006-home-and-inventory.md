@@ -119,3 +119,5 @@ time", §9.4, also offering to update the Inventory item); merging a list's prod
 4. **How a list's copy of a category says what it copies:** `list_category` has a **source key**, an HMAC the person's device makes under the list's keys
    from the category's id, unique on the list, in place of `category_id`: a pointer to a category would aim at a row of another group on a shared list
    (the same-group rule), and the same id on copies in several groups would link one person across them. DESIGN.md §8.3 and §20.3 say it.
+5. **Copies in a group the server still seals:** none, until it moves. A device makes a copy's source key under the list's keys, which such a group has none of; the server refuses a copy
+   there and a device offers its lists the starter categories alone. DESIGN.md §8.3 and decision 16 say it.

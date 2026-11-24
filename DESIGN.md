@@ -380,16 +380,16 @@ directory and the bell are phase 2.
 
 Every limit is a setting the operator can change, with a default (the names are the first design's):
 
-| Setting                              | Default | What                                                                              |
-| ------------------------------------ | ------- | --------------------------------------------------------------------------------- |
-| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`    | 20      | People on a list                                                                  |
-| `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`   | 20      | Groups an account has lists from, its own included                                |
-| `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included                                           |
-| `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                                                              |
-| `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together                                   |
-| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included                                            |
-| `SHOPPER_LIMIT_INVENTORY_ITEMS`      | 5000    | Items in a person's Inventory, hidden starter entries included                    |
-| `SHOPPER_LIMIT_ACCOUNT_CARDS`        | 100     | Cards a person adds; people on a card as on a list, live links to it as to a list |
+| Setting                              | Default | What                                                                                    |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------- |
+| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`    | 20      | People on a list                                                                        |
+| `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`   | 20      | Groups an account has lists from, its own included                                      |
+| `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included                                                 |
+| `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                                                                    |
+| `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together                                         |
+| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included; and the copies of people's categories on a list |
+| `SHOPPER_LIMIT_INVENTORY_ITEMS`      | 5000    | Items in a person's Inventory, hidden starter entries included                          |
+| `SHOPPER_LIMIT_ACCOUNT_CARDS`        | 100     | Cards a person adds; people on a card as on a list, live links to it as to a list       |
 
 A limit reached offline is found when the change syncs and goes to Couldn't sync with the sentence (§12.5). Phase 1 has the first five; Inventory
 (§8.8) brings the categories' and its own, and cards (§7.7) theirs.
@@ -453,10 +453,27 @@ Deli, Frozen, Pantry, Breakfast, Snacks & sweets, Drinks, Household, Personal ca
   copies, its name encrypted under **the list's keys**, its place in the aisle order), made when an item of that category is first put on the list.
   **The source key is made by the person's device, never an id of the category:** an HMAC of the category's id under the list's keys (§13.3's way), unique
   on the list, so that a copy is found and merged on its list, two devices that copied one category fold into one copy, the same category on two lists
-  gives two keys that say nothing of each other, and no id of one group's row is ever stored in another's. The people on a
-  shared list read the names of the categories its items use, and nothing else of anyone's categories. Renaming a category in Inventory renames its
-  copies on the person's own lists (those they are Admin of); a copy goes with its list. **An item's category is a starter category of its list's
-  group or a `list_category` of its own list,** never another group's row.
+  gives two keys that say nothing of each other, and no id of one group's row is ever stored in another's. **Its rules:**
+  - **Only in a group that has moved.** A copy's name and its source key are made by a device under the list's keys, and a group the server still seals has none
+    (§13.7): the server refuses a copy there, and a device offers a list of such a group its starter categories alone, until the group moves. A new account's group moves at its
+    first load, before it shares anything, so this is a group from before encryption that shared lists (decision 16).
+  - **Made by anyone on the list, changed by its Admin.** Whoever is on the list makes the copy of their own category when an item of it is first put there; renaming it, putting it
+    in the aisle order and deleting it are the list's Admin's, which is how renaming a category in Inventory reaches its copies on the lists the person is Admin of and no others. A copy's
+    list and source key are set when it is made and never change.
+  - **Found by its source key, on the device.** Only the person whose category it is can make the source key for it, so only their device finds its copies, to rename them or to
+    point an item at one. Two people on a list who each have a "Hardware" category make two copies of that name; the list shows both.
+  - **What points at a copy.** An item's or a product's category is **a starter category of its group or a copy on its own list** (a deleted one too, as a deleted product may be
+    named, below), checked in the statement against the list the row is on after the change. An item that changes list says its category again for the new one in the same change, as it says its name and note (§13.1): a starter category
+    as it was, a copy of the person's own category made on the new list first when the person holds that category, and otherwise the starter category its name guesses, or _Other_.
+  - **A deleted copy is made again, not refused.** An Admin's delete lasts until someone puts the category on the list again: a make under a source key the list has, deleted or not,
+    folds into that copy and restores it (an edit restores a deleted row, §12.4), and an item may name a deleted copy, as it may a deleted product, and shows under _Other_ until
+    the copy is restored.
+  - **Read by the list's people, in the pull's statement** (`onList`), as an item is; deleted with its list, and with its group.
+  - **The count** of a list's copies is held to `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`, per list (its refusal says "A list can have at most N of people's own categories on it, and this one
+    has them all"). The people on a
+    shared list read the names of the categories its items use, and nothing else of anyone's categories. Renaming a category in Inventory renames its
+    copies on the person's own lists (those they are Admin of); a copy goes with its list. **An item's category is a starter category of its list's
+    group or a `list_category` of its own list,** never another group's row.
 - **Written by the group's own account alone, read by anyone else only as the starter ones** (`category` is a synced table, §12): a starter category is renamed, hidden and
   put in order, never deleted, and _Other_ is never hidden; one of the person's own always has a name. Anyone else on a list of the group is given the starter rows by their
   key and **the code's names**, and nothing of the owner's own categories, what they named a starter, their ciphertext or their tombstones (in the pull's statement and the
@@ -916,7 +933,7 @@ by a cryptographer or audited, and every place Shopper describes the feature say
   Undo, a refused change moved to another list), and the server refuses a change of list without them. Its product is one of the new list's (§9.4).
 - **Prices, shops, trips and barcodes** arrive, encrypted, with the phase that adds them.
 - **Inventory** (§8.8) and a person's own categories are bound the same way to their group in place of a list, under the group's Inventory keys
-  (§13.2); a list's copy of a category (`list_category`) is the list's, under the list's keys. **A card** (§7.7) is bound the same way to the card in
+  (§13.2); a list's copy of a category (`list_category`) is the list's, under the list's keys, and only in a group that has moved. **A card** (§7.7) is bound the same way to the card in
   place of a list, under the card's keys.
 - **Field merging is unchanged** (§12.4): field stamps say which write is later, and the value is opaque. **Search, suggestions, totals, unit prices,
   aisle order and the plugin's import** run on the device, over what it has opened; the server has no copy of any of them.
@@ -998,7 +1015,7 @@ transaction, only if its `seq` has not moved and every value is for its own row 
 (§8.8) are sealed by the server too, as the rest of its content is, and move with it: the manifest holds every `inventory_item` of the group, deleted or not, each with its
 starter entry; the device derives the group's **Inventory keys** from the keyring it has just made (§13.2), encrypts each value for the group in the place of a list, and makes
 each item's name key (§13.3), from the starter entry's name for an override that keeps it; its categories that hold content (a name a person gave a starter, and their own) are
-encrypted the same way, for the group, with no name key, and the fourteen starter categories nobody named have nothing to move; the server answers for every row, each value bound to the group and to its own row,
+encrypted the same way, for the group, with no name key, and the fourteen starter categories nobody named have nothing to move; **a group the server still seals has no list's copy of a category** (§8.3), so there is none to move; the server answers for every row, each value bound to the group and to its own row,
 each with a name key, in the same transaction. A device that finds an override of a starter entry it does not have, or two rows that come to one name key, does not move
 the group (it would be refused on every attempt) until a version that can. Lists shared after the move carry their keys in their links.
 
@@ -1533,7 +1550,7 @@ start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` colum
 | `list`             | `id`, `household_id`, `sealed` or `encrypted` (name, icon, colour), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                                                                                                          |
 | `item`             | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                         |
 | `inventory_item`   | `id`, `household_id` (the person's own group), `starter_key` (the starter entry it overrides, or null for one of their own), `name_key` (unique with `household_id`), `encrypted` (name, null when an override keeps the starter's; note), `category_id`, `icon`, `unit`, `quantity`, `recurring`, `hidden`, `on_hand` and `low_point` (phase 3), `deleted_at`, `seq`, `fseq`, `created_at` (§8.8) |
-| `list_category`    | `id`, `household_id`, `list_id`, `source_key` (the category it copies, as an HMAC the device makes under the list's keys: unique with `list_id`, never an id), `encrypted` (name, under the list's keys), `icon`, `position`, `deleted_at`, `seq`, `fseq` (§8.3)                                                                                                                                   |
+| `list_category`    | `id`, `household_id`, `list_id`, `source_key` (the category it copies, as an HMAC the device makes under the list's keys: unique with `list_id`, never an id), `encrypted` (name, under the list's keys; only in a group that has moved), `icon`, `position`, `deleted_at`, `seq`, `fseq` (§8.3)                                                                                                   |
 | `shop`             | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                                                                                                                 |
 | `trip`             | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                                                   |
 | `trip_line`        | `id`, `household_id`, `trip_id`, `item_id`, `product_id`, `list_id`, `sealed` (name, list name, price), `quantity`, `unit`, `category_id`, `bought_by`, `bought_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                   |
@@ -1802,3 +1819,10 @@ owner settled each as written here, in workstream 0002's leg 1 review:
     row of another person's group and break the same-group rule. Decided, with the owner: **a source key** in its place, an HMAC the device makes under the
     list's keys from the category's id, unique on the list. Not an opaque id (it would sit on copies in every group the person shares a list with, and
     two hosts could tell it is the same person), and not a link kept on the device alone (another device could not find or rename a copy).
+16. **Copies in a group the server still seals** (§8.3, §13.7, 2026-11-24): a copy's source key is made by a device under the list's keys, which a sealed group has none of. Decided, with
+    the owner: **no copies there until the group moves.** The server refuses one, a device offers such a list its starter categories alone, and the household's move has no copies to carry.
+    The other way, the server making the key from the category's id, would keep an id of another person's group sealed inside the copy, to re-make the key on rotation and at the move.
+17. **Four points of a list's copies** (§8.3, 2026-11-24), decided with the owner, each as recommended: **a deleted copy is made again** (a make under its source key restores it, and an item may
+    name it); **only the list's Admin changes a copy** (RFC 0006), the Member who made it cannot; **an item moved to another list carries a category of the person's own** when the one moving it
+    holds that category, by a copy made on the new list in the same change, and otherwise takes the starter category its name guesses, or _Other_; **two people's same-named categories are two
+    copies**, nothing being joined by name.
