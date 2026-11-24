@@ -28,7 +28,13 @@ createServer((req, res) => {
     let body = '';
     req.on('data', (chunk) => (body += chunk));
     req.on('end', () => {
-      fake.setApps(JSON.parse(body));
+      // A list for everyone, or `{ sub, apps }` for one person.
+      const given = JSON.parse(body) as unknown;
+      if (Array.isArray(given)) fake.setApps(given);
+      else {
+        const { sub, apps } = given as { sub: string; apps: [] };
+        fake.setApps(apps, sub);
+      }
       res.writeHead(204).end();
     });
     return;

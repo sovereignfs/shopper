@@ -217,11 +217,13 @@ was started with 12.7's release published as v0.2.0 and its roadmap row still op
 
 **Leg 5 is built** (0.6.0, on `develop`, 2026-11-24): **22.11**, with `@sovereignfs/ui` 0.107.0's `AppFrame`, `AppSidebar`, `Header`, `MobileFooter` and `AppsLauncher` in place of Shopper's
 own shell (deleted, `no-fork` holds). **The owner gate is review, not yet given:** this is the frame every later screen stands in, and the launcher added `offline_access` to the scopes, by the owner's
-word of 2026-11-24 (an operator re-reads the manifest; a person signed in before gets the launcher after their next sign-in). For the owner: the manifest's `core` floor (`>=0.126.0 <1.0.0`) is
+word of 2026-11-24 (**an operator must allow it in the Console before the new version starts: core refuses a sign-in that asks for a scope the app is not allowed, `invalid_scope`, so an upgrade first locks suite sign-in out**; a person signed in before gets the launcher after their next sign-in). For the owner: the manifest's `core` floor (`>=0.126.0 <1.0.0`) is
 **not raised**, though `prompt=create` needs 0.140.0, the launcher's list 0.141.0 and the readable export's recent sign-in 0.142.0, each degrading on an older core (the export may ask to sign in again
 if an older core sends no `auth_time`, not checked); the phone's footer holds Home and Settings until 24.3 gives its right side the loyalty cards (`MobileFooter` wants a matched icon each
 side), with Inventory arriving at 23.4. Two more gaps to raise in `sovereign`: a sidebar row closes the phone's drawer on any click, so a row that only opens something is unusable there (an `action` that is
-only a button does not close it, which "New list" uses), and the 22.8 suite button for the readable export has not been opened in a browser against a real core. Data-layer tests ran on the `file:` database only.
+only a button does not close it, which "New list" uses), and the 22.8 suite button for the readable export has not been opened in a browser against a real core. Data-layer tests ran on the `file:` database only. **Known:** `e2e/lists.spec.ts`'s two focus checks (_New list_'s field, the sidebar with the network cut) failed in WebKit once, with
+three browser runs going at once, and pass alone (three times over); `NewListDialog` takes focus in the first half second, which a loaded machine can miss. **Open for the owner:** signing out leaves the
+person's sealed refresh token (the SDK's behaviour), until they sign in again or are deleted.
 
 **Leg 4 is done** (0.5.0, on `develop`, 2026-11-23): with `@sovereignfs/ui` 0.107.0 pinned (in `minimumReleaseAgeExclude` until it is a day old), **22.3 to 22.6, 22.9 and
 22.10** are built, committed and verified; the leg's owner gate is none. Two gaps to raise in `sovereign`: `IconPicker`'s options have no accessible names, and its

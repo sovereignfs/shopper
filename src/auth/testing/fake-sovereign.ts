@@ -77,8 +77,8 @@ export interface FakeSovereign {
   signInAs(user: FakeUser, overrides?: LoginOverrides): void;
   /** Answer the next authorization request with a refusal, the way a person clicking Deny would. */
   denyNext(): void;
-  /** The apps Sovereign's launcher lists, for every person with an access token (none until set). */
-  setApps(apps: readonly FakeApp[]): void;
+  /** The apps Sovereign's launcher lists: for the person `sub` names, or, with none, for every person who has no list of their own (none until set). */
+  setApps(apps: readonly FakeApp[], sub?: string): void;
   /** How many times a refresh token was exchanged, and how many times one that was already used was sent (core treats that as theft). */
   refreshes: { used: number; reused: number };
   /**
@@ -123,6 +123,7 @@ export async function startFakeSovereign(
   const spent = new Set<string>();
   const refreshes = { used: 0, reused: 0 };
   let apps: readonly FakeApp[] = [];
+  const appsOf = new Map<string, readonly FakeApp[]>();
   let next: { user: FakeUser; overrides: LoginOverrides } | undefined;
   let deny = false;
   const authorizations: URL[] = [];
@@ -357,7 +358,7 @@ export async function startFakeSovereign(
             /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1] ?? '',
           );
           if (!who) return json(401, { error: 'invalid_token' });
-          return json(200, { apps });
+          return json(200, { apps: appsOf.get(who.sub) ?? apps });
         }
         json(404, { error: 'not_found' });
       } catch (error) {
@@ -376,7 +377,7 @@ export async function startFakeSovereign(
     noticeToken,
     signInAs: (user, overrides = {}) => void (next = { user, overrides }),
     denyNext: () => void (deny = true),
-    setApps: (list) => void (apps = list),
+    setApps: (list, sub) => void (sub === undefined ? (apps = list) : appsOf.set(sub, list)),
     refreshes,
     authorizations,
     accessTokensIssued,

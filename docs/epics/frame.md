@@ -336,9 +336,15 @@ apps or a person with no token yet is `{ apps: null }`, which leaves what the de
 origin**, else the app's first letter; an address to open is `http` or `https` and never `javascript:`; Shopper itself is left out) and **kept on the device per account** (`shopper.apps.<account>`,
 held to the same on the way out, gone at sign-out with the rest of the person by `forgetIdentity`), so that it opens with no network, the offline shell included (when the key comes from core).
 **The owner chose (2026-11-24) to add `offline_access` to Shopper's scopes** (`SOVEREIGN_SCOPES` and the manifest, which a test holds to each other) so that the person's refresh token exists:
-the SDK keeps it sealed under `SHOPPER_ENCRYPTION_KEY` (`sdkTokenStore`), it asks for no capability of its own, **an operator re-reads the manifest to register the scope, and a person signed in
+the SDK keeps it sealed under `SHOPPER_ENCRYPTION_KEY` (`sdkTokenStore`), it asks for no capability of its own, **an operator allows the scope in the Console before the new version starts (core refuses a sign-in that asks for one the app is not allowed, `invalid_scope`, and Shopper's retry would be refused again), and a person signed in
 before gets the launcher after their next sign-in at core**. The fake core issues a refresh token for `offline_access`, rotates it as core does (and counts one used twice), says `apps` in its
 instance document and lists what a test sets. Tests: `launcher-apps.test.ts`, `identity.test.ts` (sign-out takes the apps with the rest, and not another account's), `e2e/sovereign.spec.ts` (the
 list, the app it is in and an address that is no address left out, an icon from another site not drawn, the refresh token used and never twice, none on a phone, the device's list when core
-is out of reach, gone at sign-out, a signed-out request refused) and `e2e/frame.spec.ts` (alone: no launcher and no route). **Not set by a floor:** an older core lists no `apps` and the launcher is not drawn;
+is out of reach, gone at sign-out, a signed-out request refused; **and as a second person:** the fake answers per person, so what core lists for one is never shown to another from the same
+browser, and five requests at once, with nothing cached, spend no token twice), `src/auth/sdk-stores.test.ts` (**the token store's lease,** seen to fail with the lease taken out: three
+renewals of one person at once ran together) and `e2e/frame.spec.ts` (alone: no launcher and no route). **A token's life:** the SDK has one renewal in flight per person in a process (so the
+burst above passes with or without Shopper's lease, and guards that and the one client per process), and `sdkTokenStore`'s lease is what holds across processes; the token is sealed at rest,
+deleted by `People.deletePerson` (seeded in `people.test.ts`), by core's account-deleted notice and by a logout notice that names no session, and is **not in any export**. **Signing out
+leaves it** (the SDK ends the session, not the token, and signing out is local): a standing credential at rest, sealed, until the person signs in again or is deleted. Whether sign-out should
+delete it is the owner's call. **Left out:** the Inventory and Loyalty cards rows, the footer's Inventory and cards buttons (23.4, 24.3) and the bell (9.2). **Not set by a floor:** an older core lists no `apps` and the launcher is not drawn;
 the manifest's `core` floor is the owner's call (the platform's 0.141.0 lists the apps, 0.140.0 opens the sign-up, 0.142.0 has `coreSignedInAt`).

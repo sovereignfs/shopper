@@ -1103,12 +1103,13 @@ refresh token dropped. Shopper keeps a bounded form and one rate limit in front 
   `signIn.export` (20.1), core's ask for a person's part of their export (§18.1); `SHOPPER_VAPID_PRIVATE_KEY` (19.1), the push key (RFC 0002).
 
 - **`offline_access`, from 0.6.0:** Shopper asks core for it **for the launcher** (§16.2): the person's refresh token is what lets it call core as them, `listMyApps`,
-  and it asks for no capability of its own. A person who signed in before gets the launcher after their next sign-in at core; an operator re-reads the manifest to
-  register the scope. The token is kept as below.
-- **`directory` and `offline_access`** (phase 2: **0.1.0 asks for `openid`, `profile` and `email` only**, and the manifest above is what phase 2 ships)
-  are for finding people to invite in core's directory, which the SDK does as the person (`sv.as({ sub })`) with
-  their refresh token. That token is a credential, kept only through envelope encryption (`credential`, §20.3). If a core refuses the scopes, or the
-  person did not grant them, inviting works exactly as alone. The refresh token is the SDK's alone, in its `tokenStore` in the auth store, sealed
+  and it asks for no capability of its own. A person who signed in before gets the launcher after their next sign-in at core; **an operator allows the scope in the Console
+  before the version that asks for it starts**, since core refuses a sign-in that asks for a scope the app is not allowed (`invalid_scope`). The token is kept as below.
+- **`directory`** (phase 2: **0.1.0 asks for `openid`, `profile` and `email`, and from 0.6.0 `offline_access`**, and the manifest above is what phase 2 ships)
+  is for finding people to invite in core's directory, which the SDK does as the person (`sv.as({ sub })`) with
+  the refresh token `offline_access` gets. That token is a credential, kept only through envelope encryption (`credential`, §20.3). If the
+  person did not grant the scope, or a core does not offer the directory, inviting works exactly as alone; **a scope the operator has not allowed is not that case:** core refuses the sign-in itself
+  (`invalid_scope`, as for `offline_access` above), so it is allowed in the Console before the version that asks for it starts. The refresh token is the SDK's alone, in its `tokenStore` in the auth store, sealed
   with Shopper's key ring (`src/auth/sdk-stores.ts`).
 - **The `core` floor** is raised, if needed, to the first release that shipped the directory scope and the app scopes Shopper calls, checked against
   core's changelog in that task.

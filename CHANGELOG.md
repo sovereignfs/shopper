@@ -8,9 +8,10 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.6.0] - 2026-11-24
 
-**Before upgrading, hosted by Sovereign:** Shopper now asks Sovereign for `offline_access`, so that it can ask which apps you may open as you. Re-read the manifest
-(`sv app add` again, or the Console's technical settings) so that Sovereign registers it; until then people sign in as before and get no launcher. Someone already signed in
-gets it after their next sign-in at Sovereign. No other scope is asked for.
+**Before upgrading, hosted by Sovereign: allow `offline_access` for Shopper first.** Shopper now asks Sovereign for it, so that it can ask which apps you may open as you. In the
+Console, open Shopper's **Technical settings** and allow it (or register the manifest again) **before** the new version starts: Sovereign refuses a sign-in that asks for a scope the
+app is not allowed (`invalid_scope`, and no one can sign in) until it is. Someone already signed in gets the launcher after their next sign-in at Sovereign. No other scope is asked for.
+Shopper alone, with its own accounts, is not affected.
 
 ### Added
 

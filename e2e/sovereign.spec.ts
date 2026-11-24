@@ -360,6 +360,88 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     expect((await page.request.get('/api/account/apps')).status()).toBe(401);
   });
 
+  test('the launcher is the person’s own: what core lists for one is never shown to another, and requests at once renew the token without spending it twice', async ({
+    page,
+  }) => {
+    const control = `http://localhost:${PORTS.coreControl}`;
+    const first = person('first');
+    const second = person('second');
+    const listing = (name: string) => [
+      {
+        id: name.toLowerCase(),
+        name,
+        description: null,
+        icon: null,
+        launchUrl: `https://${name.toLowerCase()}.example.com/`,
+      },
+    ];
+    for (const [who, name] of [
+      [first, 'Alpha'],
+      [second, 'Beta'],
+    ] as const) {
+      const given = { sub: who.sub, apps: listing(name) };
+      expect((await page.request.post(`${control}/apps`, { data: given })).ok()).toBe(true);
+    }
+    const apps = async () =>
+      page.evaluate(async () => {
+        const reply = await fetch('/api/account/apps', { cache: 'no-store' });
+        return {
+          status: reply.status,
+          body: (await reply.json()) as { apps: { name: string }[] | null },
+        };
+      });
+    const refreshes = async () =>
+      (await (await page.request.get(`${control}/refreshes`)).json()) as {
+        used: number;
+        reused: number;
+      };
+
+    // The launcher's own request is held back, so that the first calls to core as this person are the ones made below, together, with nothing cached yet.
+    await page.route('**/api/account/apps', (route) => route.abort());
+    await nextPersonIs(page, first);
+    await throughSovereign(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.unroute('**/api/account/apps');
+    const before = await refreshes();
+    const together = await page.evaluate(async () =>
+      Promise.all(
+        Array.from({ length: 5 }, async () => {
+          const reply = await fetch('/api/account/apps', { cache: 'no-store' });
+          return (await reply.json()) as { apps: { name: string }[] | null };
+        }),
+      ),
+    );
+    // Every one was answered, for this person, and the token was renewed one at a time, never presented twice.
+    for (const answer of together) expect(answer.apps?.map((app) => app.name)).toEqual(['Alpha']);
+    const after = await refreshes();
+    expect(after.used).toBeGreaterThan(before.used);
+    expect(after.reused).toBe(0);
+
+    // The header shows theirs.
+    await page.reload();
+    await page.getByRole('banner').getByRole('button', { name: 'Apps' }).click();
+    await expect(page.getByRole('link', { name: 'Alpha' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    expect((await apps()).body.apps?.map((app) => app.name)).toEqual(['Alpha']);
+    await signOut(page);
+
+    // Another person on the same instance, from the same browser: what core lists for them, and nothing of the first's.
+    await nextPersonIs(page, second);
+    await throughSovereign(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole('banner').getByRole('button', { name: 'Apps' }).click();
+    await expect(page.getByRole('link', { name: 'Beta' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'Alpha' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    expect((await apps()).body.apps?.map((app) => app.name)).toEqual(['Beta']);
+    expect((await refreshes()).reused).toBe(0);
+    await signOut(page);
+  });
+
   test('the same person signs in again as the same account, and signing out is local', async ({
     page,
   }) => {
