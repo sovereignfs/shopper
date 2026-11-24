@@ -20,7 +20,7 @@ import type { ItemRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { addQuantity, isQuantity, subtractQuantity } from '../quantity/decimal';
 import { UNITS, isUnit, stepFor, type Unit } from '../quantity/units';
-import { carryCategoryOnMove } from '../keys/copies';
+import { carryCategoryOnMove, copyKeysOf } from '../keys/copies';
 import { type ListData, listViewOf } from '../local/listview';
 import { useFormat } from '../account/AccountProvider';
 import { useLocal } from '../local/react';
@@ -125,15 +125,7 @@ export function ItemPanel({
       // A move to another list takes the item's category with it (§8.3, decision 17): a copy of the list it leaves is carried if the person holds that category, which needs
       // the keys of both lists, so the change is made once they are read.
       const to = edit.listId;
-      void carryCategoryOnMove(
-        client.db,
-        {
-          encrypted: async (household) => (await keysOf(household)).encrypted,
-          ringOf: async (household, list) => (await keysOf(household, list)).ring,
-        },
-        env(),
-        { item, product, to },
-      )
+      void carryCategoryOnMove(client.db, copyKeysOf(keysOf), env(), { item, product, to })
         .catch(() => undefined)
         .then((carry) => {
           const mutation = editItem(env(), item, edit, learn, catalog, carry);

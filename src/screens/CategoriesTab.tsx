@@ -25,7 +25,7 @@ import type { CategoryRow } from '../actions/rows';
 import { starterCategory } from '../catalog/categories';
 import { GROCERY_ICONS } from '../catalog/icons';
 import { type CategoryLine, lastPosition, linesOf, nameTaken } from '../inventory/categories';
-import { moveCategoryEverywhere, renameCategoryEverywhere } from '../keys/copies';
+import { copyKeysOf, moveCategoryEverywhere, renameCategoryEverywhere } from '../keys/copies';
 import { reorderedPosition } from '../lists/view';
 import type { InventoryData } from '../local/inventory-view';
 import { useLocal } from '../local/react';
@@ -56,10 +56,7 @@ export function CategoriesTab({ data }: { data: InventoryData }) {
   const sensors = useReorderSensors();
   const guard = useDragClickGuard();
 
-  const copyKeys = {
-    encrypted: async (household: string) => (await keysOf(household)).encrypted,
-    ringOf: async (household: string, list: string) => (await keysOf(household, list)).ring,
-  };
+  const copyKeys = copyKeysOf(keysOf);
 
   /** A task, run when every one before it has ended: one that fails is said, and never stops the ones after it. */
   function enqueue(task: () => Promise<void>) {
@@ -85,8 +82,9 @@ export function CategoriesTab({ data }: { data: InventoryData }) {
       if (!client) return;
       const row = (await rowsNow()).find((each) => each.id === id);
       if (!row) return;
-      const mutations = await renameCategoryEverywhere(client.db, copyKeys, env(), row, typed);
-      for (const mutation of mutations) await client.commit(mutation);
+      await renameCategoryEverywhere(client.db, copyKeys, env(), row, typed, (mutation) =>
+        client.commit(mutation),
+      );
     });
 
   function drop(event: DragEndEvent) {
@@ -103,14 +101,9 @@ export function CategoriesTab({ data }: { data: InventoryData }) {
     enqueue(async () => {
       const row = (await rowsNow()).find((each) => each.id === id);
       if (!row) return;
-      for (const mutation of await moveCategoryEverywhere(
-        client.db,
-        copyKeys,
-        env(),
-        row,
-        position,
-      ))
-        await client.commit(mutation);
+      await moveCategoryEverywhere(client.db, copyKeys, env(), row, position, (mutation) =>
+        client.commit(mutation),
+      );
     });
   }
 

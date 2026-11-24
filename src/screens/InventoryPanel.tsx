@@ -25,7 +25,7 @@ import type { InventoryRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { type InventoryEntry, entryNamed, layerInventory } from '../catalog/inventory';
 import { categoryOfEntry } from '../inventory/screen';
-import { categoryOnList } from '../keys/copies';
+import { categoryOnList, copyKeysOf } from '../keys/copies';
 import { planAddFromInventory } from '../lists/adding';
 import { listViewOf } from '../local/listview';
 import { type InventoryData } from '../local/inventory-view';
@@ -179,15 +179,10 @@ export function InventoryPanel({
         // A list whose people the device has not heard of yet cannot be added to: who adds is one of them.
         if (!view.found || !view.me)
           return setAddProblem('That list is not ready on this device yet.');
-        const category = await categoryOnList(
-          client.db,
-          {
-            encrypted: async (household) => (await keysOf(household)).encrypted,
-            ringOf: async (household, list) => (await keysOf(household, list)).ring,
-          },
-          env(),
-          { entry: now, list: view.list },
-        );
+        const category = await categoryOnList(client.db, copyKeysOf(keysOf), env(), {
+          entry: now,
+          list: view.list,
+        });
         const planned = planAddFromInventory(
           env(),
           {

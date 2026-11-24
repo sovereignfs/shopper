@@ -121,3 +121,12 @@ time", §9.4, also offering to update the Inventory item); merging a list's prod
    (the same-group rule), and the same id on copies in several groups would link one person across them. DESIGN.md §8.3 and §20.3 say it.
 5. **Copies in a group the server still seals:** none, until it moves. A device makes a copy's source key under the list's keys, which such a group has none of; the server refuses a copy
    there and a device offers its lists the starter categories alone. DESIGN.md §8.3 and decision 16 say it.
+6. **Who changes a copy, and what a moved item carries:** only the list's Admin changes a copy (the Member who made it cannot); an item moved to another list carries a category of the
+   person's own when the one moving it holds that category, and otherwise takes the starter category its name guesses, or _Other_; two people's categories of one name are two copies.
+   DESIGN.md §8.3 and decision 17 say it.
+7. **Add to a list:** an item added from Inventory takes **what the person set in Inventory** (its category, icon, unit and quantity) over what a product of that name on the list
+   remembers, which is left as it is; what Inventory has no value for is the product's; one more of what is open is still one more. The Inventory note is not carried to a list.
+   DESIGN.md §16.8 says it.
+8. **A category's copies follow it:** renaming one of the person's own categories in Inventory renames its copies on the lists they are Admin of, and **moving it moves its copies on
+   their own lists** (a copy's place is a key in its list's group's aisle order, which is the person's own only in their own group); **a copy made afterwards is where the category is,**
+   in their own group, and last in another person's. DESIGN.md §8.3 and §16.8 say it.

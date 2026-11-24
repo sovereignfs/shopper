@@ -473,7 +473,9 @@ Deli, Frozen, Pantry, Breakfast, Snacks & sweets, Drinks, Household, Personal ca
   - **The count** of a list's copies is held to `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`, per list (its refusal says "A list can have at most N of people's own categories on it, and this one
     has them all"). The people on a
     shared list read the names of the categories its items use, and nothing else of anyone's categories. Renaming a category in Inventory renames its
-    copies on the person's own lists (those they are Admin of); a copy goes with its list. **An item's category is a starter category of its list's
+    copies on the person's own lists (those they are Admin of), **and putting it in a new place moves its copies on the lists in their own group** (the owner's decision of 2026-11-24:
+    a copy's place is a key in its list's group's one aisle order, which is the person's own only there); **a copy made afterwards is where the category is** in their own group, and last on
+    a list in another person's, since the place means nothing there. A copy on another person's list is moved by that list's Admin. A copy goes with its list. **An item's category is a starter category of its list's
     group or a `list_category` of its own list,** never another group's row.
 - **Written by the group's own account alone, read by anyone else only as the starter ones** (`category` is a synced table, §12): a starter category is renamed, hidden and
   put in order, never deleted, and _Other_ is never hidden; one of the person's own always has a name. Anyone else on a list of the group is given the starter rows by their

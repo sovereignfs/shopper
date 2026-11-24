@@ -20,6 +20,33 @@ export interface CopyKeys {
   encrypted(household: string): boolean | Promise<boolean>;
   /** A list's keyring in a group, or `undefined` while the app key is locked or the list's keys are not here. */
   ringOf(household: string, list: string): Promise<Keyring | undefined>;
+  /**
+   * Resolves when a list's keys are open, or when the device has waited as long as it will (a page's keys open a moment after the page, and a change made in that moment would find
+   * no copy and leave them as they were). Absent where the keys are as they are (the tests'): nothing is waited for.
+   */
+  ready?(household: string, list: string): Promise<void>;
+}
+
+/**
+ * The keys a screen gives the copies' functions, from the page's own (`Local.keysOf`): one place, so that the item's panel, Inventory's panel and the Categories tab ask the same way and
+ * wait the same bounded time for a list's keys to open (`patience`, in milliseconds). A locked key is not waited for for ever: the change is made, and finds no copy.
+ */
+export function copyKeysOf(
+  keysOf: (
+    household: string,
+    list?: string,
+  ) => Promise<{ encrypted: boolean; ring: Keyring | undefined }>,
+  patience = 2000,
+): CopyKeys {
+  return {
+    encrypted: async (household) => (await keysOf(household)).encrypted,
+    ringOf: async (household, list) => (await keysOf(household, list)).ring,
+    ready: async (household, list) => {
+      const until = Date.now() + patience;
+      while (Date.now() < until && !(await keysOf(household, list)).ring)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    },
+  };
 }
 
 /** The source key of a category of the person's own on a list, or `undefined` where there can be none (a group not yet encrypted, keys not open). */
@@ -30,6 +57,7 @@ export async function sourceKeyOn(
   categoryId: string,
 ): Promise<string | undefined> {
   if (!(await keys.encrypted(household))) return undefined;
+  await keys.ready?.(household, list);
   const ring = await keys.ringOf(household, list);
   return ring ? copySourceKey(ring, list, categoryId) : undefined;
 }
@@ -60,10 +88,11 @@ export async function copiesOfCategory(
 }
 
 /**
- * **A category renamed in Inventory, and its copies with it** (§8.3): the mutations to commit, in order: the category's own, then the copies on the lists the person is Admin of
- * (`renameCopies`, one for each group). **The same function for the screen and the tests**, so that what the tests prove is what the screen does. A starter category has no copies.
- * Asked again with the name it has, it makes the copies' changes alone, which is how a rename made while the keys were not open (when no copy can be found, `copiesOfCategory`)
- * reaches them once they are: nothing is written for a copy that has the name already.
+ * **A category renamed in Inventory, and its copies with it** (§8.3): the category's own change is committed first, **at once**, then the copies on the lists the person is Admin of
+ * are found (after the keys have had a moment to open, `CopyKeys.ready`) and renamed (`renameCopies`, one mutation for each group). **The same function for the screen and the
+ * tests**, so that what the tests prove is what the screen does; `commit` is what writes (the device's `commit`), and it returns what it committed, in order. A starter category has no
+ * copies. Asked again with the name it has, it makes the copies' changes alone, which is how a rename made while the keys were locked (when no copy can be found,
+ * `copiesOfCategory`) reaches them once they are open: nothing is written for a copy that has the name already.
  */
 export async function renameCategoryEverywhere(
   db: LocalDatabase,
@@ -71,17 +100,26 @@ export async function renameCategoryEverywhere(
   env: Env,
   row: CategoryRow,
   name: string | null,
+  commit: (mutation: Mutation) => Promise<unknown>,
 ): Promise<Mutation[]> {
+  const done: Mutation[] = [];
+  const write = async (mutation: Mutation) => {
+    await commit(mutation);
+    done.push(mutation);
+  };
   const own = renameCategory(env, row, name);
-  const copies =
-    row.starterKey === null && name !== null ? await copiesOfCategory(db, keys, row.id) : [];
-  return [...(own ? [own] : []), ...(name === null ? [] : renameCopies(env, copies, name))];
+  if (own) await write(own);
+  if (row.starterKey !== null || name === null) return done;
+  for (const mutation of renameCopies(env, await copiesOfCategory(db, keys, row.id), name))
+    await write(mutation);
+  return done;
 }
 
 /**
- * **A category put in a new place in Inventory, and its copies on the person's own lists with it** (§8.3, the owner's decision of 2026-11-24): the category's own mutation, then one
- * for the copies in the person's own group, which take the category's position (a copy on another group's list is in an aisle order that is not theirs, and stays). A starter category
- * has no copies. Asked again with the position it has, it moves the copies alone.
+ * **A category put in a new place in Inventory, and its copies on the person's own lists with it** (§8.3, the owner's decision of 2026-11-24): the category's own change is committed
+ * first, at once, then one mutation for the copies in the person's own group, which take the category's position (a copy on another group's list is in an aisle order that is not
+ * theirs, and stays). A starter category has no copies. Asked again with the position it has, it moves the copies alone. A copy made afterwards is where the category is
+ * (`categoryOnList`, `carryCategoryOnMove`).
  */
 export async function moveCategoryEverywhere(
   db: LocalDatabase,
@@ -89,15 +127,21 @@ export async function moveCategoryEverywhere(
   env: Env,
   row: CategoryRow,
   position: string,
+  commit: (mutation: Mutation) => Promise<unknown>,
 ): Promise<Mutation[]> {
+  const done: Mutation[] = [];
+  const write = async (mutation: Mutation) => {
+    await commit(mutation);
+    done.push(mutation);
+  };
   const own = moveCategory(env, row, position);
-  const copies =
-    row.starterKey === null
-      ? (await copiesOfCategory(db, keys, row.id)).filter(
-          (copy) => copy.householdId === row.householdId,
-        )
-      : [];
-  return [...(own ? [own] : []), ...moveCopies(env, copies, position)];
+  if (own) await write(own);
+  if (row.starterKey !== null) return done;
+  const copies = (await copiesOfCategory(db, keys, row.id)).filter(
+    (copy) => copy.householdId === row.householdId,
+  );
+  for (const mutation of moveCopies(env, copies, position)) await write(mutation);
+  return done;
 }
 
 /**
@@ -143,6 +187,8 @@ export async function carryCategoryOnMove(
     });
     if (!(await keys.encrypted(household))) return guess();
     if (!rings) {
+      await keys.ready?.(household, item.listId);
+      await keys.ready?.(household, input.to);
       const [from, to] = [
         await keys.ringOf(household, item.listId),
         await keys.ringOf(household, input.to),
@@ -173,6 +219,8 @@ export async function carryCategoryOnMove(
         name: copy.name || category.name,
         copies,
         last: positions.length === 0 ? null : positions.reduce((a, b) => (a > b ? a : b)),
+        // In the person's own group the copy is where the category is (§8.3, the owner's decision of 2026-11-24); in another's, last.
+        ...(own?.id === household ? { position: category.position } : {}),
       });
       made.set(sourceKey, { id: plan.id, change: plan.change });
       return { id: plan.id, change: plan.change };
@@ -245,6 +293,9 @@ export async function categoryOnList(
     name: chosen.name,
     copies,
     last: positions.length === 0 ? null : positions.reduce((a, b) => (a > b ? a : b)),
+    // In the person's own group the copy is where the category is, so that a category put first in Inventory is first on a list that gets its copy later (§8.3, the owner's decision
+    // of 2026-11-24); in another person's group it is last, since the place is a key in an aisle order that is not the person's.
+    ...(own?.id === household ? { position: chosen.position } : {}),
   });
   return { id: plan.id, copy: plan.change, guessed: false };
 }

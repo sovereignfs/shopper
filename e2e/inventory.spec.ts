@@ -421,6 +421,8 @@ test('a category of the person’s own is made, put on a list as a copy that fol
   page,
   baseURL,
 }) => {
+  // Two drags to the top by the keyboard, each arrow waited for by what is said aloud, and an item put on a list: longer than the rest.
+  test.slow();
   await signUp(page);
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
   await page.goto('/inventory');
@@ -504,6 +506,46 @@ test('a category of the person’s own is made, put on a list as a copy that fol
   expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
   await page.reload();
   await expect.poll(async () => (await categoryNames(page))[0], { timeout: 15_000 }).toBe('Yard');
+
+  // The other order: a category made and put first before any list has a copy of it. The copy a list gets afterwards is where the category is, and not last.
+  await page.getByLabel('New category').fill('Fence');
+  await page.getByRole('button', { name: 'Add category' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name of Fence' })).toBeVisible();
+  await page.getByRole('button', { name: 'Move Fence' }).focus();
+  await page.keyboard.press('Space');
+  for (let at = 16; at >= 1; at -= 1) {
+    await page.keyboard.press('ArrowUp');
+    await expect(said).toHaveText(new RegExp(`Fence is over position ${at} of 17`));
+  }
+  await page.keyboard.press('Space');
+  await expect(said).toHaveText(/Dropped category Fence at position 1 of 17/);
+  await expect.poll(async () => (await categoryNames(page))[0], { timeout: 10_000 }).toBe('Fence');
+  // The click that ends a drag is swallowed for a moment (`useDragClickGuard`), so that dropping a row does not press what is under it: a click straight after is tried again.
+  await expect(async () => {
+    await tab(page, 'Items').click();
+    await expect(tab(page, 'Items')).toHaveAttribute('aria-selected', 'true', { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Add item' }).first().click();
+  await panel(page, 'New item of Inventory').getByLabel('Name').fill('Post');
+  await panel(page, 'New item of Inventory').getByRole('button', { name: 'Add item' }).click();
+  const post = panel(page, 'Inventory: Post');
+  await post.getByLabel('Category').selectOption({ label: 'Fence' });
+  await expect
+    .poll(async () => (await rowsOf(page)).find((row) => row.name === 'Post')?.categoryId, {
+      timeout: 10_000,
+    })
+    .toBeTruthy();
+  await post.getByRole('button', { name: 'Add to list' }).click();
+  await expect.poll(async () => (await copiesOf(page)).length, { timeout: 10_000 }).toBe(2);
+  const fence = (await aisleOf(page)).find((row) => row.name === 'Fence');
+  const copies = await copiesOf(page);
+  const fenceCopy = copies.find((copy) => copy.name === 'Fence');
+  const yardCopy = copies.find((copy) => copy.name === 'Yard');
+  expect(fenceCopy?.position).toBe(fence?.position);
+  expect(String(fenceCopy?.position) < String(yardCopy?.position)).toBe(true);
+  await post.getByRole('link', { name: 'Open list' }).click();
+  const headings = page.getByRole('heading', { level: 2 });
+  await expect(headings.filter({ hasText: /^(Fence|Yard)$/ })).toHaveText(['Fence', 'Yard']);
 });
 
 test('a category is hidden and shown, a starter one has a name of the person’s and the usual one back, and a delete has Undo', async ({
@@ -588,6 +630,42 @@ test('a category is hidden and shown, a starter one has a name of the person’s
   expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
 });
 
+test('a category is dragged with a pointer by its handle, and the order is kept', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory?tab=categories');
+  await expect.poll(async () => (await categoryNames(page)).length, { timeout: 30_000 }).toBe(15);
+  expect((await categoryNames(page)).slice(0, 2)).toEqual(['Produce', 'Bakery']);
+  // The handle shows when the row is under the pointer: lift Bakery, a few pixels first (a click is not a drag), and let it go over Produce.
+  const row = page.getByRole('textbox', { name: 'Name of Bakery' });
+  await row.hover();
+  const handle = await page.getByRole('button', { name: 'Move Bakery' }).boundingBox();
+  const over = await page.getByRole('textbox', { name: 'Name of Produce' }).boundingBox();
+  if (!handle || !over) throw new Error('nothing to drag');
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 12, {
+    steps: 4,
+  });
+  await page.mouse.move(handle.x + handle.width / 2, over.y + 4, { steps: 12 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await categoryNames(page)).slice(0, 2), { timeout: 10_000 })
+    .toEqual(['Bakery', 'Produce']);
+  await expect
+    .poll(async () => (await deviceRows(page, await accountOf(page), 'outbox')).length, {
+      timeout: 30_000,
+    })
+    .toBe(0);
+  expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
+  await page.reload();
+  await expect
+    .poll(async () => (await categoryNames(page)).slice(0, 2), { timeout: 15_000 })
+    .toEqual(['Bakery', 'Produce']);
+});
+
 test('the Categories tab on a phone keeps to the width, opens the icon panel whole, and the tab and the item beside it are in the address', async ({
   page,
 }) => {
@@ -611,6 +689,7 @@ test('the Categories tab on a phone keeps to the width, opens the icon panel who
   const last = page.getByRole('button', { name: 'Icon of Other' });
   await last.scrollIntoViewIfNeeded();
   await last.click();
+  // The panel is found by the design system's own (hashed) class names, which hold no role to ask for: an upgrade of `@sovereignfs/ui` may need this selector changed.
   const inside = await page.evaluate(() => {
     const open = document.querySelector('[class*="panel"][class*="right"]');
     if (!open) return null;
