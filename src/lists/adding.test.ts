@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Change, Mutation } from '../actions/format';
 import { suggest } from '../catalog/suggest';
-import type { InventoryRow } from '../actions/rows';
+import type { InventoryRow, ProductRow } from '../actions/rows';
+import { layerInventory } from '../catalog/inventory';
 import type { CategoryRow } from '../local/rows';
 import { HOUSEHOLD, PERSON, env, item, list, product } from '../actions/test-support';
 import {
@@ -11,6 +12,7 @@ import {
   planAdd,
   planAddFromInventory,
   productNamed,
+  routeOf,
   suggestionMeta,
 } from './adding';
 
@@ -523,5 +525,225 @@ describe('an Inventory item added to a list (DESIGN.md §16.8)', () => {
     expect(changesOf(mutation, 'product')[0]?.create).toBe(true);
     expect(changesOf(mutation, 'item')[0]?.fields.categoryId).toBe(DAIRY);
     expect(planAddFromInventory(env(), context(), { ...entry, name: '  ' }, here)).toBeNull();
+  });
+});
+
+describe('adding a name Inventory has, from the add field (DESIGN.md §8.5, RFC 0006)', () => {
+  const OWN = '50000000-0000-4000-8000-0000000000bb';
+  const inventoryRow = (over: Partial<InventoryRow>): InventoryRow => ({
+    id: crypto.randomUUID(),
+    householdId: OWN,
+    starterKey: null,
+    name: null,
+    note: null,
+    categoryId: null,
+    icon: null,
+    unit: null,
+    quantity: null,
+    recurring: false,
+    hidden: false,
+    deletedAt: null,
+    createdAt: 1,
+    seq: 1,
+    ...over,
+  });
+  const withInventory = (rows: InventoryRow[], over: Partial<Adding> = {}) =>
+    context({ inventory: { household: OWN, rows }, ...over });
+  const inventorySuggestion = (rows: InventoryRow[], text: string) =>
+    only(
+      suggest({
+        text,
+        products: [],
+        items: [],
+        listId: list().id,
+        inventory: layerInventory(rows),
+      }).find((each) => each.kind === 'inventory'),
+    );
+  const bags = inventoryRow({
+    name: 'Good bin bags',
+    quantity: '2',
+    unit: 'pack',
+    icon: 'trash-2',
+  });
+
+  it('makes the list’s product from the Inventory item, whichever way it was chosen: the suggestion, and the text typed', () => {
+    for (const how of [inventorySuggestion([bags], 'good'), typed('good BIN bags')]) {
+      const done = planned(planAdd(env(), withInventory([bags]), how));
+      expect(done.message).toBe('Added Good bin bags');
+      expect(changesOf(done.mutation, 'product')[0]).toMatchObject({
+        create: true,
+        fields: {
+          name: 'Good bin bags',
+          defaultQuantity: '2',
+          defaultUnit: 'pack',
+          icon: 'trash-2',
+        },
+      });
+      expect(changesOf(done.mutation, 'item')[0]?.fields).toMatchObject({
+        name: 'Good bin bags',
+        quantity: '2',
+        unit: 'pack',
+        icon: 'trash-2',
+      });
+      // It is in Inventory already: nothing more is made there.
+      expect(done.also).toBeUndefined();
+    }
+  });
+
+  it('takes the category the caller worked out for this list, with the copy first, and the guess without one', () => {
+    const copy: Change = {
+      table: 'list_category',
+      id: '90000000-0000-4000-8000-000000000001',
+      create: true,
+      fields: { listId: list().id, name: 'Garden', sourceKey: 'k', position: 'a5' },
+    };
+    const suggestion = inventorySuggestion([bags], 'good');
+    const done = planned(
+      planAdd(env(), withInventory([bags]), suggestion, {
+        category: { id: copy.id, copy, guessed: false },
+      }),
+    );
+    expect(done.mutation.changes.map((each) => each.table)).toEqual([
+      'list_category',
+      'product',
+      'item',
+    ]);
+    expect(changesOf(done.mutation, 'item')[0]?.fields.categoryId).toBe(copy.id);
+    // No category given (a keyed list whose keys are not open): the guess, and no copy.
+    const guessed = planned(planAdd(env(), withInventory([bags]), suggestion));
+    expect(guessed.mutation.changes.map((each) => each.table)).toEqual(['product', 'item']);
+    expect(changesOf(guessed.mutation, 'item')[0]?.fields.categoryId).toBe(OTHER);
+  });
+
+  it('is decided by name when the add’s turn comes: a product made since the suggestion was drawn is the one used, with what it remembers', () => {
+    const suggestion = inventorySuggestion([bags], 'good');
+    const made = product({
+      name: 'Good bin bags',
+      categoryId: DAIRY,
+      defaultQuantity: '5',
+      defaultUnit: 'pcs',
+      icon: 'milk',
+    });
+    expect(routeOf(withInventory([bags], { products: [made] }), suggestion)).toMatchObject({
+      via: 'product',
+    });
+    const done = planned(planAdd(env(), withInventory([bags], { products: [made] }), suggestion));
+    // No product is made: the one there is is used (and only touched to say it was added).
+    expect(changesOf(done.mutation, 'product').filter((each) => each.create)).toEqual([]);
+    expect(changesOf(done.mutation, 'item')[0]?.fields).toMatchObject({
+      quantity: '5',
+      unit: 'pcs',
+      icon: 'milk',
+      categoryId: DAIRY,
+    });
+  });
+
+  it('is this list’s product, then Inventory, then another list’s product, then the starter, then the guess', () => {
+    const elsewhere = product({ listId: 'another-list', name: 'Good bin bags', categoryId: DAIRY });
+    const route = (
+      rows: InventoryRow[],
+      products: ProductRow[],
+      suggestion = typed('good bin bags'),
+    ) => routeOf(withInventory(rows, { products }), suggestion)?.via;
+    expect(route([bags], [elsewhere])).toBe('inventory');
+    expect(route([], [elsewhere])).toBe('template');
+    expect(route([], [])).toBe('new');
+    expect(route([bags], [])).toBe('inventory');
+    // A starter entry nobody has touched is the starter's, not Inventory's.
+    expect(route([], [], typed('bread'))).toBe('new');
+    // And one they changed is Inventory's.
+    expect(route([inventoryRow({ starterKey: 'bread', icon: 'cookie' })], [], typed('bread'))).toBe(
+      'inventory',
+    );
+    // Typed in full, a hidden item is still the person's: it was hidden from the suggestions, not taken away.
+    expect(route([{ ...bags, hidden: true }], [])).toBe('inventory');
+    expect(routeOf(context(), typed('  '))).toBeNull();
+  });
+
+  it('takes a starter entry the person changed as they changed it, and not as the catalog has it', () => {
+    const bread = inventoryRow({
+      starterKey: 'bread',
+      name: 'Sourdough loaf',
+      icon: 'cookie',
+      unit: 'pack',
+      quantity: '3',
+    });
+    const done = planned(
+      planAdd(env(), withInventory([bread]), inventorySuggestion([bread], 'sourdough l')),
+    );
+    expect(changesOf(done.mutation, 'product')[0]?.fields).toMatchObject({
+      name: 'Sourdough loaf',
+      icon: 'cookie',
+      defaultUnit: 'pack',
+      defaultQuantity: '3',
+    });
+    // By the name it still has, not the one the catalog gave it: that is a new name, which Inventory knows as the old one.
+    expect(routeOf(withInventory([bread]), typed('Bread'))?.via).toBe('new');
+  });
+
+  it('takes from another list’s product what Inventory has no value for, and nothing it has', () => {
+    const elsewhere = product({
+      listId: 'another-list',
+      name: 'Hemp milk',
+      categoryId: DAIRY,
+      defaultQuantity: '4',
+      defaultUnit: 'L',
+      icon: 'milk',
+    });
+    const bare = inventoryRow({ name: 'Hemp milk' });
+    const lent = planned(
+      planAdd(env(), withInventory([bare], { products: [elsewhere] }), typed('Hemp milk')),
+    );
+    expect(changesOf(lent.mutation, 'item')[0]?.fields).toMatchObject({
+      quantity: '4',
+      unit: 'L',
+      icon: 'milk',
+      categoryId: DAIRY,
+    });
+    const own = inventoryRow({ name: 'Hemp milk', quantity: '1', unit: 'pack', icon: 'cookie' });
+    const kept = planned(
+      planAdd(env(), withInventory([own], { products: [elsewhere] }), typed('Hemp milk'), {
+        category: { id: PRODUCE, copy: null, guessed: false },
+      }),
+    );
+    expect(changesOf(kept.mutation, 'item')[0]?.fields).toMatchObject({
+      quantity: '1',
+      unit: 'pack',
+      icon: 'cookie',
+      categoryId: PRODUCE,
+    });
+    // A category that is another list's copy is not this list's, and is never lent.
+    const copied = product({ ...elsewhere, categoryId: '99999999-0000-4000-8000-000000000009' });
+    const guessedFor = planned(
+      planAdd(env(), withInventory([bare], { products: [copied] }), typed('Hemp milk')),
+    );
+    expect(changesOf(guessedFor.mutation, 'item')[0]?.fields.categoryId).not.toBe(
+      copied.categoryId,
+    );
+  });
+
+  it('is one more of what is open on the list, as before, and the chips of an empty field add what they name', () => {
+    const milk = product({ name: 'Oat milk', categoryId: DAIRY });
+    const open = item({ productId: milk.id, quantity: '2' });
+    const done = planned(
+      planAdd(
+        env(),
+        withInventory([inventoryRow({ name: 'Oat milk' })], { products: [milk], items: [open] }),
+        typed('oat milk'),
+      ),
+    );
+    expect(done.message).toBe('Added one more Oat milk');
+    const staple = inventoryRow({ name: 'Bin bags', recurring: true });
+    const [chip] = suggest({
+      text: '',
+      products: [],
+      items: [],
+      listId: list().id,
+      inventory: layerInventory([staple]),
+    });
+    expect(chip).toMatchObject({ kind: 'inventory', name: 'Bin bags' });
+    expect(planned(planAdd(env(), withInventory([staple]), only(chip))).message).toBe(
+      'Added Bin bags',
+    );
   });
 });

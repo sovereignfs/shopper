@@ -4,6 +4,7 @@ import { moveCategory, renameCategory } from '../actions/categories';
 import type { Mutation } from '../actions/format';
 import { copyOnList, moveCopies, renameCopies } from '../actions/list-categories';
 import type { CategoryRow, ItemRow, ListCategoryRow } from '../actions/rows';
+import { OTHER } from '../catalog/categories';
 import { categoryOfNew } from '../lists/adding';
 import type { LocalDatabase } from '../local/db';
 import type { InventoryEntry } from '../catalog/inventory';
@@ -298,4 +299,42 @@ export async function categoryOnList(
     ...(own?.id === household ? { position: chosen.position } : {}),
   });
   return { id: plan.id, copy: plan.change, guessed: false };
+}
+
+/**
+ * **The category of the person's own group that a list's category stands for** (DESIGN.md §8.2: "Remember for next time" also updates the Inventory item): an item's category is a row of the
+ * list's group or a list's copy of one, neither of which is a category Inventory can name. A **starter** category is the person's own group's row for the same starter key; a **copy** is the
+ * category of theirs whose source key it carries (only the person whose category it is can make that key, `copySourceKey`, so a copy of someone else's finds none); no category is _Other_.
+ * `undefined` where there is none: a hidden or deleted category, a copy of another's, keys that are not open (waited for once, `CopyKeys.ready`, and then not held up).
+ */
+export async function ownCategoryOfListCategory(
+  db: LocalDatabase,
+  keys: CopyKeys,
+  input: { list: { id: string; householdId: string }; categoryId: string | null },
+): Promise<string | undefined> {
+  const own = (await db.getAll('household')).find((each) => each.own);
+  if (!own) return undefined;
+  const mine = (await ownerCategoriesOf(db, own.id)).filter(
+    (each) => each.deletedAt === null && !each.hidden,
+  );
+  if (input.categoryId === null) return mine.find((each) => each.starterKey === OTHER)?.id;
+  const starter = (await categoriesOf(db, input.list.householdId)).find(
+    (each) => each.id === input.categoryId,
+  );
+  if (starter?.starterKey) {
+    const key = starter.starterKey;
+    return mine.find((each) => each.starterKey === key)?.id;
+  }
+  const copy = (await db.getAllFromIndex('list_category', 'byList', input.list.id)).find(
+    (each) => each.id === input.categoryId && each.deletedAt === null,
+  );
+  if (!copy || !(await keys.encrypted(input.list.householdId))) return undefined;
+  await keys.ready?.(input.list.householdId, input.list.id);
+  const ring = await keys.ringOf(input.list.householdId, input.list.id);
+  if (!ring) return undefined;
+  for (const each of mine) {
+    if (each.starterKey !== null) continue;
+    if ((await copySourceKey(ring, input.list.id, each.id)) === copy.sourceKey) return each.id;
+  }
+  return undefined;
 }

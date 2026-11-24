@@ -1,3 +1,4 @@
+import type { InventoryEntry } from '../catalog/inventory';
 import type { Unit } from '../quantity/units';
 import { type Env, changed } from './env';
 import type { Mutation } from './format';
@@ -122,4 +123,39 @@ export function deleteInventoryItem(env: Env, row: InventoryRow): Mutation | nul
     householdId: row.householdId,
     changes: [{ table: 'inventory_item', id: row.id, fields: { deletedAt: env.now } }],
   };
+}
+
+/** The row of an Inventory entry: the starter entry's override by its key, or the item of their own by its id; none for a starter entry that has not been changed. */
+export const rowOfEntry = (
+  rows: readonly InventoryRow[],
+  entry: Pick<InventoryEntry, 'starterKey' | 'id'>,
+): InventoryRow | undefined =>
+  entry.starterKey !== null
+    ? rows.find((row) => row.starterKey === entry.starterKey && row.deletedAt === null)
+    : rows.find((row) => row.id === entry.id && row.deletedAt === null);
+
+/**
+ * **One change to an Inventory entry**, from the rows as the device holds them **now**: the entry's own row is changed (what differs, `changeInventoryItem`), and a starter entry that has
+ * no row yet gets its override from the first change. What is cleared (`null`) of an entry with no row is what the starter already has, so it makes nothing. `null` when there is nothing to
+ * write. The Inventory panel and the item's "Remember for next time" both make their changes with this, so that a change to a starter entry is one override in both.
+ */
+export function changeEntry(
+  env: Env,
+  householdId: string,
+  rows: readonly InventoryRow[],
+  entry: Pick<InventoryEntry, 'starterKey' | 'id'>,
+  fields: InventoryFields & { name?: string | null },
+): Mutation | null {
+  const row = rowOfEntry(rows, entry);
+  if (row) return changeInventoryItem(env, row, fields);
+  if (entry.starterKey === null) return null;
+  const { name: renamed, ...rest } = fields;
+  const wanted = Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== null));
+  if (typeof renamed !== 'string' && Object.keys(wanted).length === 0) return null;
+  return overrideStarterEntry(env, {
+    householdId,
+    starterKey: entry.starterKey,
+    ...(typeof renamed === 'string' ? { name: renamed } : {}),
+    ...wanted,
+  });
 }

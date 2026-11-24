@@ -3,7 +3,7 @@ import type { Env } from '../actions/env';
 import type { Change, Mutation } from '../actions/format';
 import { makeInventoryItem } from '../actions/inventory';
 import type { InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
-import { type InventoryEntry, inventoryHas } from '../catalog/inventory';
+import { type InventoryEntry, inventoryHas, layerInventory } from '../catalog/inventory';
 import { OTHER } from '../catalog/categories';
 import { canonicalName } from '../catalog/canonical';
 import { guessCategory } from '../catalog/guess';
@@ -187,34 +187,89 @@ export function planAddFromInventory(
       message: `Added ${product.name}`,
     };
   }
+  return newFromInventory(env, context, entry, category);
+}
+
+/**
+ * **A new item and a new product from an Inventory item** (the tail of both ways of adding one): the item's own fields, with its category as it is on this list (`category`; the
+ * copy of one of the person's own goes first). What Inventory has no value for is lent by **another list's product of that name**, as it lends to any new name (RFC 0004, §8.5):
+ * an empty quantity, unit or icon, and a category that was only the guess. Inventory first, then this list's products (the caller took one if the list had it), then the others'.
+ */
+function newFromInventory(
+  env: Env,
+  context: Adding,
+  entry: Pick<InventoryEntry, 'name' | 'quantity' | 'unit' | 'icon'>,
+  category: {
+    readonly id: string | null;
+    readonly copy: Change | null;
+    readonly guessed?: boolean;
+  },
+): Planned {
+  const { list, products, items, categories, me } = context;
+  const name = entry.name.trim();
+  const lent = productNamed(products, name);
+  const lendsCategory =
+    category.guessed === true &&
+    lent?.categoryId !== null &&
+    lent?.categoryId !== undefined &&
+    categories.some((each) => each.id === lent.categoryId);
+  const categoryId = lendsCategory && lent ? lent.categoryId : category.id;
+  const quantity = entry.quantity ?? lent?.defaultQuantity ?? null;
+  const mutation = addItem(env, {
+    list,
+    name,
+    ...(quantity ? { quantity } : {}),
+    unit: entry.unit ?? lent?.defaultUnit ?? null,
+    icon: entry.icon ?? lent?.icon ?? null,
+    categoryId,
+    last: lastPositionIn(items, categoryId),
+    by: me,
+  });
   return {
     // The copy first: what names it is checked against the list's copies as the mutation is applied, in order.
-    mutation: withCopy(
-      addItem(env, {
-        list,
-        name,
-        ...(entry.quantity ? { quantity: entry.quantity } : {}),
-        unit: entry.unit,
-        icon: entry.icon,
-        categoryId: category.id,
-        last: lastPositionIn(items, category.id),
-        by: me,
-      }),
-    ),
+    mutation:
+      category.copy && !lendsCategory
+        ? { ...mutation, changes: [category.copy, ...mutation.changes] }
+        : mutation,
     message: `Added ${name}`,
   };
 }
 
-/** What to do for a suggestion, or why nothing can be. */
-export function planAdd(
-  env: Env,
+/** Where an add comes from, decided by name when its turn comes (`routeOf`). */
+export type Route =
+  | { readonly via: 'product'; readonly product: ProductRow }
+  | { readonly via: 'inventory'; readonly entry: InventoryEntry }
+  | { readonly via: 'template'; readonly template: ProductRow }
+  | { readonly via: 'new' };
+
+/** The Inventory entry the person has a row for that a suggestion is: by the key it carries, else by the name the entry has now (canonical). A starter entry they have not touched is the starter's. */
+function entryFor(
   context: Adding,
   suggestion: Suggestion,
-): Planned | Refused | null {
-  const { list, products, items, categories, me } = context;
+  name: string,
+): InventoryEntry | undefined {
+  if (!context.inventory) return undefined;
+  const entries = layerInventory(context.inventory.rows);
+  const keyed =
+    suggestion.kind === 'inventory' && suggestion.entryKey
+      ? entries.find((each) => each.key === suggestion.entryKey && each.id !== null)
+      : undefined;
+  if (keyed) return keyed;
+  const wanted = canonicalName(name);
+  return entries.find((each) => each.id !== null && canonicalName(each.name) === wanted);
+}
+
+/**
+ * **Where an add comes from, by name and not by the kind of suggestion**, from what the device holds when the add's turn comes (a suggestion was drawn a moment before, and
+ * a product may have been made since): **this list's product** of that name; else **the person's Inventory item** of it (one they made or changed: an untouched starter entry
+ * is the starter's, below); else **another list's product**, which lends what it comes with; else the starter catalog, else the guess. Typed text goes the same way as a
+ * suggestion, so that a name Inventory has is its item whichever way it was chosen. `null` for no name. Pure, and what the add field asks to know whether it must work out
+ * the item's category (`categoryOnList`, which needs the keys) before it plans.
+ */
+export function routeOf(context: Adding, suggestion: Suggestion): Route | null {
+  const { list, products } = context;
   const name = suggestion.name.trim();
   if (name === '' || normaliseName(name) === '') return null;
-
   // A product of this list's catalog, whichever way it was chosen (a typed name that is an existing product is that product). Another list's product is
   // never used (RFC 0004, 21.3): it lends its name and what it comes with to a new product of this list.
   const ownCatalog = products.filter((each) => each.listId === list.id || each.listId === null);
@@ -226,7 +281,38 @@ export function planAdd(
     chosen && (chosen.listId === list.id || chosen.listId === null)
       ? chosen
       : productNamed(ownCatalog, chosen?.name ?? name);
-  const template = product ? undefined : (chosen ?? productNamed(products, name));
+  if (product) return { via: 'product', product };
+  const entry = entryFor(context, suggestion, chosen?.name ?? name);
+  if (entry) return { via: 'inventory', entry };
+  const template = chosen ?? productNamed(products, name);
+  return template ? { via: 'template', template } : { via: 'new' };
+}
+
+/**
+ * What to do for a suggestion, or why nothing can be. `resolved` is the category an Inventory item takes on this list, which the caller works out when `routeOf` says the add is
+ * one (`categoryOnList`: it may need a copy of one of the person's own categories, made under the list's keys); without it the item takes the guess.
+ */
+export function planAdd(
+  env: Env,
+  context: Adding,
+  suggestion: Suggestion,
+  resolved?: { readonly category: { id: string | null; copy: Change | null; guessed?: boolean } },
+): Planned | Refused | null {
+  const { products, items, categories, me, list } = context;
+  const route = routeOf(context, suggestion);
+  if (!route) return null;
+  const name = suggestion.name.trim();
+  if (route.via === 'product') return addOfProduct(env, context, route.product);
+  // **A new product made from an Inventory item** (RFC 0006): its name, quantity, unit and icon, and its category as it is on this list. No Inventory item is made: it is there.
+  if (route.via === 'inventory') {
+    const guess = {
+      id: categoryOfNew(route.entry.name, products, categories),
+      copy: null,
+      guessed: true,
+    };
+    return newFromInventory(env, context, route.entry, resolved?.category ?? guess);
+  }
+  const template = route.via === 'template' ? route.template : undefined;
   if (template) {
     // Another list's product lends what it comes with, but **a category only if it is one of this list's** (§8.3): a copy of a person's category is the list it is on's, and the
     // server refuses an item that names another's. A starter category is every list's of the group.
@@ -253,7 +339,6 @@ export function planAdd(
       }),
     };
   }
-  if (product) return addOfProduct(env, context, product);
 
   // Something new: a starter entry brings its icon, unit and quantity, and text typed brings only itself.
   const entry =

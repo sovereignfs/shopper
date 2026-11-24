@@ -231,6 +231,84 @@ test('"Remember for next time" teaches the product, so that the next add comes r
   await expect(page.getByRole('region', { name: 'Pantry' })).toContainText('Zorblax');
 });
 
+interface InventoryRow {
+  starterKey: string | null;
+  name: string | null;
+  categoryId: string | null;
+  icon: string | null;
+  unit: string | null;
+  deletedAt: number | null;
+}
+const inventoryRows = async (page: Page): Promise<InventoryRow[]> =>
+  (await deviceRows<InventoryRow>(page, await accountOf(page), 'inventory_item')).filter(
+    (row) => row.deletedAt === null,
+  );
+
+test('"Remember for next time" can also update the Inventory item, once, when asked, and leaves Inventory alone when not', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  const field = page.getByRole('combobox', { name: 'Add an item' });
+  await field.focus({ timeout: 15_000 });
+  for (const name of ['Banana', 'Apple']) {
+    await page.keyboard.type(name);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('checkbox', { name: new RegExp(name) })).toBeVisible();
+  }
+
+  // Not asked: the product learns, Inventory is not touched. Apple is a starter entry the person has not changed, so it has no row, and still has none.
+  await page.getByRole('button', { name: 'Edit Apple' }).click();
+  await expect(
+    panel(page).getByRole('switch', { name: 'Also update Inventory' }),
+  ).not.toBeChecked();
+  await panel(page).getByLabel('Category').selectOption({ label: 'Pantry' });
+  await synced(page);
+  expect(await inventoryRows(page)).toEqual([]);
+
+  // Asked, and two quick changes in one instant to an entry with no row yet (the category and the unit, as one press of a person's two hands could be): one override that holds both.
+  // The category is the person's own group's row of the same starter category.
+  await page.getByRole('button', { name: 'Edit Banana' }).click();
+  await panel(page).getByRole('switch', { name: 'Also update Inventory' }).click();
+  await expect(panel(page).getByRole('switch', { name: 'Also update Inventory' })).toBeChecked();
+  await page.evaluate(() => {
+    const open = document.querySelector('aside[aria-label^="Item:"]');
+    const set = (label: string, text: string) => {
+      const select = [...(open?.querySelectorAll('select') ?? [])].find(
+        (each) => each.labels?.[0]?.textContent === label,
+      );
+      if (!select) throw new Error(`no ${label}`);
+      const option = [...select.options].find((each) => each.text === text || each.value === text);
+      if (!option) throw new Error(`no ${text}`);
+      // React listens for the change event, and a controlled select takes its value from the native setter.
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(
+        select,
+        option.value,
+      );
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    set('Category', 'Dairy & eggs');
+    set('Unit', 'pack');
+  });
+  const account = await accountOf(page);
+  await expect
+    .poll(async () => (await inventoryRows(page)).filter((row) => row.starterKey === 'banana'), {
+      timeout: 15_000,
+    })
+    .toHaveLength(1);
+  const dairy = (
+    await deviceRows<{ id: string; starterKey: string | null }>(page, account, 'category')
+  ).find((row) => row.starterKey === 'dairy-eggs');
+  await expect
+    .poll(async () => (await inventoryRows(page)).find((row) => row.starterKey === 'banana'), {
+      timeout: 15_000,
+    })
+    .toMatchObject({ unit: 'pack', categoryId: dairy?.id });
+  expect((await inventoryRows(page)).filter((row) => row.starterKey !== null)).toHaveLength(1);
+  await synced(page);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
+});
+
 test('Delete takes the item off at once, and Undo brings it back', async ({ page, baseURL }) => {
   await signedUpWith(page, baseURL, [{ name: 'Bread', category: 'bakery' }]);
   await page.getByRole('button', { name: 'Edit Bread' }).click();

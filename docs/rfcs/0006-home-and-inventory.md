@@ -125,8 +125,16 @@ time", §9.4, also offering to update the Inventory item); merging a list's prod
    person's own when the one moving it holds that category, and otherwise takes the starter category its name guesses, or _Other_; two people's categories of one name are two copies.
    DESIGN.md §8.3 and decision 17 say it.
 7. **Add to a list:** an item added from Inventory takes **what the person set in Inventory** (its category, icon, unit and quantity) over what a product of that name on the list
-   remembers, which is left as it is; what Inventory has no value for is the product's; one more of what is open is still one more. The Inventory note is not carried to a list.
+   remembers, which is left as it is; what Inventory has no value for is the product's, or, where the list has none, another list's product of the name lends it; one more of what is open is still one more. The Inventory note is not carried to a list.
    DESIGN.md §16.8 says it.
 8. **A category's copies follow it:** renaming one of the person's own categories in Inventory renames its copies on the lists they are Admin of, and **moving it moves its copies on
    their own lists** (a copy's place is a key in its list's group's aisle order, which is the person's own only in their own group); **a copy made afterwards is where the category is,**
    in their own group, and last in another person's. DESIGN.md §8.3 and §16.8 say it.
+9. **Suggestions from Inventory** (task 23.5): the add field offers the person's own Inventory first (their items, and the starter's entries they changed), then this list's products, then the
+   group's other lists'; **the starter entries they have not touched follow what is theirs** (a name nobody has used is not put before one they buy); a name is one suggestion; **a hidden entry
+   is offered nowhere, and neither is a product that goes by its name**; a renamed starter entry is offered by its new name and not its old (a product that still has the old name is the list's own, and is offered as it is). **Where the list already has a product of the
+   name, the product's memory is used** (the list's own catalog, §8.2), and a new product is made from the Inventory item only where there is none; this differs from _Add to a list_ in Inventory
+   on purpose, which is the person saying what they want. DESIGN.md §8.5 says it.
+10. **"Remember for next time" and Inventory** (task 23.5): an item's panel offers **Also update Inventory** with it, for an item whose name Inventory has, **off** until the person says (it is
+    their own library, and a change on a list is not a change to it unless they ask); it gives the entry the category, icon and unit the item was given, as a separate mutation to their own group,
+    a category on a list being turned into the person's own one (a starter category by its key, a copy of theirs by its source key; a copy of another's names none). DESIGN.md §8.2 says it.

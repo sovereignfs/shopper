@@ -748,3 +748,85 @@ test('on a phone an entry is a page of its own, and the back arrow returns to In
   await expect(screen(page)).toBeVisible();
   await expect(page).toHaveURL('/inventory');
 });
+
+test('the add field offers Inventory first: a renamed starter entry by its new name, a hidden one nowhere, and a recurring item first when the list is empty', async ({
+  page,
+  baseURL,
+}) => {
+  test.slow();
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory');
+  await waitMoved(page, baseURL ?? '');
+  const plainBread = page.getByRole('button', { name: 'Bread', exact: true });
+  await expect(plainBread).toBeVisible({ timeout: 30_000 });
+
+  // Bread is renamed (a starter entry kept, by its key, with a name of the person's), Banana is hidden, and Zorblax paste is an item of their own that comes again.
+  await plainBread.click();
+  const bread = panel(page, 'Inventory: Bread');
+  await bread.getByLabel('Name').fill('Sourdough loaf');
+  await bread.getByLabel('Name').press('Enter');
+  await expect
+    .poll(async () => (await rowsOf(page)).find((row) => row.starterKey === 'bread')?.name, {
+      timeout: 10_000,
+    })
+    .toBe('Sourdough loaf');
+  await entry(page, 'Banana').click();
+  await panel(page, 'Inventory: Banana').getByRole('button', { name: 'Hide' }).click();
+  await expect
+    .poll(async () => (await rowsOf(page)).find((row) => row.starterKey === 'banana')?.hidden, {
+      timeout: 10_000,
+    })
+    .toBe(true);
+  await page.getByRole('button', { name: 'Add item' }).first().click();
+  await panel(page, 'New item of Inventory').getByLabel('Name').fill('Zorblax paste');
+  await panel(page, 'New item of Inventory').getByRole('button', { name: 'Add item' }).click();
+  const powder = panel(page, 'Inventory: Zorblax paste');
+  await powder.getByRole('switch', { name: 'Recurring' }).click();
+  await powder.getByLabel('Quantity').fill('2');
+  await powder.getByLabel('Quantity').blur();
+  await expect
+    .poll(async () => (await rowsOf(page)).find((row) => row.name === 'Zorblax paste'), {
+      timeout: 10_000,
+    })
+    .toMatchObject({ recurring: true, quantity: '2' });
+
+  // The list is empty, so it offers what the person has marked as coming again, first, and adding it is one tap.
+  await sidebar(page).getByRole('link', { name: 'Groceries' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  const often = page.getByRole('region', { name: 'Often bought' });
+  await expect(often.getByRole('button').first()).toHaveText('Zorblax paste', {
+    timeout: 15_000,
+  });
+  await often.getByRole('button', { name: 'Zorblax paste' }).click();
+  await expect(page.getByRole('checkbox', { name: /Zorblax paste/ })).toBeVisible();
+  await expect.poll(async () => (await placed(page, 'Zorblax paste')).length).toBe(1);
+  expect((await placed(page, 'Zorblax paste'))[0]).toMatchObject({ quantity: '2' });
+
+  // Typing: the renamed entry is offered by its new name, first, and not by the name it had; the hidden one is not offered at all, though typing it in full still adds it.
+  const field = page.getByRole('combobox', { name: 'Add an item' });
+  await field.fill('sour');
+  await expect(page.getByRole('option').first()).toContainText('Sourdough loaf');
+  await field.fill('brea');
+  await expect(page.getByRole('option', { name: /Bread rolls/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /^Bread(?! rolls)/ })).toHaveCount(0);
+  await field.fill('banan');
+  await expect(page.getByRole('option', { name: /Add “banan”/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /^Banana/ })).toHaveCount(0);
+  await field.fill('sour');
+  await expect(page.getByRole('option').first()).toContainText('Sourdough loaf');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('checkbox', { name: /Sourdough loaf/ })).toBeVisible();
+  // It was made from the Inventory item: the starter's icon and unit, under its aisle, in this list's own product, and nothing more in Inventory.
+  await expect.poll(async () => (await placed(page, 'Sourdough loaf')).length).toBe(1);
+  expect((await placed(page, 'Sourdough loaf'))[0]).toMatchObject({
+    unit: 'pcs',
+    icon: 'croissant',
+  });
+  expect((await rowsOf(page)).filter((row) => row.name === 'Sourdough loaf')).toHaveLength(1);
+  const account = await accountOf(page);
+  await expect
+    .poll(async () => (await deviceRows(page, account, 'outbox')).length, { timeout: 30_000 })
+    .toBe(0);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
+});

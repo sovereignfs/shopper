@@ -16,12 +16,11 @@ import {
 import type { Env } from '../actions/env';
 import {
   type InventoryFields,
-  changeInventoryItem,
+  changeEntry,
   deleteInventoryItem,
   makeInventoryItem,
-  overrideStarterEntry,
+  rowOfEntry,
 } from '../actions/inventory';
-import type { InventoryRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { type InventoryEntry, entryNamed, layerInventory } from '../catalog/inventory';
 import { categoryOfEntry } from '../inventory/screen';
@@ -37,15 +36,6 @@ import styles from './InventoryPanel.module.css';
 import { useUndo } from './Undo';
 
 const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
-
-/** The row of an Inventory entry: the starter entry's override by its key, or the item of their own by its id; none for a starter entry that has not been changed. */
-const rowOfEntry = (
-  rows: readonly InventoryRow[],
-  entry: InventoryEntry,
-): InventoryRow | undefined =>
-  entry.starterKey !== null
-    ? rows.find((row) => row.starterKey === entry.starterKey && row.deletedAt === null)
-    : rows.find((row) => row.id === entry.id && row.deletedAt === null);
 
 /**
  * **An Inventory entry beside the screen** (DESIGN.md §16.8): its name, category, icon, unit, quantity, note, whether it is recurring or once, hide or restore, and delete (or, for a
@@ -91,27 +81,16 @@ export function InventoryPanel({
     queue.current = queue.current.then(task).catch(() => undefined);
   }
 
-  /** The values a change gives, for an entry of the starter that has no row yet: what is cleared (`null`) is what the starter already has, so it makes nothing. */
-  const given = (fields: InventoryFields): InventoryFields =>
-    Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null));
-
-  /** One change to this entry, from the row as the device holds it now. A starter entry's first change makes its override. */
+  /** One change to this entry, from the rows as the device holds them now. A starter entry's first change makes its override. */
   async function apply(fields: InventoryFields & { name?: string | null }) {
     if (!client) return;
-    const row = rowOfEntry(await client.read(inventoryOf), entry);
-    let mutation = null;
-    if (row) mutation = changeInventoryItem(env(), row, fields);
-    else if (entry.starterKey !== null) {
-      const { name: renamed, ...rest } = fields;
-      const wanted = given(rest);
-      if (typeof renamed === 'string' || Object.keys(wanted).length > 0)
-        mutation = overrideStarterEntry(env(), {
-          householdId: data.household,
-          starterKey: entry.starterKey,
-          ...(typeof renamed === 'string' ? { name: renamed } : {}),
-          ...wanted,
-        });
-    }
+    const mutation = changeEntry(
+      env(),
+      data.household,
+      await client.read(inventoryOf),
+      entry,
+      fields,
+    );
     if (mutation) await client.commit(mutation);
   }
 

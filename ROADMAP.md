@@ -315,7 +315,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | 115 | [23.2](docs/epics/inventory.md) | Home                     | P1       | 23.1, 22.3, 22.11 | ✅     |
 | 116 | [23.3](docs/epics/inventory.md) | Inventory: the data      | P1       | 23.1              | ✅     |
 | 117 | [23.4](docs/epics/inventory.md) | Inventory: the screen    | P1       | 23.3, 22.6, 22.11 | ✅     |
-| 118 | [23.5](docs/epics/inventory.md) | Inventory in suggestions | P1       | 23.3              | 📋     |
+| 118 | [23.5](docs/epics/inventory.md) | Inventory in suggestions | P1       | 23.3              | ✅     |
 
 ### Milestone Z — Loyalty cards, and the release
 

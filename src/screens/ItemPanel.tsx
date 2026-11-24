@@ -20,11 +20,14 @@ import type { ItemRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { addQuantity, isQuantity, subtractQuantity } from '../quantity/decimal';
 import { UNITS, isUnit, stepFor, type Unit } from '../quantity/units';
+import { entryNamed } from '../catalog/inventory';
 import { carryCategoryOnMove, copyKeysOf } from '../keys/copies';
+import { rememberInInventory } from '../lists/remember-on-device';
 import { type ListData, listViewOf } from '../local/listview';
 import { useFormat } from '../account/AccountProvider';
 import { useLocal } from '../local/react';
 import styles from './ItemPanel.module.css';
+import { useInventoryEntries } from './useAdder';
 
 type Found = Extract<ListData, { found: true }>;
 
@@ -33,7 +36,8 @@ const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
 /**
  * **An item**, beside its list (RFC 0005, DESIGN.md §16.7, §9.4): the content of the right column that is there while `?item=<id>` is set, and a page of
  * its own on a phone. Name, quantity (the stepper moves it by the unit's step, in exact decimals) with its unit, category, icon, note, which list of the
- * household it is on, and **Remember for next time** (on), which teaches the product the category, icon and unit.
+ * household it is on, and **Remember for next time** (on), which teaches the product the category, icon and unit, and offers to **update the Inventory item** of the name too (off:
+ * it is the person's own library, and a change on a list is not a change to it unless they say so).
  *
  * **There is no Save: a field is written as it is left** (a choice at once; the name and the note when focus moves on, the name also on Enter), as Tusk's
  * card is, each as one change of that field alone, so that what someone else changed in another field is not written over. Nothing offers Undo for these,
@@ -63,7 +67,13 @@ export function ItemPanel({
   const [name, setName] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
+  // Offered with Remember, for an item whose name Inventory has: off until the person says (DESIGN.md §8.2).
+  const [inInventory, setInInventory] = useState(false);
+  const entries = useInventoryEntries();
+  const inventoryEntry = entries ? entryNamed(entries, product?.name ?? item.name) : undefined;
   const panel = useRef<HTMLElement>(null);
+  /** Updates to Inventory are made one after another, each from the rows as the device holds them when its turn comes: the second of two quick edits to an untouched starter entry is a change of the override the first made. */
+  const inventoryLine = useRef<Promise<void>>(Promise.resolve());
 
   // Opened, focus moves into the panel; closed, it goes back to what opened it, which is the edit button for a keyboard (a tap leaves it on the page).
   useEffect(() => {
@@ -135,6 +145,41 @@ export function ItemPanel({
     }
     const mutation = editItem(env(), item, edit, learn, catalog);
     if (mutation) void client?.commit(mutation);
+    // The category, icon or unit the item was given, also given to its Inventory item when the person asked: a mutation to their own group, after the item's, in its own line.
+    if (
+      client &&
+      mutation &&
+      learn &&
+      inInventory &&
+      inventoryEntry &&
+      (edit.categoryId !== undefined || edit.icon !== undefined || edit.unit !== undefined)
+    ) {
+      const { categoryId, icon, unit } = edit;
+      const name = product?.name ?? item.name;
+      inventoryLine.current = inventoryLine.current
+        .then(() =>
+          rememberInInventory(
+            client.db,
+            copyKeysOf(keysOf),
+            env(),
+            {
+              list: { id: item.listId, householdId: item.householdId },
+              name,
+              edit: {
+                ...(categoryId !== undefined ? { categoryId } : {}),
+                ...(icon !== undefined ? { icon } : {}),
+                ...(unit !== undefined ? { unit } : {}),
+              },
+            },
+            (change) => client.commit(change),
+          ),
+        )
+        // What could not be written to Inventory (a limit, a group the device has not heard of) is not for the person to hear of while they edit an item.
+        .then(
+          () => undefined,
+          () => undefined,
+        );
+    }
   }
 
   const shownName = name ?? item.name;
@@ -319,6 +364,22 @@ export function ItemPanel({
             <span>
               Remember for next time
               <small>The category, icon and unit are used the next time you add it.</small>
+            </span>
+          </div>
+        ) : null}
+        {product && remember && inventoryEntry ? (
+          <div className={styles.remember}>
+            <Toggle
+              aria-label="Also update Inventory"
+              checked={inInventory}
+              onChange={setInInventory}
+            />
+            <span>
+              Also update Inventory
+              <small>
+                {inventoryEntry.name} in your Inventory gets the category, icon and unit you choose
+                here too.
+              </small>
             </span>
           </div>
         ) : null}

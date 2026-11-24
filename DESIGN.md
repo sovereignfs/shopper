@@ -436,7 +436,11 @@ phase 4), the **last unit price** and the unit it was for, how many times it has
   by default (§9.4). Its name, quantity, note and price are the item's own; the price also updates the product's last unit price when the item is
   bought (§10.4).
 - **A product is tidied where it is used,** from an item's panel (§16.7): its "Remember for next time" (§9.4) writes the product, and offers to update
-  the person's Inventory item too. **A product is merged or deleted** (phase 2, 5.6). Merging two (_Oatmilk_ into _Oat milk_) points every item and trip line
+  the person's Inventory item too (**Also update Inventory**, shown with it for an item whose name Inventory has, **off** until the person says: Inventory is their own library, and a
+  change on a list is not a change to it unless they ask). It gives the entry the category, icon and unit the item was given, those that differ from what it has, as a **separate mutation to the
+  person's own group** after the item's (the item may be on a list in another person's group; one of their lists' starter categories is their own group's row of the same key, the list's copy of a
+  category of theirs is that category, found by its source key, and a copy of anyone else's names none, so only the icon and unit are given), one after another in a line of writes, each planned from the rows as they are then (a starter entry with no
+  row gets its override from the first, and the second changes it). **A product is merged or deleted** (phase 2, 5.6). Merging two (_Oatmilk_ into _Oat milk_) points every item and trip line
   of one at the other, in one mutation. Deleting a product with open items is refused with a sentence; its trip lines keep their names.
 
 ### 8.3 Categories and aisle order
@@ -500,19 +504,31 @@ larger set arrives in phase 2 with a larger starter catalog (4.8).
 The add field (§16.6) suggests as the person types, from one pure function (`src/catalog/suggest.ts`), on the device, offline, drawing from, in this
 order: **the person's Inventory** (§8.8, with the starter entries it does not hide), **this list's products**, and **the person's other lists'
 products** (another list's product lends its quantity, unit, category and icon to a new product of this list, and is never itself used, §8.2); and,
-from phase 2, the last 180 days of trip lines:
+from phase 2, the last 180 days of trip lines. **One name is one suggestion** (by canonical name): an Inventory item the list has a product of is that product
+(with what it remembers, and "On the list" when it is open), one it has none of is offered as the Inventory item, and a name two of the group's lists have a product of is
+this list's.
 
-1. **Matches:** the entries whose normalised name starts with what was typed, then those with a word that does, then those within one edit of it.
-   **A hidden starter entry is never offered,** and a starter entry the person renamed is offered by its new name, not its old.
+1. **Matches:** the entries whose normalised name starts with what was typed, then those with a word that does, then those within one edit of it (a starter
+   entry is also matched by its aliases). **A hidden entry is never offered, nor is a product that goes by its name,** and **a starter entry the person renamed is offered by its
+   new name, not its old** (a product that still has the old name is the list's own, with its history and open items, and is offered as it is).
 2. **Ranked** within each tier by how often it was bought in the last 180 days, with recent buys counting more (a weight halving every 30
-   days), then by when it was last added, then alphabetically. **In 0.1.0, which has no trip lines,** "how often" is the product's count of
-   times bought, then when it was last bought (§8.2); the decayed count over trip lines arrives with trips (7.1).
+   days), then by when it was last added, then an Inventory item before a product of this list before another list's, then alphabetically. **In 0.1.0, which has no trip lines,** "how
+   often" is the product's count of times bought, then when it was last bought (§8.2); the decayed count over trip lines arrives with trips (7.1). A name that has no product has
+   none of these. **The starter entries the person has not touched and has no product for come after everything that is theirs,** in the same tiers: a name nobody has used is not
+   put before one they buy.
 3. **Already on this list:** a match open on the list shows "On the list · 2" and choosing it offers _+1_ rather than a second row (§9.3).
 4. **Always last,** "Add _what was typed_" as a new item, so nobody is stuck when nothing matches.
 
 At most eight are shown. Nothing about ranking is stored: it is computed from the rows the device already holds. With an empty field, the add field
 offers **the person's recurring Inventory items not on the list first** (what staples were to be, §22.2), then the most often bought products not on
-the list ("Often bought").
+the list ("Often bought"); a hidden item is in neither.
+
+**What an add makes is decided by name when it is made,** not by the kind of suggestion that was chosen (a product may have been made since it was drawn): this list's product of
+the name, else the person's Inventory item of it (one they made or changed; a starter entry they have not touched is the starter's), else another list's product, else the starter
+catalog, else the guess. A new product made from an Inventory item takes its name, quantity, unit and icon and its category as it is on this list (§8.3: the list's copy of one of
+the person's own, made in the same mutation and first), and what Inventory has no value for comes from another list's product of the name. **Where the list already has the
+product, what the product remembers is used** (it is the list's own catalog, §8.2); this is the one place where it differs from _Add to a list_ in Inventory (§16.8), which is
+the person saying what they want from Inventory.
 
 ### 8.6 The starter catalog
 
@@ -1288,7 +1304,8 @@ The field at the top of a list (and in shopping mode), built on `SuggestionInput
 - **A quantity can be typed with the name (phase 2, 4.5):** "2 oat milk", "oat milk 2l", "500 g flour" (`src/catalog/parse.ts`, pure, English number words and the
   unit list). What it understood shows in the suggestion before it is added.
 - **Adding keeps the field focused and empty,** so a list is typed as fast as a person thinks.
-- **With nothing typed,** "Often bought" chips (§8.5).
+- **With nothing typed,** "Often bought" chips (§8.5): the person's recurring Inventory items first, then what is bought most. They are shown where a list has nothing on it, as they were; a
+  list that has items does not show them under the field.
 
 ### 16.7 An item
 
@@ -1298,7 +1315,7 @@ the list, with a back arrow. The address stays `?item=<id>` either way.
 
 Its fields: name; quantity with `QuantityStepper` and the unit `Select`; category; icon (`IconPicker`); note; price (phase 2; `CurrencyInput`, with
 the unit price under it once there is a quantity); list (to move it to another of the person's lists: it takes that list's product of its name, or
-one made there, and its name and note are encrypted again for it, §13.1); "Remember for next time" (§9.4). **Each field saves as it is left,** with
+one made there, and its name and note are encrypted again for it, §13.1); "Remember for next time" (§9.4) and, with it, "Also update Inventory". **Each field saves as it is left,** with
 no Save, as Tusk's card; **Delete** is a quiet text action, with _Undo_ (§12.7). Who added it and when, and if bought, who and in which trip, at the
 foot.
 
@@ -1313,7 +1330,8 @@ list's own products are tidied where they are used, from an item's panel (§16.7
   quantity, unit and icon and its category as it is on that list: a starter category is that list's group's row, a category of their own is the list's copy of it, made in the same change
   where there is none (§8.3), and an item with no category, or whose category is hidden or deleted, takes the guess its name says. **What the person set in Inventory wins** over what a
   product of that name on the list remembers (the owner's decision, 2026-11-24): the item takes Inventory's category, icon, unit and quantity, the product is left as it is, and what
-  Inventory has no value for (an empty field, a category it had only the guess for) is the product's. One more of what is open is still one more. The Inventory note is the person's and
+  Inventory has no value for (an empty field, a category it had only the guess for) is the product's, or, where the list has none, **another list's product of the name** lends it, as it
+  lends to any new name (§8.2). One more of what is open is still one more. The Inventory note is the person's and
   is not carried to a list.
 - **Categories:** the aisle order as a draggable list (`DragHandleRow`, a keyboard way too: Space lifts, the arrows move, Space drops), each with rename, icon and hide or show;
   _Add category_ at the end (§8.3). A starter category is renamed, hidden and moved, never deleted, and takes its usual name back (by emptying its name or a button); _Other_ is never

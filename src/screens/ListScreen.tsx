@@ -19,8 +19,7 @@ import { clearBought, tickItem, untickItem } from '../actions/items';
 import type { Mutation } from '../actions/format';
 import type { ItemRow } from '../actions/rows';
 import { isGroceryIcon } from '../catalog/icons';
-import { type Suggestion, suggest } from '../catalog/suggest';
-import { planAdd } from '../lists/adding';
+import { suggest } from '../catalog/suggest';
 import { readView, type View, writeView } from '../lists/view-preference';
 import { type ListData, listViewOf, rememberList } from '../local/listview';
 import { useLocal, useLocalQuery } from '../local/react';
@@ -44,6 +43,7 @@ import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
 import { useTitle } from './title';
 import { useUndo } from './Undo';
+import { useAdder, useInventoryEntries } from './useAdder';
 
 /**
  * A list, from the device (DESIGN.md §16.5): its name and a menu, the open items **by aisle** (or in the order added), each a row that ticks as a whole,
@@ -543,7 +543,10 @@ function Bought({
   );
 }
 
-/** Nothing on the list: what the household buys most, as chips, so that the first thing is one tap. */
+/**
+ * Nothing on the list: **what the person's recurring Inventory items that are not on it, then what the household buys most**, as chips, so that the first thing is one tap
+ * (DESIGN.md §8.5, `suggest` with nothing typed). Added the way the add field adds (`useAdder`), from what the device holds when the tap is heard.
+ */
 function Empty({
   data,
   change,
@@ -551,16 +554,16 @@ function Empty({
   data: Found;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
-  const { list, products, items, categories, me } = data;
-  const often = suggest({ text: '', products, items }).filter(
-    (each): each is Suggestion & { productId: string } =>
-      each.kind === 'product' && each.productId !== undefined,
-  );
-  const add = (suggestion: Suggestion & { productId: string }) => {
-    if (!me) return;
-    const planned = planAdd(env(), { list, products, items, categories, me }, suggestion);
-    if (planned && 'mutation' in planned) return change(planned.mutation, planned.message);
-  };
+  const { list, products, items } = data;
+  const inventory = useInventoryEntries();
+  const { add } = useAdder({ data, change });
+  const often = suggest({
+    text: '',
+    products,
+    items,
+    listId: list.id,
+    ...(inventory ? { inventory } : {}),
+  }).filter((each) => each.kind === 'product' || each.kind === 'inventory');
   return (
     <div className={styles.empty}>
       <EmptyState
@@ -575,8 +578,8 @@ function Empty({
           <h2 className={styles.category}>Often bought</h2>
           <ul className={styles.chips}>
             {often.map((each) => (
-              <li key={each.productId}>
-                <button type="button" className={styles.chip} onClick={() => void add(each)}>
+              <li key={each.productId ?? each.entryKey ?? each.name}>
+                <button type="button" className={styles.chip} onClick={() => add(each)}>
                   {each.name}
                 </button>
               </li>
