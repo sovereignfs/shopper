@@ -503,12 +503,17 @@ async function openAnswer(
   return { ...answer, households };
 }
 
-const TABLE_OF: Record<'lists' | 'items' | 'products' | 'inventory' | 'categories', SyncedTable> = {
+const TABLE_OF: Record<
+  'lists' | 'items' | 'products' | 'inventory' | 'categories' | 'listCategories',
+  SyncedTable
+> = {
   lists: 'list',
   items: 'item',
   products: 'product',
   inventory: 'inventory_item',
   categories: 'category',
+  // A list's copy of a person's category (§8.3): its name is for its list, under the list's keys, like an item's.
+  listCategories: 'list_category',
 };
 
 /** Every row of a moved group's pull, its content opened under its list's keys; `undefined` if a value does not open, so that none of the page is taken. */
@@ -520,7 +525,7 @@ export async function openPull(
   const aliasesOf = (table: SyncedTable, row: string) =>
     pull.aliases.filter((each) => each.table === table && each.to === row).map((each) => each.from);
   const out: Record<
-    'lists' | 'items' | 'products' | 'inventory' | 'categories',
+    'lists' | 'items' | 'products' | 'inventory' | 'categories' | 'listCategories',
     Record<string, unknown>[]
   > = {
     lists: [],
@@ -528,8 +533,16 @@ export async function openPull(
     products: [],
     inventory: [],
     categories: [],
+    listCategories: [],
   };
-  for (const key of ['lists', 'items', 'products', 'inventory', 'categories'] as const) {
+  for (const key of [
+    'lists',
+    'items',
+    'products',
+    'inventory',
+    'categories',
+    'listCategories',
+  ] as const) {
     const table = TABLE_OF[key];
     for (const row of pull[key] ?? []) {
       const { encrypted, ...rest } = row as Record<string, unknown> & {

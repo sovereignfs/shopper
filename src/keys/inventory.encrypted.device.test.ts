@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, join, somebody, type Someone } from '../access/test-support';
 import type { Env } from '../actions/env';
 import { makeCategory, renameCategory } from '../actions/categories';
-import type { Mutation, SyncedTable } from '../actions/format';
+import type { Mutation } from '../actions/format';
 import {
   changeInventoryItem,
   deleteInventoryItem,
@@ -21,6 +21,7 @@ import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { SyncClient } from '../local/client';
 import { type LocalDatabase, deleteLocal, localName, openLocal } from '../local/db';
+import { rowListOf } from '../local/row-list';
 import { failedOf, inventoryOf, ownerCategoriesOf } from '../local/store';
 import { type Wire, serverTransport } from '../local/test-support';
 import type { EndpointDeps } from '../sync/endpoint';
@@ -97,13 +98,7 @@ async function deviceOf(who: Someone, key: CryptoKey) {
       serverTransport(deps, who, wire),
       { appKey: () => key },
       memory,
-      async (table: SyncedTable, id: string) => {
-        if (table !== 'item' && table !== 'product') return undefined;
-        const shadow = await db.get('shadow', [table, id]);
-        const row = shadow ? shadow.row : await db.get(table, id);
-        const list = (row as { listId?: string | null } | null | undefined)?.listId;
-        return typeof list === 'string' ? list : undefined;
-      },
+      rowListOf(db),
       undefined,
       async (id) => {
         const item = await db.get('item', id);

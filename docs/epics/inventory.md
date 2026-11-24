@@ -135,7 +135,7 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   device always sends the key; (c) **the move's body is capped at 2 MiB** (`MAX_BODY`), shared with the rest: a group at its limits for products and Inventory together may not fit, and the Mover then
   waits ("later") without saying why, which is an open question for the owner and no worse than it was for products; (d) a person whose own group has a shared list does not move (existing rule,
   §13.7), so their Inventory stays sealed by the server with the rest.
-- **Left to do, so 23.3 is not ✅:** (5) **A person's own categories and `list_category`**, in two parts, **settled with the owner on 2026-11-24:** a list's copy says what it copies by a **source key**
+- **Step 5, done in four commits (5a twice, 5b twice, below): a person's own categories and `list_category`, settled with the owner on 2026-11-24:** a list's copy says what it copies by a **source key**
   (an HMAC the device makes under the list's keys from the category's id, unique on the list), **not by `category_id`**, which on a shared list would aim at a row of another person's group (DESIGN.md
   §8.3, §20.3, decision 15). **5a, own categories, in two commits.** **Reads and references closed, done:** a pull gives anyone but the group's own account the starter rows by their code's names and nothing of the owner's
   own categories: no row, no name they gave a starter, no ciphertext and no tombstone (it gave every member every category, `1 = 1`), each condition seen to fail when removed, in a group the server seals
@@ -151,14 +151,12 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   deletion's two; the shadow merge, the code's name shown at once and the starter-only list screens; the Mover's table, the transport's encryption and its opening. **Run on, all green:** `pnpm run verify`; the unit suite on a file database, PostgreSQL 16 and sqld (110 files, 887 tests and 4 skipped each); the browser suite on Chromium and WebKit on a quiet
   machine (292 passed, 6 skipped, none failed, 10.8 minutes), `keys.spec.ts:40` among them (an earlier run of the code before one Undo fix had the known WebKit locked-key flake, `keys.spec.ts:8`).
   A category's `icon` is plain, as an item's is.
-  **5b, a list's copies of categories: designed with the owner on 2026-11-24 (the next bullet); its first commit, the server and the device's store, is built, its second, the device's logic, is not.** **Decisions to know, for 5a:** (a) anyone else on a list
+  **5b, a list's copies of categories: designed with the owner on 2026-11-24 (the bullets below), built in two commits: the server and the device's store, then the device's logic.** **Decisions to know, for 5a:** (a) anyone else on a list
   of a group is still given the owner's order, hidden flags and icons for the starter categories (they are the list's aisle order, §8.3), and not their names; (b) two devices can make one own category
   twice, §20.3 gives `category` no name key; (c) the household's move shares its 2 MiB body (`MAX_BODY`) with the rest, so a group at its limits for products and Inventory may not fit and waits without
   saying why; (d) **Docker impact: none**: `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` is in `.env.example` and the README, and no `Dockerfile`, `compose.yml`, `deploy/` file or the manifest lists a limit;
   (e) a device's refusal of a category change (over the limit) reads in Couldn't sync with the limit's own sentence, and the row is taken back.
-  (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
-  tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
-- **5b, a list's copies of categories, designed with the owner on 2026-11-24; commit 1 (below) is built, commit 2 is not.** DESIGN.md §8.3 has the rules; decisions 15 (the source key) and 16 (no copies in a group the server still
+- **5b, a list's copies of categories, designed with the owner on 2026-11-24, built (commit 1 and commit 2 below).** DESIGN.md §8.3 has the rules; decisions 15 (the source key) and 16 (no copies in a group the server still
   seals) are the owner's two answers. **Data:** `list_category` on both dialects, a migration for each, generated: `id`, `household_id`, `list_id`, `source_key`, `sealed` (always empty, kept so that the one
   apply path writes it as it writes the rest), `encrypted` (the name), `icon`, `position`, `deleted_at`, `seq`, `fseq`; unique on (`list_id`, `source_key`) and indexed on (`household_id`, `seq`); no foreign
   key. **Fields of a change:** `listId` and `sourceKey` (the shape of a name key, `n3.`), both set when it is made and refused on a change; `name` (ciphertext bound to the **list**, the table
@@ -181,7 +179,7 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   **The device:** an IndexedDB store `list_category` (version 5, indexes `byList` and `byHousehold`) through the shadow merge; `listCategoriesOf(db, list)`, and a list's categories for its screens as the
   group's starter ones and its live copies in aisle order (`listview.ts`); the actions: `putCategoryOnList` (finds the copy by its source key on the device, or makes it in the same mutation as the item's, and
   gives its id), `renameCopies` (for a category renamed in Inventory, over the lists the person is Admin of), and an Admin's rename, move and delete of a copy; an item's change of list says its category again
-  (`withContent`'s `categoryId`): a starter category as it was, a copy of the person's own category made on the new list first when the person holds that category, and otherwise the starter category its name
+  (`editItem`'s `carry`, which commit 2 built where this design said `withContent`: it also makes the copy): a starter category as it was, a copy of the person's own category made on the new list first when the person holds that category, and otherwise the starter category its name
   guesses, or _Other_. A device whose group has not moved offers its lists the starter categories alone.
   **What the tests show, each seen to fail when its protection is removed:** a copy is read by the list's people and by no one else; the Member who made it cannot change it and the Admin can; a copy cannot be
   named by an item of another list, by a product of another, or by an item after a move; a copy in a sealed group is refused; two devices that copied one category fold into one copy and the items repoint;
@@ -214,6 +212,26 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   not counted against the per-list limit** (it counts live rows when a copy is made new). **Run on, all green:** `pnpm run verify`; the unit suite on a file database, PostgreSQL 16 and sqld (112 files, 906 tests and 4 skipped each); the browser suite on Chromium and WebKit on a quiet
   machine (292 passed, 6 skipped, none failed, 10.7 minutes), `keys.spec.ts:40` (a new account's group moves through the real route, now with no `list_category` in its input) on both. Commit 2 adds the device's logic (the transport's encryption and opening of a copy, the one
   exported row-to-list lookup, the actions, a list's categories for its screens, an item's change of list) and the guest-with-list-keys test.
+- **5b, commit 2, built: the device's logic for a list's copies.** The transport opens a copy's name under the list's keys in `openPull` and encrypts it at the send, from the **one exported row-to-list lookup**
+  (`rowListOf`, `src/local/row-list.ts`, used by the page and by every device test, answering for items, products and copies: an Admin's rename of a copy carries no list, and without it the change was refused with
+  the sentence for a list the person has left); `src/keys/household.ts` has `copySourceKey`; the actions (`src/actions/list-categories.ts`: `copyOnList`, which finds a list's live copy by its source key or
+  makes one, a deleted copy being made again as a new row under the same key; `putCategoryOnList`; an Admin's `renameCopy`, `moveCopy`, `setCopyIcon`, `deleteCopy`; `renameCopies`, one mutation for each group);
+  the key helpers (`src/keys/copies.ts`: `sourceKeyOn`, `copiesOfCategory`, which finds the copies of a category on the lists the person is Admin of by making its source key on each, and
+  `carryCategoryOnMove`); a list's categories for its screens (`categoriesOfList`: the group's starter categories and the list's live copies in the one aisle order, a deleted copy falling under _Other_);
+  `editItem`'s `carry`, so that **an item that moves takes its category with it** (a starter category as it was, a copy of the list it leaves **carried** when the person moving it holds that category, by a copy
+  made on the new list in the same change, otherwise the starter category its name guesses), wired into the item panel's list select (`keysOf` gives the keys of both lists; a browser test moves an item through
+  it); and **an Undo leaves a copy alone** (as a product, since a Member's delete of it would be refused and would take the item's own Undo with it). **Seen to fail when removed:** the opening of the pull's
+  copies, the lookup's answer for a copy, the source key, the carrying, the carried category in the move, the Undo's leaving of a copy, a list's categories, the finding of a live copy only; and **the guest who
+  holds only a list's keys** (the test 5a left) opens the list and keeps receiving it when the owner of a moved group has categories of their own and has named a starter, which fails if the pull gives them every
+  category or the ciphertext of a name, since the whole page would be dropped. **The other places a category could cross lists, found by the review and closed:** adding from a suggestion whose product is another list's takes that product's category only if it is one of this list's
+  (`planAdd`), else the guess; the product a move makes names the category carried for it, not the old list's copy (`carryCategoryOnMove` carries the item's and the product's, sharing one copy); a refused
+  change moved to another list leaves the copies behind, the one it made and any it names, and what named them falls under _Other_ (`remake`; no key is read there, so none is carried); and a copy whose make
+  still waits, renamed before either is sent, is found by the lookup from the row the device holds (its list never changes). Each is tested with a copy as the category and seen to fail without its fix.
+  **Run on, all green:** `pnpm run verify`; the unit suite on a file database, PostgreSQL 16 and sqld (115 files, 920 tests and 4 skipped each; the first sqld run hit 60-second `beforeAll` timeouts in unrelated
+  files on a loaded machine, and passed whole on a fresh container); the browser suite on Chromium and WebKit (293 passed, 6 skipped, 11.2 minutes), the new test that moves an item through the panel and `keys.spec.ts:40`
+  on both, and the one failure the known WebKit flake of the locked key (`keys.spec.ts:8`).
+- **Left to do, so 23.3 is not ✅:** (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
+  tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
 - **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it. **Step 5's new synced tables enter the household's move in the same
   commit** (a person's own categories and `list_category` are content its device encrypts too): a test holds the manifest to `SYNCED_TABLES`, so a table added without its move fails it. An Inventory
   change whose keys are missing would land in Couldn't sync with the list sentence ("That list is not shared with you any more"); it cannot happen yet (a device that does not hold the group cannot

@@ -26,6 +26,7 @@ import type { Keyring } from '../keys/household';
 import { Mover } from '../keys/mover';
 import { keepPending } from '../keys/pending';
 import { callOperation } from './ops';
+import { rowListOf } from './row-list';
 import { householdsOf } from './store';
 
 /**
@@ -130,15 +131,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
           fetchTransport(),
           { appKey: () => appKeyRef.current },
           memory,
-          // Where a row is, for its list's keys (RFC 0004): an item's or a product's list as the server has it (its shadow, while changes to it wait),
-          // which the transport follows through the outbox in order.
-          async (table, id) => {
-            if (table !== 'item' && table !== 'product') return undefined;
-            const shadow = await db.get('shadow', [table, id]);
-            const row = shadow ? shadow.row : await db.get(table, id);
-            const list = (row as { listId?: string | null } | null | undefined)?.listId;
-            return typeof list === 'string' ? list : undefined;
-          },
+          // Where a row is, for its list's keys (RFC 0004, §8.3): its list as the server has it, which the transport follows through the outbox in order.
+          rowListOf(db),
           (households) =>
             void moverRef.current?.mover
               .run(households, appKeyRef.current)

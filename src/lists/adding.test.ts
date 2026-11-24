@@ -105,6 +105,29 @@ describe('adding from a suggestion', () => {
     }
   });
 
+  it('lends another list’s category only if it is one of this list’s: a copy of a person’s category on another list is not, and the new item takes the guess (§8.3)', () => {
+    const COPY_ELSEWHERE = '40000000-0000-4000-8000-0000000000c1';
+    const COPY_HERE = '40000000-0000-4000-8000-0000000000c2';
+    const elsewhere = (categoryId: string) =>
+      product({ listId: 'another-list', name: 'Oat milk', categoryId, icon: 'milk' });
+    const copyHere = {
+      ...category(COPY_HERE, null, 'a3'),
+      name: 'Plant milks',
+    };
+    const added = (categoryId: string, over: Partial<Adding> = {}) => {
+      const { mutation } = planned(
+        planAdd(env(), context({ products: [elsewhere(categoryId)], ...over }), typed('Oat milk')),
+      );
+      return only(changesOf(mutation, 'item')[0]).fields.categoryId;
+    };
+    // A starter category is every list's, and a copy of this list is this list's: lent.
+    expect(added(DAIRY)).toBe(DAIRY);
+    expect(added(COPY_HERE, { categories: [...categories, copyHere] })).toBe(COPY_HERE);
+    // A copy made on another list is not this list's, and the server would refuse an item naming it: the category the name guesses.
+    expect(added(COPY_ELSEWHERE)).not.toBe(COPY_ELSEWHERE);
+    expect(categories.map((each) => each.id)).toContain(added(COPY_ELSEWHERE));
+  });
+
   it('bumps what is already open instead of making a second row', () => {
     const milk = product({ name: 'Oat milk', categoryId: DAIRY, defaultQuantity: '1' });
     const open = item({ productId: milk.id, name: 'Oat milk', quantity: '2', categoryId: DAIRY });

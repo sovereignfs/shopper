@@ -166,7 +166,9 @@ export function reversal(
   now: number,
 ): Change | null {
   if (before === undefined) {
-    return change.create && table !== 'product'
+    // The catalog learning is left, a product and a list's copy of a category alike: a copy is the list's, changed by its Admin, so a Member's Undo of the item that made it
+    // could only be refused, and would take the item's own Undo in the same mutation with it.
+    return change.create && table !== 'product' && table !== 'list_category'
       ? { table, id: change.id, fields: { deletedAt: now } }
       : null;
   }

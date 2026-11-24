@@ -102,6 +102,67 @@ describe('moving a refused change to another list', () => {
     expect(refused.changes.find((c) => c.table === 'item')?.fields.listId).toBe(list().id);
   });
 
+  it('leaves the copies of people’s categories behind: the copy the refused change made, and any a row names, which the other list cannot read (§8.3)', () => {
+    const mine = '60000000-0000-4000-8000-0000000000c1';
+    const older = '60000000-0000-4000-8000-0000000000c2';
+    const starter = '60000000-0000-4000-8000-0000000000c3';
+    const refused: Mutation = {
+      mutationId: id(),
+      householdId: target.householdId,
+      changes: [
+        {
+          table: 'list_category',
+          id: mine,
+          create: true,
+          fields: {
+            listId: 'x',
+            sourceKey: `n3.${'A'.repeat(43)}`,
+            name: 'Garden',
+            position: 'a5',
+          },
+        },
+        {
+          table: 'product',
+          id: '60000000-0000-4000-8000-0000000000d1',
+          create: true,
+          fields: { listId: 'x', name: 'Spade', categoryId: mine },
+        },
+        {
+          table: 'item',
+          id: '60000000-0000-4000-8000-0000000000d2',
+          create: true,
+          fields: { listId: 'x', position: 'a0', categoryId: mine },
+        },
+        {
+          table: 'item',
+          id: '60000000-0000-4000-8000-0000000000d3',
+          create: true,
+          fields: { listId: 'x', position: 'a1', categoryId: older },
+        },
+        {
+          table: 'item',
+          id: '60000000-0000-4000-8000-0000000000d4',
+          create: true,
+          fields: { listId: 'x', position: 'a2', categoryId: starter },
+        },
+      ],
+    };
+    const moved = remake(refused, target, null, id, new Set([older]));
+    // No copy goes to the other list, and what named one names nothing (it shows under Other); a starter category is every list's and stays.
+    expect(moved?.changes.some((c) => c.table === 'list_category')).toBe(false);
+    expect(
+      moved?.changes.map((c) => [
+        c.table,
+        c.fields.categoryId === undefined ? '-' : c.fields.categoryId,
+      ]),
+    ).toEqual([
+      ['product', null],
+      ['item', null],
+      ['item', null],
+      ['item', starter],
+    ]);
+  });
+
   it('puts several things one after another, and refuses another household’s list and what has no list', () => {
     const two: Mutation = {
       mutationId: id(),

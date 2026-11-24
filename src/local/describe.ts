@@ -69,17 +69,31 @@ export function remake(
   list: Pick<ListRow, 'id' | 'householdId'>,
   last: string | null,
   newId: () => string,
+  /**
+   * The ids of the copies of people's categories the device holds (§8.3): a copy is the list's it was made on, so an item or a product that names one cannot go to another list
+   * with it, and a copy the refused change itself made was for the list it was refused on. They are left behind, and what named them is named nothing, which shows it under _Other_.
+   */
+  copies: ReadonlySet<string> = new Set(),
 ): Mutation | null {
   if (!canMove(mutation) || list.householdId !== mutation.householdId) return null;
   let end = last;
-  const changes = mutation.changes.map((change): Change => {
-    // A product the add made joins the catalog of the list it goes to (RFC 0004, 21.3).
-    if (change.table === 'product' && change.create)
-      return { ...change, fields: { ...change.fields, listId: list.id } };
-    if (!placing(change)) return change;
-    end = after(end);
-    return { ...change, fields: { ...change.fields, listId: list.id, position: end } };
-  });
+  const left = new Set(copies);
+  for (const change of mutation.changes) if (change.table === 'list_category') left.add(change.id);
+  const unnamed = (change: Change): Change =>
+    typeof change.fields.categoryId === 'string' && left.has(change.fields.categoryId)
+      ? { ...change, fields: { ...change.fields, categoryId: null } }
+      : change;
+  const changes = mutation.changes
+    .filter((change) => change.table !== 'list_category')
+    .map((made): Change => {
+      const change = unnamed(made);
+      // A product the add made joins the catalog of the list it goes to (RFC 0004, 21.3).
+      if (change.table === 'product' && change.create)
+        return { ...change, fields: { ...change.fields, listId: list.id } };
+      if (!placing(change)) return change;
+      end = after(end);
+      return { ...change, fields: { ...change.fields, listId: list.id, position: end } };
+    });
   return { mutationId: newId(), householdId: mutation.householdId, changes };
 }
 

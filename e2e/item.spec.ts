@@ -281,3 +281,37 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('checkbox', { name: /Whole milk/ })).toBeVisible();
   });
 });
+
+test('an item moved to another list keeps its category, on the device and at the server, and nothing is refused for it', async ({
+  page,
+  baseURL,
+}) => {
+  const [milk] = await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  const account = await accountOf(page);
+  const sidebar = page.getByRole('navigation', { name: 'Shopper' });
+  await sidebar.getByRole('button', { name: 'New list' }).click({ timeout: 15_000 });
+  await page.getByRole('textbox', { name: 'Name of the new list' }).fill('Hardware');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Hardware' })).toBeVisible();
+  await sidebar.getByRole('link', { name: /Groceries/ }).click();
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(panel(page)).toBeVisible();
+  const item = async () =>
+    (
+      await deviceRows<{ id: string; listId: string; categoryId: string | null }>(
+        page,
+        account,
+        'item',
+      )
+    ).find((row) => row.id === milk);
+  const before = await item();
+  expect(before?.categoryId).not.toBeNull();
+  // The move goes through what an item's move takes with it (§8.3), which reads the keys of both lists: a starter category is left as it was.
+  await panel(page).getByLabel('List').selectOption({ label: 'Hardware' });
+  await expect
+    .poll(async () => (await item())?.listId, { timeout: 15_000 })
+    .not.toBe(before?.listId);
+  await synced(page);
+  expect((await item())?.categoryId).toBe(before?.categoryId);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
+});

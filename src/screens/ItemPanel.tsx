@@ -20,6 +20,7 @@ import type { ItemRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { addQuantity, isQuantity, subtractQuantity } from '../quantity/decimal';
 import { UNITS, isUnit, stepFor, type Unit } from '../quantity/units';
+import { carryCategoryOnMove } from '../keys/copies';
 import { type ListData, listViewOf } from '../local/listview';
 import { useFormat } from '../account/AccountProvider';
 import { useLocal } from '../local/react';
@@ -54,7 +55,7 @@ export function ItemPanel({
   /** Commits a change and offers Undo: used by Delete alone. */
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
-  const { client } = useLocal();
+  const { client, keysOf } = useLocal();
   // "12 Nov 2026, 14:03", in the time zone and language the person chose.
   const { dateTime: when } = useFormat();
   const product = data.products.find((each) => each.id === item.productId);
@@ -118,10 +119,29 @@ export function ItemPanel({
 
   /** Writes one field (or the few a choice sets), and only if it differs; the product learns from it when _Remember_ is on. */
   function save(edit: ItemEdit) {
-    const mutation = editItem(env(), item, edit, remember && product ? { product } : undefined, {
-      product,
-      products: data.products,
-    });
+    const catalog = { product, products: data.products };
+    const learn = remember && product ? { product } : undefined;
+    if (client && edit.listId !== undefined && edit.listId !== item.listId) {
+      // A move to another list takes the item's category with it (§8.3, decision 17): a copy of the list it leaves is carried if the person holds that category, which needs
+      // the keys of both lists, so the change is made once they are read.
+      const to = edit.listId;
+      void carryCategoryOnMove(
+        client.db,
+        {
+          encrypted: async (household) => (await keysOf(household)).encrypted,
+          ringOf: async (household, list) => (await keysOf(household, list)).ring,
+        },
+        env(),
+        { item, product, to },
+      )
+        .catch(() => undefined)
+        .then((carry) => {
+          const mutation = editItem(env(), item, edit, learn, catalog, carry);
+          if (mutation) return client.commit(mutation);
+        });
+      return;
+    }
+    const mutation = editItem(env(), item, edit, learn, catalog);
     if (mutation) void client?.commit(mutation);
   }
 

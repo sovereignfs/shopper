@@ -121,7 +121,13 @@ export function planAdd(
       ? chosen
       : productNamed(ownCatalog, chosen?.name ?? name);
   const template = product ? undefined : (chosen ?? productNamed(products, name));
-  if (template)
+  if (template) {
+    // Another list's product lends what it comes with, but **a category only if it is one of this list's** (§8.3): a copy of a person's category is the list it is on's, and the
+    // server refuses an item that names another's. A starter category is every list's of the group.
+    const lent =
+      template.categoryId !== null && categories.some((each) => each.id === template.categoryId)
+        ? template.categoryId
+        : categoryOfNew(template.name, products, categories);
     return {
       mutation: addItem(env, {
         list,
@@ -129,12 +135,13 @@ export function planAdd(
         ...(template.defaultQuantity ? { quantity: template.defaultQuantity } : {}),
         unit: template.defaultUnit,
         icon: template.icon,
-        categoryId: template.categoryId,
-        last: lastPositionIn(items, template.categoryId),
+        categoryId: lent,
+        last: lastPositionIn(items, lent),
         by: me,
       }),
       message: `Added ${template.name}`,
     };
+  }
   if (product) {
     const open = openItemOf(items, product.id);
     if (open) {

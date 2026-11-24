@@ -121,6 +121,15 @@ export function editItem(
   remember?: { product: ProductRow },
   /** What a move to another list needs: the item's product, and the products the device holds, to find the one of the name on the other list. */
   catalog?: { product: ProductRow | undefined; products: readonly ProductRow[] },
+  /**
+   * What a move takes with it when the item's category is a list's copy (§8.3, `carryCategoryOnMove`): its category on the new list, and the copy to make there first. Said
+   * for the item and for the product made there, and the copy goes first, since the server checks each change against the list the row is on after it.
+   */
+  carry?: {
+    item: string | null | undefined;
+    product: string | null | undefined;
+    copy: Change | null;
+  },
 ): Mutation | null {
   if (edit.quantity !== undefined && !isQuantity(edit.quantity)) return null;
   const fields = changed(item, edit);
@@ -138,6 +147,7 @@ export function editItem(
         canonicalName(each.name) === wanted,
     );
     const productId = there?.id ?? env.newId();
+    if (carry?.copy) changes.push(carry.copy);
     if (!there)
       changes.push({
         table: 'product',
@@ -147,7 +157,12 @@ export function editItem(
           listId: edit.listId,
           name: product?.name ?? item.name,
           note: null,
-          categoryId: product?.categoryId ?? item.categoryId,
+          categoryId:
+            carry?.product !== undefined
+              ? carry.product
+              : carry?.item !== undefined
+                ? carry.item
+                : (product?.categoryId ?? item.categoryId),
           icon: product?.icon ?? item.icon,
           defaultQuantity: product?.defaultQuantity ?? item.quantity,
           defaultUnit: product?.defaultUnit ?? item.unit,
@@ -158,6 +173,7 @@ export function editItem(
     fields.productId = productId;
     fields.name = edit.name ?? item.name;
     fields.note = edit.note === undefined ? item.note : edit.note;
+    if (carry?.item !== undefined) fields.categoryId = carry.item;
   }
   if (Object.keys(fields).length > 0) changes.push({ table: 'item', id: item.id, fields });
   if (remember && !moving) {

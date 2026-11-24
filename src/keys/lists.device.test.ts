@@ -4,7 +4,6 @@ import { TEST_RING, callAs, somebody, type Someone } from '../access/test-suppor
 import type { Env } from '../actions/env';
 import { addItem, editItem } from '../actions/items';
 import { makeList } from '../actions/lists';
-import type { SyncedTable } from '../actions/format';
 import { canonicalName } from '../catalog/canonical';
 import type { Database } from '../db/client';
 import { runMigrations } from '../db/migrate';
@@ -12,6 +11,7 @@ import { freshDatabase, testTarget } from '../db/test-support';
 import { OPERATIONS } from '../households/ops';
 import { SyncClient } from '../local/client';
 import { type LocalDatabase, deleteLocal, localName, openLocal } from '../local/db';
+import { rowListOf } from '../local/row-list';
 import { failedOf, itemsOf, listsOf, productsOf } from '../local/store';
 import { type Wire, serverTransport } from '../local/test-support';
 import type { EndpointDeps } from '../sync/endpoint';
@@ -80,13 +80,7 @@ function clientOf(db: LocalDatabase, who: Someone, key: CryptoKey, wire: Wire) {
       serverTransport(deps, who, wire),
       { appKey: () => key },
       memory,
-      async (table: SyncedTable, id: string) => {
-        if (table !== 'item' && table !== 'product') return undefined;
-        const shadow = await db.get('shadow', [table, id]);
-        const row = shadow ? shadow.row : await db.get(table, id);
-        const list = (row as { listId?: string | null } | null | undefined)?.listId;
-        return typeof list === 'string' ? list : undefined;
-      },
+      rowListOf(db),
       undefined,
       async (id) => {
         const item = await db.get('item', id);
