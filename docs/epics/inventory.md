@@ -135,9 +135,15 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   device always sends the key; (c) **the move's body is capped at 2 MiB** (`MAX_BODY`), shared with the rest: a group at its limits for products and Inventory together may not fit, and the Mover then
   waits ("later") without saying why, which is an open question for the owner and no worse than it was for products; (d) a person whose own group has a shared list does not move (existing rule,
   §13.7), so their Inventory stays sealed by the server with the rest.
-- **Left to do, so 23.3 is not ✅:** (5) **A person's own categories and `list_category`:** categories are still the group's and fixed; the pull gives every member every category (`1 = 1`) and unseals a renamed one with
-  the ring, so own categories need their names filtered for non-owners, an item's `categoryId` held to a starter category or a `list_category` of its own list (`checkReferences` accepts any live category of
-  the group today), and §20.3's `list_category.category_id` read for whether it points into another person's group (which would break the same-group rule: raise it with the owner, do not code around it).
+- **Left to do, so 23.3 is not ✅:** (5) **A person's own categories and `list_category`**, in two parts, **settled with the owner on 2026-11-24:** a list's copy says what it copies by a **source key**
+  (an HMAC the device makes under the list's keys from the category's id, unique on the list), **not by `category_id`**, which on a shared list would aim at a row of another person's group (DESIGN.md
+  §8.3, §20.3, decision 15). **5a, own categories:** `category` becomes a synced table, written only by the group's own account (make, rename, hide, put in order, delete an own one; a starter category
+  renamed, hidden or moved, never deleted, `other` never hidden), its name sealed by the server or, in a moved group, encrypted for the group under the Inventory keys, and carried by the household's
+  move; a pull gives anyone but the owner the starter rows by their code's names and nothing of the owner's own categories, their ciphertext, their renamed names or their tombstones (today it gives
+  every member every category, `1 = 1`); an item's and a product's `categoryId` is held to a starter category (it accepts any live category of the group today); a limit,
+  `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`; the export, `People.deletePerson` and the device. **5b, `list_category`:** the table with its source key, an item's `categoryId` held to a starter category or
+  a copy on its own list, and how a group the server still seals makes a source key (it has no list keys), how the move re-keys one, and an item that changes list. Two devices can make one own category
+  twice: §20.3 gives `category` no name key, so nothing folds them.
   (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
   tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
 - **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it. **Step 5's new synced tables enter the household's move in the same

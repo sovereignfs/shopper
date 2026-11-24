@@ -449,8 +449,11 @@ Deli, Frozen, Pantry, Breakfast, Snacks & sweets, Drinks, Household, Personal ca
   order in **Inventory** (§8.8, §16.8; 4.7's editing, brought forward from phase 2): rows of their group whose name is encrypted under the group's
   Inventory keys (§13.2), which **nobody else holds**. A starter category stays the group's, by its key; renaming it there gives it a name of the person's, encrypted as their own
   categories' names are, on the same row.
-- **A list carries its own copy of each of a person's categories its items use** (`list_category`: the list, the category it copies, its name
-  encrypted under **the list's keys**, its place in the aisle order), made when an item of that category is first put on the list. The people on a
+- **A list carries its own copy of each of a person's categories its items use** (`list_category`: the list, **a source key** for the category it
+  copies, its name encrypted under **the list's keys**, its place in the aisle order), made when an item of that category is first put on the list.
+  **The source key is made by the person's device, never an id of the category:** an HMAC of the category's id under the list's keys (§13.3's way), unique
+  on the list, so that a copy is found and merged on its list, two devices that copied one category fold into one copy, the same category on two lists
+  gives two keys that say nothing of each other, and no id of one group's row is ever stored in another's. The people on a
   shared list read the names of the categories its items use, and nothing else of anyone's categories. Renaming a category in Inventory renames its
   copies on the person's own lists (those they are Admin of); a copy goes with its list. **An item's category is a starter category of its list's
   group or a `list_category` of its own list,** never another group's row.
@@ -949,7 +952,8 @@ by a cryptographer or audited, and every place Shopper describes the feature say
 `HMAC-SHA-256(K_name, list_id ‖ normalised name)`, with `K_name` derived by HKDF (`shopper:name-key:v3`) from the list's **first** key, made in the
 browser and sent with the product (`n3.`). The server folds products of one list whose name keys are equal and keeps one per name on a list, without
 reading a name. An Inventory item's name key is the same HMAC with the group's id, under `K_name` derived from the group's Inventory keys, and the
-server folds a person's Inventory by it (§8.7). It does not change with the epoch, so folding holds across devices; it differs from list to list, so the same name on two lists says
+server folds a person's Inventory by it (§8.7). **A list's copy of a person's category is found the same way** (§8.3): its source key is that HMAC of the category's id under the list's keys.
+It does not change with the epoch, so folding holds across devices; it differs from list to list, so the same name on two lists says
 nothing; the cost is that someone removed from a list who also had a copy of the database could test a name they guess on it.
 
 ### 13.4 What the server still holds
@@ -1523,7 +1527,7 @@ start (`src/auth/migrate.ts`); 0.2.x's `key_secret` and `password_derived` colum
 | `list`             | `id`, `household_id`, `sealed` or `encrypted` (name, icon, colour), `position`, `clearing` (`on_finish`, `manual`, `after_day`), `archived_at`, `deleted_at`, `seq`, `fseq`, `created_at`                                                                                                                                                                                                          |
 | `item`             | `id`, `household_id`, `list_id`, `product_id`, `sealed` (name, note, price), `quantity`, `unit`, `category_id`, `icon`, `position`, `added_by`, `added_at`, `bought_at`, `bought_by`, `trip_id`, `cleared_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                         |
 | `inventory_item`   | `id`, `household_id` (the person's own group), `starter_key` (the starter entry it overrides, or null for one of their own), `name_key` (unique with `household_id`), `encrypted` (name, null when an override keeps the starter's; note), `category_id`, `icon`, `unit`, `quantity`, `recurring`, `hidden`, `on_hand` and `low_point` (phase 3), `deleted_at`, `seq`, `fseq`, `created_at` (§8.8) |
-| `list_category`    | `id`, `household_id`, `list_id`, `category_id` (the category it copies), `encrypted` (name, under the list's keys), `icon`, `position`, `deleted_at`, `seq`, `fseq` (§8.3)                                                                                                                                                                                                                         |
+| `list_category`    | `id`, `household_id`, `list_id`, `source_key` (the category it copies, as an HMAC the device makes under the list's keys: unique with `list_id`, never an id), `encrypted` (name, under the list's keys), `icon`, `position`, `deleted_at`, `seq`, `fseq` (§8.3)                                                                                                                                   |
 | `shop`             | `id`, `household_id`, `sealed` (name), `last_used_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                                                                                                                 |
 | `trip`             | `id`, `household_id`, `person_id`, `shop_id`, `sealed` (receipt total), `started_at`, `finished_at`, `last_tick_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                                                                   |
 | `trip_line`        | `id`, `household_id`, `trip_id`, `item_id`, `product_id`, `list_id`, `sealed` (name, list name, price), `quantity`, `unit`, `category_id`, `bought_by`, `bought_at`, `deleted_at`, `seq`, `fseq`                                                                                                                                                                                                   |
@@ -1788,3 +1792,7 @@ owner settled each as written here, in workstream 0002's leg 1 review:
     only if core lets them sign up; until now a hosted Shopper could keep its own sign-in on for them. Decided: accepted, as core's sign-up decides.
 14. **Who may invite to a card** (§7.7): RFC 0007 says a Member sees and shows it, where a list's Member may also invite. Decided: RFC 0007's, its
     Admin alone invites.
+15. **How a list's copy of a category says what it copies** (§8.3, §20.3, 2026-11-24): RFC 0006 says `category_id`, which on a shared list would aim at a
+    row of another person's group and break the same-group rule. Decided, with the owner: **a source key** in its place, an HMAC the device makes under the
+    list's keys from the category's id, unique on the list. Not an opaque id (it would sit on copies in every group the person shares a list with, and
+    two hosts could tell it is the same person), and not a link kept on the device alone (another device could not find or rename a copy).

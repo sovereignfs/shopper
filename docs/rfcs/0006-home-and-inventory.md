@@ -113,3 +113,9 @@ time", §9.4, also offering to update the Inventory item); merging a list's prod
    person chooses.
 3. **A person's own category's name:** encrypted under the group's derived key in Inventory, and copied per list under the list's keys
    (`list_category`, "The data" above), so that the people on a list read only the categories its items use.
+
+## Settled later with the owner (2026-11-24)
+
+4. **How a list's copy of a category says what it copies:** `list_category` has a **source key**, an HMAC the person's device makes under the list's keys
+   from the category's id, unique on the list, in place of `category_id`: a pointer to a category would aim at a row of another group on a shared list
+   (the same-group rule), and the same id on copies in several groups would link one person across them. DESIGN.md §8.3 and §20.3 say it.
