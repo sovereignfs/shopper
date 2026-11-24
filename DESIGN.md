@@ -1635,7 +1635,7 @@ phase 2's.
 
 ### Licence
 
-AGPL-3.0-or-later, since it bundles `@sovereignfs/ui`.
+AGPL-3.0-or-later, since it bundles `@sovereignfs/ui`. The loyalty cards bundle `zxing-wasm` (MIT, with ZXing-C++ under Apache-2.0 and zint under BSD-3-Clause: all compatible, 24.4) and `uqr` (MIT).
 
 ### Deployment
 
@@ -1723,7 +1723,9 @@ Everything the first design put in phase 1 that 0.1.0 leaves out (§2.2). Each i
 
 - **Barcode scanning,** decoded on the device, **built before phase 2 with loyalty cards** (§7.7, 24.4, RFC 0007), which phase 4 uses for products:
   the six kinds of code a card may have, read by the browser's `BarcodeDetector` where there is one, otherwise a WebAssembly decoder bundled with
-  Shopper (ZXing's, licence checked for AGPL compatibility); the camera through `getUserMedia`, never leaving the device. A scan finds the list's
+  Shopper (ZXing's, licence checked for AGPL compatibility; **built, 24.4**: `src/cards/scan.ts`, the `.wasm` served from Shopper's own origin and kept by the service worker, fetched when a scan
+  starts and before it reads a frame, so nothing is requested while it scans; the native one only if it supports all six kinds); the camera through `getUserMedia`
+  (`Permissions-Policy: camera=(self)`), never leaving the device. A scan finds the list's
   product by barcode (unsealed in memory on the device, which holds the catalog), or offers to make one.
 - **Lookup by barcode,** for a barcode the list does not know: **the server** asks a product database (Open Food Facts, by barcode only, with no
   account and nothing else sent; its data licence, ODbL, attributed), caches the answer, and offers the name and a category. The browser never calls

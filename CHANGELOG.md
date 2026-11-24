@@ -15,7 +15,9 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   not at the till. A card opens **full screen**: its code as large as the screen allows, its number in text beneath it, and the screen kept on while it is shown. You can give a card a colour, an icon, the
   name on it and a note, change it, and delete it (deleting needs a connection, and asks first). Everything is read from your device, so a card opens with no network; every field of a card is
   encrypted on your device, and the server holds only what it cannot read. A card can be kept once your lists are encrypted on your devices, which happens when you first open Shopper after signing up.
-  Scanning a card with the camera and sharing one come next.
+  **Scan card** adds one with the camera instead: hold the card's code in view and the form opens with its number and kind filled in. The picture is read on your device and goes nowhere, nothing is
+  requested from the network while it scans (the reader is part of Shopper and is only fetched when you first scan), and the camera is let go the moment the code is read. If the camera is refused or
+  there is none, you can type the number as before. Sharing a card comes next.
 
 ### Changed
 

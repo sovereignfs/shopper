@@ -151,4 +151,5 @@ says how a change is made, [`AGENTS.md`](AGENTS.md) holds the rules of the app a
 
 ## Licence
 
-[AGPL-3.0-or-later](LICENSE), since it bundles `@sovereignfs/ui`.
+[AGPL-3.0-or-later](LICENSE), since it bundles `@sovereignfs/ui`. Scanning a loyalty card bundles ZXing-C++ as WebAssembly (`zxing-wasm`, MIT; ZXing-C++ is Apache-2.0 and zint BSD-3-Clause),
+which is compatible, and the QR codes are drawn with `uqr` (MIT).

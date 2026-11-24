@@ -112,7 +112,7 @@ fail when removed:** the wake lock and the footer's link (browser), the kinds' c
 card of each of the six kinds typed, a wrong check digit refused, each opened with its code and number, no network, the screen asked to stay on, a card changed with a note cleared and then deleted, and a phone.
 **What was left out:** _Share_ (24.5), scanning (24.4), and a Member's view of a card, which waits for sharing to be tested with a real Member (the Admin-only controls are `canChange`, tested with the actions).
 
-#### 📋 24.4 — Scanning a card
+#### ✅ 24.4 — Scanning a card
 
 **Goal:** a card is added by pointing the camera at it. **Design:** RFC 0007, "A card". **Depends on:** 24.3. **Brings forward:** 14.1's decoding.
 
@@ -121,6 +121,24 @@ card of each of the six kinds typed, a wrong check digit refused, each opened wi
 
 **Accepts when:** each kind is read from a test image in both decoders; the camera refused leaves typing; nothing is requested over the network while
 scanning.
+
+**Done as (0.8.0, 2026-11-25):** _Scan card_ beside _Add card_ on `/cards` opens `ScanDialog`: the camera through `getUserMedia` (the rear one preferred), a frame drawn to a canvas every 150 ms at no
+more than 960 px wide, read **on the device** by `pickDecoder` (`src/cards/zxing-client.ts`) and dropped; the first code of one of the six kinds ends the scan, the camera's tracks are stopped that moment
+(and when the dialog closes any other way), and `startOf` (`src/cards/codes.ts`) starts the card's form from what was read: the kind and the number, and for a QR code whose payload is too long to be a
+number (a web address) the number left to type and the payload kept as what the code holds. **Two decoders, one contract** (`src/cards/scan.ts`: `Decoder`, `Found`, written so that 14.1 reads products
+with it): the browser's `BarcodeDetector` **only when it supports all six kinds** (one with some would read some cards and not others), otherwise **ZXing-C++ as WebAssembly, bundled** (`zxing-wasm`'s
+reader build, 0.9 MB: new dependency, MIT, whose C++ is Apache-2.0 and zint's BSD-3-Clause, all compatible with AGPL-3.0-or-later, noted in the README), **loaded only when a scan starts** and **from this
+app's own origin**: the library's default is a CDN, so `locateFile` points at the `.wasm` the build emits under `/_next/static/media/`, which the service worker already keeps, and the dialog waits for the
+module to be fetched and compiled (`Decoder.ready`) before it says it is scanning, so that **nothing is requested while a card is scanned**. A UPC-A's bars are an EAN-13 with a leading zero and ZXing
+says EAN-13: a thirteen-digit read with a leading zero is held as the UPC-A it is. **Typing is always the way**: a camera the person refuses, none, or a decoder that cannot start says so in a sentence
+and offers _Type the number instead_. **The Permissions-Policy** was `camera=()` and is now `camera=(self)` (microphone, geolocation, payment and the rest stay off); the CSP already allowed
+`'wasm-unsafe-eval'` for the keys. **Seen to fail when removed:** the all-six requirement of the native detector, the UPC-A normalisation, the one-time preparation of the module, the validity and
+empty-value checks, the long-payload rule and the camera policy (unit); waiting for the decoder and pointing `locateFile` at this origin (browser, the first in WebKit only, where the file is fetched
+late). Unit tests read **each of the six kinds from an image of it with the real WebAssembly** (ten vectors, a UPC-A, a long Code 128, a QR code with a web address), nothing from a blank frame or noise,
+and a smaller picture; browser tests, in both browsers, with a fake camera that shows a canvas (the same in both, which a browser's own fake-camera flag is not): an EAN-13 read by the bundled decoder
+after a blank spell with the `.wasm` from this origin, every request this origin's and none while it scanned, the form started and the card added with the camera let go; a stand-in native detector
+(the decoder never loaded); a QR code; the camera refused; no camera. **What was left out:** a torch or zoom control, choosing among several cameras, scanning an image from a file, and a real phone's
+camera, which has not been tried (the fake one is a canvas); the native detector is tried only through a stand-in, since neither test browser has one that supports all six.
 
 #### 📋 24.5 — Sharing a card
 

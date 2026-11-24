@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Button, EmptyState, Icon } from '@sovereignfs/ui';
+import { startOf } from '../cards/codes';
+import type { CodeKind } from '../cards/kinds';
 import { useLocalQuery } from '../local/react';
 import { type CardView, cardsScreenOf } from '../local/cards-view';
 import { CardForm } from './CardForm';
 import { CardGlyph } from './CardGlyph';
+import { ScanDialog } from './ScanDialog';
 import styles from './CardsScreen.module.css';
 import { useTitle } from './title';
 
@@ -17,7 +20,11 @@ import { useTitle } from './title';
 export function CardsScreen() {
   useTitle(['Loyalty cards']);
   const data = useLocalQuery(cardsScreenOf, []).data;
-  const [adding, setAdding] = useState(false);
+  // The form, empty or started from a scan; and the camera, which hands a code on to the form.
+  const [form, setForm] = useState<{ kind?: CodeKind; number?: string; code?: string } | null>(
+    null,
+  );
+  const [scanning, setScanning] = useState(false);
   if (data === undefined) return <div className={styles.page} aria-busy="true" />;
   const none = data.own.length === 0 && data.shared.length === 0;
   return (
@@ -25,10 +32,16 @@ export function CardsScreen() {
       <header className={styles.head}>
         <h1 className={styles.title}>Loyalty cards</h1>
         {data.household ? (
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <Icon name="plus" size="sm" aria-hidden />
-            <span className={styles.label}>Add card</span>
-          </Button>
+          <div className={styles.buttons}>
+            <Button size="sm" variant="secondary" onClick={() => setScanning(true)}>
+              <Icon name="scan-barcode" size="sm" aria-hidden />
+              <span className={styles.label}>Scan card</span>
+            </Button>
+            <Button size="sm" onClick={() => setForm({})}>
+              <Icon name="plus" size="sm" aria-hidden />
+              <span className={styles.label}>Add card</span>
+            </Button>
+          </div>
         ) : null}
       </header>
       <p className={styles.lede}>
@@ -44,8 +57,26 @@ export function CardsScreen() {
       ) : null}
       <Grid heading="Your cards" views={data.own} />
       <Grid heading="Shared with you" views={data.shared} />
-      {adding && data.household ? (
-        <CardForm household={data.household} last={data.last} onClose={() => setAdding(false)} />
+      {scanning ? (
+        <ScanDialog
+          onFound={(found) => {
+            setScanning(false);
+            setForm(startOf(found));
+          }}
+          onType={() => {
+            setScanning(false);
+            setForm({});
+          }}
+          onClose={() => setScanning(false)}
+        />
+      ) : null}
+      {form && data.household ? (
+        <CardForm
+          household={data.household}
+          last={data.last}
+          initial={form}
+          onClose={() => setForm(null)}
+        />
       ) : null}
     </div>
   );

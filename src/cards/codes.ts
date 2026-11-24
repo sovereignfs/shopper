@@ -116,3 +116,20 @@ export function drawn(kind: CodeKind, code: string): Drawn | null {
   }
   return encodeBarcode(kind, code) ? { kind: 'bars', format: kind, value: code } : null;
 }
+
+/**
+ * **What a scan starts the card's form from** (24.4): its kind, and its value as the number the card is known by, which a QR code's payload may be too long to be (a web address): then the number is
+ * left for the person to type, and what the code holds is the payload. The form checks it like anything typed.
+ */
+export function startOf(found: { kind: CodeKind; value: string }): {
+  kind: CodeKind;
+  number: string;
+  code?: string;
+} {
+  if (found.kind !== 'qr') return { kind: found.kind, number: found.value };
+  return {
+    kind: 'qr',
+    number: found.value.length <= MAX_CARD_NUMBER_LENGTH ? found.value : '',
+    code: found.value,
+  };
+}

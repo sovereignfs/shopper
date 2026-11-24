@@ -78,10 +78,11 @@ export const SECURITY_HEADERS: { key: string; value: string }[] = [
   // The origin alone, and only from https to https, never a path or a token: core's key release (RFC 0001, sdk §9.3) releases silently only when
   // the browser names the app's origin, and asks the person each time otherwise.
   { key: 'Referrer-Policy', value: 'strict-origin' },
-  // Nothing here needs the device; a page cannot be made to ask for it.
+  // Nothing here needs the device but the camera, and only for this origin's own page (scanning a loyalty card, RFC 0007, whose frames are read on the device and go nowhere); a page cannot be
+  // made to ask for the rest, and a frame of another origin cannot ask for the camera at all.
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
+    value: 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
   },
   // Another site's window cannot hold a reference to this one's after a link is followed.
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },

@@ -24,6 +24,12 @@
   font-weight: var(--sv-font-weight-semibold);
 }
 
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-2);
+}
+
 .label {
   margin-left: var(--sv-space-2);
 }

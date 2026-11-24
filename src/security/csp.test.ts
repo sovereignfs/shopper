@@ -107,7 +107,9 @@ describe('the headers every response has', () => {
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
     expect(headers['X-Frame-Options']).toBe('DENY');
     expect(headers['Referrer-Policy']).toBe('strict-origin');
-    expect(headers['Permissions-Policy']).toContain('camera=()');
+    // The camera is this app's own and no frame's or other site's (task 24.4: a card is scanned), and the rest stay off.
+    expect(headers['Permissions-Policy']).toContain('camera=(self)');
+    expect(headers['Permissions-Policy']).not.toMatch(/camera=\(\)|camera=\*/);
     expect(headers['Cross-Origin-Opener-Policy']).toBe('same-origin');
   });
 

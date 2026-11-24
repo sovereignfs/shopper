@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { encodeBarcode } from '@sovereignfs/ui';
-import { KINDS_IN_ORDER, checkCard, drawn, guessKind, qrModules } from './codes';
+import { KINDS_IN_ORDER, checkCard, drawn, guessKind, qrModules, startOf } from './codes';
 import { CODE_KINDS, MAX_CARD_CODE_LENGTH, MAX_CARD_NUMBER_LENGTH } from './kinds';
 
 /**
@@ -227,5 +227,49 @@ describe('a card drawn', () => {
     expect(drawn('ean13', '5901234123450')).toBeNull();
     expect(drawn('code39', 'abc')).toBeNull();
     expect(drawn('qr', 'hello')).toMatchObject({ kind: 'qr' });
+  });
+});
+
+describe('what a scan starts the form from', () => {
+  it('is the kind and the value as the number, and for a QR code what it holds too', () => {
+    expect(startOf({ kind: 'ean13', value: '5901234123457' })).toEqual({
+      kind: 'ean13',
+      number: '5901234123457',
+    });
+    expect(startOf({ kind: 'qr', value: 'MEMBER 77' })).toEqual({
+      kind: 'qr',
+      number: 'MEMBER 77',
+      code: 'MEMBER 77',
+    });
+  });
+
+  it('leaves the number to be typed for a QR code whose payload is longer than a number may be, and holds the payload', () => {
+    const address = `https://example.com/${'x'.repeat(100)}`;
+    expect(startOf({ kind: 'qr', value: address })).toEqual({
+      kind: 'qr',
+      number: '',
+      code: address,
+    });
+    // What it makes is what the form checks: the payload is a code, the number is typed.
+    expect(checkCard({ kind: 'qr', number: '', code: address })).toMatchObject({ ok: false });
+    expect(checkCard({ kind: 'qr', number: 'MEMBER 77', code: address })).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it('is a card of the kind that checks, for what a decoder reads of each kind', () => {
+    for (const [kind, value] of [
+      ['ean13', '5901234123457'],
+      ['ean8', '96385074'],
+      ['upca', '036000291452'],
+      ['code128', 'CARD 4321-9'],
+      ['code39', 'ABC-12'],
+    ] as const) {
+      const start = startOf({ kind, value });
+      expect(checkCard({ kind: start.kind, number: start.number })).toMatchObject({
+        ok: true,
+        code: value,
+      });
+    }
   });
 });
