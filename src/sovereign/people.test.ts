@@ -45,6 +45,8 @@ const DECIDED_APP: Record<string, string> = {
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
     'a list’s, deleted with it (21.3); what a person added stays under their name, with no account',
+  inventory_item:
+    'the account’s own, in its own group: deleted with the person whether or not the group stays for a list that passed on, with what folds and deletes of it left',
   rate_bucket: 'deleted where its key carries the account id',
   account_settings: 'the account’s own, deleted by account_id',
   list_key:
@@ -349,6 +351,7 @@ describe(`deleting a person (${leg})`, () => {
             householdLists: 100,
             listOpenItems: 500,
             householdProducts: 5000,
+            inventoryItems: 5000,
           },
         },
         ada.accountId,
@@ -367,6 +370,70 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count(app, appTable(app, 'list'), sql`id = ${hardware.id}`)).toBe(0);
     expect(await count(app, appTable(app, 'product'), sql`id = ${product}`)).toBe(0);
     expect(await count(app, appTable(app, 'list'), sql`id = ${ada.list}`)).toBe(1);
+  });
+
+  it('deletes a person’s Inventory whether or not their group stays for a list that passed on, with what folds of it left, and leaves another person’s alone (23.3)', async () => {
+    const ada = await somebody(app, 'Ada-inventory');
+    const grace = await somebody(app, 'Grace-inventory');
+    // Grace is on Ada's list, so Ada's group carries on after her: its lists are Grace's, its Inventory was Ada's alone.
+    await join(app, ada.household, grace);
+    const send = (account: string, household: string, changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+          },
+        },
+        account,
+        { mutationId: crypto.randomUUID(), householdId: household, changes },
+      );
+    const item = (name: string) => ({
+      table: 'inventory_item',
+      id: crypto.randomUUID(),
+      create: true,
+      fields: { name, createdAt: 1, recurring: 0, hidden: 0 },
+    });
+    // Two of Ada's, one made twice so that a fold leaves an alias and a tombstone of no list, and one of Grace's, in her own group.
+    expect((await send(ada.accountId, ada.household, [item('Ada bin bags')])).status).toBe(
+      'applied',
+    );
+    expect((await send(ada.accountId, ada.household, [item('ada  BIN bags')])).status).toBe(
+      'applied',
+    );
+    expect((await send(grace.accountId, grace.household, [item('Grace bin bags')])).status).toBe(
+      'applied',
+    );
+    await seedAuth(ada);
+    const inventory = (household: string) =>
+      count(app, appTable(app, 'inventory_item'), sql`household_id = ${household}`);
+    const leftovers = async (household: string) =>
+      (await count(
+        app,
+        appTable(app, 'alias'),
+        sql`household_id = ${household} AND table_name = 'inventory_item'`,
+      )) +
+      (await count(
+        app,
+        appTable(app, 'tombstone'),
+        sql`household_id = ${household} AND table_name = 'inventory_item'`,
+      ));
+    expect(await inventory(ada.household)).toBe(1);
+    expect(await leftovers(ada.household)).toBeGreaterThan(0);
+
+    await deletePerson(deps(), ada.accountId);
+    // The group stays (Grace is on its list), and none of Ada's Inventory with it.
+    expect(await count(app, appTable(app, 'household'), sql`id = ${ada.household}`)).toBe(1);
+    expect(await inventory(ada.household)).toBe(0);
+    expect(await leftovers(ada.household)).toBe(0);
+    // Grace's own is as it was.
+    expect(await inventory(grace.household)).toBe(1);
   });
 
   it('deletes a household nobody else is in, with everything of it', async () => {

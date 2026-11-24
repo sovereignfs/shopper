@@ -77,7 +77,7 @@ skipped, counts and the week's, own before shared with whose and who is on it; a
 counts and Continue following the last list, archived behind the toggle, offline, and the phone's footer). The e2e `signUp` helper now goes on from Home to the list (`home: true` stays), as
 most specs want the list; `frame.spec.ts`'s remembered-per-kind test is on Home and the list.
 
-#### 📋 23.3 — Inventory: the data
+#### ⏳ 23.3 — Inventory: the data
 
 **Goal:** a person's own items and their changes to the starter, kept in their group and read by them alone. **Design:** RFC 0006, "The data".
 **Depends on:** 23.1.
@@ -92,6 +92,36 @@ registry test.
 
 **Accepts when:** a person on a shared list reads the name of a category its items use and of no other of the owner's; a starter entry renamed shows the new name and keeps the entry's key; a hidden entry is offered nowhere; a person on one of the
 group's lists pulls no `inventory_item` (seen to fail with the condition removed); the property tests hold with Inventory rows.
+
+**Built so far (0.7.0, 2026-11-24), staged so that no commit holds a table someone else can reach:** this task is more than the table. It is three synced tables (`inventory_item`, a person's
+own categories, a list's copies of them), Inventory's own keys, the household's move into encryption, and the pull's exclusion, so it goes in steps, each green on its own.
+
+- **Step 1, done (`e758ac5`):** the generic apply path no longer lets an unruled table through (`checkListAccess` ended in `return undefined`, so a new table was writable by anyone `memberOf`
+  let in: it now refuses, with a test seen to fail against the old ending), and the name-key fold's scope is the table spec's (`nameScope`: a list's catalog, or the whole group).
+- **Steps 2 and 3, done, plain mode only:** `inventory_item` on both dialects (`0018_add_inventory_item`, generated; one row per name key and one override per starter entry, by unique
+  indexes) and `SHOPPER_LIMIT_INVENTORY_ITEMS` (5000; a new setting, in `.env.example` and the README, and no change to the Dockerfile, `compose.yml` or the manifest). **Owner only,
+  in the statement** (`ownerOf`): a person on one of the group's lists, and a stranger, are refused as not found for a make, a change and a delete, and the pull hands a row to its group's own
+  account alone, **with the tombstones and aliases a fold or a delete leaves**, which are of no list and would otherwise have gone to every member: each condition is seen to fail when removed (rows,
+  aliases, tombstones, the owner check on writes, the export's, and the deletion's). The server seals `name` and `note`, makes the name key under a label of its own
+  (`shopper:inventory-name-key:v1`, never a product's), folds the same name made twice (and a second override of a starter entry whatever either was renamed to, or the unique index would refuse
+  it for good: a poison mutation), restores a deleted row that is made again, never changes a row's starter entry, and counts the limit. **A flag travels as 0 or 1** (DESIGN.md §12.2) and is the
+  dialect's boolean in the column. `People.deletePerson` deletes a person's Inventory **whether or not their group stays for a list that passed on**, with what folds of it left; the readable export holds
+  their own and none of anyone else's; key rotation recomputes the name key (from the starter entry's name for an override that keeps it). On the device: an IndexedDB store (version 4, nothing reset), the
+  pull merge, a fold's re-pointing (what waits in the outbox follows the row that stands), flags as booleans, undo; `src/actions/inventory.ts` (make, override a starter entry, change, hide, restore,
+  delete) and `src/catalog/inventory.ts` (the starter catalog layered under the person's rows: a renamed entry keeps its key, a hidden one is offered nowhere, a deleted override shows the starter as it is).
+  The property test of the order of arrival holds with Inventory rows, flags included. **Run on all three databases (file, PostgreSQL 16, sqld), each 106 files and 844 tests,** and the browser suite on Chromium (none of its 149 tests failed). **WebKit, on a quiet machine: 141 passed, 6 skipped, 2 failed,** both flakes that are not this change's: `keys.spec.ts:8` (the locked key, known) and `device.spec.ts:286` (resetting the device: apparently a race in
+  the test: its poll can pass on the household from before the reset, and the read after it finds it cleared), which failed 3 of 6 runs on this build and 3 of 8 on the commit before it. A first run on
+  a machine in swap pressure (load about 80) had failed 93 of WebKit's tests on timeouts and was thrown away. The device store was also opened in real WebKit, fresh at version 4 and upgraded from
+  version 3, keeping its data and the booleans.
+- **Left to do, so 23.3 is not ✅:** (4) **encrypted mode.** A group that has moved to device encryption (which every account made in a browser is) takes no Inventory yet: apply refuses it as
+  unsupported, and the household's move (`src/keys/server/move.ts`) does not carry Inventory. Needs the group's Inventory keys (`shopper:inventory-key:v1`, given to nobody), the device's name key
+  under them, values bound to the group in place of a list (`checkBoundToList` an explicit rule, not a bypass), and the move to take a group's Inventory with it. **Until it lands nothing in a browser
+  writes Inventory.** (5) **A person's own categories and `list_category`:** categories are still the group's and fixed; the pull gives every member every category (`1 = 1`) and unseals a renamed one with
+  the ring, so own categories need their names filtered for non-owners, an item's `categoryId` held to a starter category or a `list_category` of its own list (`checkReferences` accepts any live category of
+  the group today), and §20.3's `list_category.category_id` read for whether it points into another person's group (which would break the same-group rule: raise it with the owner, do not code around it).
+  (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
+  tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
+- **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it, and the household move's Inventory with step 4.
 
 #### 📋 23.4 — Inventory: the screen
 

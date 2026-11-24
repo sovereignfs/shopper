@@ -32,10 +32,13 @@ export interface Mutation {
   readonly changes: readonly Change[];
 }
 
-/** A field's value: text, a number, nothing, or (never in 0.1.0) a boolean. */
+/**
+ * A field's value: text, a number or nothing. **A flag is `0` or `1`** (an Inventory item's `recurring` and `hidden`): a mutation says it as a number, the
+ * server writes the column as the dialect's boolean (`TableSpec.plain`'s `kind: 'bool'`), and a pull hands the row back with a boolean, as a device keeps it.
+ */
 export type FieldValue = string | number | null;
 
-export const SYNCED_TABLES = ['list', 'item', 'product'] as const;
+export const SYNCED_TABLES = ['list', 'item', 'product', 'inventory_item'] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 /** The most changes in one mutation: _Clear bought_ on a full list, with room. */
@@ -78,6 +81,14 @@ const listIcon = z
   .max(40);
 const listColor = z.string().refine(isListColor, 'not a colour');
 const nullable = <T extends z.ZodType>(schema: T) => z.union([schema, z.null()]);
+/** A flag, as a mutation says it. */
+const flag = z.union([z.literal(0), z.literal(1)]);
+/** The key of a starter catalog entry (`src/catalog/starter.ts`): its name as a slug, which a person's own entry never has (null). */
+const STARTER_KEY = /^[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*$/u;
+const starterKey = z
+  .string()
+  .max(64)
+  .refine((text) => STARTER_KEY.test(text), 'not a starter entry');
 
 interface TableFields {
   readonly fields: Readonly<Record<string, z.ZodType<FieldValue>>>;
@@ -135,6 +146,25 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['name', 'createdAt'],
   },
+  // An item of a person's Inventory (§8.8): the person's own group's, written by its own account alone. A name is absent when an override of a starter entry keeps
+  // the starter's, and then the starter entry is named.
+  inventory_item: {
+    fields: {
+      // The starter entry it overrides; set when it is made, never changed. Null for one of the person's own.
+      starterKey: nullable(starterKey),
+      name: nullable(name),
+      note: nullable(note),
+      categoryId: nullable(id),
+      icon: nullable(icon),
+      unit: nullable(unit),
+      quantity: nullable(quantity),
+      recurring: flag,
+      hidden: flag,
+      deletedAt: nullable(time),
+      createdAt: time,
+    },
+    required: ['createdAt'],
+  },
 };
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
@@ -142,6 +172,7 @@ export const CONTENT: Record<SyncedTable, readonly string[]> = {
   list: ['name', 'icon', 'color'],
   item: ['name', 'note'],
   product: ['name', 'note'],
+  inventory_item: ['name', 'note'],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */

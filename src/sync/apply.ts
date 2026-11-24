@@ -9,7 +9,13 @@ import { appTable } from '../db/tables';
 import { memberOf, onList, ownerOf } from '../access/membership';
 import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
-import { type Fold, foldProductFields, recordFold, resolveAlias } from './fold';
+import {
+  type Fold,
+  foldInventoryFields,
+  foldProductFields,
+  recordFold,
+  resolveAlias,
+} from './fold';
 import { foldItemFields, withoutSecondTick } from './items';
 import { mergeChange } from './merge';
 import { Refusal, duplicate, invalid, limited, notFound, otherList, unsupported } from './refusal';
@@ -213,6 +219,20 @@ interface Outcome {
 
 const NOTHING: Outcome = { written: [] };
 
+/** A column as a field says it: a flag column is `0` or `1` whatever the dialect read it as (a boolean, or an integer). */
+const fieldOf = (kind: 'bool' | undefined, value: unknown): FieldValue =>
+  kind === 'bool' ? (value ? 1 : 0) : ((value as FieldValue | undefined) ?? null);
+
+/** A field as its column takes it: a flag as PostgreSQL's boolean or SQLite's integer, anything else as it is. */
+const columnOf = (database: Database, kind: 'bool' | undefined, value: FieldValue): unknown =>
+  kind === 'bool' && value !== null
+    ? database.dialect === 'postgres'
+      ? value === 1
+      : value === 1
+        ? 1
+        : 0
+    : value;
+
 /** One change, merged into its row. A change that changes nothing writes nothing; a row made for a name the household has is folded into it. */
 async function applyChange(
   deps: ApplyDeps,
@@ -224,6 +244,10 @@ async function applyChange(
 ): Promise<Outcome> {
   const { database, ring } = deps;
   const t = appTable(database, spec.sql);
+  // An Inventory item in a group that has moved to device encryption has its own keys to be encrypted under (23.3, step 4): until a device can do that the server
+  // takes none, and a group's Inventory is never half in plain text.
+  if (spec.table === 'inventory_item' && deps.mode === 'encrypted')
+    throw unsupported('an encrypted group’s Inventory');
   // A change that names a product that was folded into another names the other (`fold.ts`).
   let change = await repointRefs(database, household, spec, incoming);
   const existing = await dbGet<Row>(
@@ -273,8 +297,8 @@ async function applyChange(
   const values: Record<string, FieldValue> = {};
   const stamps: Record<string, number> = existing ? parseStamps(existing.fseq) : {};
   if (existing) {
-    for (const { field, column } of spec.plain)
-      values[field] = (existing[column] as FieldValue | undefined) ?? null;
+    for (const { field, column, kind } of spec.plain)
+      values[field] = fieldOf(kind, existing[column]);
     const content = contentOf(deps, spec, change.id, existing);
     for (const field of spec.sealed) values[field] = content[field] ?? null;
   }
@@ -302,8 +326,27 @@ async function applyChange(
         ? { name_key: sentNameKey }
         : {}
       : spec.derive
-        ? spec.derive({ household, ring, sealed: sealedFields })
+        ? spec.derive({
+            household,
+            ring,
+            sealed: sealedFields,
+            row: existing ? merged.values : change.fields,
+          })
         : {};
+
+  // **One override of a starter entry in a group** (§8.8): two devices that each overrode the same entry offline made two rows for it, and the later folds into the
+  // earlier whatever either was renamed to, or the unique key on the entry would refuse it for good.
+  if (
+    spec.table === 'inventory_item' &&
+    !existing &&
+    typeof change.fields.starterKey === 'string'
+  ) {
+    const overridden = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${t} WHERE household_id = ${household} AND starter_key = ${change.fields.starterKey} AND id <> ${change.id}`,
+    );
+    if (overridden) return foldInto(deps, spec, household, change, overridden.id, seq, now);
+  }
 
   // A name already in the table's scope is another row's: a new one is folded into it, and a rename is refused. The scope is a list's catalog for a product
   // (21.3: another list's never) and the whole group for what is the group's alone (an Inventory item, §8.8).
@@ -343,9 +386,10 @@ async function applyChange(
       ['id', change.id],
       ['household_id', household],
     ];
-    for (const { field, column } of spec.plain)
+    for (const { field, column, kind } of spec.plain)
       // Only the fields the row was made with: the others take the table's defaults (a list's clearing rule), not a null.
-      if (field in change.fields) columns.push([column, change.fields[field] ?? null]);
+      if (field in change.fields)
+        columns.push([column, columnOf(database, kind, change.fields[field] ?? null)]);
     if (encrypted) columns.push(['sealed', ''], ['encrypted', sealedText ?? null]);
     else columns.push(['sealed', sealedText ?? null]);
     for (const [column, value] of Object.entries(derived)) columns.push([column, value]);
@@ -367,9 +411,11 @@ async function applyChange(
   }
 
   const sets: SQL[] = [];
-  for (const { field, column } of spec.plain) {
+  for (const { field, column, kind } of spec.plain) {
     if (merged.changed.includes(field))
-      sets.push(sql`${sql.raw(`"${column}"`)} = ${merged.values[field] ?? null}`);
+      sets.push(
+        sql`${sql.raw(`"${column}"`)} = ${columnOf(database, kind, merged.values[field] ?? null)}`,
+      );
   }
   if (sealedText !== undefined)
     sets.push(encrypted ? sql`"encrypted" = ${sealedText}` : sql`"sealed" = ${sealedText}`);
@@ -414,10 +460,12 @@ async function foldInto(
   );
   if (!row) throw notFound();
   const have: Record<string, FieldValue> = {};
-  for (const { field, column } of spec.plain)
-    have[field] = (row[column] as FieldValue | undefined) ?? null;
+  for (const { field, column, kind } of spec.plain) have[field] = fieldOf(kind, row[column]);
   Object.assign(have, contentOf(deps, spec, into, row));
-  const additions = foldProductFields(have, change.fields);
+  const additions =
+    spec.table === 'inventory_item'
+      ? foldInventoryFields(have, change.fields)
+      : foldProductFields(have, change.fields);
   const fold: Fold = { table: change.table, from: change.id, to: into };
   await recordFold(database, household, fold, seq, now);
   if (Object.keys(additions).length === 0) return { written: [into], fold };
@@ -611,6 +659,20 @@ export async function checkListAccess(
     } else if (typeof sent === 'string') {
       if (!(await allowed(onList(database, sent, accountId)))) throw notFound();
     } else if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    return undefined;
+  }
+  if (spec.table === 'inventory_item') {
+    // **A person's Inventory is their own account's alone** (§8.8): the group whose `own_of` is the sender, whoever else is on any of its lists, and for a row that
+    // is there and a row that is made alike. Nobody on a list of the group may touch it.
+    if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    // The starter entry a row overrides is set when it is made and never changed (as a product's list is): a row cannot be turned into another entry's override.
+    if (change.fields.starterKey !== undefined) {
+      const existing = await dbGet<{ starter_key: string | null }>(
+        database,
+        sql`SELECT starter_key FROM ${appTable(database, 'inventory_item')} WHERE id = ${change.id} AND household_id = ${household}`,
+      );
+      if (existing && (existing.starter_key ?? null) !== change.fields.starterKey) throw notFound();
+    }
     return undefined;
   }
   // No rule for this table: nobody may write it (it reads as not found, as every refusal does).

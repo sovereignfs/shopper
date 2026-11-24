@@ -22,6 +22,7 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
 };
 const PLANTED = 'PLANTED-Oat-Milk-Brand';
 /** An icon's name is lower case and hyphens; this one is not in the design system, which is for the table to hold as it was sent. */
@@ -432,7 +433,7 @@ describe(`what is refused (${leg})`, () => {
 
   it('a product past the household’s limit, with the limit’s sentence, and a deleted one does not count', async () => {
     const owner = await somebody(database, 'Limited');
-    const small = { ...LIMITS, householdProducts: 2 };
+    const small = { ...LIMITS, householdProducts: 2, inventoryItems: 2 };
     const ids = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
     applied(
       await applyMutation(

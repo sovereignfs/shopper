@@ -220,6 +220,24 @@ async function leaveGroup(
             WHERE list_id = ${list} AND person_id = ${personId} AND left_at IS NULL RETURNING id`,
       );
     }
+    // **Their Inventory goes whether or not their group stays** for a list that passed to someone else (§8.8, §19): it was theirs alone, and nobody else ever
+    // had it. With it, what a fold or a delete of one of its items left, which is of no list.
+    const theirs = await dbGet<{ yes: number }>(
+      tx,
+      sql`SELECT 1 AS yes FROM ${h} WHERE id = ${household} AND own_of IN
+            (SELECT account_id FROM ${appTable(tx, 'person')} WHERE id = ${personId})`,
+    );
+    if (theirs) {
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'inventory_item')} WHERE household_id = ${household} RETURNING 1 AS gone`,
+      );
+      for (const table of ['alias', 'tombstone'] as const)
+        await dbAll(
+          tx,
+          sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND table_name = 'inventory_item' RETURNING 1 AS gone`,
+        );
+    }
     // Their own group is theirs no more: its lists that carry on are their people's, in a group nobody owns.
     await dbAll(
       tx,

@@ -71,6 +71,25 @@ export async function resolveAlias(
 }
 
 /**
+ * What an Inventory item made for a name the group already has adds to the one it became: **what the existing one has nothing in is taken from the new one**,
+ * and what it has is kept, as for a product; and an existing one that was deleted is **restored**, since a person who adds a thing again wants it back (an edit
+ * restores a deleted row, §12.4). A name is the same by its key, so neither the name nor the starter entry is carried over. Pure.
+ */
+export function foldInventoryFields(
+  existing: Readonly<Record<string, string | number | null>>,
+  sent: Readonly<Record<string, string | number | null>>,
+): Record<string, string | number | null> {
+  const out: Record<string, string | number | null> = {};
+  for (const field of ['note', 'categoryId', 'icon', 'unit', 'quantity'] as const) {
+    const have = existing[field] ?? null;
+    const given = sent[field] ?? null;
+    if (have === null && given !== null) out[field] = given;
+  }
+  if ((existing.deletedAt ?? null) !== null) out.deletedAt = null;
+  return out;
+}
+
+/**
  * What a folded product's sent fields add to the one it became: **a field the existing one has nothing in is taken from the new one**, and what the
  * existing one has is kept (it was there first). `lastAddedAt` is the later of the two. Pure.
  */

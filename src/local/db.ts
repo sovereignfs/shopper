@@ -3,6 +3,7 @@ import type { Mutation } from '../actions/format';
 import type {
   CategoryRow,
   HouseholdRecord,
+  InventoryRow,
   ItemRow,
   ListRow,
   MemberRow,
@@ -14,7 +15,7 @@ import type {
  * The browser's working copy (DESIGN.md §12.1): IndexedDB through `idb`, **one database per account**, named for it, so that a second account on the same
  * device sees nothing of the first and signing out can delete exactly one. The UI reads and writes only this; the server is something the sync loop talks to.
  *
- * - `household`, `list`, `item`, `product`, `category`, `member`
+ * - `household`, `list`, `item`, `product`, `category`, `inventory_item`, `member`
  *                  the rows as the device shows them: the server's, with this device's unanswered edits laid over (`store.ts`).
  * - `shadow`       for a row that has unanswered edits, the row as the server last had it, so that an edit can be taken back and a pull can be merged under
  *                  the edits. A row with no unanswered edit has none; one the device made and the server has not answered has `row: null`.
@@ -56,6 +57,8 @@ export interface LocalSchema extends DBSchema {
   item: { key: string; value: ItemRow; indexes: { byList: string; byProduct: string } };
   product: { key: string; value: ProductRow; indexes: { byHousehold: string } };
   category: { key: string; value: CategoryRow; indexes: { byHousehold: string } };
+  /** The account's own Inventory (§8.8): only a device of that account has any. */
+  inventory_item: { key: string; value: InventoryRow; indexes: { byHousehold: string } };
   member: {
     key: [string, string];
     value: MemberRow;
@@ -76,6 +79,7 @@ export const WRITE_STORES = [
   'item',
   'product',
   'category',
+  'inventory_item',
   'member',
   'shadow',
   'outbox',
@@ -84,7 +88,7 @@ export const WRITE_STORES = [
 ] as const;
 
 /** The version of the stores. A change to them adds a step to `upgrade` and raises this; it never edits an earlier step. */
-export const LOCAL_VERSION = 3;
+export const LOCAL_VERSION = 4;
 
 /** The database for an account (DESIGN.md §12.1). */
 export const localName = (accountId: string): string => `shopper-${accountId}`;
@@ -129,6 +133,13 @@ export async function openLocal(
         const member = db.createObjectStore('member', { keyPath: ['listId', 'personId'] });
         member.createIndex('byHousehold', 'householdId');
         member.createIndex('byList', 'listId');
+      }
+      // Version 4 (RFC 0006, task 23.3): the account's own Inventory. Nothing is reset: no Inventory was ever written before, so no cursor has passed any of it.
+      if (oldVersion < 4) {
+        db.createObjectStore('inventory_item', { keyPath: 'id' }).createIndex(
+          'byHousehold',
+          'householdId',
+        );
       }
     },
     // Another tab is deleting this account's database (it signed out, or the account was deleted): this connection is in the way, so it lets go. Without it

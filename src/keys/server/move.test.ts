@@ -29,6 +29,7 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
 };
 const MARKER = 'MARKERmv4';
 /** A list's icon and colour, as a person chose them: names a design system might one day have, and a colour no swatch offers. */

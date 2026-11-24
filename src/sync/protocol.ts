@@ -48,6 +48,11 @@ export interface HouseholdPull {
   readonly items: readonly Record<string, unknown>[];
   readonly products: readonly Record<string, unknown>[];
   readonly categories: readonly Record<string, unknown>[];
+  /**
+   * The reader's own Inventory (§8.8): rows of the reader's own group only, and **none for anyone else** (a person on one of the group's lists is handed
+   * nothing of it). Absent from a server that does not have it yet, which a device reads as none.
+   */
+  readonly inventory?: readonly Record<string, unknown>[];
   /** The people of the reader's lists, one row a person a list (`listId`), as the reader may see them (§6.1). */
   readonly members: readonly Record<string, unknown>[];
   /** Every list of this group the reader may see now (RFC 0004): the device forgets any other it holds. */

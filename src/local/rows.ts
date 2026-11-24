@@ -1,5 +1,5 @@
 import type { Change, FieldValue, SyncedTable } from '../actions/format';
-import type { ItemRow, ListRow, ProductRow } from '../actions/rows';
+import type { InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
 import { mergeChange } from '../sync/merge';
 import { withoutSecondTick } from '../sync/items';
 
@@ -8,7 +8,7 @@ import { withoutSecondTick } from '../sync/items';
  * a screen reads a row, hands it to an action and gets a mutation back. Two pure functions say how a row changes on the device, and neither touches
  * IndexedDB, so they are tested with none.
  */
-export type { ItemRow, ListRow, ProductRow };
+export type { InventoryRow, ItemRow, ListRow, ProductRow };
 
 export interface CategoryRow {
   readonly id: string;
@@ -47,7 +47,12 @@ export interface HouseholdRecord {
   readonly cursor: number;
 }
 
-export type RowOf = { list: ListRow; item: ItemRow; product: ProductRow };
+export type RowOf = {
+  list: ListRow;
+  item: ItemRow;
+  product: ProductRow;
+  inventory_item: InventoryRow;
+};
 export type SyncedRow = RowOf[SyncedTable];
 
 /** What a field is before anyone says anything about it, for a row a device makes. The server's defaults are these. */
@@ -74,6 +79,37 @@ const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
     lastAddedAt: null,
     deletedAt: null,
   },
+  inventory_item: {
+    starterKey: null,
+    name: null,
+    note: null,
+    categoryId: null,
+    icon: null,
+    unit: null,
+    quantity: null,
+    recurring: 0,
+    hidden: 0,
+    deletedAt: null,
+  },
+};
+
+/** The fields of a table that are flags: `0` or `1` in a mutation, and a boolean in a row as a device keeps it (the same as the pull hands it). */
+const FLAGS: { [T in SyncedTable]: readonly string[] } = {
+  list: [],
+  item: [],
+  product: [],
+  inventory_item: ['recurring', 'hidden'],
+};
+const asFlags = (row: Record<string, FieldValue | boolean>) => {
+  const out: Record<string, FieldValue> = {};
+  for (const [field, value] of Object.entries(row))
+    out[field] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+  return out;
+};
+const asBooleans = (table: SyncedTable, row: Record<string, FieldValue>) => {
+  const out: Record<string, FieldValue | boolean> = { ...row };
+  for (const field of FLAGS[table]) if (field in out) out[field] = out[field] === 1;
+  return out;
 };
 
 /**
@@ -89,18 +125,21 @@ export function applyChange<T extends SyncedTable>(
   householdId: string,
   now: number,
 ): RowOf[T] {
-  const base = (row ?? {
-    id: change.id,
-    householdId,
-    seq: 0,
-    ...(table === 'item' ? {} : { createdAt: now }),
-    ...DEFAULTS[table],
-  }) as unknown as Record<string, FieldValue>;
+  // A flag is a number while a change is merged into the row, and a boolean again after: the row is what a pull would hand over.
+  const base = asFlags(
+    (row ?? {
+      id: change.id,
+      householdId,
+      seq: 0,
+      ...(table === 'item' ? {} : { createdAt: now }),
+      ...DEFAULTS[table],
+    }) as unknown as Record<string, FieldValue | boolean>,
+  );
   const fields =
     table === 'item'
       ? withoutSecondTick(typeof base.boughtAt === 'number' ? base.boughtAt : null, change.fields)
       : change.fields;
-  return mergeChange(base, {}, fields, 0).values as unknown as RowOf[T];
+  return asBooleans(table, mergeChange(base, {}, fields, 0).values) as unknown as RowOf[T];
 }
 
 /**
@@ -121,8 +160,12 @@ export function reversal(
       : null;
   }
   const fields: Record<string, FieldValue> = {};
+  // A flag as a mutation says it, whatever the row keeps it as.
+  const said = (value: FieldValue | boolean): FieldValue =>
+    typeof value === 'boolean' ? (value ? 1 : 0) : value;
   for (const name of Object.keys(change.fields)) {
-    if (before[name] !== after[name] && before[name] !== undefined) fields[name] = before[name];
+    const was = before[name] as FieldValue | boolean | undefined;
+    if (was !== after[name] && was !== undefined) fields[name] = said(was);
   }
   if (before.deletedAt !== after.deletedAt && before.deletedAt !== undefined)
     fields.deletedAt = before.deletedAt;

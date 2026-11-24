@@ -20,7 +20,7 @@ export interface ExportRecords {
   readonly endToEnd: boolean;
 }
 
-const CONTENT_TABLES = ['list', 'item', 'product', 'category'] as const;
+const CONTENT_TABLES = ['list', 'item', 'product', 'category', 'inventory_item'] as const;
 
 export async function personRecords(
   database: Database,
@@ -60,7 +60,10 @@ export async function personRecords(
         ? onList(database, sql`r.list_id`, accountId)
         : table === 'product'
           ? sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${ownerOf(database, sql`r.household_id`, accountId)}))`
-          : sql`1 = 1`;
+          : table === 'inventory_item'
+            ? // Their own Inventory only (§8.8): the group whose own account they are, and nobody's else.
+              ownerOf(database, sql`r.household_id`, accountId)
+            : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
     plain.household?.push({

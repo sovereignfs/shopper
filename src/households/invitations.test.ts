@@ -37,6 +37,7 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
 };
 const NOW = 1_800_000_000_000;
 

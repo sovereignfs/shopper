@@ -292,6 +292,11 @@ export function isStarterSingular(normalised: string): boolean {
   return singulars.has(normalised);
 }
 
+const byKey = new Map(STARTER_CATALOG.map((entry) => [entry.key, entry]));
+
+/** The starter entry with this key, if this build has one (a person's override of an entry names it; the catalog grows by release). */
+export const starterEntryByKey = (key: string): StarterEntry | undefined => byKey.get(key);
+
 /** The starter entry for a name, by its normalised form: the name, an alias, or (where the entry says so) the name with an _s_. */
 export function starterEntryFor(name: string): StarterEntry | undefined {
   return index.get(normaliseName(name));

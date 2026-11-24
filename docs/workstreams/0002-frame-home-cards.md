@@ -227,7 +227,7 @@ person's sealed refresh token (the SDK's behaviour), until they sign in again or
 
 **Leg 6 is begun** (0.7.0, on `develop`, 2026-11-24): **23.2** (Home) is built, committed and verified. `/` opens Home, with Continue, a tile for every list and what is at a glance, from the
 device alone. It turned up a leg 5 bug (a client reads `/home`, the page `/` is rewritten to, so Home was never marked current): fixed in the same commit, with `addressOf`. The signed-in frame draws no
-`main` landmark, a gap to raise in `sovereign`. **23.3 to 23.5** (Inventory) are next, and 23.3 is staged so that no commit holds a table someone else can reach: see its epic.
+`main` landmark, a gap to raise in `sovereign`. **23.3 to 23.5** (Inventory) are next: 23.3 is being built in steps so that no commit holds a table someone else can reach, and its steps 1 to 3 (the table, owner only, on the server and a device, plain mode, on all three databases) are done; see its epic for what is left.
 
 **Leg 4 is done** (0.5.0, on `develop`, 2026-11-23): with `@sovereignfs/ui` 0.107.0 pinned (in `minimumReleaseAgeExclude` until it is a day old), **22.3 to 22.6, 22.9 and
 22.10** are built, committed and verified; the leg's owner gate is none. Two gaps to raise in `sovereign`: `IconPicker`'s options have no accessible names, and its

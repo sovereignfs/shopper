@@ -184,6 +184,41 @@ export const category = sqliteTable(
 );
 
 /**
+ * **An item of a person's Inventory** (DESIGN.md §8.8, RFC 0006), a row of **their own group** (`household.own_of` their account) and of nobody else's: it is
+ * read and written by that account alone, in the statement (`ownerOf`), and no pull hands it to anyone on one of the group's lists. It is a person's own
+ * library of what they buy, shown with the starter catalog it layers over: `starter_key` names the starter entry it overrides (null for one of their own),
+ * `name` (sealed, null when an override keeps the starter's) with its **name key**, unique in the group, and `note`. `recurring` and `hidden` are flags (a hidden
+ * starter entry is offered nowhere). `on_hand` and `low_point` come with the pantry (phase 3).
+ */
+export const inventoryItem = sqliteTable(
+  'inventory_item',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    /** The starter entry this overrides, or null for one of the person's own; one override per entry. */
+    starterKey: text('starter_key'),
+    nameKey: ref('name_key').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    categoryId: ref('category_id'),
+    icon: text('icon'),
+    unit: text('unit'),
+    quantity: decimal('quantity'),
+    recurring: bool('recurring').notNull().default(false),
+    hidden: bool('hidden').notNull().default(false),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('inventory_item_name_key_idx').on(table.householdId, table.nameKey),
+    uniqueIndex('inventory_item_starter_key_idx').on(table.householdId, table.starterKey),
+    index('inventory_item_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
  * **Every mutation the server has applied** (DESIGN.md §12.3), by the account that sent it and the id the device made, with the household's `seq` it
  * was applied at. A mutation sent again, because an answer was lost, finds its row and **writes nothing**: it is answered as it was. Pruned after ninety
  * days with the history (task 6.6, phase 2). Not a row of a household's: it is the account's, and goes with it (`deletePerson`).

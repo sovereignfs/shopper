@@ -68,6 +68,29 @@ export interface ItemRow {
   readonly seq: number;
 }
 
+/**
+ * **An item of the person's Inventory** (DESIGN.md §8.8), in plain text as a device holds it. `name` is null for an override of a starter entry that keeps the
+ * starter's name (`starterKey` names the entry); `recurring` and `hidden` are booleans here and `0`/`1` in a mutation. It is the account's own and only a device
+ * of that account has it.
+ */
+export interface InventoryRow {
+  readonly id: string;
+  readonly householdId: string;
+  /** The starter entry this overrides, or null for one of the person's own. */
+  readonly starterKey: string | null;
+  readonly name: string | null;
+  readonly note: string | null;
+  readonly categoryId: string | null;
+  readonly icon: string | null;
+  readonly unit: Unit | null;
+  readonly quantity: string | null;
+  readonly recurring: boolean;
+  readonly hidden: boolean;
+  readonly deletedAt: number | null;
+  readonly createdAt: number;
+  readonly seq: number;
+}
+
 /** An item is open until it is ticked, then bought, then cleared; a deleted one is none of them (DESIGN.md §4). */
 export type ItemState = 'open' | 'bought' | 'cleared' | 'deleted';
 

@@ -63,10 +63,15 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
     for (const name of names) {
       const encrypted = mode === 'encrypted' && content.includes(name);
       const shape =
-        mode === 'encrypted' && table === 'product' && name === 'nameKey'
+        mode === 'encrypted' &&
+        (table === 'product' || table === 'inventory_item') &&
+        name === 'nameKey'
           ? nameKey
           : encrypted
-            ? name === 'note' || (table === 'list' && name !== 'name')
+            ? name === 'note' ||
+              (table === 'list' && name !== 'name') ||
+              // An Inventory override that keeps the starter's name has none (the starter entry is named instead).
+              (table === 'inventory_item' && name === 'name')
               ? z.union([cipher, z.null()])
               : cipher
             : spec.fields[name];
@@ -92,6 +97,12 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
         return {
           ok: false,
           problem: `change ${index + 1}: a new ${table} needs ${missing.join(', ')}`,
+        };
+      // An Inventory item is a name of the person's own, or an override of a starter entry (which has the starter's name): never neither.
+      if (table === 'inventory_item' && clean.name == null && clean.starterKey == null)
+        return {
+          ok: false,
+          problem: `change ${index + 1}: a new inventory_item needs a name or a starter entry`,
         };
     }
     changes.push({

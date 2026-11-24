@@ -23,6 +23,8 @@ export const SEALED: SealedRegistry = {
   household: ['name'],
   product: ['name', 'note'],
   category: ['name'],
+  // A person's own library (§8.8): its name and note, sealed like a product's. No other table holds what a person buys under their own words.
+  inventory_item: ['name', 'note'],
   list: ['name', 'icon', 'color'],
   item: ['name', 'note'],
   // A push device's keys (RFC 0002): the server needs them to send, so it holds them sealed (DESIGN.md §13.4). The row's id is its endpoint.

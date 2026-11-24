@@ -21,7 +21,9 @@ import { FIELD_VALUE, NAME_KEY, boundTo } from '../household';
  *
  * A household with anyone else in it is not moved (the others could not be given its keys yet, amendment 2), nor one already moved.
  */
-const MOVED: readonly SyncedTable[] = ['list', 'item', 'product'];
+/** The tables a household's move takes into encryption. An Inventory item is not one yet: it is the account's own group's alone and is moved with step 4 of 23.3. */
+type MovedTable = Exclude<SyncedTable, 'inventory_item'>;
+const MOVED: readonly MovedTable[] = ['list', 'item', 'product'];
 
 export interface MoveDeps {
   readonly database: Database;
@@ -34,14 +36,14 @@ export interface Manifest {
   /** Each row with its list (a list's own id, an item's or a product's list), whose keys its values are encrypted under (RFC 0004). */
   readonly rows: Readonly<
     Record<
-      SyncedTable,
+      MovedTable,
       readonly { id: string; list: string; fields: Record<string, string | null> }[]
     >
   >;
 }
 
 /** The list a row's values are bound to: a list's own id, else its `list_id` (empty for a product from before lists had catalogs, which cannot move). */
-const listOfRow = (table: SyncedTable, row: { id: string; list_id?: string | null }): string =>
+const listOfRow = (table: MovedTable, row: { id: string; list_id?: string | null }): string =>
   table === 'list' ? row.id : (row.list_id ?? '');
 
 /**
@@ -84,7 +86,7 @@ export async function moveManifest(
   const here = await movable(database, household, accountId);
   if (!here) return undefined;
   const rows = {} as Record<
-    SyncedTable,
+    MovedTable,
     { id: string; list: string; fields: Record<string, string | null> }[]
   >;
   for (const table of MOVED) {

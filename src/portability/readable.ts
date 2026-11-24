@@ -37,7 +37,7 @@ export interface ReadableExport {
   readonly export: ReadableHead;
   /** How many values this browser could not open, which are `null` in `records`. */
   readonly unopened: number;
-  /** One list of rows per kind: `person`, `household`, `member`, `list`, `item`, `product`, `category`. */
+  /** One list of rows per kind: `person`, `household`, `member`, `list`, `item`, `product`, `category`, `inventory_item`. */
   readonly records: Readonly<Record<string, readonly Record<string, unknown>[]>>;
 }
 

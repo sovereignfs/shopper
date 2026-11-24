@@ -66,48 +66,71 @@ export async function pullHousehold(
           WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)} AND ${visible}
           ORDER BY r.seq, r.id LIMIT ${pageRows + 1}`,
     );
-  const [lists, items, products, categories, members, tombstones, aliases, visibleLists] =
-    await Promise.all([
-      take('list', onList(database, sql`r.id`, accountId)),
-      take('item', onList(database, sql`r.list_id`, accountId)),
-      take(
-        'product',
-        // A list's catalog (21.3): an item's product is always on the item's list, so this is every product the reader's items use.
-        sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own}))`,
-      ),
-      take('category', sql`1 = 1`),
-      dbAll<Raw>(
-        database,
-        sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
+  const [
+    lists,
+    items,
+    products,
+    categories,
+    inventory,
+    members,
+    tombstones,
+    aliases,
+    visibleLists,
+  ] = await Promise.all([
+    take('list', onList(database, sql`r.id`, accountId)),
+    take('item', onList(database, sql`r.list_id`, accountId)),
+    take(
+      'product',
+      // A list's catalog (21.3): an item's product is always on the item's list, so this is every product the reader's items use.
+      sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own}))`,
+    ),
+    take('category', sql`1 = 1`),
+    // **A person's Inventory is handed to nobody but its group's own account** (§8.8, §12.3): a condition of this statement, as a list's is.
+    take('inventory_item', own),
+    dbAll<Raw>(
+      database,
+      sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
           FROM ${t('list_member')} m JOIN ${t('person')} p ON p.id = m.person_id
           WHERE m.household_id = ${household} AND m.seq > ${cursor} AND ${onList(database, sql`m.list_id`, accountId)}
           ORDER BY m.seq, m.id LIMIT ${pageRows + 1}`,
-      ),
-      dbAll<Raw>(
-        database,
-        sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
           AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+          -- What a fold or a delete of an Inventory item leaves is of no list, and is the group's own account's alone, as the rows are.
+          AND (r.table_name <> 'inventory_item' OR ${own})
           -- An item moved away from a list (RFC 0004) is gone only for a reader who cannot see it where it is now.
           AND NOT (r.table_name = 'item' AND EXISTS (SELECT 1 FROM ${t('item')} ti WHERE ti.id = r.id AND ti.household_id = r.household_id
                    AND ${onList(database, sql`ti.list_id`, accountId)}))
           ORDER BY r.seq LIMIT ${pageRows + 1}`,
-      ),
-      dbAll<Raw>(
-        database,
-        sql`SELECT * FROM ${t('alias')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
-          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
-      ),
-      // Every list the reader may see in this group, whatever its seq: the device forgets any other it holds.
-      dbAll<{ id: string }>(
-        database,
-        sql`SELECT l.id FROM ${t('list')} l WHERE l.household_id = ${household} AND ${onList(database, sql`l.id`, accountId)} ORDER BY l.id`,
-      ),
-    ]);
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('alias')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+          AND (r.table_name <> 'inventory_item' OR ${own}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
+    ),
+    // Every list the reader may see in this group, whatever its seq: the device forgets any other it holds.
+    dbAll<{ id: string }>(
+      database,
+      sql`SELECT l.id FROM ${t('list')} l WHERE l.household_id = ${household} AND ${onList(database, sql`l.id`, accountId)} ORDER BY l.id`,
+    ),
+  ]);
 
   // The page ends at a seq that is whole: where a table overflowed, just before the seq of its first row past the page, and never before the cursor.
   let upTo = Number(view.seq);
   let more = false;
-  for (const rows of [lists, items, products, categories, members, tombstones, aliases]) {
+  for (const rows of [
+    lists,
+    items,
+    products,
+    categories,
+    inventory,
+    members,
+    tombstones,
+    aliases,
+  ]) {
     if (rows.length > pageRows) {
       more = true;
       const first = seqOf(rows[pageRows] as Raw);
@@ -133,6 +156,7 @@ export async function pullHousehold(
     items: within(items).map((row) => itemOf(row, ring)),
     products: within(products).map((row) => productOf(row, ring)),
     categories: within(categories).map((row) => categoryOf(row, ring)),
+    inventory: within(inventory).map((row) => inventoryOf(row, ring)),
     members: within(members).map((row) => memberRow(row, ring, accountId)),
     visibleLists: visibleLists.map((row) => row.id),
     tombstones: within(tombstones).map((row) => ({
@@ -231,6 +255,28 @@ function productOf(row: Raw, ring: KeyRing) {
     timesBought: Number(row.times_bought),
     lastBoughtAt: num(row.last_bought_at),
     lastAddedAt: num(row.last_added_at),
+    deletedAt: num(row.deleted_at),
+    createdAt: Number(row.created_at),
+    seq: seqOf(row),
+    ...encryptedOf(row),
+  };
+}
+
+function inventoryOf(row: Raw, ring: KeyRing) {
+  const sealed = opened('inventory_item', row, ring);
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    starterKey: nullable(row.starter_key),
+    // Null for an override that keeps the starter's name: the device layers the starter entry under it.
+    name: text(sealed.name),
+    note: text(sealed.note),
+    categoryId: nullable(row.category_id),
+    icon: nullable(row.icon),
+    unit: nullable(row.unit),
+    quantity: nullable(row.quantity),
+    recurring: Boolean(row.recurring),
+    hidden: Boolean(row.hidden),
     deletedAt: num(row.deleted_at),
     createdAt: Number(row.created_at),
     seq: seqOf(row),

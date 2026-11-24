@@ -2,7 +2,10 @@ import type { SyncedTable } from '../actions/format';
 import type { KeyRing } from '../crypto/keys';
 import type { Limits } from '../limits/config';
 import type { LimitKind } from '../limits/limits';
+import { inventoryNameKey } from '../catalog/inventory-key';
 import { productNameKey } from '../catalog/product-key';
+import { starterEntryByKey } from '../catalog/starter';
+import { invalid } from './refusal';
 
 /**
  * **What the server knows of each synced table** (DESIGN.md §20.3), so that applying a mutation is one piece of code over a description and not a piece
@@ -15,6 +18,11 @@ import { productNameKey } from '../catalog/product-key';
 export interface ColumnOf {
   readonly field: string;
   readonly column: string;
+  /**
+   * `bool`: the column is the dialect's boolean, and the field is a flag, `0` or `1`, in a mutation (`FieldValue`). The server converts at the database's edge,
+   * so that PostgreSQL gets a boolean and SQLite its integer, and a merge compares flags with flags.
+   */
+  readonly kind?: 'bool';
 }
 
 export interface TableSpec {
@@ -32,6 +40,8 @@ export interface TableSpec {
     household: string;
     ring: KeyRing;
     sealed: Readonly<Record<string, string | number | null>>;
+    /** The row's other fields as they will be (the merged row, or the new row's), for a key that depends on one: an Inventory override's starter entry. */
+    row: Readonly<Record<string, string | number | null>>;
   }): Record<string, string | number | null>;
   /**
    * Where a name key is unique: **in a list's catalog** (the default: a product, 21.3) or **in the whole group** (a table that is the group's alone, as an
@@ -103,5 +113,35 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
       name_key: productNameKey(ring, household, String(sealed.name ?? '')),
     }),
     limit: { kind: 'householdProducts', of: (limits) => limits.householdProducts },
+  },
+  // An item of a person's Inventory (§8.8): the group's own account's alone, one name once in the group (a starter entry's override is by its key, and has the
+  // starter's name unless it is given one).
+  inventory_item: {
+    table: 'inventory_item',
+    sql: 'inventory_item',
+    sealed: ['name', 'note'],
+    plain: [
+      { field: 'starterKey', column: 'starter_key' },
+      { field: 'categoryId', column: 'category_id' },
+      { field: 'icon', column: 'icon' },
+      { field: 'unit', column: 'unit' },
+      { field: 'quantity', column: 'quantity' },
+      { field: 'recurring', column: 'recurring', kind: 'bool' },
+      { field: 'hidden', column: 'hidden', kind: 'bool' },
+      { field: 'deletedAt', column: 'deleted_at' },
+      { field: 'createdAt', column: 'created_at' },
+    ],
+    refs: { categoryId: 'category' },
+    nameScope: 'group',
+    derive: ({ household, ring, sealed, row }) => {
+      const name =
+        typeof sealed.name === 'string'
+          ? sealed.name
+          : starterEntryByKey(String(row.starterKey ?? ''))?.name;
+      // An override that keeps the starter's name, of an entry this build does not have, has no name to make a key from.
+      if (name === undefined) throw invalid('that starter entry is not known here');
+      return { name_key: inventoryNameKey(ring, household, name) };
+    },
+    limit: { kind: 'inventoryItems', of: (limits) => limits.inventoryItems },
   },
 };

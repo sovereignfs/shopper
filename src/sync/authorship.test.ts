@@ -22,6 +22,7 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
 };
 let database: Database;
 let ada: Someone;

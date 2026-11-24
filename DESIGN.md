@@ -764,6 +764,8 @@ the item's `boughtAt` and `boughtBy`.
 - **Ids are made by the device,** so a new item, product or trip exists at once and everything can point at it offline. A mutation's id makes sending
   it twice harmless: the server records what it has applied.
 - **Only what changed is sent:** a field, not a row (Tusk's Desk). That is what makes most conflicts vanish (§12.4).
+- **A flag is `0` or `1`** in a mutation (an Inventory item's `recurring` and `hidden`): the server writes the column as the dialect's boolean and a pull hands the row
+  back with a boolean, as a device keeps it. A field's value is otherwise text, a number or nothing.
 - **What syncs offline:** everything about lists, items, products, categories and the aisle order, Inventory, a card's fields and its links to
   lists, shops, trips and trip lines. Everything else is
   online (§12.8).

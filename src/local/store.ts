@@ -20,6 +20,7 @@ import { type Kind, describeMutation } from './describe';
 import {
   type CategoryRow,
   type HouseholdRecord,
+  type InventoryRow,
   type ItemRow,
   type ListRow,
   type MemberRow,
@@ -349,6 +350,8 @@ async function takeHousehold(
     ['list', pull.lists],
     ['item', pull.items],
     ['product', pull.products],
+    // The account's own Inventory (§8.8): a pull of anyone else's has none, and a server from before it sends no field.
+    ['inventory_item', pull.inventory ?? []],
   ];
   for (const [table, rows] of incoming) {
     for (const raw of rows) {
@@ -451,7 +454,7 @@ async function repoint(
   to: string,
   touched: Set<string>,
 ): Promise<void> {
-  if (table !== 'product' && table !== 'item') return;
+  if (table !== 'product' && table !== 'item' && table !== 'inventory_item') return;
   await tx.objectStore(table).delete(from);
   await tx.objectStore('shadow').delete([table, from]);
   touched.delete(keyOf(table, from));
@@ -506,6 +509,7 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
     ['list', await tx.objectStore('list').index('byHousehold').getAll(id)],
     ['product', await tx.objectStore('product').index('byHousehold').getAll(id)],
     ['category', await tx.objectStore('category').index('byHousehold').getAll(id)],
+    ['inventory_item', await tx.objectStore('inventory_item').index('byHousehold').getAll(id)],
   ] as const;
   for (const [table, rows] of owned) {
     for (const row of rows) {
@@ -653,6 +657,11 @@ export async function openCounts(
       ).length,
     );
   return counts;
+}
+
+/** The account's own Inventory as the device holds it (§8.8): every live row. Only the account's own group's rows are ever pulled, so there is no household to ask. */
+export async function inventoryOf(db: LocalDatabase): Promise<InventoryRow[]> {
+  return (await db.getAll('inventory_item')).filter(live);
 }
 
 export async function productsOf(db: LocalDatabase, householdId: string): Promise<ProductRow[]> {

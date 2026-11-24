@@ -6,6 +6,7 @@ import { dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
+import { applyMutation } from '../sync/apply';
 import { personRecords } from './records';
 
 let database: Database;
@@ -87,5 +88,55 @@ describe(`a person's export (${testTarget().leg})`, () => {
       { household: lin.household, list: lin.list, epoch: 1, record: 'lr1.ada.copy' },
     ]);
     expect(JSON.stringify(parts)).not.toContain('lr1.grace.copy');
+  });
+
+  it('holds a person’s own Inventory, and nothing of it in the export of someone on one of their group’s lists (23.3)', async () => {
+    const host = await somebody(database, 'Hostess');
+    const guest = await somebody(database, 'Guest');
+    await join(database, host.household, guest);
+    const id = crypto.randomUUID();
+    const result = await applyMutation(
+      {
+        database,
+        ring: TEST_RING,
+        limits: {
+          householdMembers: 20,
+          accountHouseholds: 20,
+          householdLists: 100,
+          listOpenItems: 500,
+          householdProducts: 5000,
+          inventoryItems: 5000,
+        },
+      },
+      host.accountId,
+      {
+        mutationId: crypto.randomUUID(),
+        householdId: host.household,
+        changes: [
+          {
+            table: 'inventory_item',
+            id,
+            create: true,
+            fields: { name: 'Hostess’s good tea', createdAt: 1, recurring: 1, hidden: 0 },
+          },
+        ],
+      },
+    );
+    expect(result.status).toBe('applied');
+
+    const theirs = await personRecords(database, TEST_RING, host.accountId);
+    const inventory = theirs.find((part) => part.kind === 'inventory_item');
+    expect(inventory?.endToEnd).toBe(false);
+    expect(inventory?.records).toHaveLength(1);
+    expect(inventory?.records[0]).toMatchObject({
+      id,
+      household_id: host.household,
+      content: { name: 'Hostess’s good tea' },
+    });
+    // The guest's export holds the group's list and its people, and none of its Inventory.
+    const others = await personRecords(database, TEST_RING, guest.accountId);
+    expect(others.some((part) => part.kind === 'list')).toBe(true);
+    expect(others.some((part) => part.kind === 'inventory_item')).toBe(false);
+    expect(JSON.stringify(others)).not.toContain('good tea');
   });
 });

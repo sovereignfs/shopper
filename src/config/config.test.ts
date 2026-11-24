@@ -39,6 +39,7 @@ describe('loading the settings', () => {
       householdLists: 100,
       listOpenItems: 500,
       householdProducts: 5000,
+      inventoryItems: 5000,
     });
     expect(config.mail).toBeUndefined();
   });

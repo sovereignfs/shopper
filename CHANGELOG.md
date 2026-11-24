@@ -15,6 +15,11 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   when someone shared it, and who is on it. Archived lists are behind a toggle. **At a glance** says how many items are open across your lists, how many you ticked in the last week
   and what you buy most. All of it is worked out on your device, so it is there with no network. Someone who has just accepted an invitation still goes straight to that list.
 
+### Changed
+
+- **Under the hood, nothing to see yet:** Shopper's server and your device can now hold your **Inventory** (RFC 0006), the library of what you buy that Home and the add field will use. It is yours
+  alone: no one on a list you share can reach it, and it is deleted with your account. A new setting, `SHOPPER_LIMIT_INVENTORY_ITEMS` (default 5000), says how many items it can hold.
+
 ### Fixed
 
 - **The sidebar marks Home as the page you are on** when you are at the front address, and remembers how you left the sidebar there as its own kind of page. The front address was
