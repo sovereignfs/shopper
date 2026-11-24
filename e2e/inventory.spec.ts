@@ -249,6 +249,124 @@ test('deleting an item takes it off with Undo, a field left as it is deleted doe
   expect((await rowsOf(page)).filter((row) => row.starterKey !== null)).toHaveLength(0);
 });
 
+interface Placed {
+  name: string;
+  quantity: string;
+  unit: string | null;
+  icon: string | null;
+  categoryId: string | null;
+  deletedAt: number | null;
+}
+const placed = async (page: Page, name: string): Promise<Placed[]> =>
+  (await deviceRows<Placed>(page, await accountOf(page), 'item')).filter(
+    (row) => row.name === name && row.deletedAt === null,
+  );
+
+test('Add to a list puts an item on the list with its own category, icon, unit and quantity, one more when it is open, and Undo takes it off', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory');
+  await expect(entry(page, 'Banana')).toBeVisible({ timeout: 30_000 });
+  const account = await accountOf(page);
+
+  // A starter entry the person has put in another category: Banana is Produce, a starter's and a guess's answer, and here it is Snacks and sweets.
+  await entry(page, 'Banana').click();
+  const banana = panel(page, 'Inventory: Banana');
+  await banana.getByLabel('Category').selectOption({ label: 'Snacks & sweets' });
+  await expect
+    .poll(async () => (await rowsOf(page)).filter((row) => row.starterKey === 'banana').length, {
+      timeout: 10_000,
+    })
+    .toBe(1);
+  await banana.getByRole('button', { name: 'Add to list' }).click();
+  await expect(banana.getByRole('status')).toContainText('Added Banana to Groceries');
+  await expect.poll(async () => (await placed(page, 'Banana')).length, { timeout: 10_000 }).toBe(1);
+  const snacks = (
+    await deviceRows<{ id: string; starterKey: string | null }>(page, account, 'category')
+  ).find((row) => row.starterKey === 'snacks-sweets');
+  expect((await placed(page, 'Banana'))[0]).toMatchObject({
+    quantity: '6',
+    unit: 'pcs',
+    icon: 'banana',
+    categoryId: snacks?.id,
+  });
+
+  // The list has it under Snacks and sweets, and one more of it is a second Add.
+  await banana.getByRole('button', { name: 'Add to list' }).click();
+  await expect(banana.getByRole('status')).toContainText('Added one more Banana to Groceries');
+  await expect
+    .poll(async () => (await placed(page, 'Banana')).map((row) => row.quantity), {
+      timeout: 10_000,
+    })
+    .toEqual(['7']);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect
+    .poll(async () => (await placed(page, 'Banana')).map((row) => row.quantity), {
+      timeout: 10_000,
+    })
+    .toEqual(['6']);
+  await expect
+    .poll(async () => (await deviceRows(page, account, 'outbox')).length, { timeout: 30_000 })
+    .toBe(0);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
+  await banana.getByRole('link', { name: 'Open list' }).click();
+  await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole('heading', { name: 'Snacks & sweets' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Banana/ })).toBeVisible();
+});
+
+test('Add to a list adds the item as it is on the device when its turn comes: a quantity left as it is pressed, and two presses in one instant', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory');
+  await expect(entry(page, 'Banana')).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Add item' }).first().click();
+  await panel(page, 'New item of Inventory').getByLabel('Name').fill('Zorblax');
+  await panel(page, 'New item of Inventory').getByRole('button', { name: 'Add item' }).click();
+  const zorblax = panel(page, 'Inventory: Zorblax');
+  await expect(zorblax).toBeVisible();
+
+  // The quantity is typed and not yet left; Add to list is pressed, which leaves it first: the item added has what was typed.
+  await zorblax.getByLabel('Quantity').fill('3');
+  await zorblax.getByRole('button', { name: 'Add to list' }).click();
+  await expect(zorblax.getByRole('status')).toContainText('Added Zorblax to Groceries');
+  await expect
+    .poll(async () => (await placed(page, 'Zorblax')).map((row) => row.quantity), {
+      timeout: 10_000,
+    })
+    .toEqual(['3']);
+
+  // Two presses in the same instant, for an item the list has no product of: the second is planned from the list as the first left it, so it is one more and not a second row.
+  await zorblax.getByRole('button', { name: 'Close the item' }).click();
+  await page.getByRole('button', { name: 'Add item' }).first().click();
+  await panel(page, 'New item of Inventory').getByLabel('Name').fill('Quuxle');
+  await panel(page, 'New item of Inventory').getByRole('button', { name: 'Add item' }).click();
+  await expect(panel(page, 'Inventory: Quuxle')).toBeVisible();
+  await page.evaluate(() => {
+    const open = document.querySelector('aside[aria-label="Inventory: Quuxle"]');
+    const press = [...(open?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Add to list',
+    );
+    press?.click();
+    press?.click();
+  });
+  await expect
+    .poll(async () => (await placed(page, 'Quuxle')).map((row) => row.quantity), {
+      timeout: 10_000,
+    })
+    .toEqual(['2']);
+  await expect
+    .poll(async () => (await deviceRows(page, await accountOf(page), 'outbox')).length, {
+      timeout: 30_000,
+    })
+    .toBe(0);
+  expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
+});
+
 test('a keyboard reaches an entry and its fields, and Escape closes it; Inventory opens with no network', async ({
   page,
   context,

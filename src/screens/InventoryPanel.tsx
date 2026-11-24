@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
   Button,
@@ -24,6 +25,9 @@ import type { InventoryRow } from '../actions/rows';
 import { GROCERY_ICONS, isGroceryIcon } from '../catalog/icons';
 import { type InventoryEntry, entryNamed, layerInventory } from '../catalog/inventory';
 import { categoryOfEntry } from '../inventory/screen';
+import { categoryOnList } from '../keys/copies';
+import { planAddFromInventory } from '../lists/adding';
+import { listViewOf } from '../local/listview';
 import { type InventoryData } from '../local/inventory-view';
 import { useLocal } from '../local/react';
 import { inventoryOf } from '../local/store';
@@ -61,9 +65,11 @@ export function InventoryPanel({
   mobile: boolean;
   onClose: () => void;
 }) {
-  const { client } = useLocal();
+  const { client, keysOf } = useLocal();
   const offerUndo = useUndo();
   const [name, setName] = useState<string | null>(null);
+  const [target, setTarget] = useState<string>('');
+  const [added, setAdded] = useState<{ list: string; message: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -148,6 +154,60 @@ export function InventoryPanel({
       write({ quantity: trimmed });
     } else setProblem('That is not a quantity.');
   };
+
+  /** The list _Add to a list_ adds to: the one chosen, if it is still there, else the list used last, else the first. */
+  const chosen = data.lists.some((each) => each.id === target)
+    ? target
+    : (data.landing ?? data.lists[0]?.id ?? '');
+
+  /**
+   * **Add to a list** (§16.8): this item added to the list chosen, with its category as it is on that list (`categoryOnList`: a copy of one of the person's own is made there, in the
+   * same change) and its icon, unit and quantity; one more of it when the list has it open. **In the line of writes, and read when its turn comes:** a name or a quantity left as
+   * Add is pressed is written first, and it is that item, from the device, that is added, never the one this panel was drawn with.
+   */
+  function addToList() {
+    if (!client || chosen === '') return;
+    enqueue(async () => {
+      const now = layerInventory(await client.read(inventoryOf)).find(
+        (each) => each.key === entry.key,
+      );
+      const view = await listViewOf(client.db, chosen);
+      if (!now || !view.found || !view.me) return;
+      const category = await categoryOnList(
+        client.db,
+        {
+          encrypted: async (household) => (await keysOf(household)).encrypted,
+          ringOf: async (household, list) => (await keysOf(household, list)).ring,
+        },
+        env(),
+        { entry: now, list: view.list },
+      );
+      const planned = planAddFromInventory(
+        env(),
+        {
+          list: view.list,
+          products: view.products,
+          items: view.items,
+          categories: view.categories,
+          me: view.me,
+        },
+        now,
+        category,
+      );
+      if (!planned) return;
+      if ('refused' in planned) {
+        setProblem(planned.refused);
+        return;
+      }
+      setProblem(null);
+      const undo = await client.commit(planned.mutation);
+      const message = `${planned.message} to ${view.list.name}`;
+      setAdded({ list: view.list.id, message });
+      offerUndo(message, () => {
+        if (undo) return void client.commit(undo);
+      });
+    });
+  }
 
   const shownCategory = categoryOfEntry(entry, data.categories);
   const categoryIcon = shownCategory?.icon;
@@ -291,6 +351,43 @@ export function InventoryPanel({
             />
           )}
         </FormField>
+        <section className={styles.add} aria-label="Add to a list">
+          <h3>Add to a list</h3>
+          {data.lists.length === 0 ? (
+            <p className={styles.note}>You have no list to add to yet.</p>
+          ) : (
+            <>
+              <FormField label="List">
+                {(field) => (
+                  <Select
+                    {...field}
+                    value={chosen}
+                    onChange={(event) => {
+                      setTarget(event.target.value);
+                      setAdded(null);
+                    }}
+                  >
+                    {data.lists.map((list) => (
+                      <option key={list.id} value={list.id}>
+                        {list.by ? `${list.name} (shared by ${list.by})` : list.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </FormField>
+              <div className={styles.actions}>
+                <Button variant="secondary" size="sm" onClick={addToList}>
+                  Add to list
+                </Button>
+                {added ? (
+                  <span className={styles.added} role="status">
+                    {added.message} · <Link href={`/l/${added.list}`}>Open list</Link>
+                  </span>
+                ) : null}
+              </div>
+            </>
+          )}
+        </section>
         <div className={styles.toggle}>
           <Toggle
             aria-label="Recurring"

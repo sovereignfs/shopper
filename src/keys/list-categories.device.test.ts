@@ -3,7 +3,9 @@ import { sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, callAs, somebody, type Someone } from '../access/test-support';
 import type { Env } from '../actions/env';
-import { makeCategory, renameCategory } from '../actions/categories';
+import { deleteCategory, makeCategory, renameCategory } from '../actions/categories';
+import { makeInventoryItem } from '../actions/inventory';
+import { layerInventory } from '../catalog/inventory';
 import { addItem, editItem } from '../actions/items';
 import { makeList } from '../actions/lists';
 import {
@@ -23,7 +25,7 @@ import { OPERATIONS } from '../households/ops';
 import { SyncClient } from '../local/client';
 import { type LocalDatabase, deleteLocal, localName, openLocal } from '../local/db';
 import { listViewOf, categoriesOfList } from '../local/listview';
-import { planAdd } from '../lists/adding';
+import { planAdd, planAddFromInventory } from '../lists/adding';
 import { rowListOf } from '../local/row-list';
 import {
   categoriesOf,
@@ -37,7 +39,13 @@ import {
 } from '../local/store';
 import { type Wire, serverTransport } from '../local/test-support';
 import type { EndpointDeps } from '../sync/endpoint';
-import { carryCategoryOnMove, copiesOfCategory, sourceKeyOn, type CopyKeys } from './copies';
+import {
+  carryCategoryOnMove,
+  categoryOnList,
+  copiesOfCategory,
+  sourceKeyOn,
+  type CopyKeys,
+} from './copies';
 import { deriveListKeyring, wrapListKeyring } from './household';
 import { Mover } from './mover';
 import { moveHousehold, moveInput, moveManifest } from './server/move';
@@ -668,5 +676,163 @@ describe(`a new name added to a list makes an Inventory item (${leg})`, () => {
     // The same name again: the list has its product now, and her Inventory has the item, so nothing more is made.
     const again = await plan();
     expect(again.also).toBeUndefined();
+  });
+});
+
+describe(`an Inventory item added to a list (${leg})`, () => {
+  /** An item of the person's own Inventory, with a category or none, and its address (`own:<id>`). */
+  async function ownItem(d: Dev, name: string, categoryId: string | null): Promise<string> {
+    const made = makeInventoryItem(env(), {
+      householdId: d.who.household,
+      name,
+      ...(categoryId ? { categoryId } : {}),
+    });
+    await d.client.commit(made);
+    await d.client.sync();
+    return `own:${made.changes[0]?.id ?? ''}`;
+  }
+
+  /** _Add to a list_ as the panel makes it: the category on that list, the plan from the item's own fields, written and sent. */
+  async function addFrom(d: Dev, key: string, list: string) {
+    const entry = layerInventory(await d.client.read(inventoryOf)).find((each) => each.key === key);
+    if (!entry) throw new Error('no such item');
+    const view = await d.client.read((db) => listViewOf(db, list));
+    if (!view.found || !view.me) throw new Error('not found');
+    const category = await categoryOnList(d.db, d.keys, env(), { entry, list: view.list });
+    const planned = planAddFromInventory(
+      env(),
+      {
+        list: view.list,
+        products: view.products,
+        items: view.items,
+        categories: view.categories,
+        me: view.me,
+      },
+      entry,
+      category,
+    );
+    if (!planned || 'refused' in planned) throw new Error('nothing planned');
+    await d.client.commit(planned.mutation);
+    await d.client.sync();
+    return { planned, category };
+  }
+
+  it('makes the list’s copy of a category of the person’s own, once, as a Member on another person’s list, accepted, and the Admin reads it', async () => {
+    const { ada, grace, a, g } = await world('AddOwn');
+    const garden = await ownCategory(g, `Garden ${MARKER}`);
+    const spade = await ownItem(g, `Spade ${MARKER}`, garden);
+    const rake = await ownItem(g, 'Rake', garden);
+
+    const first = await addFrom(g, spade, ada.list);
+    expect(first.category.copy).not.toBeNull();
+    expect(first.planned.mutation.householdId).toBe(ada.household);
+    expect(first.planned.mutation.changes.map((each) => each.table)).toEqual([
+      'list_category',
+      'product',
+      'item',
+    ]);
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+    // Ada reads the copy's name under the list's keys, and the item under it.
+    expect((await copiesOn(a, ada.list)).map((row) => row.name)).toEqual([`Garden ${MARKER}`]);
+    const view = await a.client.read((db) => listViewOf(db, ada.list));
+    if (!view.found) throw new Error('not found');
+    const item = view.items.find((row) => row.name === `Spade ${MARKER}`);
+    expect(item?.categoryId).toBe(first.category.id);
+    expect(item?.icon).toBeNull();
+
+    // A second item of the same category finds the copy and makes no other.
+    const second = await addFrom(g, rake, ada.list);
+    expect(second.category.copy).toBeNull();
+    expect(second.category.id).toBe(first.category.id);
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+    expect((await copiesOn(a, ada.list)).map((row) => row.name)).toEqual([`Garden ${MARKER}`]);
+    expect((await serverCopies()).filter((row) => row.household_id === ada.household)).toHaveLength(
+      1,
+    );
+    // Nothing of it is in plain text, and no id of Grace's category or group is in the group.
+    for (const table of ['list_category', 'item', 'product']) {
+      const found = await dbAll<Record<string, unknown>>(
+        database,
+        sql`SELECT * FROM ${appTable(database, table)} WHERE household_id = ${ada.household}`,
+      );
+      expect(JSON.stringify(found), table).not.toContain(MARKER);
+      expect(JSON.stringify(found), table).not.toContain(garden);
+      expect(JSON.stringify(found), table).not.toContain(grace.household);
+    }
+  });
+
+  it('puts the copy on the person’s own list too, and a starter category is the list’s group’s row and not an id of the person’s group', async () => {
+    const { ada, grace, a, g } = await world('AddStarter');
+    const garden = await ownCategory(a, 'Garden');
+    const spade = await ownItem(a, 'Spade', garden);
+    const onOwn = await addFrom(a, spade, ada.list);
+    expect(onOwn.category.copy).not.toBeNull();
+    expect(await failedOf(a.db)).toEqual([]);
+    expect((await copiesOn(a, ada.list)).map((row) => row.name)).toEqual(['Garden']);
+
+    // Grace's Banana is a starter entry: its category is Produce, as Ada's group has it, a row Grace's group does not share.
+    const banana = layerInventory(await g.client.read(inventoryOf)).find(
+      (each) => each.key === 'starter:banana',
+    );
+    expect(banana?.categoryKey).toBe('produce');
+    const hers = (await g.client.read((db) => categoriesOf(db, grace.household))).find(
+      (each) => each.starterKey === 'produce',
+    );
+    const adas = (await g.client.read((db) => categoriesOf(db, ada.household))).find(
+      (each) => each.starterKey === 'produce',
+    );
+    expect(adas?.id).toBeDefined();
+    expect(hers?.id).not.toBe(adas?.id);
+    const added = await addFrom(g, 'starter:banana', ada.list);
+    expect(added.category).toEqual({ id: adas?.id, copy: null });
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+    const view = await a.client.read((db) => listViewOf(db, ada.list));
+    if (!view.found) throw new Error('not found');
+    const item = view.items.find((row) => row.name === 'Banana');
+    expect(item).toMatchObject({
+      categoryId: adas?.id,
+      icon: 'banana',
+      unit: 'pcs',
+      quantity: '6',
+    });
+  });
+
+  it('takes the guess for an item with no category and for one whose category was deleted, and is accepted', async () => {
+    const { ada, a, g } = await world('AddGuess');
+    const plain = await ownItem(g, 'Zorblax', null);
+    const gone = await ownCategory(g, 'Gone');
+    const stale = await ownItem(g, 'Quuxle', gone);
+    const category = await g.client.read((db) => ownerCategoriesOf(db, g.who.household));
+    const row = category.find((each) => each.id === gone);
+    if (!row) throw new Error('no category');
+    const deleted = deleteCategory(env(), row);
+    if (deleted) await g.client.commit(deleted);
+    await g.client.sync();
+    for (const key of [plain, stale]) {
+      const added = await addFrom(g, key, ada.list);
+      expect(added.category.copy).toBeNull();
+      const other = (await g.client.read((db) => categoriesOf(db, ada.household))).find(
+        (each) => each.starterKey === 'other',
+      );
+      expect(added.category.id).toBe(other?.id);
+    }
+    await a.client.sync();
+    expect(await failedOf(g.db)).toEqual([]);
+  });
+
+  it('makes no copy where the server still seals the group, and takes the guess', async () => {
+    const who = await somebody(database, 'AddSealed');
+    const d = await deviceOf(who, await appKey());
+    await d.client.sync();
+    const before = (await serverCopies()).length;
+    const garden = await ownCategory(d, 'Garden');
+    const spade = await ownItem(d, 'Spade', garden);
+    const added = await addFrom(d, spade, who.list);
+    expect(added.category.copy).toBeNull();
+    expect(await failedOf(d.db)).toEqual([]);
+    expect((await serverCopies()).length).toBe(before);
   });
 });

@@ -1,9 +1,9 @@
 import { addItem, addToOpen } from '../actions/items';
 import type { Env } from '../actions/env';
-import type { Mutation } from '../actions/format';
+import type { Change, Mutation } from '../actions/format';
 import { makeInventoryItem } from '../actions/inventory';
 import type { InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
-import { inventoryHas } from '../catalog/inventory';
+import { type InventoryEntry, inventoryHas } from '../catalog/inventory';
 import { OTHER } from '../catalog/categories';
 import { canonicalName } from '../catalog/canonical';
 import { guessCategory } from '../catalog/guess';
@@ -111,6 +111,69 @@ export function categoryOfNew(
   return categoryFor(categories, key)?.id ?? null;
 }
 
+/**
+ * **One more of a product the list has** (§9.3): the quantity of what is open goes up by its step, else an item of the product, with what it remembers. `Refused` when the sum would
+ * pass the largest quantity. The head of both ways of adding (`planAdd`, `planAddFromInventory`).
+ */
+function addOfProduct(env: Env, context: Adding, product: ProductRow): Planned | Refused {
+  const { list, items, me } = context;
+  const open = openItemOf(items, product.id);
+  if (open) {
+    const bumped = addToOpen(env, open, product);
+    return bumped
+      ? { mutation: bumped, message: `Added one more ${product.name}` }
+      : { refused: `There is already as much ${product.name} on the list as one item can hold.` };
+  }
+  return {
+    mutation: addItem(env, {
+      list,
+      product,
+      name: product.name,
+      last: lastPositionIn(items, product.categoryId),
+      by: me,
+    }),
+    message: `Added ${product.name}`,
+  };
+}
+
+/**
+ * **An Inventory item added to a list** (DESIGN.md §16.8, _Add to a list_), pure. A product of this list's catalog by that name wins, as it does for the add field: one more
+ * of what is open, else an item of it, with what it remembers. **Otherwise the product is made from the item's own fields**, not the starter's or a guess: its name, quantity,
+ * unit and icon, **and its category as it is on this list** (`category`, which the caller works out, `categoryOnList`: the list's own row of a starter category, or a copy of one
+ * of the person's own, made here, in the same mutation and first). The Inventory note is not carried: it is the person's, and a list may be shared. No `also`: the item is in
+ * Inventory already.
+ */
+export function planAddFromInventory(
+  env: Env,
+  context: Adding,
+  entry: Pick<InventoryEntry, 'name' | 'quantity' | 'unit' | 'icon'>,
+  category: { readonly id: string | null; readonly copy: Change | null },
+): Planned | Refused | null {
+  const { list, products, items, me } = context;
+  const name = entry.name.trim();
+  if (name === '' || normaliseName(name) === '') return null;
+  const product = productNamed(
+    products.filter((each) => each.listId === list.id || each.listId === null),
+    name,
+  );
+  if (product) return addOfProduct(env, context, product);
+  const added = addItem(env, {
+    list,
+    name,
+    ...(entry.quantity ? { quantity: entry.quantity } : {}),
+    unit: entry.unit,
+    icon: entry.icon,
+    categoryId: category.id,
+    last: lastPositionIn(items, category.id),
+    by: me,
+  });
+  return {
+    // The copy first: what names it is checked against the list's copies as the mutation is applied, in order.
+    mutation: category.copy ? { ...added, changes: [category.copy, ...added.changes] } : added,
+    message: `Added ${name}`,
+  };
+}
+
 /** What to do for a suggestion, or why nothing can be. */
 export function planAdd(
   env: Env,
@@ -159,25 +222,7 @@ export function planAdd(
       }),
     };
   }
-  if (product) {
-    const open = openItemOf(items, product.id);
-    if (open) {
-      const bumped = addToOpen(env, open, product);
-      return bumped
-        ? { mutation: bumped, message: `Added one more ${product.name}` }
-        : { refused: `There is already as much ${product.name} on the list as one item can hold.` };
-    }
-    return {
-      mutation: addItem(env, {
-        list,
-        product,
-        name: product.name,
-        last: lastPositionIn(items, product.categoryId),
-        by: me,
-      }),
-      message: `Added ${product.name}`,
-    };
-  }
+  if (product) return addOfProduct(env, context, product);
 
   // Something new: a starter entry brings its icon, unit and quantity, and text typed brings only itself.
   const entry =

@@ -9,6 +9,7 @@ import {
   type Planned,
   inBasket,
   planAdd,
+  planAddFromInventory,
   productNamed,
   suggestionMeta,
 } from './adding';
@@ -307,5 +308,119 @@ describe('a new name makes an Inventory item (DESIGN.md §8.8)', () => {
         ),
       ).also,
     ).toBeUndefined();
+  });
+});
+
+describe('an Inventory item added to a list (DESIGN.md §16.8)', () => {
+  const entry = {
+    name: 'Zorblax',
+    quantity: '3',
+    unit: 'pack' as const,
+    icon: 'cookie',
+  };
+  const here = { id: DAIRY, copy: null };
+  const done = (value: ReturnType<typeof planAddFromInventory>): Planned => {
+    if (!value || 'refused' in value) throw new Error('expected a mutation');
+    return value;
+  };
+
+  it('makes the product and the item from the item’s own fields, with the category it has on this list, and makes no Inventory item', () => {
+    const { mutation, message, also } = done(planAddFromInventory(env(), context(), entry, here));
+    expect(message).toBe('Added Zorblax');
+    expect(also).toBeUndefined();
+    expect(changesOf(mutation, 'product')[0]).toMatchObject({
+      create: true,
+      fields: {
+        name: 'Zorblax',
+        defaultQuantity: '3',
+        defaultUnit: 'pack',
+        icon: 'cookie',
+        categoryId: DAIRY,
+      },
+    });
+    expect(changesOf(mutation, 'item')[0]).toMatchObject({
+      create: true,
+      fields: { name: 'Zorblax', quantity: '3', unit: 'pack', icon: 'cookie', categoryId: DAIRY },
+    });
+    // The product joins this list's catalog, and the item names it.
+    expect(changesOf(mutation, 'product')[0]?.fields.listId).toBe(list().id);
+    expect(changesOf(mutation, 'item')[0]?.fields.productId).toBe(
+      changesOf(mutation, 'product')[0]?.id,
+    );
+  });
+
+  it('puts the copy of a category first, and names it on the product and the item', () => {
+    const copy: Change = {
+      table: 'list_category',
+      id: '70000000-0000-4000-8000-000000000001',
+      create: true,
+      fields: { listId: list().id, sourceKey: 'k', name: 'Nails', position: 'a3' },
+    };
+    const { mutation } = done(planAddFromInventory(env(), context(), entry, { id: copy.id, copy }));
+    expect(mutation.changes.map((each) => each.table)).toEqual([
+      'list_category',
+      'product',
+      'item',
+    ]);
+    expect(changesOf(mutation, 'product')[0]?.fields.categoryId).toBe(copy.id);
+    expect(changesOf(mutation, 'item')[0]?.fields.categoryId).toBe(copy.id);
+  });
+
+  it('carries no note, and an item with no quantity comes as one', () => {
+    const { mutation } = done(
+      planAddFromInventory(
+        env(),
+        context(),
+        { name: 'Zorblax', quantity: null, unit: null, icon: null },
+        here,
+      ),
+    );
+    expect(changesOf(mutation, 'item')[0]?.fields).toMatchObject({
+      quantity: '1',
+      unit: null,
+      icon: null,
+      note: null,
+    });
+  });
+
+  it('is one more of what is open on the list, by name, and the list’s product wins over the item’s fields', () => {
+    const own = product({
+      name: 'zorblax',
+      categoryId: PRODUCE,
+      defaultQuantity: '9',
+      defaultUnit: 'kg',
+    });
+    const open = item({
+      productId: own.id,
+      name: 'zorblax',
+      quantity: '2',
+      unit: 'kg',
+      categoryId: PRODUCE,
+    });
+    const bumped = done(
+      planAddFromInventory(env(), context({ products: [own], items: [open] }), entry, here),
+    );
+    expect(bumped.message).toBe('Added one more zorblax');
+    expect(changesOf(bumped.mutation, 'item')[0]).toMatchObject({ id: open.id });
+    expect(changesOf(bumped.mutation, 'item')[0]?.create).toBeUndefined();
+    // Not open: an item of that product, with what the product remembers, and no second product.
+    const again = done(planAddFromInventory(env(), context({ products: [own] }), entry, here));
+    expect(changesOf(again.mutation, 'product')[0]?.create).toBeUndefined();
+    expect(changesOf(again.mutation, 'item')[0]?.fields).toMatchObject({
+      productId: own.id,
+      categoryId: PRODUCE,
+      quantity: '9',
+      unit: 'kg',
+    });
+  });
+
+  it('never uses another list’s product, and adds nothing for no name', () => {
+    const elsewhere = product({ listId: 'another-list', name: 'Zorblax', categoryId: PRODUCE });
+    const { mutation } = done(
+      planAddFromInventory(env(), context({ products: [elsewhere] }), entry, here),
+    );
+    expect(changesOf(mutation, 'product')[0]?.create).toBe(true);
+    expect(changesOf(mutation, 'item')[0]?.fields.categoryId).toBe(DAIRY);
+    expect(planAddFromInventory(env(), context(), { ...entry, name: '  ' }, here)).toBeNull();
   });
 });

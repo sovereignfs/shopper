@@ -1307,7 +1307,10 @@ list's own products are tidied where they are used, from an item's panel (§16.7
 
 - **Items:** every item, the person's and the starter's together, **searchable**, grouped by category, filtered by category, by **recurring or once**
   and by **mine, starter or hidden**. An item opens in the right column (as an item of a list does, §16.7): its name, category, icon, unit, quantity,
-  note, recurring, hide or restore, and **Add to a list**. _+ Add item_ at the top.
+  note, recurring, hide or restore, and **Add to a list**. _+ Add item_ at the top. **Add to a list** puts the item on a list the person is on (the one used last first) with its name,
+  quantity, unit and icon and its category as it is on that list: a starter category is that list's group's row, a category of their own is the list's copy of it, made in the same change
+  where there is none (§8.3), and an item with no category, or whose category is hidden or deleted, takes the guess its name says. A product of that name that the list has wins, as it
+  does for the add field (one more of what is open); the Inventory note is the person's and is not carried to a list.
 - **Categories:** the aisle order as a draggable list (`DragHandleRow`, a keyboard way too), each with rename, icon and hide; _Add category_ at the
   end (§8.3).
 

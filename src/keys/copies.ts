@@ -4,7 +4,8 @@ import { copyOnList } from '../actions/list-categories';
 import type { ItemRow, ListCategoryRow } from '../actions/rows';
 import { categoryOfNew } from '../lists/adding';
 import type { LocalDatabase } from '../local/db';
-import { categoriesOf, productsOf } from '../local/store';
+import type { InventoryEntry } from '../catalog/inventory';
+import { categoriesOf, ownerCategoriesOf, productsOf } from '../local/store';
 import { type Keyring, copySourceKey } from './household';
 
 /**
@@ -143,4 +144,63 @@ export async function carryCategoryOnMove(
     product: forProduct?.id,
     copy: [...made.values()].find((each) => each.change)?.change ?? null,
   };
+}
+
+/**
+ * **An Inventory item's category on a list** (§8.3, §16.8, _Add to a list_): the category an item added from Inventory takes there, and the copy to make there first, if one is needed.
+ * The entry names a row of **the person's own group** (or, for a starter entry as it is, a starter key), which is never an id to put on an item of another group's list:
+ *
+ *  - a **starter category** is the list's group's row for the same starter key (a hidden one is not used);
+ *  - one of the person's **own** is the list's copy of it, found or made under the list's keys (`sourceKeyOn`: on their own lists too), which is `copy` for the caller to put first in
+ *    the mutation; and where there can be none (a group the server still seals, keys not open) the guess, as a name nobody categorised;
+ *  - a category that is hidden, deleted or not one the device knows, and an entry that has none, take the guess (`categoryOfNew`): the starter category its name says, or _Other_.
+ */
+export async function categoryOnList(
+  db: LocalDatabase,
+  keys: CopyKeys,
+  env: Env,
+  input: {
+    entry: Pick<InventoryEntry, 'name' | 'categoryId' | 'categoryKey'>;
+    list: { id: string; householdId: string };
+  },
+): Promise<{ id: string | null; copy: Change | null }> {
+  const { entry, list } = input;
+  const household = list.householdId;
+  const guess = async () => ({
+    id: categoryOfNew(
+      entry.name,
+      await productsOf(db, household),
+      await categoriesOf(db, household),
+    ),
+    copy: null,
+  });
+  const own = (await db.getAll('household')).find((each) => each.own);
+  const chosen =
+    entry.categoryId !== null && own
+      ? (await ownerCategoriesOf(db, own.id)).find((each) => each.id === entry.categoryId)
+      : undefined;
+  if (entry.categoryId !== null && (!chosen || chosen.hidden)) return guess();
+  const starter = chosen ? chosen.starterKey : entry.categoryKey;
+  if (starter !== null) {
+    const there = (await categoriesOf(db, household)).find(
+      (each) => each.starterKey === starter && !each.hidden,
+    );
+    return there ? { id: there.id, copy: null } : guess();
+  }
+  if (!chosen) return guess();
+  const sourceKey = await sourceKeyOn(keys, household, list.id, chosen.id);
+  if (!sourceKey) return guess();
+  const copies = await db.getAllFromIndex('list_category', 'byList', list.id);
+  const positions = [
+    ...copies.map((each) => each.position),
+    ...(await categoriesOf(db, household)).map((each) => each.position),
+  ];
+  const plan = copyOnList(env, {
+    listId: list.id,
+    sourceKey,
+    name: chosen.name,
+    copies,
+    last: positions.length === 0 ? null : positions.reduce((a, b) => (a > b ? a : b)),
+  });
+  return { id: plan.id, copy: plan.change };
 }
