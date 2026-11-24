@@ -89,7 +89,7 @@ registry test.
   of the person opens it, a person on it and on no list opens it with their own copy alone and nothing else of the group, is held until it arrives, cannot change it, takes the Admin's change, and loses the card when
   the Admin deletes it.
 
-#### 📋 24.3 — The cards screen, and showing one
+#### ✅ 24.3 — The cards screen, and showing one
 
 **Goal:** `/cards`, and a card shown at the till. **Design:** RFC 0007, "A card", "Screens". **Depends on:** 24.2, 22.11, 16.25.
 
@@ -97,6 +97,20 @@ registry test.
 (`QrCode` or `Barcode`, the number beneath, `useWakeLock`), offline; edit and delete for its Admin.
 
 **Accepts when:** a card of each kind shows a code a scanner reads (each kind's test vector); the network off throughout; a Member sees no edit.
+
+**Done as (0.8.0, 2026-11-24):** `/cards` and `/cards/<id>` (`CardsScreen`, `CardScreen`), in the sidebar's first block and as the phone footer's right icon (Settings is the avatar's menu), in the access list,
+and answered by the shell with no network. **What a card holds is checked and drawn by pure code** (`src/cards/codes.ts`): `checkCard` makes what a person typed into what a card holds (an EAN or a UPC with
+its check digit added, or refused with a sentence that says what the kind needs; Code 128 and Code 39 held to their characters; a QR code of what is typed, which is its number unless a code is given), `guessKind`
+starts the form from what the number looks like, and `drawn` is what is drawn: **`QrCode`** from the squares **`uqr`** makes (a new dependency, MIT, no dependencies of its own, exact in the lockfile; the design
+system's `QrCode` takes modules and brings no encoder) and **`Barcode`** from the design system's own bars. **Each EAN-13, EAN-8 and UPC-A is read back from its bars by an independent decoder written in the
+test from the specifications** (a property over every number a person could type), the QR code's three finder patterns are checked square by square, and **Code 128, Code 39 and the QR code are read by the real
+decoders in 24.4's tests, which decode an image of each kind** (that part of "a code a scanner reads" waits for the decoder 24.4 brings). The form (`CardForm`) is a dialog for adding and changing: a shop, a
+number, a kind (started from the number, and the person's once chosen), what a QR code holds, an icon and a colour (the same sets as a list's colour, a card's own icons), the name on the card and a note; it says
+that a card can be kept once the group has moved to device encryption instead of making one that would wait for ever. The card screen shows the code as wide as the screen lets it be, the number beneath it,
+`useWakeLock`, and for **its Admin alone** _Edit_ and _Delete this card…_ (a confirmation; the operation needs a connection and says so, and the device syncs at once so that the card leaves it). **Seen to
+fail when removed:** the wake lock and the footer's link (browser), the kinds' checks, the check digit, and the bars (unit); the sidebar's and the shell's addresses (unit). Browser tests, in both browsers: a
+card of each of the six kinds typed, a wrong check digit refused, each opened with its code and number, no network, the screen asked to stay on, a card changed with a note cleared and then deleted, and a phone.
+**What was left out:** _Share_ (24.5), scanning (24.4), and a Member's view of a card, which waits for sharing to be tested with a real Member (the Admin-only controls are `canChange`, tested with the actions).
 
 #### 📋 24.4 — Scanning a card
 

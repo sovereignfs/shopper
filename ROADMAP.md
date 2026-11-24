@@ -324,7 +324,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | #   | ID                            | Task                              | Priority | Depends on              | Status |
 | --- | ----------------------------- | --------------------------------- | -------- | ----------------------- | ------ |
 | 119 | [24.2](docs/epics/cards.md)   | Cards: the data and the keys      | P1       | 24.1                    | ✅     |
-| 120 | [24.3](docs/epics/cards.md)   | The cards screen, and showing one | P1       | 24.2, 22.11, 16.25      | 📋     |
+| 120 | [24.3](docs/epics/cards.md)   | The cards screen, and showing one | P1       | 24.2, 22.11, 16.25      | ✅     |
 | 121 | [24.4](docs/epics/cards.md)   | Scanning a card                   | P1       | 24.3                    | 📋     |
 | 122 | [24.5](docs/epics/cards.md)   | Sharing a card                    | P1       | 24.2                    | 📋     |
 | 123 | [24.6](docs/epics/cards.md)   | Cards on a list, in Shop mode     | P2       | 24.3, 22.5, 22.9        | 📋     |

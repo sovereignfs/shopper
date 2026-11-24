@@ -248,6 +248,8 @@ describe('the worker with no network', () => {
       `/l/${list}/settings`,
       '/shop',
       '/inventory',
+      '/cards',
+      `/cards/${list}`,
       '/settings',
       '/sign-in',
     ]) {
@@ -272,13 +274,24 @@ describe('the worker with no network', () => {
 describe('the shell with no network', () => {
   it('has a screen for every signed-in address, and says that any other needs a connection', () => {
     const list = '11111111-1111-4111-8111-111111111111';
-    for (const path of ['/', '/home', `/l/${list}`, `/l/${list}/settings`, '/shop', '/inventory'])
+    for (const path of [
+      '/',
+      '/home',
+      `/l/${list}`,
+      `/l/${list}/settings`,
+      '/shop',
+      '/inventory',
+      '/cards',
+      `/cards/${list}`,
+    ])
       expect(answersOffline(path), path).toBe(true);
     for (const path of [
       '/settings',
       '/sign-in',
       '/sign-up',
       '/l/not-an-id',
+      '/cards/not-an-id',
+      '/cards/extra/segments',
       `/l/${list}/other`,
       '/shell',
       '/shell/x',

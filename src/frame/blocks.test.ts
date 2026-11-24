@@ -28,12 +28,13 @@ const theirs: Place = {
 const ids = (blocks: ReturnType<typeof blocksOf>) => blocks.map((block) => block.id);
 
 describe('the sidebar’s blocks', () => {
-  it('are Home with Inventory, My lists and Shared with me, in that order, with no group named', () => {
+  it('are Home with Inventory and Loyalty cards, My lists and Shared with me, in that order, with no group named', () => {
     const blocks = blocksOf({ places: [own, theirs], pathname: '/', archived: false });
     expect(ids(blocks)).toEqual(['places', 'mine', 'shared']);
     expect(blocks[0]?.items.map((item) => [item.label, item.href])).toEqual([
       ['Home', '/'],
       ['Inventory', '/inventory'],
+      ['Loyalty cards', '/cards'],
     ]);
     expect(blocks[1]?.heading).toBe('My lists');
     expect(blocks[2]?.heading).toBe('Shared with me');
@@ -123,15 +124,21 @@ describe('the sidebar’s blocks', () => {
     ]);
   });
 
-  it('are Home and Inventory alone for a device that has no places yet', () => {
+  it('are Home, Inventory and Loyalty cards alone for a device that has no places yet', () => {
     expect(ids(blocksOf({ places: [], pathname: '/', archived: false }))).toEqual(['places']);
   });
 
-  it('mark Inventory when it is the page shown, and Home only at the front address', () => {
+  it('mark Inventory when it is the page shown, and Home only at the front address, and Loyalty cards on a card as well as on the grid', () => {
     const [places] = blocksOf({ places: [own], pathname: '/inventory', archived: false });
     expect(places?.items.map((item) => [item.id, item.active])).toEqual([
       ['home', false],
       ['inventory', true],
+      ['cards', false],
     ]);
+    for (const path of ['/cards', '/cards/11111111-1111-4111-8111-111111111111']) {
+      const [shown] = blocksOf({ places: [own], pathname: path, archived: false });
+      expect(shown?.items.find((item) => item.id === 'cards')?.active, path).toBe(true);
+      expect(shown?.items.find((item) => item.id === 'inventory')?.active, path).toBe(false);
+    }
   });
 });

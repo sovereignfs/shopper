@@ -27,7 +27,7 @@ import { Wordmark } from './Wordmark';
  * launcher (`launcher`). **The same routes on both:** the frame decides what is drawn by the screen, and nothing here changes an address; no Shopper file asks for a width
  * (`src/ui/no-fork.test.ts`). The right column for an item is not the frame's: the list and shopping mode place it (`ItemBeside`), where the item's data is.
  *
- * The page the service worker keeps, before the device has a working copy to read, has no lists to show, and shows Home and Inventory alone.
+ * The page the service worker keeps, before the device has a working copy to read, has no lists to show, and shows Home, Inventory and Loyalty cards alone.
  */
 export function SignedInFrame({
   account,
@@ -134,7 +134,7 @@ function Frame({
           ? {}
           : {
               footer: {
-                // Home, the lists' drawer in the middle, and, until the loyalty cards have a page (24.3), Settings: the footer needs one on each side.
+                // Home, the lists' drawer in the middle, and the loyalty cards (RFC 0007): the footer needs one on each side. Settings is the avatar's menu.
                 leftIcons: [
                   {
                     icon: <Icon name="house" size="md" aria-hidden />,
@@ -145,10 +145,10 @@ function Frame({
                 ],
                 rightIcons: [
                   {
-                    icon: <Icon name="settings" size="md" aria-hidden />,
-                    label: 'Settings',
-                    href: '/settings',
-                    active: pathname === '/settings' || pathname.startsWith('/settings/'),
+                    icon: <Icon name="wallet-cards" size="md" aria-hidden />,
+                    label: 'Loyalty cards',
+                    href: '/cards',
+                    active: pathname === '/cards' || pathname.startsWith('/cards/'),
                   },
                 ],
                 launcherLabel: 'Lists',

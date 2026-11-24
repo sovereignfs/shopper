@@ -8,6 +8,15 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.8.0] - 2026-11-24
 
+### Added
+
+- **Loyalty cards** (RFC 0007): a page of your own, in the sidebar and on the phone's footer, for the cards you show at a till. **Add card** takes a shop, the number on the card and the kind of code
+  it is (an EAN-13, EAN-8, UPC-A, Code 128, Code 39 or a QR code): a check digit that is missing is added, and one that is wrong is refused with a sentence, so a number typed wrong is found at once and
+  not at the till. A card opens **full screen**: its code as large as the screen allows, its number in text beneath it, and the screen kept on while it is shown. You can give a card a colour, an icon, the
+  name on it and a note, change it, and delete it (deleting needs a connection, and asks first). Everything is read from your device, so a card opens with no network; every field of a card is
+  encrypted on your device, and the server holds only what it cannot read. A card can be kept once your lists are encrypted on your devices, which happens when you first open Shopper after signing up.
+  Scanning a card with the camera and sharing one come next.
+
 ### Changed
 
 - **Under the hood:** Shopper's server and your device can now hold **loyalty cards** (RFC 0007), which nothing in Shopper offers yet. A card has its own people and its own keys, as a list does: each

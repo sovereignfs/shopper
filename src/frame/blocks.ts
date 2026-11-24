@@ -3,9 +3,9 @@ import { listColorOf, listIconOf } from '../lists/appearance';
 import type { Place } from '../local/places';
 
 /**
- * **The sidebar's blocks** (RFC 0005, DESIGN.md §16.2), from the places the device holds: **Home** and **Inventory**; then **My lists** (the person's own, each with its icon in its
+ * **The sidebar's blocks** (RFC 0005, DESIGN.md §16.2), from the places the device holds: **Home**, **Inventory** and **Loyalty cards**; then **My lists** (the person's own, each with its icon in its
  * colour and how many items are open, and _New list_) and **Shared with me** (the lists others shared, each with whose it is under its name); and, when the person has
- * asked for them, **Archived**. The same blocks are the phone's drawer. An entry is here only when its page is: Loyalty cards join with 24.3.
+ * asked for them, **Archived**. The same blocks are the phone's drawer. An entry is here only when its page is.
  * No group is named (RFC 0004). Pure of React, so it is tested with the places and nothing else; the icon and the colour are held to what a list may have
  * (`listIconOf`, `listColorOf`), so that a value the device holds that this build does not know is drawn as the default.
  */
@@ -32,6 +32,12 @@ const INVENTORY: AppSidebarItem = {
   label: 'Inventory',
   icon: 'package',
   href: '/inventory',
+};
+const CARDS: AppSidebarItem = {
+  id: 'cards',
+  label: 'Loyalty cards',
+  icon: 'wallet-cards',
+  href: '/cards',
 };
 
 /** One list as a row: its icon, its colour, what is open, and, said under its name, whose it is and whether the server has it yet. */
@@ -67,6 +73,7 @@ export function blocksOf({ places, pathname, archived, onNew }: BlocksInput): Ap
       items: [
         { ...HOME, active: pathname === '/' },
         { ...INVENTORY, active: pathname === '/inventory' },
+        { ...CARDS, active: pathname === '/cards' || pathname.startsWith('/cards/') },
       ],
     },
   ];

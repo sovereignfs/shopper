@@ -14,6 +14,8 @@ import { ShopperLauncher } from '../frame/ShopperLauncher';
 import { SignedInFrame } from '../frame/SignedInFrame';
 import { AccountMenu } from './AccountMenu';
 import { HomeScreen } from './HomeScreen';
+import { CardScreen } from './CardScreen';
+import { CardsScreen } from './CardsScreen';
 import { InventoryScreen } from './InventoryScreen';
 import { ListScreen } from './ListScreen';
 import { ShopScreen } from './ShopScreen';
@@ -23,11 +25,12 @@ import { UndoProvider } from './Undo';
  * Shopper with no server document (DESIGN.md §16.11). The service worker answers a signed-in address with the one page it keeps, `/shell`, which holds
  * nothing of a person and is the same for everyone; this is what that page is. It finds who is signed in on the device (`src/identity.ts`), makes the
  * composition the server's layout makes, and **chooses the screen from the address**, since the page it came in is not the page of the address: the front
- * address and `/home` are Home, `/l/<id>` that list (its settings are a dialog over it, `?settings=`), `/l/<id>/settings` an old address that goes there, `/shop?l=<id>` shopping mode, and `/inventory` the person's Inventory. The screens read the
+ * address and `/home` are Home, `/l/<id>` that list (its settings are a dialog over it, `?settings=`), `/l/<id>/settings` an old address that goes there, `/shop?l=<id>` shopping mode, and `/inventory` the person's Inventory, `/cards` their loyalty cards and `/cards/<id>` one of them. The screens read the
  * device's store and write through `commit`, so they need none of the server. Any other address says it needs a connection (`answersOffline`).
  */
 const LIST = /^\/l\/([0-9a-f-]{36})$/;
 const LIST_SETTINGS = /^\/l\/([0-9a-f-]{36})\/settings$/;
+const CARD = /^\/cards\/([0-9a-f-]{36})$/;
 
 export function OfflineApp() {
   // Not known until the page is in the browser: the server renders nothing of a person.
@@ -83,6 +86,9 @@ function Screen() {
     return id && isId(id) ? <ShopScreen id={id} /> : <NotHere />;
   }
   if (pathname === '/inventory') return <InventoryScreen />;
+  if (pathname === '/cards') return <CardsScreen />;
+  const card = CARD.exec(pathname)?.[1];
+  if (card) return <CardScreen id={card} />;
   return <HomeScreen />;
 }
 

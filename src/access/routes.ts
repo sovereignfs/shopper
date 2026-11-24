@@ -50,6 +50,18 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'page',
+    address: '/cards',
+    who: 'signed-in',
+    note: 'The person’s loyalty cards (RFC 0007). The page holds nothing of them: the device reads them from its own copy, which has the cards the account is on alone, and every change is made through sync, which checks the card’s Admin in its statement.',
+  },
+  {
+    kind: 'page',
+    address: '/cards/[id]',
+    who: 'signed-in',
+    note: 'One card, full screen. The page holds nothing of it: the device reads it from its own copy; a card the account is not on is not there to read, and an address that is not an id is not found.',
+  },
+  {
+    kind: 'page',
     address: '/home',
     who: 'signed-in',
     note: 'The signed-in area: a visitor is sent to sign in. Reached as / by someone with a session cookie; /home itself goes to /.',
