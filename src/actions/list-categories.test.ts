@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   copyOnList,
   deleteCopy,
+  moveCopies,
   moveCopy,
   putCategoryOnList,
   renameCopies,
@@ -110,5 +111,25 @@ describe('changing a copy', () => {
       [row().id, other.id].sort(),
     );
     expect(renameCopies(env(), [same], 'Yard')).toEqual([]);
+  });
+
+  it('moves the copies of a category that was moved to its place, one mutation for each group, and none that is there already', () => {
+    const other = row({
+      id: '10000000-0000-4000-8000-000000000002',
+      householdId: '20000000-0000-4000-8000-000000000002',
+    });
+    const there = row({ id: '10000000-0000-4000-8000-000000000003', position: 'a0' });
+    const mutations = moveCopies(env(), [row(), other, there], 'a0');
+    expect(mutations.map((each) => each.householdId).sort()).toEqual(
+      [row().householdId, other.householdId].sort(),
+    );
+    expect(mutations.flatMap((each) => each.changes)).toEqual(
+      expect.arrayContaining([
+        { table: 'list_category', id: row().id, fields: { position: 'a0' } },
+        { table: 'list_category', id: other.id, fields: { position: 'a0' } },
+      ]),
+    );
+    expect(mutations.flatMap((each) => each.changes.map((c) => c.id))).not.toContain(there.id);
+    expect(moveCopies(env(), [there], 'a0')).toEqual([]);
   });
 });

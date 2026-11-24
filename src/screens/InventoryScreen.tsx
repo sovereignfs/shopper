@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Badge,
@@ -10,6 +11,7 @@ import {
   Input,
   SegmentedControl,
   Select,
+  Tabs,
 } from '@sovereignfs/ui';
 import { isGroceryIcon } from '../catalog/icons';
 import type { InventoryEntry } from '../catalog/inventory';
@@ -24,6 +26,7 @@ import {
 import { inventoryScreenOf } from '../local/inventory-view';
 import { useLocal, useLocalQuery } from '../local/react';
 import { Beside } from './Beside';
+import { CategoriesTab } from './CategoriesTab';
 import { InventoryPanel, NewEntryPanel } from './InventoryPanel';
 import { useQueryParam } from './ItemEditor';
 import { useTitle } from './title';
@@ -40,6 +43,19 @@ export function InventoryScreen() {
   useTitle(['Inventory']);
   const data = useLocalQuery((db) => inventoryScreenOf(db), []).data;
   const entryParam = useQueryParam('entry');
+  // The tab is in the address (`?tab=categories`; Items is the page itself), so that a reload and a link agree, and it is not a place Back goes to.
+  const params = useSearchParams();
+  const pathname = usePathname();
+  const tab = params.get('tab') === 'categories' ? 'categories' : 'items';
+  /** One change of the address that sets the tab and drops the item beside it: two calls in a row would each start from the address as it was drawn, and one would be lost. */
+  function showTab(next: string) {
+    const query = new URLSearchParams(params.toString());
+    query.delete('entry');
+    if (next === 'categories') query.set('tab', 'categories');
+    else query.delete('tab');
+    const text = query.toString();
+    window.history.replaceState(null, '', text === '' ? pathname : `${pathname}?${text}`);
+  }
   const [filters, setFilters] = useState<InventoryFilters>(NO_FILTERS);
 
   const sections = useMemo(
@@ -73,27 +89,29 @@ export function InventoryScreen() {
   if (data === undefined) return <div className={styles.page} aria-busy="true" />;
 
   const panel =
-    value === NEW
-      ? (mobile: boolean) => (
-          <NewEntryPanel
-            key="new"
-            data={data}
-            mobile={mobile}
-            onClose={close}
-            onOpen={entryParam.replace}
-          />
-        )
-      : open
+    tab === 'categories'
+      ? null
+      : value === NEW
         ? (mobile: boolean) => (
-            <InventoryPanel
-              key={open.key}
+            <NewEntryPanel
+              key="new"
               data={data}
-              entry={open}
               mobile={mobile}
               onClose={close}
+              onOpen={entryParam.replace}
             />
           )
-        : null;
+        : open
+          ? (mobile: boolean) => (
+              <InventoryPanel
+                key={open.key}
+                data={data}
+                entry={open}
+                mobile={mobile}
+                onClose={close}
+              />
+            )
+          : null;
 
   const count = sections.reduce((total, section) => total + section.entries.length, 0);
   const filtered = JSON.stringify(filters) !== JSON.stringify(NO_FILTERS);
@@ -104,111 +122,139 @@ export function InventoryScreen() {
       <div className={styles.page}>
         <header className={styles.head}>
           <h1 className={styles.title}>Inventory</h1>
-          <Button size="sm" onClick={() => entryParam.open(NEW)}>
-            <Icon name="plus" size="sm" aria-hidden />
-            <span className={styles.label}>Add item</span>
-          </Button>
+          {tab === 'items' ? (
+            <Button size="sm" onClick={() => entryParam.open(NEW)}>
+              <Icon name="plus" size="sm" aria-hidden />
+              <span className={styles.label}>Add item</span>
+            </Button>
+          ) : null}
         </header>
         <p className={styles.lede}>
           What you buy, in your words. A list offers it when you add, and a new name you add to a
           list is kept here.
         </p>
 
-        <div className={styles.filters} role="search">
-          <FormField label="Search Inventory">
-            {(field) => (
-              <Input
-                {...field}
-                type="search"
-                value={filters.query}
-                placeholder="Search"
-                onChange={(event) => setFilters({ ...filters, query: event.target.value })}
-              />
-            )}
-          </FormField>
-          <FormField label="Category">
-            {(field) => (
-              <Select
-                {...field}
-                value={filters.category}
-                onChange={(event) => setFilters({ ...filters, category: event.target.value })}
-              >
-                <option value="all">All categories</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-          <SegmentedControl<KindFilter>
-            aria-label="Recurring or once"
-            size="sm"
-            value={filters.kind}
-            onChange={(kind) => setFilters({ ...filters, kind })}
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'recurring', label: 'Recurring' },
-              { value: 'once', label: 'Once' },
-            ]}
-          />
-          <SegmentedControl<SourceFilter>
-            aria-label="Whose"
-            size="sm"
-            value={filters.source}
-            onChange={(source) => setFilters({ ...filters, source })}
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'mine', label: 'Mine' },
-              { value: 'starter', label: 'Starter' },
-              { value: 'hidden', label: 'Hidden' },
-            ]}
-          />
-        </div>
+        <Tabs
+          aria-label="Inventory"
+          value={tab}
+          onChange={showTab}
+          items={[
+            { label: 'Items', value: 'items' },
+            { label: 'Categories', value: 'categories' },
+          ]}
+        />
 
-        <p className={styles.count} role="status">
-          {count === 1 ? '1 item' : `${count} items`}
-        </p>
-
-        {count === 0 ? (
-          <EmptyState
-            icon="package"
-            heading="Nothing matches"
-            description={filtered ? 'Change the search or the filters.' : 'Add an item to begin.'}
-            {...(filtered
-              ? {
-                  action: (
-                    <Button variant="secondary" size="sm" onClick={() => setFilters(NO_FILTERS)}>
-                      Clear filters
-                    </Button>
-                  ),
-                }
-              : {})}
-          />
+        {tab === 'categories' ? (
+          <CategoriesTab data={data} />
         ) : (
-          sections.map((section) => {
-            const id = `inventory-${section.category.id}`;
-            return (
-              <section key={section.category.id} className={styles.section} aria-labelledby={id}>
-                <h2 id={id} className={styles.heading}>
-                  {section.category.name}
-                </h2>
-                <ul className={styles.entries}>
-                  {section.entries.map((entry) => (
-                    <li key={entry.key}>
-                      <EntryRow
-                        entry={entry}
-                        selected={value === entry.key}
-                        categoryIcon={categoryOfEntry(entry, data.categories)?.icon ?? null}
-                        onOpen={() => entryParam.open(entry.key)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })
+          <>
+            <div className={styles.filters} role="search">
+              <FormField label="Search Inventory">
+                {(field) => (
+                  <Input
+                    {...field}
+                    type="search"
+                    value={filters.query}
+                    placeholder="Search"
+                    onChange={(event) => setFilters({ ...filters, query: event.target.value })}
+                  />
+                )}
+              </FormField>
+              <FormField label="Category">
+                {(field) => (
+                  <Select
+                    {...field}
+                    value={filters.category}
+                    onChange={(event) => setFilters({ ...filters, category: event.target.value })}
+                  >
+                    <option value="all">All categories</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </FormField>
+              <SegmentedControl<KindFilter>
+                aria-label="Recurring or once"
+                size="sm"
+                value={filters.kind}
+                onChange={(kind) => setFilters({ ...filters, kind })}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'recurring', label: 'Recurring' },
+                  { value: 'once', label: 'Once' },
+                ]}
+              />
+              <SegmentedControl<SourceFilter>
+                aria-label="Whose"
+                size="sm"
+                value={filters.source}
+                onChange={(source) => setFilters({ ...filters, source })}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'mine', label: 'Mine' },
+                  { value: 'starter', label: 'Starter' },
+                  { value: 'hidden', label: 'Hidden' },
+                ]}
+              />
+            </div>
+
+            <p className={styles.count} role="status">
+              {count === 1 ? '1 item' : `${count} items`}
+            </p>
+
+            {count === 0 ? (
+              <EmptyState
+                icon="package"
+                heading="Nothing matches"
+                description={
+                  filtered ? 'Change the search or the filters.' : 'Add an item to begin.'
+                }
+                {...(filtered
+                  ? {
+                      action: (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setFilters(NO_FILTERS)}
+                        >
+                          Clear filters
+                        </Button>
+                      ),
+                    }
+                  : {})}
+              />
+            ) : (
+              sections.map((section) => {
+                const id = `inventory-${section.category.id}`;
+                return (
+                  <section
+                    key={section.category.id}
+                    className={styles.section}
+                    aria-labelledby={id}
+                  >
+                    <h2 id={id} className={styles.heading}>
+                      {section.category.name}
+                    </h2>
+                    <ul className={styles.entries}>
+                      {section.entries.map((entry) => (
+                        <li key={entry.key}>
+                          <EntryRow
+                            entry={entry}
+                            selected={value === entry.key}
+                            categoryIcon={categoryOfEntry(entry, data.categories)?.icon ?? null}
+                            onOpen={() => entryParam.open(entry.key)}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })
+            )}
+          </>
         )}
       </div>
     </Beside>

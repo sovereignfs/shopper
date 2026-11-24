@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Mutation } from '../actions/format';
 import { addItem, clearBought, deleteItem, editItem, tickItem, untickItem } from '../actions/items';
+import { deleteCategory, makeCategory, moveCategory, renameCategory } from '../actions/categories';
 import { makeInventoryItem } from '../actions/inventory';
 import { archiveList, makeList } from '../actions/lists';
 import { env, item, list } from '../actions/test-support';
@@ -11,6 +12,43 @@ const names =
   (table: string, id: string) =>
     map[`${table}:${id}`];
 const e = () => env();
+
+describe('saying what a refused change to a category was', () => {
+  const category = {
+    id: '70000000-0000-4000-8000-000000000001',
+    householdId: list().householdId,
+    starterKey: null,
+    name: 'Garden',
+    icon: null,
+    position: 'a5',
+    hidden: false,
+    deletedAt: null,
+    seq: 1,
+  };
+  it('says one made by its name, and a change, a move and a delete by the name of the row', () => {
+    const made = makeCategory(e(), {
+      householdId: category.householdId,
+      name: 'Garden',
+      last: null,
+    });
+    expect(describeMutation(made, names())).toEqual({
+      kind: 'inventory',
+      what: 'Added the category Garden',
+    });
+    const lookup = names({ [`category:${category.id}`]: 'Garden' });
+    // A rename carries the name it gives, which is what is said, as an item's does.
+    expect(describeMutation(renameCategory(e(), category, 'Yard') as Mutation, lookup).what).toBe(
+      'Changed the category Yard',
+    );
+    expect(describeMutation(moveCategory(e(), category, 'a9') as Mutation, lookup).what).toBe(
+      'Changed the category Garden',
+    );
+    expect(describeMutation(deleteCategory(e(), category) as Mutation, lookup)).toEqual({
+      kind: 'inventory',
+      what: 'Deleted the category Garden',
+    });
+  });
+});
 
 describe('saying what a refused change was', () => {
   it('says an add by the name it carries, and a tick, an edit and a delete by the name of the row', () => {

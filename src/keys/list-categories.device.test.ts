@@ -43,6 +43,8 @@ import {
   carryCategoryOnMove,
   categoryOnList,
   copiesOfCategory,
+  moveCategoryEverywhere,
+  renameCategoryEverywhere,
   sourceKeyOn,
   type CopyKeys,
 } from './copies';
@@ -893,5 +895,151 @@ describe(`an Inventory item added to a list (${leg})`, () => {
     expect(added.category.copy).toBeNull();
     expect(await failedOf(d.db)).toEqual([]);
     expect((await serverCopies()).length).toBe(before);
+  });
+});
+
+describe(`a category changed in Inventory, and its copies (${leg})`, () => {
+  const rowOf = async (d: Dev, id: string) => {
+    const found = (await d.client.read((db) => ownerCategoriesOf(db, d.who.household))).find(
+      (each) => each.id === id,
+    );
+    if (!found) throw new Error('no category');
+    return found;
+  };
+  const commitAll = async (
+    d: Dev,
+    mutations: Awaited<ReturnType<typeof renameCategoryEverywhere>>,
+  ) => {
+    for (const mutation of mutations) await d.client.commit(mutation);
+    await d.client.sync();
+  };
+
+  it('renames the category and its copies on the lists the person is Admin of, and a rename made while the keys are not open reaches them when it is asked again', async () => {
+    const { ada, a, g, hardware } = await world('Everywhere');
+    const garden = await ownCategory(a, 'Garden');
+    await putOn(a, ada.household, ada.list, garden, 'Garden');
+    await putOn(a, ada.household, hardware, garden, 'Garden');
+    await g.client.sync();
+    const lockedKeys: CopyKeys = { encrypted: a.keys.encrypted, ringOf: async () => undefined };
+
+    // Keys open: the category and both copies, which Grace, a Member of Groceries, reads.
+    const renamed = await renameCategoryEverywhere(
+      a.db,
+      a.keys,
+      env(),
+      await rowOf(a, garden),
+      'Yard',
+    );
+    expect(renamed.map((each) => each.changes.map((c) => c.table))).toEqual([
+      ['category'],
+      ['list_category', 'list_category'],
+    ]);
+    await commitAll(a, renamed);
+    await g.client.sync();
+    expect(await failedOf(a.db)).toEqual([]);
+    expect((await copiesOn(a, ada.list)).map((row) => row.name)).toEqual(['Yard']);
+    expect((await copiesOn(a, hardware)).map((row) => row.name)).toEqual(['Yard']);
+    expect((await copiesOn(g, ada.list)).map((row) => row.name)).toEqual(['Yard']);
+
+    // Keys not open: no copy can be found, so the category alone is renamed.
+    const locked = await renameCategoryEverywhere(
+      a.db,
+      lockedKeys,
+      env(),
+      await rowOf(a, garden),
+      'Park',
+    );
+    expect(locked.map((each) => each.changes.map((c) => c.table))).toEqual([['category']]);
+    await commitAll(a, locked);
+    expect((await rowOf(a, garden)).name).toBe('Park');
+    expect((await copiesOn(a, ada.list)).map((row) => row.name)).toEqual(['Yard']);
+
+    // Asked again with the name it has, now that they are open: the copies alone, and nothing for what has the name already.
+    const again = await renameCategoryEverywhere(
+      a.db,
+      a.keys,
+      env(),
+      await rowOf(a, garden),
+      'Park',
+    );
+    expect(again.map((each) => each.changes.map((c) => c.table))).toEqual([
+      ['list_category', 'list_category'],
+    ]);
+    await commitAll(a, again);
+    await g.client.sync();
+    expect(await failedOf(a.db)).toEqual([]);
+    expect((await copiesOn(a, hardware)).map((row) => row.name)).toEqual(['Park']);
+    expect((await copiesOn(g, ada.list)).map((row) => row.name)).toEqual(['Park']);
+    expect(
+      await renameCategoryEverywhere(a.db, a.keys, env(), await rowOf(a, garden), 'Park'),
+    ).toEqual([]);
+  });
+
+  it('gives a starter category a name of the person’s and the usual one back, with no copies to find', async () => {
+    const { a, ada } = await world('StarterName');
+    const produce = (await a.client.read((db) => ownerCategoriesOf(db, ada.household))).find(
+      (each) => each.starterKey === 'produce',
+    );
+    if (!produce) throw new Error('no produce');
+    const named = await renameCategoryEverywhere(a.db, a.keys, env(), produce, 'Fruit and veg');
+    expect(named.map((each) => each.changes.map((c) => c.table))).toEqual([['category']]);
+    await commitAll(a, named);
+    expect((await rowOf(a, produce.id)).name).toBe('Fruit and veg');
+    const usual = await renameCategoryEverywhere(
+      a.db,
+      a.keys,
+      env(),
+      await rowOf(a, produce.id),
+      null,
+    );
+    await commitAll(a, usual);
+    expect((await rowOf(a, produce.id)).name).toBe('Produce');
+    expect(await failedOf(a.db)).toEqual([]);
+  });
+
+  it('moves the category and its copies on the person’s own lists to one place, which the people on those lists read, and a starter category has no copies to move', async () => {
+    const { ada, a, g, hardware } = await world('Moving');
+    const garden = await ownCategory(a, 'Garden');
+    await putOn(a, ada.household, ada.list, garden, 'Garden');
+    await putOn(a, ada.household, hardware, garden, 'Garden');
+    const aisle = await a.client.read((db) => ownerCategoriesOf(db, ada.household));
+    const [first, second] = aisle.filter((each) => each.starterKey !== null);
+    if (!first || !second) throw new Error('no aisle');
+    const position = (await import('../actions/position')).between(first.position, second.position);
+
+    const moved = await moveCategoryEverywhere(
+      a.db,
+      a.keys,
+      env(),
+      await rowOf(a, garden),
+      position,
+    );
+    expect(moved.map((each) => each.changes.map((c) => c.table))).toEqual([
+      ['category'],
+      ['list_category', 'list_category'],
+    ]);
+    await commitAll(a, moved);
+    await g.client.sync();
+    expect(await failedOf(a.db)).toEqual([]);
+    expect((await rowOf(a, garden)).position).toBe(position);
+    expect((await copiesOn(a, ada.list)).map((row) => row.position)).toEqual([position]);
+    expect((await copiesOn(a, hardware)).map((row) => row.position)).toEqual([position]);
+    expect((await copiesOn(g, ada.list)).map((row) => row.position)).toEqual([position]);
+
+    // Put there again: nothing to write. A starter category moves alone.
+    expect(
+      await moveCategoryEverywhere(a.db, a.keys, env(), await rowOf(a, garden), position),
+    ).toEqual([]);
+    const produce = aisle.find((each) => each.starterKey === 'produce');
+    if (!produce) throw new Error('no produce');
+    const last = aisle.at(-1)?.position ?? null;
+    const starter = await moveCategoryEverywhere(
+      a.db,
+      a.keys,
+      env(),
+      produce,
+      (await import('../actions/position')).after(last),
+    );
+    expect(starter.map((each) => each.changes.map((c) => c.table))).toEqual([['category']]);
   });
 });

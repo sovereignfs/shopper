@@ -1313,8 +1313,12 @@ list's own products are tidied where they are used, from an item's panel (§16.7
   product of that name on the list remembers (the owner's decision, 2026-11-24): the item takes Inventory's category, icon, unit and quantity, the product is left as it is, and what
   Inventory has no value for (an empty field, a category it had only the guess for) is the product's. One more of what is open is still one more. The Inventory note is the person's and
   is not carried to a list.
-- **Categories:** the aisle order as a draggable list (`DragHandleRow`, a keyboard way too), each with rename, icon and hide; _Add category_ at the
-  end (§8.3).
+- **Categories:** the aisle order as a draggable list (`DragHandleRow`, a keyboard way too: Space lifts, the arrows move, Space drops), each with rename, icon and hide or show;
+  _Add category_ at the end (§8.3). A starter category is renamed, hidden and moved, never deleted, and takes its usual name back (by emptying its name or a button); _Other_ is never
+  hidden; one of the person's own is deleted too, with Undo, and its name cannot be one another category has (capitals and spaces aside). **Renaming one of the person's own also renames its
+  copies on the lists they are Admin of, and moving it moves its copies on their own lists** (the owner's decision of 2026-11-24: a copy's place is a key in its list's group's aisle order,
+  so it means the same only in the person's own group); a rename made while the keys are not open finds no copy, and asking again once they are renames them. A hidden category is not
+  offered, a name is never guessed into it, and what is in it shows under _Other_. The tab is `?tab=categories`.
 
 ### 16.9 Sharing a list
 

@@ -392,6 +392,237 @@ test('Add to a list adds the item as it is on the device when its turn comes: a 
   expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
 });
 
+const tab = (page: Page, name: string) => page.getByRole('tab', { name });
+const categoryNames = (page: Page) =>
+  page
+    .getByRole('textbox', { name: /^Name of / })
+    .evaluateAll((fields) => fields.map((field) => (field as HTMLInputElement).value));
+interface Aisle {
+  id: string;
+  starterKey: string | null;
+  name: string;
+  position: string;
+  hidden: boolean;
+  deletedAt: number | null;
+}
+const aisleOf = async (page: Page): Promise<Aisle[]> =>
+  (await deviceRows<Aisle>(page, await accountOf(page), 'category')).filter(
+    (row) => row.deletedAt === null,
+  );
+interface Copy {
+  id: string;
+  name: string;
+  position: string;
+}
+const copiesOf = (page: Page) =>
+  accountOf(page).then((account) => deviceRows<Copy>(page, account, 'list_category'));
+
+test('a category of the person’s own is made, put on a list as a copy that follows its name and its place, and a name they have is refused', async ({
+  page,
+  baseURL,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory');
+  // A copy is made in a group that has moved to the device's encryption, which a new account's does at its first load.
+  await waitMoved(page, baseURL ?? '');
+  await tab(page, 'Categories').click();
+  await expect(tab(page, 'Categories')).toHaveAttribute('aria-selected', 'true');
+  await expect(page).toHaveURL(/\/inventory\?tab=categories$/);
+  await expect.poll(async () => (await categoryNames(page)).length, { timeout: 15_000 }).toBe(15);
+
+  // Add category: last in the aisle order; the same name again, by what a person would call the same, is refused and writes nothing.
+  await page.getByLabel('New category').fill('Garden');
+  await page.getByRole('button', { name: 'Add category' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name of Garden' })).toBeVisible();
+  expect((await categoryNames(page)).at(-1)).toBe('Garden');
+  await page.getByLabel('New category').fill(' garden ');
+  await page.getByRole('button', { name: 'Add category' }).click();
+  await expect(page.getByText('You have a category with that name already.')).toBeVisible();
+  expect((await aisleOf(page)).filter((row) => row.name === 'Garden')).toHaveLength(1);
+
+  // An item of Inventory in that category, added to Groceries: the list has a copy of the category, named Garden, and the item names the copy.
+  await tab(page, 'Items').click();
+  await expect(page).toHaveURL(/\/inventory$/);
+  await page.getByRole('button', { name: 'Add item' }).first().click();
+  await panel(page, 'New item of Inventory').getByLabel('Name').fill('Spade');
+  await panel(page, 'New item of Inventory').getByRole('button', { name: 'Add item' }).click();
+  const spade = panel(page, 'Inventory: Spade');
+  await spade.getByLabel('Category').selectOption({ label: 'Garden' });
+  await expect
+    .poll(async () => (await rowsOf(page)).find((row) => row.name === 'Spade')?.categoryId, {
+      timeout: 10_000,
+    })
+    .toBeTruthy();
+  await spade.getByRole('button', { name: 'Add to list' }).click();
+  await expect(spade.getByRole('status')).toContainText('Added Spade to Groceries');
+  await expect.poll(async () => (await copiesOf(page)).length, { timeout: 10_000 }).toBe(1);
+  const garden = (await aisleOf(page)).find((row) => row.name === 'Garden');
+  const placedSpade = (await placed(page, 'Spade'))[0];
+  expect(placedSpade?.categoryId).toBe((await copiesOf(page))[0]?.id);
+  expect(placedSpade?.categoryId).not.toBe(garden?.id);
+  await spade.getByRole('link', { name: 'Open list' }).click();
+  await expect(page.getByRole('heading', { name: 'Garden' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Spade/ })).toBeVisible();
+
+  // Renamed in Inventory, the copy on the list is renamed with it, and the list's heading follows.
+  await page.goto('/inventory?tab=categories');
+  const name = page.getByRole('textbox', { name: 'Name of Garden' });
+  await name.fill('Yard');
+  await name.press('Enter');
+  await expect.poll(async () => (await copiesOf(page))[0]?.name, { timeout: 10_000 }).toBe('Yard');
+  expect((await aisleOf(page)).find((row) => row.id === garden?.id)?.name).toBe('Yard');
+  await page.getByRole('link', { name: 'Groceries' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Yard' })).toBeVisible();
+
+  // Put first by the keyboard: Space lifts the row, the arrows move it, Space puts it down. The copy on the list takes the place, which the list groups by.
+  await page.goto('/inventory?tab=categories');
+  await expect
+    .poll(async () => (await categoryNames(page)).at(-1), { timeout: 15_000 })
+    .toBe('Yard');
+  await page.getByRole('button', { name: 'Move Yard' }).focus();
+  await page.keyboard.press('Space');
+  // Each arrow is waited for by what is said aloud (the position it is over), which is also what a person using a screen reader hears.
+  const said = page.locator('[id^="DndLiveRegion"]');
+  for (let at = 15; at >= 1; at -= 1) {
+    await page.keyboard.press('ArrowUp');
+    await expect(said).toHaveText(new RegExp(`Yard is over position ${at} of 16`));
+  }
+  await page.keyboard.press('Space');
+  await expect(said).toHaveText(/Dropped category Yard at position 1 of 16/);
+  await expect.poll(async () => (await categoryNames(page))[0], { timeout: 10_000 }).toBe('Yard');
+  const now = (await aisleOf(page)).find((row) => row.id === garden?.id);
+  await expect
+    .poll(async () => (await copiesOf(page))[0]?.position, { timeout: 10_000 })
+    .toBe(now?.position);
+  // It survives a reload and reaches the server.
+  await expect
+    .poll(async () => (await deviceRows(page, await accountOf(page), 'outbox')).length, {
+      timeout: 30_000,
+    })
+    .toBe(0);
+  expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
+  await page.reload();
+  await expect.poll(async () => (await categoryNames(page))[0], { timeout: 15_000 }).toBe('Yard');
+});
+
+test('a category is hidden and shown, a starter one has a name of the person’s and the usual one back, and a delete has Undo', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory?tab=categories');
+  await expect.poll(async () => (await categoryNames(page)).length, { timeout: 30_000 }).toBe(15);
+
+  // Other is never hidden, and a starter category is never deleted.
+  await expect(page.getByRole('button', { name: 'Hide Other' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Hide Bakery' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Delete / })).toHaveCount(0);
+
+  // Hidden: marked, still there to be shown again, and an item of Inventory in it is under Other; a hidden category is not offered for an item.
+  await page.getByRole('button', { name: 'Hide Bakery' }).click();
+  await expect(page.getByRole('button', { name: 'Show Bakery' })).toBeVisible();
+  await expect(page.getByText('Hidden', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await aisleOf(page)).find((row) => row.starterKey === 'bakery')?.hidden, {
+      timeout: 10_000,
+    })
+    .toBe(true);
+  await tab(page, 'Items').click();
+  await entry(page, 'Banana').click();
+  const choices = panel(page, 'Inventory: Banana').getByLabel('Category');
+  await expect(choices.locator('option', { hasText: 'Produce' })).toHaveCount(1);
+  const options = await choices.locator('option').allTextContents();
+  expect(options).not.toContain('Bakery');
+  expect(options).toContain('Produce');
+  await tab(page, 'Categories').click();
+  await page.getByRole('button', { name: 'Show Bakery' }).click();
+  await expect(page.getByRole('button', { name: 'Hide Bakery' })).toBeVisible();
+
+  // A starter category given a name of the person's, and the usual one again: by the button, and by emptying the field.
+  const produce = page.getByRole('textbox', { name: 'Name of Produce' });
+  await produce.fill('Fruit and veg');
+  await produce.press('Enter');
+  await expect(page.getByRole('textbox', { name: 'Name of Fruit and veg' })).toBeVisible();
+  await page.getByRole('button', { name: 'Use the usual name for Fruit and veg' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name of Produce' })).toBeVisible();
+  const again = page.getByRole('textbox', { name: 'Name of Produce' });
+  await again.fill('Greens');
+  await again.press('Enter');
+  await expect(page.getByRole('textbox', { name: 'Name of Greens' })).toBeVisible();
+  const emptied = page.getByRole('textbox', { name: 'Name of Greens' });
+  await emptied.fill('');
+  await emptied.press('Enter');
+  await expect(page.getByRole('textbox', { name: 'Name of Produce' })).toBeVisible();
+
+  // A name typed and not yet left, and Delete pressed, which leaves it first: the rename is written before the delete and does not follow it, which would make the row again.
+  await page.getByLabel('New category').fill('Scratch');
+  await page.getByRole('button', { name: 'Add category' }).click();
+  const scratch = page.getByRole('textbox', { name: 'Name of Scratch' });
+  await expect(scratch).toBeVisible();
+  await scratch.fill('Scratch two');
+  await page.getByRole('button', { name: 'Delete Scratch' }).click();
+  await expect(page.getByRole('textbox', { name: /^Name of Scratch/ })).toHaveCount(0);
+  await expect
+    .poll(async () => (await deviceRows(page, await accountOf(page), 'outbox')).length, {
+      timeout: 30_000,
+    })
+    .toBe(0);
+  expect((await aisleOf(page)).filter((row) => row.name.startsWith('Scratch'))).toEqual([]);
+  await expect(page.getByRole('textbox', { name: /^Name of Scratch/ })).toHaveCount(0);
+
+  // One of the person's own is deleted with Undo, which brings it back where it was.
+  await page.getByLabel('New category').fill('Garden');
+  await page.getByRole('button', { name: 'Add category' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name of Garden' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete Garden' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name of Garden' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name of Garden' })).toBeVisible();
+  expect((await categoryNames(page)).at(-1)).toBe('Garden');
+  await expect
+    .poll(async () => (await deviceRows(page, await accountOf(page), 'outbox')).length, {
+      timeout: 30_000,
+    })
+    .toBe(0);
+  expect(await deviceRows(page, await accountOf(page), 'failed')).toEqual([]);
+});
+
+test('the Categories tab on a phone keeps to the width, opens the icon panel whole, and the tab and the item beside it are in the address', async ({
+  page,
+}) => {
+  await page.setViewportSize(PHONE);
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await page.goto('/inventory');
+  await expect(entry(page, 'Banana')).toBeVisible({ timeout: 30_000 });
+  // An item open, then the other tab: the address drops the item and keeps the tab; Back from the tab is not a step of its own.
+  await entry(page, 'Banana').click();
+  await expect(page).toHaveURL(/entry=starter%3Abanana/);
+  await page.getByRole('button', { name: 'Back to Inventory' }).click();
+  await tab(page, 'Categories').click();
+  await expect(page).toHaveURL(/\/inventory\?tab=categories$/);
+  await expect.poll(async () => (await categoryNames(page)).length, { timeout: 15_000 }).toBe(15);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  // The icon panel of the last row opens inside the screen.
+  const last = page.getByRole('button', { name: 'Icon of Other' });
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  const inside = await page.evaluate(() => {
+    const open = document.querySelector('[class*="panel"][class*="right"]');
+    if (!open) return null;
+    const box = open.getBoundingClientRect();
+    return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+  });
+  expect(inside).toBe(true);
+  await page.keyboard.press('Escape');
+  await tab(page, 'Items').click();
+  await expect(page).toHaveURL(/\/inventory$/);
+});
+
 test('a keyboard reaches an entry and its fields, and Escape closes it; Inventory opens with no network', async ({
   page,
   context,

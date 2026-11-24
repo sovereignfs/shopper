@@ -1,7 +1,9 @@
 import { type Env } from '../actions/env';
 import type { Change } from '../actions/format';
-import { copyOnList } from '../actions/list-categories';
-import type { ItemRow, ListCategoryRow } from '../actions/rows';
+import { moveCategory, renameCategory } from '../actions/categories';
+import type { Mutation } from '../actions/format';
+import { copyOnList, moveCopies, renameCopies } from '../actions/list-categories';
+import type { CategoryRow, ItemRow, ListCategoryRow } from '../actions/rows';
 import { categoryOfNew } from '../lists/adding';
 import type { LocalDatabase } from '../local/db';
 import type { InventoryEntry } from '../catalog/inventory';
@@ -55,6 +57,47 @@ export async function copiesOfCategory(
     if (copy) found.push(copy);
   }
   return found;
+}
+
+/**
+ * **A category renamed in Inventory, and its copies with it** (§8.3): the mutations to commit, in order: the category's own, then the copies on the lists the person is Admin of
+ * (`renameCopies`, one for each group). **The same function for the screen and the tests**, so that what the tests prove is what the screen does. A starter category has no copies.
+ * Asked again with the name it has, it makes the copies' changes alone, which is how a rename made while the keys were not open (when no copy can be found, `copiesOfCategory`)
+ * reaches them once they are: nothing is written for a copy that has the name already.
+ */
+export async function renameCategoryEverywhere(
+  db: LocalDatabase,
+  keys: CopyKeys,
+  env: Env,
+  row: CategoryRow,
+  name: string | null,
+): Promise<Mutation[]> {
+  const own = renameCategory(env, row, name);
+  const copies =
+    row.starterKey === null && name !== null ? await copiesOfCategory(db, keys, row.id) : [];
+  return [...(own ? [own] : []), ...(name === null ? [] : renameCopies(env, copies, name))];
+}
+
+/**
+ * **A category put in a new place in Inventory, and its copies on the person's own lists with it** (§8.3, the owner's decision of 2026-11-24): the category's own mutation, then one
+ * for the copies in the person's own group, which take the category's position (a copy on another group's list is in an aisle order that is not theirs, and stays). A starter category
+ * has no copies. Asked again with the position it has, it moves the copies alone.
+ */
+export async function moveCategoryEverywhere(
+  db: LocalDatabase,
+  keys: CopyKeys,
+  env: Env,
+  row: CategoryRow,
+  position: string,
+): Promise<Mutation[]> {
+  const own = moveCategory(env, row, position);
+  const copies =
+    row.starterKey === null
+      ? (await copiesOfCategory(db, keys, row.id)).filter(
+          (copy) => copy.householdId === row.householdId,
+        )
+      : [];
+  return [...(own ? [own] : []), ...moveCopies(env, copies, position)];
 }
 
 /**

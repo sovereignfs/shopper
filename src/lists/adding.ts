@@ -76,9 +76,12 @@ export function productNamed(
   );
 }
 
-/** The household's category for a key that is a starter key or the household's own category id; _Other_ if it names neither. */
+/**
+ * The household's category for a key that is a starter key or the household's own category id; _Other_ if it names neither. **A hidden category is not offered** (§8.3), so a name is
+ * never guessed into one: it takes _Other_ (which cannot be hidden).
+ */
 function categoryFor(categories: readonly CategoryRow[], key: string): CategoryRow | undefined {
-  const live = categories.filter((category) => category.deletedAt === null);
+  const live = categories.filter((category) => category.deletedAt === null && !category.hidden);
   return (
     live.find((category) => category.id === key) ??
     live.find((category) => category.starterKey === key) ??
@@ -94,7 +97,7 @@ export function categoryOfNew(
 ): string | null {
   const keyOf = (category: CategoryRow): string => category.starterKey ?? category.id;
   const aisle = [...categories]
-    .filter((category) => category.deletedAt === null)
+    .filter((category) => category.deletedAt === null && !category.hidden)
     .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
   const byId = new Map(categories.map((category) => [category.id, category]));
   const key = guessCategory({

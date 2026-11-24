@@ -31,6 +31,13 @@ export function describeMutation(mutation: Mutation, nameOf: Name): Described {
   const filled = changes.find((change) => change.table === 'inventory_item' && change.create);
   if (filled)
     return { kind: 'inventory', what: `Added ${named(filled) ?? 'an item'} to Inventory` };
+  // A category of the person's own, made in Inventory (§8.3): refused for the limit, it is not an item.
+  const madeCategory = changes.find((change) => change.table === 'category' && change.create);
+  if (madeCategory)
+    return {
+      kind: 'inventory',
+      what: `Added the category ${named(madeCategory) ?? ''}`.trim(),
+    };
   const madeList = changes.find((change) => change.table === 'list' && change.create);
   if (madeList) return { kind: 'list', what: `Made the list ${named(madeList) ?? ''}`.trim() };
 
@@ -47,6 +54,12 @@ export function describeMutation(mutation: Mutation, nameOf: Name): Described {
     };
 
   const only = changes[0] as Change;
+  if (only.table === 'category' || only.table === 'list_category') {
+    const category = named(only) ?? 'a category';
+    return typeof only.fields.deletedAt === 'number'
+      ? { kind: 'inventory', what: `Deleted the category ${category}` }
+      : { kind: 'inventory', what: `Changed the category ${category}` };
+  }
   const name = named(only) ?? (only.table === 'list' ? 'a list' : 'an item');
   if (typeof only.fields.boughtAt === 'number') return { kind: 'tick', what: `Ticked ${name}` };
   if ('boughtAt' in only.fields && only.fields.boughtAt === null)

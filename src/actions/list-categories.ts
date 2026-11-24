@@ -103,6 +103,30 @@ export function deleteCopy(env: Env, row: ListCategoryRow): Mutation | null {
 }
 
 /**
+ * **A category put in a new place in Inventory, its copies on the person's own lists with it** (§8.3, owner's decision 2026-11-24): the copies are given the category's new
+ * position, one mutation for each group they are in. A copy's place is a key in its list's group's one aisle order, so it means the same only among the rows of the
+ * person's own group; the caller gives the copies of that group alone. A copy already there says nothing.
+ */
+export function moveCopies(
+  env: Env,
+  copies: readonly ListCategoryRow[],
+  position: string,
+): Mutation[] {
+  const byHousehold = new Map<string, Change[]>();
+  for (const copy of copies) {
+    if (copy.position === position) continue;
+    const list = byHousehold.get(copy.householdId) ?? [];
+    list.push({ table: 'list_category', id: copy.id, fields: { position } });
+    byHousehold.set(copy.householdId, list);
+  }
+  return [...byHousehold].map(([householdId, changes]) => ({
+    mutationId: env.newId(),
+    householdId,
+    changes,
+  }));
+}
+
+/**
  * **A category renamed in Inventory, its copies renamed with it** (§8.3): the copies the person found on the lists they are Admin of (`copiesOfCategory`,
  * `src/keys/copies.ts`), one mutation for each group they are in, since a mutation is for one. A copy that has the name already says nothing.
  */

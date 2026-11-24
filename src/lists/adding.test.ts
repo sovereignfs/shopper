@@ -181,6 +181,26 @@ describe('adding from a suggestion', () => {
     });
   });
 
+  it('never guesses a name into a hidden category: it takes Other, which cannot be hidden', () => {
+    const cheese = product({ name: 'Goat cheese', categoryId: DAIRY });
+    const hidden = categories.map((each) => (each.id === DAIRY ? { ...each, hidden: true } : each));
+    // A product in the hidden category lends it to a similar name, and a starter entry of that category (Milk) is its own: neither is offered.
+    const similar = planned(
+      planAdd(env(), context({ products: [cheese], categories: hidden }), typed('Sheep cheese')),
+    );
+    expect(changesOf(similar.mutation, 'item')[0]?.fields.categoryId).toBe(OTHER);
+    const starter = planned(
+      planAdd(env(), context({ categories: hidden }), {
+        ...typed('Milk'),
+        kind: 'starter' as never,
+      }),
+    );
+    expect(changesOf(starter.mutation, 'item')[0]?.fields.categoryId).toBe(OTHER);
+    // Shown again, it is guessed as before.
+    const shown = planned(planAdd(env(), context({ products: [cheese] }), typed('Sheep cheese')));
+    expect(changesOf(shown.mutation, 'item')[0]?.fields.categoryId).toBe(DAIRY);
+  });
+
   it('puts a new item after the last of its category', () => {
     const first = item({ categoryId: DAIRY, position: 'a5' });
     const { mutation } = planned(
