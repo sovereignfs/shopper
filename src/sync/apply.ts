@@ -553,7 +553,10 @@ async function checkReferences(
           )
         : await dbGet<{ yes: number }>(
             database,
-            sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
+            target === 'starter_category'
+              ? // A category the group was made with: a person's own is not what an item or a product says, for anyone else on the list could not read it.
+                sql`SELECT 1 AS yes FROM ${appTable(database, 'category')} WHERE id = ${String(value)} AND household_id = ${household} AND starter_key IS NOT NULL AND deleted_at IS NULL`
+              : sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
           );
     if (!found) throw notFound();
   }

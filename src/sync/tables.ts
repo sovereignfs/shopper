@@ -33,8 +33,14 @@ export interface TableSpec {
   readonly sealed: readonly string[];
   /** The fields that are columns, each with its column. */
   readonly plain: readonly ColumnOf[];
-  /** Fields that name another row, and which table it is in: the household's own, or the change is refused. */
-  readonly refs: Readonly<Record<string, 'list' | 'product' | 'category' | 'person'>>;
+  /**
+   * Fields that name another row, and which table it is in: the household's own, or the change is refused. `starter_category` is a category the group was
+   * made with (its `starter_key` is set): **what an item or a product names**, since a person's own categories are theirs alone (§8.3) and a list says one by
+   * its own copy of it (`list_category`, which names no row of another group); `category` is any of the group's, for the person's own Inventory.
+   */
+  readonly refs: Readonly<
+    Record<string, 'list' | 'product' | 'category' | 'starter_category' | 'person'>
+  >;
   /** Columns the server sets from what the row says, not the device: a product's name key. */
   derive?(input: {
     household: string;
@@ -75,7 +81,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
     refs: {
       listId: 'list',
       productId: 'product',
-      categoryId: 'category',
+      categoryId: 'starter_category',
       addedBy: 'person',
       boughtBy: 'person',
     },
@@ -108,7 +114,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
       { field: 'deletedAt', column: 'deleted_at' },
       { field: 'createdAt', column: 'created_at' },
     ],
-    refs: { listId: 'list', categoryId: 'category' },
+    refs: { listId: 'list', categoryId: 'starter_category' },
     derive: ({ household, ring, sealed }) => ({
       name_key: productNameKey(ring, household, String(sealed.name ?? '')),
     }),

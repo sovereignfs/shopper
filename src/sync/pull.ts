@@ -39,9 +39,11 @@ export async function pullHousehold(
     epoch: number | string;
     record: string | null;
     person: string | null;
+    /** 1 when the reader is the group's own account (`household.own_of`), else 0. */
+    own: number | string;
   }>(
     database,
-    sql`SELECT h.encryption, h.epoch, k.record, me.id AS person FROM ${appTable(database, 'household')} h
+    sql`SELECT h.encryption, h.epoch, k.record, me.id AS person, CASE WHEN h.own_of = ${accountId} THEN 1 ELSE 0 END AS own FROM ${appTable(database, 'household')} h
         LEFT JOIN ${appTable(database, 'person')} me ON me.account_id = ${accountId}
         LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id AND k.person_id = me.id AND h.own_of = ${accountId}
         WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
@@ -84,7 +86,9 @@ export async function pullHousehold(
       // A list's catalog (21.3): an item's product is always on the item's list, so this is every product the reader's items use.
       sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own}))`,
     ),
-    take('category', sql`1 = 1`),
+    // **A person's own categories are theirs alone** (§8.3): everyone on a list of the group reads the starter categories, by their key, and nothing else. A condition
+    // of this statement, as Inventory's is.
+    take('category', sql`(r.starter_key IS NOT NULL OR ${own})`),
     // **A person's Inventory is handed to nobody but its group's own account** (§8.8, §12.3): a condition of this statement, as a list's is.
     take('inventory_item', own),
     dbAll<Raw>(
@@ -98,8 +102,8 @@ export async function pullHousehold(
       database,
       sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
           AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
-          -- What a fold or a delete of an Inventory item leaves is of no list, and is the group's own account's alone, as the rows are.
-          AND (r.table_name <> 'inventory_item' OR ${own})
+          -- What a fold or a delete of an Inventory item or of an own category leaves is of no list, and is the group's own account's alone, as the rows are.
+          AND (r.table_name NOT IN ('inventory_item', 'category') OR ${own})
           -- An item moved away from a list (RFC 0004) is gone only for a reader who cannot see it where it is now.
           AND NOT (r.table_name = 'item' AND EXISTS (SELECT 1 FROM ${t('item')} ti WHERE ti.id = r.id AND ti.household_id = r.household_id
                    AND ${onList(database, sql`ti.list_id`, accountId)}))
@@ -109,7 +113,7 @@ export async function pullHousehold(
       database,
       sql`SELECT * FROM ${t('alias')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
           AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
-          AND (r.table_name <> 'inventory_item' OR ${own}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
+          AND (r.table_name NOT IN ('inventory_item', 'category') OR ${own}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
     ),
     // Every list the reader may see in this group, whatever its seq: the device forgets any other it holds.
     dbAll<{ id: string }>(
@@ -155,7 +159,7 @@ export async function pullHousehold(
     lists: within(lists).map((row) => listOf(row, ring)),
     items: within(items).map((row) => itemOf(row, ring)),
     products: within(products).map((row) => productOf(row, ring)),
-    categories: within(categories).map((row) => categoryOf(row, ring)),
+    categories: within(categories).map((row) => categoryOf(row, ring, Number(state?.own) === 1)),
     inventory: within(inventory).map((row) => inventoryOf(row, ring)),
     members: within(members).map((row) => memberRow(row, ring, accountId)),
     visibleLists: visibleLists.map((row) => row.id),
@@ -284,10 +288,11 @@ function inventoryOf(row: Raw, ring: KeyRing) {
   };
 }
 
-function categoryOf(row: Raw, ring: KeyRing) {
-  // A starter category's name is the code's, until a person names it (task 4.7); then it is sealed.
+function categoryOf(row: Raw, ring: KeyRing, own: boolean) {
+  // A starter category's name is the code's, until a person names it (task 4.7); then it is sealed. **Only its own account is given that name** (§8.3):
+  // anyone else on a list of the group reads the starter's, and nothing of what the person made of it.
   const named =
-    typeof row.sealed === 'string' && row.sealed !== ''
+    own && typeof row.sealed === 'string' && row.sealed !== ''
       ? text(unsealRow('category', String(row.id), row.sealed, ring).name)
       : null;
   const starter = STARTER_CATEGORIES.find((each) => each.key === row.starter_key);
@@ -301,6 +306,7 @@ function categoryOf(row: Raw, ring: KeyRing) {
     hidden: Boolean(row.hidden),
     deletedAt: num(row.deleted_at),
     seq: seqOf(row),
+    ...(own ? encryptedOf(row) : {}),
   };
 }
 
