@@ -44,6 +44,12 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'page',
+    address: '/inventory',
+    who: 'signed-in',
+    note: "A person's Inventory. The page holds nothing of it: the device reads it from its own copy, which has the account's own items and categories alone, and every change is made through sync, which checks the owner's group in its statement.",
+  },
+  {
+    kind: 'page',
     address: '/home',
     who: 'signed-in',
     note: 'The signed-in area: a visitor is sent to sign in. Reached as / by someone with a session cookie; /home itself goes to /.',

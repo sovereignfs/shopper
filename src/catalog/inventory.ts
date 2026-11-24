@@ -103,8 +103,16 @@ export function inventoryHas(
   name: string,
   catalog: readonly StarterEntry[] = STARTER_CATALOG,
 ): boolean {
+  return entryNamed(layerInventory(rows, catalog), name) !== undefined;
+}
+
+/** The entry that has a name, by canonical name (what `inventoryHas` asks), so that a screen can open the one a typed name is, rather than make a second. */
+export function entryNamed(
+  entries: readonly InventoryEntry[],
+  name: string,
+): InventoryEntry | undefined {
   const wanted = canonicalName(name);
-  return layerInventory(rows, catalog).some(
+  return entries.find(
     (entry) =>
       canonicalName(entry.name) === wanted ||
       // A starter entry a person renamed is still that entry: its own name and its aliases are the name too (typing "bread" after renaming it _Sourdough_ is not a new name).

@@ -5,6 +5,36 @@
   padding: var(--sv-space-6);
 }
 
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+/* Inventory, beside the title: the person's own items and categories, one tap from where Shopper opens (DESIGN.md §16.8). */
+.inventory {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  text-decoration: none;
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.inventory:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .inventory:hover {
+    background: var(--sv-color-surface-sunken);
+  }
+}
+
 .title {
   margin: 0;
   font-size: var(--sv-font-size-2xl);

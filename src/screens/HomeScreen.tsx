@@ -59,7 +59,13 @@ export function HomeScreen() {
     );
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Home</h1>
+      <header className={styles.head}>
+        <h1 className={styles.title}>Home</h1>
+        <Link href="/inventory" className={styles.inventory}>
+          <Icon name="package" size="sm" aria-hidden />
+          <span>Inventory</span>
+        </Link>
+      </header>
       {home.continue ? <Continue tile={home.continue} fresh={home.fresh} /> : null}
       {home.own.length > 0 ? <TileSection heading="My lists" tiles={home.own} /> : null}
       {home.shared.length > 0 ? <TileSection heading="Shared with me" tiles={home.shared} /> : null}

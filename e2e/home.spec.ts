@@ -10,7 +10,7 @@ const sidebar = (page: import('@playwright/test').Page) =>
 // The signed-in frame has no `main` landmark of its own (a gap in the design system's `AppFrame`, to raise in `sovereign`), so Home's content is what holds its heading:
 // the sidebar has regions of the same names ("My lists", "Shared with me") that this must not be mistaken for.
 const home = (page: import('@playwright/test').Page) =>
-  page.getByRole('heading', { level: 1, name: 'Home' }).locator('..');
+  page.getByRole('heading', { level: 1, name: 'Home' }).locator('xpath=../..');
 
 test('a new account opens on Home: Continue is its Groceries with a line, its lists are tiles, and nothing is at a glance yet', async ({
   page,

@@ -28,10 +28,13 @@ const theirs: Place = {
 const ids = (blocks: ReturnType<typeof blocksOf>) => blocks.map((block) => block.id);
 
 describe('the sidebar’s blocks', () => {
-  it('are Home, My lists and Shared with me, in that order, with no group named', () => {
+  it('are Home with Inventory, My lists and Shared with me, in that order, with no group named', () => {
     const blocks = blocksOf({ places: [own, theirs], pathname: '/', archived: false });
     expect(ids(blocks)).toEqual(['places', 'mine', 'shared']);
-    expect(blocks[0]?.items.map((item) => [item.label, item.href])).toEqual([['Home', '/']]);
+    expect(blocks[0]?.items.map((item) => [item.label, item.href])).toEqual([
+      ['Home', '/'],
+      ['Inventory', '/inventory'],
+    ]);
     expect(blocks[1]?.heading).toBe('My lists');
     expect(blocks[2]?.heading).toBe('Shared with me');
     // What is read on the screen never says a group, or whose household it came from.
@@ -120,7 +123,15 @@ describe('the sidebar’s blocks', () => {
     ]);
   });
 
-  it('are Home alone for a device that has no places yet', () => {
+  it('are Home and Inventory alone for a device that has no places yet', () => {
     expect(ids(blocksOf({ places: [], pathname: '/', archived: false }))).toEqual(['places']);
+  });
+
+  it('mark Inventory when it is the page shown, and Home only at the front address', () => {
+    const [places] = blocksOf({ places: [own], pathname: '/inventory', archived: false });
+    expect(places?.items.map((item) => [item.id, item.active])).toEqual([
+      ['home', false],
+      ['inventory', true],
+    ]);
   });
 });

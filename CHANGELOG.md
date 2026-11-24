@@ -10,6 +10,10 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Added
 
+- **Inventory** (RFC 0006): a page of your own, in the sidebar and on Home, with everything you buy: the starter's items and the ones you made, together. Search them, see them
+  grouped by category in the order of the aisles, and filter by category, by recurring or once, and by yours, the starter's or hidden. Open one to change its name, category, icon,
+  unit, quantity and note, to mark it recurring, to hide it or show it again, or to take back what you changed of a starter's; **Add item** makes one of your own. Each field is saved as
+  you leave it, with no network, and reaches your other devices. Adding an item to a list from here, and your categories, are still to come.
 - **Home** (RFC 0006): Shopper now opens on Home and not on the last list. **Continue** is the list you used last, with how many items are open on it (a new account's is its
   _Groceries_, with what to do first); below it is a tile for every list, yours first and then those shared with you, with its icon in its colour, how many are open, whose it is
   when someone shared it, and who is on it. Archived lists are behind a toggle. **At a glance** says how many items are open across your lists, how many you ticked in the last week
@@ -17,7 +21,7 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Changed
 
-- **Under the hood, nothing to see yet:** Shopper's server and your device can now hold your **Inventory** (RFC 0006), the library of what you buy that Home and the add field will use. It is yours
+- **Under the hood:** Shopper's server and your device can now hold your **Inventory** (RFC 0006), the library of what you buy that its screen shows and the add field will use. It is yours
   alone: no one on a list you share can reach it, and it is deleted with your account. A new setting, `SHOPPER_LIMIT_INVENTORY_ITEMS` (default 5000), says how many items it can hold. When your
   lists are kept encrypted on your device, so is your Inventory: your device encrypts it under keys of its own, which no link to a list ever carries, and the server holds only what it
   cannot read. That encryption is not yet audited. A list you share can now carry **the names of the categories its items use** (a copy of one of

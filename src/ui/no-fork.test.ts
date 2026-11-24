@@ -14,6 +14,8 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const RENDERING_ONLY: Record<string, string> = {
   'src/screens/ItemEditor.tsx':
     'whether an open item is a column beside its list or a page in place of it: the address is `?item=` either way',
+  'src/screens/Beside.tsx':
+    'whether an open panel (an Inventory entry) is a column beside its page or the whole area in place of it: the address is the same either way',
   'src/theme/script.ts': 'the colour scheme the device prefers, not a width',
   'src/account/PreferencesSection.tsx':
     'the colour scheme the device prefers, to apply a choice of System, not a width',

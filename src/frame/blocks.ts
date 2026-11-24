@@ -3,9 +3,9 @@ import { listColorOf, listIconOf } from '../lists/appearance';
 import type { Place } from '../local/places';
 
 /**
- * **The sidebar's blocks** (RFC 0005, DESIGN.md §16.2), from the places the device holds: **Home**; then **My lists** (the person's own, each with its icon in its
+ * **The sidebar's blocks** (RFC 0005, DESIGN.md §16.2), from the places the device holds: **Home** and **Inventory**; then **My lists** (the person's own, each with its icon in its
  * colour and how many items are open, and _New list_) and **Shared with me** (the lists others shared, each with whose it is under its name); and, when the person has
- * asked for them, **Archived**. The same blocks are the phone's drawer. An entry is here only when its page is: Inventory and Loyalty cards join with 23.4 and 24.3.
+ * asked for them, **Archived**. The same blocks are the phone's drawer. An entry is here only when its page is: Loyalty cards join with 24.3.
  * No group is named (RFC 0004). Pure of React, so it is tested with the places and nothing else; the icon and the colour are held to what a list may have
  * (`listIconOf`, `listColorOf`), so that a value the device holds that this build does not know is drawn as the default.
  */
@@ -27,6 +27,12 @@ export interface BlocksInput {
 export const NEW_LIST = '#new-list';
 
 const HOME: AppSidebarItem = { id: 'home', label: 'Home', icon: 'house', href: '/' };
+const INVENTORY: AppSidebarItem = {
+  id: 'inventory',
+  label: 'Inventory',
+  icon: 'package',
+  href: '/inventory',
+};
 
 /** One list as a row: its icon, its colour, what is open, and, said under its name, whose it is and whether the server has it yet. */
 function row(
@@ -56,7 +62,13 @@ export function blocksOf({ places, pathname, archived, onNew }: BlocksInput): Ap
     place.lists.map(({ list, open, by, synced }) => row(list, pathname, { open, by, synced })),
   );
   const blocks: AppSidebarBlock[] = [
-    { id: 'places', items: [{ ...HOME, active: pathname === '/' }] },
+    {
+      id: 'places',
+      items: [
+        { ...HOME, active: pathname === '/' },
+        { ...INVENTORY, active: pathname === '/inventory' },
+      ],
+    },
   ];
   if (own)
     blocks.push({

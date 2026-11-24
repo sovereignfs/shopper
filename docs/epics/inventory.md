@@ -256,7 +256,7 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   change whose keys are missing would land in Couldn't sync with the list sentence ("That list is not shared with you any more"); it cannot happen yet (a device that does not hold the group cannot
   make the change, and a locked key holds it), so its own sentence waits for the screen (23.4).
 
-#### 📋 23.4 — Inventory: the screen
+#### 🚧 23.4 — Inventory: the screen
 
 **Goal:** `/inventory`. **Design:** RFC 0006, "The screen". **Depends on:** 23.3, 22.6, 22.11.
 
@@ -266,6 +266,15 @@ item in the right column (name, category, icon, unit, quantity, note, recurring,
 
 **Accepts when:** an item made, changed, hidden and restored offline reaches a second device of the same person; _Add to a list_ adds it with its
 category, icon and unit; a keyboard reaches everything.
+
+**Built in three parts, each its own commit.** **1 (done):** the route, the read model and the Items tab with an entry beside it. `src/inventory/screen.ts` is the view (pure:
+search by name, old starter name and alias; filters; sections in the aisle order, an entry whose category is hidden or deleted under _Other_), `src/local/inventory-view.ts` reads the
+device, `src/screens/InventoryScreen.tsx` and `InventoryPanel.tsx` draw it, and `Beside.tsx` places a panel in the right column (the whole page on a phone). The entry is `?entry=<key>`
+(`starter:<key>`, `own:<id>` or `new`), an address that names nothing closes itself **after asking the device again** (the screen's copy of what the device holds is read a moment
+after a write, and an item just made would otherwise close its own panel). A field is written as it is left; **writes to one entry are made one after another, each from the row the
+device holds when its turn comes**, so that two quick changes to an untouched starter entry (recurring, then hide) make one override row and not two, which the fold would keep
+the first of. A rename onto a name Inventory has is refused in the panel, and _+ Add item_ with a name it has opens that entry. The sidebar's first block and Home link to it, the shell
+answers `/inventory` offline, and `src/access/routes.ts` lists the page. **2:** _Add to a list_. **3:** the Categories tab.
 
 #### 📋 23.5 — Inventory in suggestions
 
