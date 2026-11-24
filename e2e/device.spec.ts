@@ -293,8 +293,12 @@ test('resetting the device sends what is waiting, clears it and loads the househ
     .poll(async () => (await read(page, account, 'household')).length, { timeout: 15_000 })
     .toBe(1);
   const [before] = (await read(page, account, 'household')) as { id: string }[];
+  // Nothing was waiting, so it does not ask: the page reloads and the device fills again from the server. **The reload is waited for**, and it is the proof that the reset ran (the page reloads
+  // for nothing else here): the household is there the moment the button is pressed, since the device is not cleared yet, so a poll for it alone ends at once and the read after it can land
+  // in the middle of the clearing and find none.
+  const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'Reset this device' }).click();
-  // Nothing was waiting, so it does not ask: the page reloads and the device fills again from the server.
+  await reloaded;
   await expect
     .poll(async () => (await read(page, account, 'household')).length, { timeout: 20_000 })
     .toBe(1);
