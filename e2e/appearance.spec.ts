@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { LIST_ICONS } from '../src/lists/appearance';
-import { PASSWORD, anotherDevice, seedItems, signUp, test } from './helpers';
+import { PASSWORD, anotherDevice, continueToList, seedItems, signUp, test } from './helpers';
 
 /**
  * A list's icon and colour (task 22.3, RFC 0005), in a real browser: chosen in the list's settings, drawn in the header and the sidebar in the list's
@@ -100,6 +100,7 @@ test('a list has the defaults until it is given an icon and a colour, and then t
   await second.page.getByLabel('Email').fill(email);
   await second.page.getByLabel('Password').fill(PASSWORD);
   await second.page.getByRole('button', { name: 'Sign in' }).click();
+  await continueToList(second.page);
   await expect(second.page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
     timeout: 30_000,
   });

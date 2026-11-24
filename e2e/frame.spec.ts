@@ -19,7 +19,8 @@ const widthOf = async (page: Page) => (await sidebar(page).boundingBox())?.width
 test('the sidebar is full, a rail of list icons or hidden, and each choice is kept for the kind of page it was made on', async ({
   page,
 }) => {
-  await signUp(page);
+  // On Home, the front address, which is a kind of page of its own.
+  await signUp(page, { home: true });
   const list = await listId(page);
   await expect(sidebar(page).getByRole('link', { name: /Groceries/ })).toBeVisible({
     timeout: 15_000,
@@ -50,6 +51,11 @@ test('the sidebar is full, a rail of list icons or hidden, and each choice is ke
   await page.getByRole('button', { name: 'Show the sidebar' }).click();
   await expect(sidebar(page).getByRole('link', { name: /Groceries/ })).toBeVisible();
   expect(await widthOf(page)).toBeGreaterThan(200);
+
+  // Home kept what it was given: still the rail.
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Widen the sidebar' })).toBeVisible();
+  expect(await widthOf(page)).toBeLessThan(100);
 });
 
 test('what the sidebar was kept as before the frame was the design system’s is carried across, once', async ({

@@ -6,6 +6,20 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.7.0] - 2026-11-24
+
+### Added
+
+- **Home** (RFC 0006): Shopper now opens on Home and not on the last list. **Continue** is the list you used last, with how many items are open on it (a new account's is its
+  _Groceries_, with what to do first); below it is a tile for every list, yours first and then those shared with you, with its icon in its colour, how many are open, whose it is
+  when someone shared it, and who is on it. Archived lists are behind a toggle. **At a glance** says how many items are open across your lists, how many you ticked in the last week
+  and what you buy most. All of it is worked out on your device, so it is there with no network. Someone who has just accepted an invitation still goes straight to that list.
+
+### Fixed
+
+- **The sidebar marks Home as the page you are on** when you are at the front address, and remembers how you left the sidebar there as its own kind of page. The front address was
+  being taken for a page of its own with no name, so neither happened.
+
 ## [0.6.0] - 2026-11-24
 
 **Before upgrading, hosted by Sovereign: allow `offline_access` for Shopper first.** Shopper now asks Sovereign for it, so that it can ask which apps you may open as you. In the

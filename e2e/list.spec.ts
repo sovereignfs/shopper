@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import {
   PHONE,
   accountOf,
+  continueToList,
   deviceRows,
   offline,
   online,
@@ -243,8 +244,9 @@ test('the list can be shown in the order added, by the address, and the device r
   await expect.poll(() => firstWords(page)).toEqual(['Milk', 'Apples', 'Rice']);
   await expect(page.getByRole('heading', { level: 2, name: 'Produce' })).toHaveCount(0);
 
-  // Another place in the app opens it the same way: this device chose it.
+  // Another place in the app opens it the same way: this device chose it. Home continues on it.
   await page.goto('/');
+  await continueToList(page);
   await expect.poll(() => firstWords(page)).toEqual(['Milk', 'Apples', 'Rice']);
   await page.getByRole('button', { name: 'List menu' }).click();
   await page.getByRole('menuitemradio', { name: 'By aisle' }).click();

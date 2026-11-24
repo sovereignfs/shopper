@@ -113,8 +113,9 @@ test('the lists are reached by the keyboard as by a pointer, and a list that is 
   await expect(page.getByText('That list is not here')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('link', { name: 'Back to your lists' }).click();
   await expect(page).toHaveURL('/');
-  // The front address is the list used last, drawn there (8.2), no longer a page of links.
-  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  // The front address is Home, whose Continue is the list used last.
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Continue/ })).toContainText('Groceries');
   // An address that is not an id is a page that is not there, not a list that is missing.
   await page.goto('/l/not-an-id');
   await expect(page.getByRole('heading', { name: 'That is not here' })).toBeVisible();

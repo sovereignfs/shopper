@@ -301,8 +301,8 @@ the browser's (seen in WebKit, intermittently, after a move from a list's settin
 back for as long as the screen is mounted. Used by the list (`<list> · Shopper`), shopping mode (`Shopping <list> · Shopper`), a list's settings (`Settings ·
 <list> · Shopper`) and Settings (`<section> · Settings · Shopper`, by today's sections, which 22.7 renames). `docs/encryption.md` says the caveat as
 running. Tests: `title.test.ts` (the table's rows) and `e2e/titles.spec.ts` in Chromium and WebKit (the title at each page, and that a name does not
-outlast its page), seen to fail against the code before. **Left out:** Home's `Home · Shopper`, since `/` still draws the last list and so carries
-its title; it comes with 23.2.
+outlast its page), seen to fail against the code before. **Left out:** Home's `Home · Shopper`, since `/` still drew the last list and so carried
+its title; it came with 23.2.
 
 #### ✅ 22.11 — The suite's frame
 

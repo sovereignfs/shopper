@@ -3,6 +3,7 @@ import {
   PHONE,
   accountOf,
   anotherDevice,
+  continueToList,
   deviceRows,
   makeLink,
   test,
@@ -54,6 +55,17 @@ async function throughSovereign(page: Page, path = '/sign-in') {
     if (!(await limited.isVisible())) return;
     await page.waitForTimeout(10_500);
   }
+}
+
+/**
+ * Signed in through Sovereign, a person is on Home (RFC 0006), whose Continue is their Groceries: on to the list, for a test that wants it. Waits for the first household
+ * to be made and the device to have it, which a first sign-in takes a moment for.
+ */
+async function openGroceries(page: Page) {
+  await continueToList(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 async function signOut(page: Page) {
@@ -109,9 +121,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       await expect(page.getByText(who.email)).toBeVisible();
       await page.keyboard.press('Escape');
       // Their own household, with its first list, is made with the account.
-      await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-        timeout: 30_000,
-      });
+      await openGroceries(page);
       await expect(
         page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
       ).toBeVisible();
@@ -126,9 +136,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const who = { ...person('pictured'), picture: `${core}/avatar.png` };
     await nextPersonIs(page, who);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     // The page's policy lets an image come from core and from nowhere else beyond the app, and the avatar in the header is core's picture.
     const csp = (await page.request.get('/')).headers()['content-security-policy'] ?? '';
     expect(csp).toContain(`img-src 'self' data: blob: ${core}`);
@@ -187,9 +195,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const first = person('regional');
     await nextPersonIs(page, first);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await signOut(page);
 
     // The same person, with a language and a time zone at Sovereign now.
@@ -220,9 +226,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const old = { ...person('exporter'), signedInSecondsAgo: 3600 };
     await nextPersonIs(page, old);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     const ask = () =>
       page.request.post('/api/account/export', {
         headers: { origin: base, 'content-type': 'application/json' },
@@ -298,9 +302,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const who = person('launcher');
     await nextPersonIs(page, who);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
 
     // The launcher is at the right of the header, with the apps as links; the app it is in and an app with no address to open are not there.
     const launcher = page.getByRole('banner').getByRole('button', { name: 'Apps' });
@@ -400,9 +402,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await page.route('**/api/account/apps', (route) => route.abort());
     await nextPersonIs(page, first);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await page.unroute('**/api/account/apps');
     const before = await refreshes();
     const together = await page.evaluate(async () =>
@@ -430,9 +430,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     // Another person on the same instance, from the same browser: what core lists for them, and nothing of the first's.
     await nextPersonIs(page, second);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await page.getByRole('banner').getByRole('button', { name: 'Apps' }).click();
     await expect(page.getByRole('link', { name: 'Beta' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('link', { name: 'Alpha' })).toHaveCount(0);
@@ -448,15 +446,11 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const who = person('again');
     await nextPersonIs(page, who);
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await signOut(page);
     await throughSovereign(page);
     // The same account: its household is still the one list, not a second.
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await expect(
       page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
     ).toHaveCount(1);
@@ -469,9 +463,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   }) => {
     await nextPersonIs(page, person('host'));
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     const link = await makeLink(page, SOVEREIGN);
 
     const guest = await anotherDevice(browser, SOVEREIGN);
@@ -583,9 +575,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const host = person('hostdel');
     const leaver = person('gone');
     await signInAs(page, host);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     const link = await makeLink(page, SOVEREIGN);
     const hostAccount = await accountOf(page);
 

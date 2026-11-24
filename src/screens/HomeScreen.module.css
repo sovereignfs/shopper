@@ -1,0 +1,160 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-6);
+  padding: var(--sv-space-6);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--sv-font-size-2xl);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+}
+
+.heading {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.toggleLabel {
+  margin-left: var(--sv-space-2);
+}
+
+/* Continue: the one large tile, the list the front address used to open. Its link fills it, so that the whole tile is the target. */
+.continue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+}
+
+.continueLink {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-4);
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--sv-radius-md);
+}
+
+.continueLink:focus-visible,
+.tileLink:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.continueText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  min-width: 0;
+}
+
+.continueName {
+  overflow: hidden;
+  font-size: var(--sv-font-size-xl);
+  font-weight: var(--sv-font-weight-semibold);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.eyebrow {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.meta {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.line {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sv-space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* A list's tile: its link is stretched over the whole tile, so that a tap anywhere opens the list, and what is beside it (who is on it) is not a second target. */
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+}
+
+.tileLink {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--sv-radius-md);
+}
+
+.tileLink::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+.tileName {
+  overflow: hidden;
+  font-weight: var(--sv-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-1) var(--sv-space-3);
+}
+
+.glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sv-space-3);
+  margin: 0;
+}
+
+.glance dd {
+  margin: 0;
+}
+
+.figure {
+  font-size: var(--sv-font-size-2xl);
+  font-weight: var(--sv-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.most {
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+@media (max-width: 720px) {
+  .page {
+    gap: var(--sv-space-4);
+    padding: var(--sv-space-4);
+  }
+
+  .title {
+    font-size: var(--sv-font-size-xl);
+  }
+}

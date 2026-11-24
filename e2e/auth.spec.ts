@@ -88,9 +88,11 @@ test('the front address is the landing page for a visitor and the signed-in area
   await expect(page.getByRole('link', { name: 'Create an account' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
 
-  await signUp(page);
+  await signUp(page, { home: true });
   await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
   await expect(page).toHaveURL('/');
+  // The signed-in area at the front address is Home.
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
   // The signed-in area's own address is the front one.
   await page.goto('/home');
   await expect(page).toHaveURL('/');

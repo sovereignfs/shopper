@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { PHONE, seedItems, signUp, test } from './helpers';
+import { PHONE, continueToList, seedItems, signUp, test } from './helpers';
 
 /**
  * Settings, the dialog (task 22.7, RFC 0005), running alone: it is over the page it was opened from, by Next's intercepting route, and over Home when its address
@@ -61,7 +61,9 @@ test('each section is an address and a title, chosen in place, and loaded direct
   await page.goto('/settings/security');
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).getByRole('form', { name: 'Change password' })).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: /Milk/ })).toBeAttached({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached({
+    timeout: 15_000,
+  });
   await dialog(page).getByRole('button', { name: /close/i }).click();
   await expect(dialog(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/$/);
@@ -112,6 +114,8 @@ test('Preferences: how a list shows its items and how Shopper looks are kept on 
   await page.reload();
   await expect(dialog(page).getByRole('radio', { name: 'In the order added' })).toBeChecked();
   await dialog(page).getByRole('button', { name: /close/i }).click();
+  // Loaded directly, it was over Home: the list is one tap on.
+  await continueToList(page);
   await expect(page.getByRole('list', { name: 'Items in the order added' })).toBeVisible({
     timeout: 15_000,
   });
@@ -152,7 +156,8 @@ test('Preferences: a time zone and a language are kept on the account and change
   await expect(dialog(page).getByLabel('Time zone')).toHaveValue('Pacific/Auckland');
   await dialog(page).getByRole('button', { name: /close/i }).click();
 
-  // The date is written in German, and in Auckland's time.
+  // The date is written in German, and in Auckland's time. (The dialog was loaded over Home: the list is one tap on.)
+  await continueToList(page);
   await expect.poll(added, { timeout: 15_000 }).toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/);
   expect(before).not.toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/);
 
@@ -164,19 +169,18 @@ test('Preferences: a time zone and a language are kept on the account and change
   await expect(dialog(page).getByText('Saved.')).toBeVisible();
 });
 
-test('loaded directly, the dialog is the page’s title over the list under it, once the list has opened its name', async ({
+test('loaded directly, the dialog is the page’s title over the page under it, once that page has named itself', async ({
   page,
-  baseURL,
 }) => {
   await signUp(page);
-  await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
   await page.goto('/settings/security');
-  await expect(page.getByRole('checkbox', { name: /Milk/ })).toBeAttached({ timeout: 15_000 });
-  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeAttached();
-  // The list under it has named itself by now, and Settings is still the title.
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached({
+    timeout: 15_000,
+  });
+  // Home under it has named itself by now, and Settings is still the title.
   await expect(page).toHaveTitle('Security · Settings · Shopper');
   await dialog(page).getByRole('button', { name: /close/i }).click();
-  await expect(page).toHaveTitle('Groceries · Shopper');
+  await expect(page).toHaveTitle('Home · Shopper');
 });
 
 test('opened from a page, a section is chosen and a setting changed in place: one dialog, the same section, the page beneath; Back and Forward follow the address', async ({

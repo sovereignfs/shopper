@@ -17,7 +17,7 @@ import { ArchivedToggle } from './ArchivedToggle';
 import { NEW_LIST, archivedCount, blocksOf } from './blocks';
 import { migrateSidebar } from './migrate';
 import { NewListDialog } from './NewListDialog';
-import { pageKind } from './page-kind';
+import { addressOf, pageKind } from './page-kind';
 import { Wordmark } from './Wordmark';
 
 /**
@@ -105,7 +105,7 @@ function Frame({
   launcher: ReactNode;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = addressOf(usePathname());
   const [archived, setArchived] = useState(false);
   const [naming, setNaming] = useState<Place | null>(null);
   const away = archivedCount(places);
