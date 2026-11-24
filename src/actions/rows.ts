@@ -112,3 +112,16 @@ export interface CategoryRow {
   readonly deletedAt: number | null;
   readonly seq: number;
 }
+
+/** A list's copy of a person's own category as a device holds it (§8.3): the list's, its name opened under the list's keys, and the source key a device made (never an id). */
+export interface ListCategoryRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly listId: string;
+  readonly sourceKey: string;
+  readonly name: string;
+  readonly icon: string | null;
+  readonly position: string;
+  readonly deletedAt: number | null;
+  readonly seq: number;
+}

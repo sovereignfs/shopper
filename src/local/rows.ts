@@ -1,5 +1,12 @@
 import type { Change, FieldValue, SyncedTable } from '../actions/format';
-import type { CategoryRow, InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
+import type {
+  CategoryRow,
+  InventoryRow,
+  ItemRow,
+  ListCategoryRow,
+  ListRow,
+  ProductRow,
+} from '../actions/rows';
 import { starterCategory } from '../catalog/categories';
 import { mergeChange } from '../sync/merge';
 import { withoutSecondTick } from '../sync/items';
@@ -9,7 +16,7 @@ import { withoutSecondTick } from '../sync/items';
  * a screen reads a row, hands it to an action and gets a mutation back. Two pure functions say how a row changes on the device, and neither touches
  * IndexedDB, so they are tested with none.
  */
-export type { CategoryRow, InventoryRow, ItemRow, ListRow, ProductRow };
+export type { CategoryRow, InventoryRow, ItemRow, ListCategoryRow, ListRow, ProductRow };
 
 /** A person's place in a household, as the reader may see it (an address only where `canSeeEmail` allows). */
 export interface MemberRow {
@@ -42,6 +49,7 @@ export type RowOf = {
   product: ProductRow;
   inventory_item: InventoryRow;
   category: CategoryRow;
+  list_category: ListCategoryRow;
 };
 export type SyncedRow = RowOf[SyncedTable];
 
@@ -83,6 +91,8 @@ const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
   },
   // A category a device makes is the person's own (a starter one comes from the server with the group).
   category: { starterKey: null, name: '', icon: null, hidden: 0, deletedAt: null },
+  // A list's copy a device makes: its list and source key come with the make, and nothing else is anyone's yet.
+  list_category: { name: '', icon: null, deletedAt: null },
 };
 
 /** The fields of a table that are flags: `0` or `1` in a mutation, and a boolean in a row as a device keeps it (the same as the pull hands it). */
@@ -92,6 +102,7 @@ const FLAGS: { [T in SyncedTable]: readonly string[] } = {
   product: [],
   inventory_item: ['recurring', 'hidden'],
   category: ['hidden'],
+  list_category: [],
 };
 const asFlags = (row: Record<string, FieldValue | boolean>) => {
   const out: Record<string, FieldValue> = {};
@@ -124,7 +135,9 @@ export function applyChange<T extends SyncedTable>(
       id: change.id,
       householdId,
       seq: 0,
-      ...(table === 'item' || table === 'category' ? {} : { createdAt: now }),
+      ...(table === 'item' || table === 'category' || table === 'list_category'
+        ? {}
+        : { createdAt: now }),
       ...DEFAULTS[table],
     }) as unknown as Record<string, FieldValue | boolean>,
   );

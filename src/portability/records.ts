@@ -20,7 +20,14 @@ export interface ExportRecords {
   readonly endToEnd: boolean;
 }
 
-const CONTENT_TABLES = ['list', 'item', 'product', 'category', 'inventory_item'] as const;
+const CONTENT_TABLES = [
+  'list',
+  'item',
+  'product',
+  'category',
+  'inventory_item',
+  'list_category',
+] as const;
 
 export async function personRecords(
   database: Database,
@@ -63,10 +70,13 @@ export async function personRecords(
           : table === 'inventory_item'
             ? // Their own Inventory only (§8.8): the group whose own account they are, and nobody's else.
               ownerOf(database, sql`r.household_id`, accountId)
-            : table === 'category'
-              ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3).
-                sql`(r.starter_key IS NOT NULL OR ${ownerOf(database, sql`r.household_id`, accountId)})`
-              : sql`1 = 1`;
+            : table === 'list_category'
+              ? // A list's copies of people's categories are the list's (§8.3), read by its people as its items are.
+                onList(database, sql`r.list_id`, accountId)
+              : table === 'category'
+                ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3).
+                  sql`(r.starter_key IS NOT NULL OR ${ownerOf(database, sql`r.household_id`, accountId)})`
+                : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
     plain.household?.push({

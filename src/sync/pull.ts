@@ -74,6 +74,7 @@ export async function pullHousehold(
     products,
     categories,
     inventory,
+    listCategories,
     members,
     tombstones,
     aliases,
@@ -91,6 +92,8 @@ export async function pullHousehold(
     take('category', sql`(r.starter_key IS NOT NULL OR ${own})`),
     // **A person's Inventory is handed to nobody but its group's own account** (§8.8, §12.3): a condition of this statement, as a list's is.
     take('inventory_item', own),
+    // **A list's copies of people's categories are its people's** (§8.3): a condition of this statement, as an item's is.
+    take('list_category', onList(database, sql`r.list_id`, accountId)),
     dbAll<Raw>(
       database,
       sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
@@ -131,6 +134,7 @@ export async function pullHousehold(
     products,
     categories,
     inventory,
+    listCategories,
     members,
     tombstones,
     aliases,
@@ -161,6 +165,7 @@ export async function pullHousehold(
     products: within(products).map((row) => productOf(row, ring)),
     categories: within(categories).map((row) => categoryOf(row, ring, Number(state?.own) === 1)),
     inventory: within(inventory).map((row) => inventoryOf(row, ring)),
+    listCategories: within(listCategories).map((row) => listCategoryOf(row)),
     members: within(members).map((row) => memberRow(row, ring, accountId)),
     visibleLists: visibleLists.map((row) => row.id),
     tombstones: within(tombstones).map((row) => ({
@@ -283,6 +288,22 @@ function inventoryOf(row: Raw, ring: KeyRing) {
     hidden: Boolean(row.hidden),
     deletedAt: num(row.deleted_at),
     createdAt: Number(row.created_at),
+    seq: seqOf(row),
+    ...encryptedOf(row),
+  };
+}
+
+/** A list's copy of a person's category: its name is the device's ciphertext, and the source key is the device's HMAC (never an id). */
+function listCategoryOf(row: Raw) {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    listId: row.list_id,
+    sourceKey: row.source_key,
+    name: '',
+    icon: nullable(row.icon),
+    position: row.position,
+    deletedAt: num(row.deleted_at),
     seq: seqOf(row),
     ...encryptedOf(row),
   };

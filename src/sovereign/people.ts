@@ -286,6 +286,7 @@ async function deleteList(
 ): Promise<void> {
   for (const table of [
     'item',
+    'list_category',
     'list_member',
     'list_key',
     'invitation',

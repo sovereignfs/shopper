@@ -53,6 +53,8 @@ export interface HouseholdPull {
    * nothing of it). Absent from a server that does not have it yet, which a device reads as none.
    */
   readonly inventory?: readonly Record<string, unknown>[];
+  /** The copies of people's categories on the lists the reader is on (§8.3), their names ciphertext under the list's keys; a server from before them sends none. */
+  readonly listCategories?: readonly Record<string, unknown>[];
   /** The people of the reader's lists, one row a person a list (`listId`), as the reader may see them (§6.1). */
   readonly members: readonly Record<string, unknown>[];
   /** Every list of this group the reader may see now (RFC 0004): the device forgets any other it holds. */

@@ -34,6 +34,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
   { table: 'person' },
   { table: 'household' },
   { table: 'category' },
+  { table: 'list_category' },
   { table: 'list' },
   { table: 'item' },
   { table: 'push_device' },

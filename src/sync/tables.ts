@@ -34,12 +34,12 @@ export interface TableSpec {
   /** The fields that are columns, each with its column. */
   readonly plain: readonly ColumnOf[];
   /**
-   * Fields that name another row, and which table it is in: the household's own, or the change is refused. `starter_category` is a category the group was
-   * made with (its `starter_key` is set): **what an item or a product names**, since a person's own categories are theirs alone (§8.3) and a list says one by
-   * its own copy of it (`list_category`, which names no row of another group); `category` is any of the group's, for the person's own Inventory.
+   * Fields that name another row, and which table it is in: the household's own, or the change is refused. `category_of_list` is **what an item or a product
+   * names** (§8.3): a category the group was made with (its `starter_key` is set), or a copy of a person's own category on **the list the row is on after the
+   * change** (a person's own categories are theirs alone, and a copy names no row of another group); `category` is any of the group's, for the person's own Inventory.
    */
   readonly refs: Readonly<
-    Record<string, 'list' | 'product' | 'category' | 'starter_category' | 'person'>
+    Record<string, 'list' | 'product' | 'category' | 'category_of_list' | 'person'>
   >;
   /** Columns the server sets from what the row says, not the device: a product's name key. */
   derive?(input: {
@@ -54,8 +54,11 @@ export interface TableSpec {
    * Inventory item is, §8.8). A row made under a name already in its scope is folded into that one; a rename into one is refused.
    */
   readonly nameScope?: 'list' | 'group';
-  /** The limit a new row of this table counts against, and how to count what is already there. */
-  readonly limit?: { kind: LimitKind; of(limits: Limits): number };
+  /**
+   * The limit a new row of this table counts against, and how to count what is already there: the household's live rows, or **a list's** (`per: 'list'`, a list's copies
+   * of categories, §8.3).
+   */
+  readonly limit?: { kind: LimitKind; of(limits: Limits): number; per?: 'list' };
 }
 
 export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
@@ -81,7 +84,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
     refs: {
       listId: 'list',
       productId: 'product',
-      categoryId: 'starter_category',
+      categoryId: 'category_of_list',
       addedBy: 'person',
       boughtBy: 'person',
     },
@@ -114,7 +117,7 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
       { field: 'deletedAt', column: 'deleted_at' },
       { field: 'createdAt', column: 'created_at' },
     ],
-    refs: { listId: 'list', categoryId: 'starter_category' },
+    refs: { listId: 'list', categoryId: 'category_of_list' },
     derive: ({ household, ring, sealed }) => ({
       name_key: productNameKey(ring, household, String(sealed.name ?? '')),
     }),
@@ -164,5 +167,25 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
     ],
     refs: {},
     limit: { kind: 'householdCategories', of: (limits) => limits.householdCategories },
+  },
+  // A list's copy of a person's own category (§8.3): its name is the device's ciphertext under the list's keys, and its source key is the device's HMAC, never an id. Only a group
+  // that has moved has any (`run` refuses one in a sealed group), so there is no `derive` and nothing sealed here. A list's copies are counted against the limit for the list.
+  list_category: {
+    table: 'list_category',
+    sql: 'list_category',
+    sealed: ['name'],
+    plain: [
+      { field: 'listId', column: 'list_id' },
+      { field: 'sourceKey', column: 'source_key' },
+      { field: 'icon', column: 'icon' },
+      { field: 'position', column: 'position' },
+      { field: 'deletedAt', column: 'deleted_at' },
+    ],
+    refs: { listId: 'list' },
+    limit: {
+      kind: 'householdCategories',
+      of: (limits) => limits.householdCategories,
+      per: 'list',
+    },
   },
 };

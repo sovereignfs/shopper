@@ -46,6 +46,11 @@ export const deleteList: Operation = {
         tx,
         sql`DELETE FROM ${appTable(tx, 'item')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
       );
+      // Its copies of people's categories go with it (§8.3).
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'list_category')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
+      );
       // Its catalog goes with it (21.3).
       await deleteListProducts(tx, household, listId, Number(stepped.seq));
       // Its links go with it, so that nobody joins a list that is gone (RFC 0004).

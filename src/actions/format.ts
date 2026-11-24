@@ -2,6 +2,7 @@ import '../zod-jitless';
 import { z } from 'zod';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import { isGroceryIcon } from '../catalog/icons';
+import { NAME_KEY } from '../keys/household';
 import { isListColor } from '../lists/appearance';
 import { isQuantity } from '../quantity/decimal';
 import { isUnit } from '../quantity/units';
@@ -38,7 +39,14 @@ export interface Mutation {
  */
 export type FieldValue = string | number | null;
 
-export const SYNCED_TABLES = ['list', 'item', 'product', 'inventory_item', 'category'] as const;
+export const SYNCED_TABLES = [
+  'list',
+  'item',
+  'product',
+  'inventory_item',
+  'category',
+  'list_category',
+] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 /** The most changes in one mutation: _Clear bought_ on a full list, with room. */
@@ -177,6 +185,20 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['position'],
   },
+  // A list's copy of a person's own category (§8.3): only in a group that has moved. The device holds it plain as it holds every row (its name as text, and the source key it made under
+  // the list's keys), and the transport encrypts the name at the sync; a group the server seals has none (`apply.ts` refuses a copy there, whichever form was sent). Its list and
+  // source key are set when it is made and never change.
+  list_category: {
+    fields: {
+      listId: id,
+      sourceKey: z.string().regex(NAME_KEY, 'not a source key'),
+      name,
+      icon: nullable(icon),
+      position,
+      deletedAt: nullable(time),
+    },
+    required: ['listId', 'sourceKey', 'name', 'position'],
+  },
 };
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
@@ -186,6 +208,7 @@ export const CONTENT: Record<SyncedTable, readonly string[]> = {
   product: ['name', 'note'],
   inventory_item: ['name', 'note'],
   category: ['name'],
+  list_category: ['name'],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */

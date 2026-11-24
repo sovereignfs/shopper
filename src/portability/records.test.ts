@@ -108,6 +108,54 @@ describe(`a person's export (${testTarget().leg})`, () => {
     expect(hersText).toContain('GRACEVEG');
   });
 
+  it('holds a list’s copies of categories for the people on that list, and for no one on another list of the group (§8.3)', async () => {
+    const owner = await somebody(database, 'Copies-owner');
+    const onGroceries = await somebody(database, 'Copies-groceries');
+    const onHardware = await somebody(database, 'Copies-hardware');
+    await dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${owner.household}`,
+    );
+    const hardware = crypto.randomUUID();
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'list')} (id, household_id, sealed, encrypted, position, seq, created_at)
+          VALUES (${hardware}, ${owner.household}, ${''}, ${JSON.stringify({ name: 'e2.1.x.y.AAAA' })}, ${'a5'}, ${1}, ${1})`,
+    );
+    const { joinList } = await import('../access/test-support');
+    await joinList(database, owner.household, hardware, owner, 'admin');
+    await joinList(database, owner.household, owner.list, onGroceries);
+    await joinList(database, owner.household, hardware, onHardware);
+    const copy = async (list: string, name: string) => {
+      const id = crypto.randomUUID();
+      await dbRun(
+        database,
+        sql`INSERT INTO ${appTable(database, 'list_category')} (id, household_id, list_id, source_key, sealed, encrypted, position, seq)
+            VALUES (${id}, ${owner.household}, ${list}, ${`n3.${id.replaceAll('-', '').padEnd(43, 'A').slice(0, 43)}`}, ${''}, ${JSON.stringify({ name })}, ${'a5'}, ${1})`,
+      );
+      return id;
+    };
+    const here = await copy(owner.list, 'e2.1.groceries.copy.AAAA');
+    const there = await copy(hardware, 'e2.1.hardware.copy.BBBB');
+    const exported = async (who: Someone) =>
+      JSON.stringify(
+        (await personRecords(database, TEST_RING, who.accountId))
+          .filter((part) => part.kind.startsWith('list_category'))
+          .map((part) => ({ kind: part.kind, endToEnd: part.endToEnd, records: part.records })),
+      );
+    // The ciphertext, end to end, to those on the list: the owner is on both, the others on one.
+    const forOwner = await exported(owner);
+    expect(forOwner).toContain(here);
+    expect(forOwner).toContain(there);
+    expect(forOwner).toContain('"endToEnd":true');
+    const forGroceries = await exported(onGroceries);
+    expect(forGroceries).toContain(here);
+    expect(forGroceries).not.toContain(there);
+    const forHardware = await exported(onHardware);
+    expect(forHardware).toContain(there);
+    expect(forHardware).not.toContain(here);
+  });
+
   it('names the other members and gives none of their addresses, nor anything the contract forbids', async () => {
     const parts = await personRecords(database, TEST_RING, ada.accountId);
     const text = JSON.stringify(parts);

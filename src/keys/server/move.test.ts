@@ -190,6 +190,8 @@ async function answer(
   }
   // An Inventory item is for its group, in the place of a list, under the group's Inventory keys (§13.2).
   const inventoryRing = await deriveInventoryKeyring(ring, household);
+  // A group the server seals has no copy of a category on a list (§8.3), so there is none to answer.
+  rows.list_category = [];
   // A category's name is for the group too, under the same keys, with no name key (§8.3).
   rows.category = [];
   for (const row of manifest.rows.category) {

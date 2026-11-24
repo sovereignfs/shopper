@@ -284,5 +284,16 @@ export const deviceInventoryNameKey = (
   normalised: string,
 ): Promise<string> => listNameKey(inventory, household, normalised);
 
+/**
+ * **A list's copy of a person's own category is found by its source key** (§8.3, decision 15): the same HMAC as a name key, over the **category's id** under the list's keys, so
+ * that it is unique on the list, different on every list, stable across epochs, and **never an id** of a row of the person's own group. Only a device that holds the category
+ * can make it, so only that device finds the copies of it.
+ */
+export const copySourceKey = (
+  listKeyring: Keyring,
+  list: string,
+  categoryId: string,
+): Promise<string> => listNameKey(listKeyring, list, categoryId);
+
 /** Whether a value has the shape of a name key made by a device (`n3.` and 43 characters). */
 export const NAME_KEY = /^n3\.[A-Za-z0-9_-]{43}$/;

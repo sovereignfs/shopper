@@ -214,6 +214,33 @@ export const inventoryItem = app.table(
 );
 
 /**
+ * **A list's copy of a person's own category** (DESIGN.md §8.3, decisions 15 to 17), a row of the **list's** group: the name of a category an item of the list uses,
+ * under **the list's keys**, so that the people on the list read it and nothing else of anyone's categories. `source_key` says which category it copies, as a
+ * device-made HMAC under the list's keys (never an id of the person's own group), unique on the list. Only a group that has moved has copies (a device makes the key and
+ * the name), so `sealed` is always empty and `encrypted` holds the name.
+ */
+export const listCategory = app.table(
+  'list_category',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    sourceKey: ref('source_key').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    icon: text('icon'),
+    position: position('position').notNull(),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+  },
+  (table) => [
+    uniqueIndex('list_category_source_key_idx').on(table.listId, table.sourceKey),
+    index('list_category_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
  * **Every mutation the server has applied** (DESIGN.md §12.3), by the account that sent it and the id the device made, with the household's `seq` it
  * was applied at. A mutation sent again, because an answer was lost, finds its row and **writes nothing**: it is answered as it was. Pruned after ninety
  * days with the history (task 6.6, phase 2). Not a row of a household's: it is the account's, and goes with it (`deletePerson`).

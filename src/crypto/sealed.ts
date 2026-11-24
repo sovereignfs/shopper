@@ -23,6 +23,8 @@ export const SEALED: SealedRegistry = {
   household: ['name'],
   product: ['name', 'note'],
   category: ['name'],
+  // A list's copy of a person's category (§8.3): only a group that has moved has any, so nothing is ever sealed here; the table has the column, and is registered with the rest.
+  list_category: ['name'],
   // A person's own library (§8.8): its name and note, sealed like a product's. No other table holds what a person buys under their own words.
   inventory_item: ['name', 'note'],
   list: ['name', 'icon', 'color'],

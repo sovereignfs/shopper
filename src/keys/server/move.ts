@@ -27,7 +27,14 @@ import { FIELD_VALUE, NAME_KEY, boundTo } from '../household';
  * a list, under the group's Inventory keys, which the device derives from the keyring it makes (§13.2).
  */
 type MovedTable = SyncedTable;
-const MOVED: readonly MovedTable[] = ['list', 'item', 'product', 'inventory_item', 'category'];
+const MOVED: readonly MovedTable[] = [
+  'list',
+  'item',
+  'product',
+  'inventory_item',
+  'category',
+  'list_category',
+];
 
 export interface MoveDeps {
   readonly database: Database;
@@ -172,6 +179,8 @@ export const moveInput = z.object({
     inventory_item: z.array(movedRow).default([]),
     // The group's categories that hold content: a name a person gave a starter, and their own (§8.3). The rest have nothing to move.
     category: z.array(movedRow).default([]),
+    // A list's copies of people's categories (§8.3): a group the server still seals has none (a copy is refused there), so there is nothing to answer, and a device sends none.
+    list_category: z.array(movedRow).default([]),
   }),
 });
 

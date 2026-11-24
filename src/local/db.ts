@@ -5,6 +5,7 @@ import type {
   HouseholdRecord,
   InventoryRow,
   ItemRow,
+  ListCategoryRow,
   ListRow,
   MemberRow,
   ProductRow,
@@ -15,7 +16,7 @@ import type {
  * The browser's working copy (DESIGN.md §12.1): IndexedDB through `idb`, **one database per account**, named for it, so that a second account on the same
  * device sees nothing of the first and signing out can delete exactly one. The UI reads and writes only this; the server is something the sync loop talks to.
  *
- * - `household`, `list`, `item`, `product`, `category`, `inventory_item`, `member`
+ * - `household`, `list`, `item`, `product`, `category`, `list_category`, `inventory_item`, `member`
  *                  the rows as the device shows them: the server's, with this device's unanswered edits laid over (`store.ts`).
  * - `shadow`       for a row that has unanswered edits, the row as the server last had it, so that an edit can be taken back and a pull can be merged under
  *                  the edits. A row with no unanswered edit has none; one the device made and the server has not answered has `row: null`.
@@ -57,6 +58,12 @@ export interface LocalSchema extends DBSchema {
   item: { key: string; value: ItemRow; indexes: { byList: string; byProduct: string } };
   product: { key: string; value: ProductRow; indexes: { byHousehold: string } };
   category: { key: string; value: CategoryRow; indexes: { byHousehold: string } };
+  /** The copies of people's categories on the lists the account is on (§8.3): the lists', their names opened under the list's keys. */
+  list_category: {
+    key: string;
+    value: ListCategoryRow;
+    indexes: { byHousehold: string; byList: string };
+  };
   /** The account's own Inventory (§8.8): only a device of that account has any. */
   inventory_item: { key: string; value: InventoryRow; indexes: { byHousehold: string } };
   member: {
@@ -79,6 +86,7 @@ export const WRITE_STORES = [
   'item',
   'product',
   'category',
+  'list_category',
   'inventory_item',
   'member',
   'shadow',
@@ -88,7 +96,7 @@ export const WRITE_STORES = [
 ] as const;
 
 /** The version of the stores. A change to them adds a step to `upgrade` and raises this; it never edits an earlier step. */
-export const LOCAL_VERSION = 4;
+export const LOCAL_VERSION = 5;
 
 /** The database for an account (DESIGN.md §12.1). */
 export const localName = (accountId: string): string => `shopper-${accountId}`;
@@ -140,6 +148,13 @@ export async function openLocal(
           'byHousehold',
           'householdId',
         );
+      }
+      // Version 5 (DESIGN.md §8.3, task 23.3): the copies of people's categories on the lists the account is on. Nothing is reset: no copy was ever written before, so no cursor
+      // has passed any of them.
+      if (oldVersion < 5) {
+        const copies = db.createObjectStore('list_category', { keyPath: 'id' });
+        copies.createIndex('byHousehold', 'householdId');
+        copies.createIndex('byList', 'listId');
       }
     },
     // Another tab is deleting this account's database (it signed out, or the account was deleted): this connection is in the way, so it lets go. Without it

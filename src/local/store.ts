@@ -22,6 +22,7 @@ import {
   type HouseholdRecord,
   type InventoryRow,
   type ItemRow,
+  type ListCategoryRow,
   type ListRow,
   type MemberRow,
   type ProductRow,
@@ -352,6 +353,8 @@ async function takeHousehold(
     ['product', pull.products],
     // The account's own Inventory (§8.8): a pull of anyone else's has none, and a server from before it sends no field.
     ['inventory_item', pull.inventory ?? []],
+    // The copies of people's categories on the lists the reader is on (§8.3), a server from before them sending none.
+    ['list_category', pull.listCategories ?? []],
     // The group's categories, through the same merge as the rest now that the owner can change them: what waits to be sent is not overwritten by a pull.
     ['category', pull.categories],
   ];
@@ -440,6 +443,12 @@ async function forgetCatalog(
     await tx.objectStore('shadow').delete(['product', product.id]);
     touched.delete(keyOf('product', product.id));
   }
+  // Its copies of people's categories are its catalog too (§8.3), and go with it.
+  for (const copy of await tx.objectStore('list_category').index('byList').getAll(list)) {
+    await tx.objectStore('list_category').delete(copy.id);
+    await tx.objectStore('shadow').delete(['list_category', copy.id]);
+    touched.delete(keyOf('list_category', copy.id));
+  }
 }
 
 /**
@@ -454,7 +463,17 @@ async function repoint(
   to: string,
   touched: Set<string>,
 ): Promise<void> {
-  if (table !== 'product' && table !== 'item' && table !== 'inventory_item') return;
+  if (
+    table !== 'product' &&
+    table !== 'item' &&
+    table !== 'inventory_item' &&
+    table !== 'list_category'
+  )
+    return;
+  // The list a copy is on, read before the copy goes: the items and products that name it are the list's.
+  const copy =
+    table === 'list_category' ? await tx.objectStore('list_category').get(from) : undefined;
+  const copyList = copy?.listId;
   await tx.objectStore(table).delete(from);
   await tx.objectStore('shadow').delete([table, from]);
   touched.delete(keyOf(table, from));
@@ -472,6 +491,29 @@ async function repoint(
     }
   }
 
+  // A copy folded into another (§8.3): what names it names the one that stands, on the device and in what waits to be sent.
+  if (table === 'list_category' && copyList !== undefined) {
+    for (const item of await tx.objectStore('item').index('byList').getAll(copyList))
+      if (item.categoryId === from) await tx.objectStore('item').put({ ...item, categoryId: to });
+    for (const product of await tx
+      .objectStore('product')
+      .index('byHousehold')
+      .getAll(copy?.householdId ?? ''))
+      if (product.categoryId === from)
+        await tx.objectStore('product').put({ ...product, categoryId: to });
+    let shadow = await tx.objectStore('shadow').openCursor();
+    while (shadow) {
+      const row = shadow.value.row as { categoryId?: string | null } | null;
+      if (
+        (shadow.value.table === 'item' || shadow.value.table === 'product') &&
+        row &&
+        row.categoryId === from
+      )
+        await shadow.update({ ...shadow.value, row: { ...row, categoryId: to } as SyncedRow });
+      shadow = await shadow.continue();
+    }
+  }
+
   let rewritten = false;
   let cursor = await tx.objectStore('outbox').openCursor();
   while (cursor) {
@@ -484,6 +526,14 @@ async function repoint(
       }
       if (table === 'product' && change.table === 'item' && change.fields.productId === from) {
         next = { ...next, fields: { ...next.fields, productId: to } };
+        changed = true;
+      }
+      if (
+        table === 'list_category' &&
+        (change.table === 'item' || change.table === 'product') &&
+        change.fields.categoryId === from
+      ) {
+        next = { ...next, fields: { ...next.fields, categoryId: to } };
         changed = true;
       }
       return next;
@@ -510,6 +560,7 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
     ['product', await tx.objectStore('product').index('byHousehold').getAll(id)],
     ['category', await tx.objectStore('category').index('byHousehold').getAll(id)],
     ['inventory_item', await tx.objectStore('inventory_item').index('byHousehold').getAll(id)],
+    ['list_category', await tx.objectStore('list_category').index('byHousehold').getAll(id)],
   ] as const;
   for (const [table, rows] of owned) {
     for (const row of rows) {
@@ -684,6 +735,19 @@ export async function ownerCategoriesOf(
   householdId: string,
 ): Promise<CategoryRow[]> {
   return (await db.getAllFromIndex('category', 'byHousehold', householdId))
+    .filter(live)
+    .sort(byPosition);
+}
+
+/**
+ * **A list's live copies of people's categories** (§8.3) in aisle order, the list's: the starter categories of its group are `categoriesOf`'s, and a list's screens group
+ * by the two together (the copies' positions are in the group's one aisle order).
+ */
+export async function listCategoriesOf(
+  db: LocalDatabase,
+  listId: string,
+): Promise<ListCategoryRow[]> {
+  return (await db.getAllFromIndex('list_category', 'byList', listId))
     .filter(live)
     .sort(byPosition);
 }

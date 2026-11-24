@@ -6,7 +6,7 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { memberOf, onList, ownerOf } from '../access/membership';
+import { listAdminOf, memberOf, onList, ownerOf } from '../access/membership';
 import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
 import {
@@ -19,7 +19,16 @@ import {
 import { foldItemFields, withoutSecondTick } from './items';
 import { mergeChange } from './merge';
 import { OTHER } from '../catalog/categories';
-import { Refusal, duplicate, invalid, limited, notFound, otherList, unsupported } from './refusal';
+import {
+  Refusal,
+  copiesNeedMove,
+  duplicate,
+  invalid,
+  limited,
+  notFound,
+  otherList,
+  unsupported,
+} from './refusal';
 import { boundTo } from '../keys/household';
 import { OPEN_ITEM } from './open';
 import { TABLES, type TableSpec } from './tables';
@@ -164,6 +173,10 @@ async function run(
     // Who did it is the sender: checked on what the device sent, and not on what the server itself writes when it folds two rows into one.
     await checkAuthorship(deps, spec, mutation.householdId, accountId, change);
     const from = await checkListAccess(deps, spec, mutation.householdId, accountId, change);
+    // A list's copy of a person's category needs a group that has moved (§8.3, decision 16): refused here, once the sender is known to be on the list, and not held,
+    // which would keep it and everything after it in the outbox for ever.
+    if (spec.table === 'list_category' && stepped.encryption !== 'encrypted')
+      throw copiesNeedMove();
     if (moved) throw new Held();
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
     // An item moved to another list leaves the devices of those on the first and not on the second (RFC 0004): a tombstone of no list, which the pull
@@ -274,7 +287,7 @@ async function applyChange(
     };
   }
 
-  await checkReferences(deps, spec, household, change);
+  await checkReferences(deps, spec, household, change, existing);
   if (spec.table === 'category') checkCategoryNamed(change, existing);
   if (deps.mode === 'encrypted') {
     checkBoundToList(spec, change, existing, household);
@@ -349,6 +362,21 @@ async function applyChange(
     if (overridden) return foldInto(deps, spec, household, change, overridden.id, seq, now);
   }
 
+  // **A copy made under a source key the list already has is that copy** (§8.3): folded into it, deleted or not, so that making it again restores it (an Admin's delete
+  // lasts until someone puts the category on the list again). The name and the place it has stay.
+  if (
+    spec.table === 'list_category' &&
+    !existing &&
+    typeof change.fields.listId === 'string' &&
+    typeof change.fields.sourceKey === 'string'
+  ) {
+    const same = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${t} WHERE household_id = ${household} AND list_id = ${change.fields.listId} AND source_key = ${change.fields.sourceKey} AND id <> ${change.id}`,
+    );
+    if (same) return foldInto(deps, spec, household, change, same.id, seq, now);
+  }
+
   // A name already in the table's scope is another row's: a new one is folded into it, and a rename is refused. The scope is a list's catalog for a product
   // (21.3: another list's never) and the whole group for what is the group's alone (an Inventory item, §8.8).
   if (derived.name_key !== undefined) {
@@ -376,12 +404,17 @@ async function applyChange(
 
   if (!existing) {
     if (spec.limit) {
+      const perList =
+        spec.limit.per === 'list'
+          ? sql` AND list_id = ${String(change.fields.listId ?? '')}`
+          : sql``;
       const count = await dbGet<{ n: number | string }>(
         database,
-        sql`SELECT COUNT(*) AS n FROM ${t} WHERE household_id = ${household} AND deleted_at IS NULL`,
+        sql`SELECT COUNT(*) AS n FROM ${t} WHERE household_id = ${household} AND deleted_at IS NULL${perList}`,
       );
       const most = spec.limit.of(deps.limits);
-      if (Number(count?.n ?? 0) + 1 > most) throw limited(spec.limit.kind, most);
+      if (Number(count?.n ?? 0) + 1 > most)
+        throw limited(spec.limit.kind, most, spec.limit.per === 'list' ? 'a list' : undefined);
     }
     const columns: [string, unknown][] = [
       ['id', change.id],
@@ -464,11 +497,25 @@ async function foldInto(
   for (const { field, column, kind } of spec.plain) have[field] = fieldOf(kind, row[column]);
   Object.assign(have, contentOf(deps, spec, into, row));
   const additions =
-    spec.table === 'inventory_item'
-      ? foldInventoryFields(have, change.fields)
-      : foldProductFields(have, change.fields);
+    spec.table === 'list_category'
+      ? // The copy that stands keeps its name and its place; making it again brings it back if an Admin deleted it.
+        have.deletedAt === null || have.deletedAt === undefined
+        ? {}
+        : { deletedAt: null }
+      : spec.table === 'inventory_item'
+        ? foldInventoryFields(have, change.fields)
+        : foldProductFields(have, change.fields);
   const fold: Fold = { table: change.table, from: change.id, to: into };
-  await recordFold(database, household, fold, seq, now);
+  // A copy's fold is told only to the list's people (an alias and a tombstone carry the list).
+  await recordFold(
+    database,
+    household,
+    fold,
+    seq,
+    now,
+    undefined,
+    spec.table === 'list_category' ? String(row.list_id) : undefined,
+  );
   if (Object.keys(additions).length === 0) return { written: [into], fold };
   const merged = await applyChange(
     deps,
@@ -540,26 +587,52 @@ async function checkReferences(
   spec: TableSpec,
   household: string,
   change: Change,
+  existing: Row | undefined,
 ): Promise<void> {
   const { database } = deps;
   for (const [field, target] of Object.entries(spec.refs)) {
-    const value = change.fields[field];
+    let value = change.fields[field];
+    // **A change of an item's list also asks about the category it has** (§8.3): this looks at the fields a change names, and an item moved to another list that names no
+    // category would keep the copy of the list it left, which the list it goes to cannot read.
+    let carried = false;
+    if (
+      target === 'category_of_list' &&
+      value === undefined &&
+      spec.table === 'item' &&
+      existing &&
+      typeof change.fields.listId === 'string' &&
+      change.fields.listId !== existing.list_id &&
+      typeof existing.category_id === 'string'
+    ) {
+      value = existing.category_id;
+      carried = true;
+    }
     if (value === undefined || value === null) continue;
-    const found =
-      target === 'person'
-        ? await dbGet<{ yes: number }>(
-            database,
-            // Someone who has been on one of the group's lists, or its own account (RFC 0004).
-            sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${String(value)}
-                UNION SELECT 1 FROM ${appTable(database, 'list_member')} WHERE household_id = ${household} AND person_id = ${String(value)}`,
-          )
-        : await dbGet<{ yes: number }>(
-            database,
-            target === 'starter_category'
-              ? // A category the group was made with: a person's own is not what an item or a product says, for anyone else on the list could not read it.
-                sql`SELECT 1 AS yes FROM ${appTable(database, 'category')} WHERE id = ${String(value)} AND household_id = ${household} AND starter_key IS NOT NULL AND deleted_at IS NULL`
-              : sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
-          );
+    let found: { yes: number } | undefined;
+    if (target === 'person') {
+      found = await dbGet<{ yes: number }>(
+        database,
+        // Someone who has been on one of the group's lists, or its own account (RFC 0004).
+        sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${String(value)}
+            UNION SELECT 1 FROM ${appTable(database, 'list_member')} WHERE household_id = ${household} AND person_id = ${String(value)}`,
+      );
+    } else if (target === 'category_of_list') {
+      // A starter category of the group, or a copy on the list the row is on after this change (a person's own category is theirs alone). A deleted copy may be
+      // named, as a deleted product may: the row shows under Other until the copy is made again.
+      const list =
+        typeof change.fields.listId === 'string' ? change.fields.listId : existing?.list_id;
+      found = await dbGet<{ yes: number }>(
+        database,
+        sql`SELECT 1 AS yes FROM ${appTable(database, 'category')} WHERE id = ${String(value)} AND household_id = ${household} AND starter_key IS NOT NULL AND deleted_at IS NULL
+            UNION SELECT 1 FROM ${appTable(database, 'list_category')} WHERE id = ${String(value)} AND household_id = ${household} AND list_id = ${typeof list === 'string' ? list : ''}`,
+      );
+      if (!found && carried) throw otherList();
+    } else {
+      found = await dbGet<{ yes: number }>(
+        database,
+        sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
+      );
+    }
     if (!found) throw notFound();
   }
 }
@@ -679,6 +752,26 @@ export async function checkListAccess(
     }
     return undefined;
   }
+  if (spec.table === 'list_category') {
+    const existing = await dbGet<{ list_id: string; source_key: string }>(
+      database,
+      sql`SELECT list_id, source_key FROM ${appTable(database, 'list_category')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    if (existing) {
+      // **A copy is changed and deleted by the list's Admin** (§8.3, RFC 0006): the Member who made it cannot. Its list and its source key never change.
+      if (change.fields.listId !== undefined && change.fields.listId !== existing.list_id)
+        throw notFound();
+      if (change.fields.sourceKey !== undefined && change.fields.sourceKey !== existing.source_key)
+        throw notFound();
+      if (!(await allowed(listAdminOf(database, existing.list_id, accountId)))) throw notFound();
+    } else {
+      // **Made by anyone on the list**, when an item of their own category is first put there.
+      const list = change.fields.listId;
+      if (typeof list !== 'string' || !(await allowed(onList(database, list, accountId))))
+        throw notFound();
+    }
+    return undefined;
+  }
   if (spec.table === 'category') {
     // **A group's categories are written by its own account alone** (§8.3): the aisle order and a person's own categories are theirs, whoever is on a list of the group.
     if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
@@ -726,8 +819,15 @@ async function repointRefs(
   let fields = change.fields;
   for (const [field, target] of Object.entries(spec.refs)) {
     const value = fields[field];
-    if (target !== 'product' || typeof value !== 'string') continue;
-    const to = await resolveAlias(database, household, 'product', value);
+    if ((target !== 'product' && target !== 'category_of_list') || typeof value !== 'string')
+      continue;
+    // A product folded into another is the other; so is a copy of a category (§8.3).
+    const to = await resolveAlias(
+      database,
+      household,
+      target === 'product' ? 'product' : 'list_category',
+      value,
+    );
     if (to !== value) fields = { ...fields, [field]: to };
   }
   return fields === change.fields ? change : { ...change, fields };
@@ -919,6 +1019,15 @@ function checkBoundToList(
     for (const field of spec.sealed) {
       const value = change.fields[field];
       if (typeof value === 'string' && boundTo(value)?.list !== household) throw otherList();
+    }
+    return;
+  }
+  // **A list's copy of a category is the list's** (§8.3): its name is bound to its list, under the list's keys, which the people on the list hold.
+  if (spec.table === 'list_category') {
+    const list = existing ? existing.list_id : change.fields.listId;
+    for (const field of spec.sealed) {
+      const value = change.fields[field];
+      if (typeof value === 'string' && boundTo(value)?.list !== list) throw otherList();
     }
     return;
   }

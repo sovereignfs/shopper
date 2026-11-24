@@ -4,7 +4,14 @@ import { movedAuthStore } from '../auth/test-support';
 import { is } from 'drizzle-orm';
 import { SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { firstList, TEST_RING, join, somebody, type Someone } from '../access/test-support';
+import {
+  TEST_RING,
+  firstList,
+  join,
+  joinList,
+  somebody,
+  type Someone,
+} from '../access/test-support';
 import type { Database } from '../db/client';
 import { openDatabase } from '../db/client';
 import { dbAll, dbGet, dbRun } from '../db/exec';
@@ -43,6 +50,8 @@ const DECIDED_APP: Record<string, string> = {
   category:
     'a household’s, deleted with it; in a group that stays for a list that passed on, the person’s own are deleted and the names they gave the starter ones cleared (§8.3, §19)',
   list: 'a household’s, deleted with it',
+  list_category:
+    'a list’s copy of a person’s category (§8.3): deleted with its list and with its household; a copy a person made on a list of someone else’s stays with the list, as what they added does',
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
     'a list’s, deleted with it (21.3); what a person added stays under their name, with no account',
@@ -372,6 +381,86 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count(app, appTable(app, 'list'), sql`id = ${hardware.id}`)).toBe(0);
     expect(await count(app, appTable(app, 'product'), sql`id = ${product}`)).toBe(0);
     expect(await count(app, appTable(app, 'list'), sql`id = ${ada.list}`)).toBe(1);
+  });
+
+  it('deletes a list’s copies of categories with a list nobody else is on, and leaves those of a list that passes on, a copy made by someone else included (23.3)', async () => {
+    const ada = await somebody(app, 'Ada-copies');
+    const grace = await somebody(app, 'Grace-copies');
+    // Ada's group has moved. Grace is on Groceries, which carries on; Hardware is Ada's alone.
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    await joinList(app, ada.household, ada.list, grace);
+    const hardware = crypto.randomUUID();
+    const cipher = (list: string, row: string) => `e2.1.${list}.${row}.${'A'.repeat(24)}`;
+    const send = (account: string, changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+          },
+        },
+        account,
+        { mutationId: crypto.randomUUID(), householdId: ada.household, changes },
+      );
+    expect(
+      (
+        await send(ada.accountId, [
+          {
+            table: 'list',
+            id: hardware,
+            create: true,
+            fields: {
+              name: cipher(hardware, hardware),
+              position: 'a1',
+              createdAt: 1,
+              clearing: 'manual',
+            },
+          },
+        ])
+      ).status,
+    ).toBe('applied');
+    const copy = (list: string) => {
+      const id = crypto.randomUUID();
+      return {
+        id,
+        change: {
+          table: 'list_category',
+          id,
+          create: true,
+          fields: {
+            listId: list,
+            sourceKey: `n3.${crypto.randomUUID().replaceAll('-', '').padEnd(43, 'A').slice(0, 43)}`,
+            name: cipher(list, id),
+            position: 'a5',
+          },
+        },
+      };
+    };
+    const alone = copy(hardware);
+    const carries = copy(ada.list);
+    expect((await send(ada.accountId, [alone.change])).status).toBe('applied');
+    // Grace, a Member of the list that carries on, made one of her own category on it.
+    expect((await send(grace.accountId, [carries.change])).status).toBe('applied');
+    await seedAuth(ada);
+    const copies = (id: string) => count(app, appTable(app, 'list_category'), sql`id = ${id}`);
+    expect(await copies(alone.id)).toBe(1);
+    expect(await copies(carries.id)).toBe(1);
+
+    await deletePerson(deps(), ada.accountId);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${hardware}`)).toBe(0);
+    expect(await copies(alone.id)).toBe(0);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${ada.list}`)).toBe(1);
+    expect(await copies(carries.id)).toBe(1);
   });
 
   it('deletes a person’s Inventory whether or not their group stays for a list that passed on, with what folds of it left, and leaves another person’s alone (23.3)', async () => {
