@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { firstList, TEST_RING, join, somebody, type Someone } from '../access/test-support';
 import type { Database } from '../db/client';
 import { openDatabase } from '../db/client';
-import { dbAll, dbRun } from '../db/exec';
+import { dbAll, dbGet, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import * as sqliteApp from '../db/schema/sqlite/app';
 import { appTable } from '../db/tables';
@@ -40,7 +40,8 @@ const DECIDED_APP: Record<string, string> = {
   member: 'ended (left_at), or deleted with a group nobody else is on',
   list_member:
     'ended (left_at) on a list that carries on, the Admin passing to the person on it longest; deleted with a list nobody else is on',
-  category: 'a household’s, deleted with it',
+  category:
+    'a household’s, deleted with it; in a group that stays for a list that passed on, the person’s own are deleted and the names they gave the starter ones cleared (§8.3, §19)',
   list: 'a household’s, deleted with it',
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
@@ -352,6 +353,7 @@ describe(`deleting a person (${leg})`, () => {
             listOpenItems: 500,
             householdProducts: 5000,
             inventoryItems: 5000,
+            householdCategories: 100,
           },
         },
         ada.accountId,
@@ -389,6 +391,7 @@ describe(`deleting a person (${leg})`, () => {
             listOpenItems: 500,
             householdProducts: 5000,
             inventoryItems: 5000,
+            householdCategories: 100,
           },
         },
         account,
@@ -410,6 +413,47 @@ describe(`deleting a person (${leg})`, () => {
     expect((await send(grace.accountId, grace.household, [item('Grace bin bags')])).status).toBe(
       'applied',
     );
+    // Their categories too (§8.3): one of Ada's own and a name she gave a starter one, and one of Grace's own, in her own group.
+    const own = (name: string) => ({
+      table: 'category',
+      id: crypto.randomUUID(),
+      create: true,
+      fields: { name, position: 'a5', hidden: 0 },
+    });
+    const produce = async (household: string) =>
+      (
+        await dbGet<{ id: string }>(
+          app,
+          sql`SELECT id FROM ${appTable(app, 'category')} WHERE household_id = ${household} AND starter_key = 'produce'`,
+        )
+      )?.id ?? '';
+    expect((await send(ada.accountId, ada.household, [own('Ada hardware')])).status).toBe(
+      'applied',
+    );
+    expect(
+      (
+        await send(ada.accountId, ada.household, [
+          { table: 'category', id: await produce(ada.household), fields: { name: 'Ada’s veg' } },
+        ])
+      ).status,
+    ).toBe('applied');
+    expect((await send(grace.accountId, grace.household, [own('Grace hardware')])).status).toBe(
+      'applied',
+    );
+    const owned = (household: string) =>
+      count(
+        app,
+        appTable(app, 'category'),
+        sql`household_id = ${household} AND starter_key IS NULL`,
+      );
+    const named = (household: string) =>
+      count(
+        app,
+        appTable(app, 'category'),
+        sql`household_id = ${household} AND starter_key IS NOT NULL AND sealed IS NOT NULL AND sealed <> ''`,
+      );
+    expect(await owned(ada.household)).toBe(1);
+    expect(await named(ada.household)).toBe(1);
     await seedAuth(ada);
     const inventory = (household: string) =>
       count(app, appTable(app, 'inventory_item'), sql`household_id = ${household}`);
@@ -434,6 +478,17 @@ describe(`deleting a person (${leg})`, () => {
     expect(await leftovers(ada.household)).toBe(0);
     // Grace's own is as it was.
     expect(await inventory(grace.household)).toBe(1);
+    // Ada's own categories and the name she gave a starter go with her; the starter rows stay with the group, with the code's names, for Grace's list.
+    expect(await owned(ada.household)).toBe(0);
+    expect(await named(ada.household)).toBe(0);
+    expect(
+      await count(
+        app,
+        appTable(app, 'category'),
+        sql`household_id = ${ada.household} AND starter_key IS NOT NULL`,
+      ),
+    ).toBeGreaterThan(10);
+    expect(await owned(grace.household)).toBe(1);
   });
 
   it('deletes a household nobody else is in, with everything of it', async () => {

@@ -39,6 +39,8 @@ export function limitSentence(kind: LimitKind, limit: number, name?: string): st
       return `The catalog can hold at most ${plural(limit, 'product', 'products')}, and this one holds them all.`;
     case 'inventoryItems':
       return `Inventory can hold at most ${plural(limit, 'item', 'items')}, and yours holds them all.`;
+    case 'householdCategories':
+      return `You can have at most ${plural(limit, 'category', 'categories')}, hidden ones included, and you have them all.`;
   }
 }
 

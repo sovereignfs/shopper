@@ -140,12 +140,27 @@ own categories, a list's copies of them), Inventory's own keys, the household's 
   §8.3, §20.3, decision 15). **5a, own categories, in two commits.** **Reads and references closed, done:** a pull gives anyone but the group's own account the starter rows by their code's names and nothing of the owner's
   own categories: no row, no name they gave a starter, no ciphertext and no tombstone (it gave every member every category, `1 = 1`), each condition seen to fail when removed, in a group the server seals
   and in one that has moved; an item's and a product's `categoryId` is a `starter_category` (it accepted any live category of the group), so a person's own category is never what a list says, while the
-  person's own Inventory may name one. **Writes, to do:** `category` becomes a synced table, written only by the group's own account (make, rename, hide, put in order, delete an own one; a starter
-  category renamed, hidden or moved, never deleted, `other` never hidden), its name sealed by the server or, in a moved group, encrypted for the group under the Inventory keys, and carried by the
-  household's move in the same commit; a limit, `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`; the export, `People.deletePerson` and the device (its screens offer a starter category until the copies exist).
-  **5b, `list_category`:** the table with its source key, an item's `categoryId` held to a starter category or
-  a copy on its own list, and how a group the server still seals makes a source key (it has no list keys), how the move re-keys one, and an item that changes list. Two devices can make one own category
-  twice: §20.3 gives `category` no name key, so nothing folds them.
+  person's own Inventory may name one. **Writes, done:** `category` is a synced table, written only by the group's own account (make, rename, hide, put in order, delete an own one; a starter category renamed, hidden or
+  moved or given the code's name again with `null`, never deleted, `other` never hidden; an own one always has a name), its name sealed by the server or, in a moved group, encrypted for the group under
+  the Inventory keys (an explicit binding rule in `checkBoundToList`, no name key), with `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` (100, counting the group's live categories, hidden and starter included);
+  **in the same commit** the household's move answers for the categories that hold content (a name a person gave a starter, and their own: the manifest and the count use one condition, so the
+  fourteen untouched starters and a cached shell move as before), the export gives anyone but the owner the starter rows with no content, `People.deletePerson` deletes the own ones and clears the names
+  given to starters (the rows stay with the group), and the device has its rows, its actions (`src/actions/categories.ts`), a pull merged through the shadow as the other tables are (it put them
+  straight in), the transport's encryption and opening, and `categoriesOf` giving a list's screens the starter ones while `ownerCategoriesOf` gives the Categories tab all. **Seen to fail when
+  removed:** the owner-only rule, the starter-delete and Other rules, the name rule, the group binding, the limit; the pull's condition, name, ciphertext and tombstone; the export's two; the
+  deletion's two; the shadow merge, the code's name shown at once and the starter-only list screens; the Mover's table, the transport's encryption and its opening. **Run on, all green:** `pnpm run verify`; the unit suite on a file database, PostgreSQL 16 and sqld (110 files, 887 tests and 4 skipped each); the browser suite on Chromium and WebKit on a quiet
+  machine (292 passed, 6 skipped, none failed, 10.8 minutes), `keys.spec.ts:40` among them (an earlier run of the code before one Undo fix had the known WebKit locked-key flake, `keys.spec.ts:8`).
+  A category's `icon` is plain, as an item's is.
+  **5b, `list_category`, not started: its design is written first.** The table has the source key, an item's and a product's `categoryId` becomes a starter category or a copy on its own list, and
+  three things are open, the first the owner's: (1) **a group the server still seals** (one with a shared list does not move, §13.7) has no list keys for a device to make the source key under, yet
+  the owner's answer has the device make it: either the server makes it in that form, as it makes a product's name key, from the category's id under its own key and a label, or the copies wait
+  for the group to move; (2) **the household's move** must re-key a copy whose source category the moving device does not hold (a copy another person made on a shared list in the group is the
+  group's, and the move is for a group with nobody else on a list, so only the owner's own copies are in it: confirm it, and answer for them with the source keys re-made from the category ids);
+  (3) **an item that changes list** needs a category that is valid on the new list (a starter one, or a copy made there first, in the same mutation). **Decisions to know, for 5a:** (a) anyone else on a list
+  of a group is still given the owner's order, hidden flags and icons for the starter categories (they are the list's aisle order, §8.3), and not their names; (b) two devices can make one own category
+  twice, §20.3 gives `category` no name key; (c) the household's move shares its 2 MiB body (`MAX_BODY`) with the rest, so a group at its limits for products and Inventory may not fit and waits without
+  saying why; (d) **Docker impact: none**: `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` is in `.env.example` and the README, and no `Dockerfile`, `compose.yml`, `deploy/` file or the manifest lists a limit;
+  (e) a device's refusal of a category change (over the limit) reads in Couldn't sync with the limit's own sentence, and the row is taken back.
   (6) **A new name on a list makes an Inventory item, marked once** (a separate mutation to the person's own group, beside the list's), and the property tests over categories. **The data-layer
   tests ran on PostgreSQL and sqld for the first time in this leg** (before, only the `file:` database).
 - **Not built, not forgotten:** the importer (epic 12's; there is none yet in this repository), so 23.3's "imported" waits for it. **Step 5's new synced tables enter the household's move in the same

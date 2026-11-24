@@ -55,6 +55,7 @@ const deps = (): EndpointDeps => ({
     listOpenItems: 500,
     householdProducts: 5000,
     inventoryItems: 5000,
+    householdCategories: 100,
   },
   intervalSeconds: 20,
 });
@@ -118,8 +119,8 @@ async function encrypted(who: Someone, key: CryptoKey) {
   const rows: Record<
     string,
     { id: string; fields: Record<string, string | null>; nameKey?: string }[]
-    // These groups have no Inventory (`inventory.device.test.ts` moves one that has).
-  > = { inventory_item: [] };
+    // These groups have no Inventory and no category that holds a name (`inventory.encrypted.device.test.ts` moves one that has).
+  > = { inventory_item: [], category: [] };
   for (const table of ['list', 'item', 'product'] as const) {
     rows[table] = [];
     for (const row of manifest.rows[table]) {

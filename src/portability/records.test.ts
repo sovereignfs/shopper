@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, join, joinList, somebody, type Someone } from '../access/test-support';
 import type { Database } from '../db/client';
-import { dbRun } from '../db/exec';
+import { dbGet, dbRun } from '../db/exec';
+import { sealRow } from '../crypto/sealed';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
@@ -70,6 +71,43 @@ describe(`a person's export (${testTarget().leg})`, () => {
     expect(others.some((each) => each.kind.startsWith('inventory_item'))).toBe(false);
   });
 
+  it('holds a person’s own categories, and the names they gave starter ones, for them alone: someone on a list of the group is given the starter rows with no content (§8.3)', async () => {
+    // Grace owns a group the server seals, and Ada is on one of its lists. Grace has a category of her own and has named the starter _Produce_.
+    const own = crypto.randomUUID();
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'category')} (id, household_id, starter_key, sealed, icon, position, hidden, seq)
+          VALUES (${own}, ${grace.household}, ${null}, ${sealRow('category', own, { name: 'GRACEOWNCAT' }, TEST_RING)}, ${null}, ${'zz'}, ${false}, ${1})`,
+    );
+    const produce = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${appTable(database, 'category')} WHERE household_id = ${grace.household} AND starter_key = ${'produce'}`,
+    );
+    await dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'category')} SET sealed = ${sealRow('category', produce?.id ?? '', { name: 'GRACEVEG' }, TEST_RING)} WHERE id = ${produce?.id ?? ''}`,
+    );
+    const theirs = await personRecords(database, TEST_RING, ada.accountId);
+    const seen = JSON.stringify(theirs.filter((part) => part.kind.startsWith('category')));
+    expect(seen).not.toContain('GRACEOWNCAT');
+    expect(seen).not.toContain('GRACEVEG');
+    const categories = theirs.find((part) => part.kind === 'category')?.records ?? [];
+    // Her group's starter rows are there for the list's context, with nothing of hers in them; none of her own.
+    expect(categories.filter((row) => row.household_id === grace.household)).not.toHaveLength(0);
+    expect(categories.some((row) => row.id === own)).toBe(false);
+    expect(
+      categories
+        .filter((row) => row.household_id === grace.household)
+        .every((row) => Object.keys(row.content as object).length === 0),
+    ).toBe(true);
+    // Grace's own export has both.
+    const hers = await personRecords(database, TEST_RING, grace.accountId);
+    const hersText = JSON.stringify(hers.find((part) => part.kind === 'category')?.records);
+    expect(hersText).toContain('"id":"' + own + '"');
+    expect(hersText).toContain('GRACEOWNCAT');
+    expect(hersText).toContain('GRACEVEG');
+  });
+
   it('names the other members and gives none of their addresses, nor anything the contract forbids', async () => {
     const parts = await personRecords(database, TEST_RING, ada.accountId);
     const text = JSON.stringify(parts);
@@ -126,6 +164,7 @@ describe(`a person's export (${testTarget().leg})`, () => {
           listOpenItems: 500,
           householdProducts: 5000,
           inventoryItems: 5000,
+          householdCategories: 100,
         },
       },
       host.accountId,

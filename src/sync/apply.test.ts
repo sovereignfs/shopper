@@ -23,6 +23,7 @@ const LIMITS: Limits = {
   listOpenItems: 500,
   householdProducts: 5000,
   inventoryItems: 5000,
+  householdCategories: 100,
 };
 const PLANTED = 'PLANTED-Oat-Milk-Brand';
 /** An icon's name is lower case and hyphens; this one is not in the design system, which is for the table to hold as it was sent. */

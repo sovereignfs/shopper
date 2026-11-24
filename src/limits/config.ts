@@ -17,6 +17,8 @@ export interface Limits {
   readonly householdProducts: number;
   /** Items in a person's Inventory (§8.8), hidden starter entries included. */
   readonly inventoryItems: number;
+  /** Categories of a group (§8.3), hidden included: the starter ones it was made with and the person's own. */
+  readonly householdCategories: number;
 }
 
 const LARGEST = 1_000_000;
@@ -28,6 +30,7 @@ const LIMITS: readonly { key: keyof Limits; name: string; fallback: number }[] =
   { key: 'listOpenItems', name: 'SHOPPER_LIMIT_LIST_OPEN_ITEMS', fallback: 500 },
   { key: 'householdProducts', name: 'SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS', fallback: 5000 },
   { key: 'inventoryItems', name: 'SHOPPER_LIMIT_INVENTORY_ITEMS', fallback: 5000 },
+  { key: 'householdCategories', name: 'SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES', fallback: 100 },
 ];
 
 /** The limits, with the defaults where a setting is not given; a wrong one is a problem and keeps its default here. */

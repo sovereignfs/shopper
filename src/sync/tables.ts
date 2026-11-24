@@ -150,4 +150,19 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
     },
     limit: { kind: 'inventoryItems', of: (limits) => limits.inventoryItems },
   },
+  // A category of the group (§8.3): its name sealed here, or encrypted by the device for the group; no name key (a name is not folded: two devices can make one twice).
+  // The limit counts the group's live categories, hidden and starter ones included (§7.6).
+  category: {
+    table: 'category',
+    sql: 'category',
+    sealed: ['name'],
+    plain: [
+      { field: 'icon', column: 'icon' },
+      { field: 'position', column: 'position' },
+      { field: 'hidden', column: 'hidden', kind: 'bool' },
+      { field: 'deletedAt', column: 'deleted_at' },
+    ],
+    refs: {},
+    limit: { kind: 'householdCategories', of: (limits) => limits.householdCategories },
+  },
 };

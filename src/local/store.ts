@@ -352,6 +352,8 @@ async function takeHousehold(
     ['product', pull.products],
     // The account's own Inventory (§8.8): a pull of anyone else's has none, and a server from before it sends no field.
     ['inventory_item', pull.inventory ?? []],
+    // The group's categories, through the same merge as the rest now that the owner can change them: what waits to be sent is not overwritten by a pull.
+    ['category', pull.categories],
   ];
   for (const [table, rows] of incoming) {
     for (const raw of rows) {
@@ -368,15 +370,13 @@ async function takeHousehold(
       pulled.add(keyOf(table, row.id));
     }
   }
-  for (const raw of pull.categories)
-    await tx.objectStore('category').put(raw as unknown as CategoryRow);
   for (const raw of pull.members)
     await tx
       .objectStore('member')
       .put({ ...(raw as unknown as MemberRow), householdId: pull.household });
 
   for (const gone of pull.tombstones) {
-    if (isSynced(gone.table) || gone.table === 'category') {
+    if (isSynced(gone.table)) {
       await (tx.objectStore(gone.table) as unknown as { delete(id: string): Promise<void> }).delete(
         gone.id,
       );
@@ -668,8 +668,21 @@ export async function productsOf(db: LocalDatabase, householdId: string): Promis
   return (await db.getAllFromIndex('product', 'byHousehold', householdId)).filter(live);
 }
 
-/** The household's categories in aisle order. */
+/**
+ * The household's **starter categories** in aisle order: what a list groups its items by, and the only categories an item or a product may name (§8.3). A
+ * person's own categories are not here: they are Inventory's, and a list says one by its own copy (`ownerCategoriesOf`).
+ */
 export async function categoriesOf(db: LocalDatabase, householdId: string): Promise<CategoryRow[]> {
+  return (await db.getAllFromIndex('category', 'byHousehold', householdId))
+    .filter((row) => live(row) && row.starterKey !== null)
+    .sort(byPosition);
+}
+
+/** **Every category of the person's own group** in aisle order, the starter ones as they named them and their own (§8.3): what Inventory's Categories tab shows. */
+export async function ownerCategoriesOf(
+  db: LocalDatabase,
+  householdId: string,
+): Promise<CategoryRow[]> {
   return (await db.getAllFromIndex('category', 'byHousehold', householdId))
     .filter(live)
     .sort(byPosition);

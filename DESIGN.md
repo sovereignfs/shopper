@@ -387,7 +387,7 @@ Every limit is a setting the operator can change, with a default (the names are 
 | `SHOPPER_LIMIT_HOUSEHOLD_LISTS`      | 100     | Lists a person makes, archived included                                           |
 | `SHOPPER_LIMIT_LIST_OPEN_ITEMS`      | 500     | Open items on a list                                                              |
 | `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`   | 5000    | Products in a group's lists' catalogs, together                                   |
-| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included (phase 2)                                  |
+| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` | 100     | Categories of a group, hidden included                                            |
 | `SHOPPER_LIMIT_INVENTORY_ITEMS`      | 5000    | Items in a person's Inventory, hidden starter entries included                    |
 | `SHOPPER_LIMIT_ACCOUNT_CARDS`        | 100     | Cards a person adds; people on a card as on a list, live links to it as to a list |
 
@@ -457,6 +457,11 @@ Deli, Frozen, Pantry, Breakfast, Snacks & sweets, Drinks, Household, Personal ca
   shared list read the names of the categories its items use, and nothing else of anyone's categories. Renaming a category in Inventory renames its
   copies on the person's own lists (those they are Admin of); a copy goes with its list. **An item's category is a starter category of its list's
   group or a `list_category` of its own list,** never another group's row.
+- **Written by the group's own account alone, read by anyone else only as the starter ones** (`category` is a synced table, §12): a starter category is renamed, hidden and
+  put in order, never deleted, and _Other_ is never hidden; one of the person's own always has a name. Anyone else on a list of the group is given the starter rows by their
+  key and **the code's names**, and nothing of the owner's own categories, what they named a starter, their ciphertext or their tombstones (in the pull's statement and the
+  export's). **What an item or a product names is a starter category of its group** (until it names a list's copy, below). A name is not folded (a category has no name
+  key): two devices that make the same category make two.
 - Hidden categories are not offered; their items show under _Other_ until moved. _Other_ cannot be hidden or deleted. **In phase 1 the starter
   categories were fixed**, in the starter order.
 - **A new product's category** is guessed by one pure function: the person's Inventory item if the name matches one, the starter catalog's entry if it
@@ -992,7 +997,8 @@ transaction, only if its `seq` has not moved and every value is for its own row 
 (they could not be given keys without a link): it stays sealed by the server, and loses nothing. **Its Inventory and its account's own categories**
 (§8.8) are sealed by the server too, as the rest of its content is, and move with it: the manifest holds every `inventory_item` of the group, deleted or not, each with its
 starter entry; the device derives the group's **Inventory keys** from the keyring it has just made (§13.2), encrypts each value for the group in the place of a list, and makes
-each item's name key (§13.3), from the starter entry's name for an override that keeps it; the server answers for every row, each value bound to the group and to its own row,
+each item's name key (§13.3), from the starter entry's name for an override that keeps it; its categories that hold content (a name a person gave a starter, and their own) are
+encrypted the same way, for the group, with no name key, and the fourteen starter categories nobody named have nothing to move; the server answers for every row, each value bound to the group and to its own row,
 each with a name key, in the same transaction. A device that finds an override of a starter entry it does not have, or two rows that come to one name key, does not move
 the group (it would be refused on every attempt) until a version that can. Lists shared after the move carry their keys in their links.
 

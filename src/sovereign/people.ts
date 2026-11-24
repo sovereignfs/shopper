@@ -221,7 +221,8 @@ async function leaveGroup(
       );
     }
     // **Their Inventory goes whether or not their group stays** for a list that passed to someone else (§8.8, §19): it was theirs alone, and nobody else ever
-    // had it. With it, what a fold or a delete of one of its items left, which is of no list.
+    // had it. With it, what a fold or a delete of one of its items left, which is of no list; and their own categories, and the names they gave the starter ones (§8.3):
+    // those rows stay with the group, as the code's.
     const theirs = await dbGet<{ yes: number }>(
       tx,
       sql`SELECT 1 AS yes FROM ${h} WHERE id = ${household} AND own_of IN
@@ -232,10 +233,19 @@ async function leaveGroup(
         tx,
         sql`DELETE FROM ${appTable(tx, 'inventory_item')} WHERE household_id = ${household} RETURNING 1 AS gone`,
       );
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'category')} WHERE household_id = ${household} AND starter_key IS NULL RETURNING 1 AS gone`,
+      );
+      await dbAll(
+        tx,
+        sql`UPDATE ${appTable(tx, 'category')} SET sealed = NULL, encrypted = NULL, seq = ${seq}
+            WHERE household_id = ${household} AND starter_key IS NOT NULL AND (sealed IS NOT NULL OR encrypted IS NOT NULL) RETURNING 1 AS gone`,
+      );
       for (const table of ['alias', 'tombstone'] as const)
         await dbAll(
           tx,
-          sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND table_name = 'inventory_item' RETURNING 1 AS gone`,
+          sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND table_name IN ('inventory_item', 'category') RETURNING 1 AS gone`,
         );
     }
     // Their own group is theirs no more: its lists that carry on are their people's, in a group nobody owns.

@@ -38,7 +38,7 @@ export interface Mutation {
  */
 export type FieldValue = string | number | null;
 
-export const SYNCED_TABLES = ['list', 'item', 'product', 'inventory_item'] as const;
+export const SYNCED_TABLES = ['list', 'item', 'product', 'inventory_item', 'category'] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 /** The most changes in one mutation: _Clear bought_ on a full list, with room. */
@@ -165,6 +165,18 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['createdAt'],
   },
+  // A category of the group (§8.3): a starter one, which only the owner renames, hides and puts in order and nobody deletes, or one of the person's own. A device
+  // never makes a starter category, so there is no field for its key. The name is null when a starter category has the code's.
+  category: {
+    fields: {
+      name: nullable(name),
+      icon: nullable(icon),
+      position,
+      hidden: flag,
+      deletedAt: nullable(time),
+    },
+    required: ['position'],
+  },
 };
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
@@ -173,6 +185,7 @@ export const CONTENT: Record<SyncedTable, readonly string[]> = {
   item: ['name', 'note'],
   product: ['name', 'note'],
   inventory_item: ['name', 'note'],
+  category: ['name'],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */

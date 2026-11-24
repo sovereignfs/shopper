@@ -63,7 +63,10 @@ export async function personRecords(
           : table === 'inventory_item'
             ? // Their own Inventory only (§8.8): the group whose own account they are, and nobody's else.
               ownerOf(database, sql`r.household_id`, accountId)
-            : sql`1 = 1`;
+            : table === 'category'
+              ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3).
+                sql`(r.starter_key IS NOT NULL OR ${ownerOf(database, sql`r.household_id`, accountId)})`
+              : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
     plain.household?.push({
@@ -103,6 +106,11 @@ export async function personRecords(
       );
       for (const row of rows) {
         const { sealed, encrypted: cipher, fseq: _fseq, ...rest } = row;
+        // What another person made of a starter category (a name they gave it) is theirs: someone on a list of the group is given the row, not that.
+        if (table === 'category' && household.own_of !== accountId) {
+          plain.category?.push({ ...rest, content: {} });
+          continue;
+        }
         if (moved) encrypted[table]?.push({ ...rest, content: parse(cipher) });
         else
           plain[table]?.push({

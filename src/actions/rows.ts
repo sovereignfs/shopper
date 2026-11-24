@@ -99,3 +99,16 @@ export function itemState(item: Pick<ItemRow, 'boughtAt' | 'clearedAt' | 'delete
   if (item.clearedAt !== null) return 'cleared';
   return item.boughtAt !== null ? 'bought' : 'open';
 }
+
+/** A category of a group as a device holds it (§8.3): a starter category (its key set; the code's name until it is renamed) or one of the person's own. */
+export interface CategoryRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly starterKey: string | null;
+  readonly name: string;
+  readonly icon: string | null;
+  readonly position: string;
+  readonly hidden: boolean;
+  readonly deletedAt: number | null;
+  readonly seq: number;
+}

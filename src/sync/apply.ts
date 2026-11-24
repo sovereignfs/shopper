@@ -18,6 +18,7 @@ import {
 } from './fold';
 import { foldItemFields, withoutSecondTick } from './items';
 import { mergeChange } from './merge';
+import { OTHER } from '../catalog/categories';
 import { Refusal, duplicate, invalid, limited, notFound, otherList, unsupported } from './refusal';
 import { boundTo } from '../keys/household';
 import { OPEN_ITEM } from './open';
@@ -274,6 +275,7 @@ async function applyChange(
   }
 
   await checkReferences(deps, spec, household, change);
+  if (spec.table === 'category') checkCategoryNamed(change, existing);
   if (deps.mode === 'encrypted') {
     checkBoundToList(spec, change, existing, household);
     if (spec.table === 'inventory_item') checkNamed(change, existing);
@@ -677,6 +679,22 @@ export async function checkListAccess(
     }
     return undefined;
   }
+  if (spec.table === 'category') {
+    // **A group's categories are written by its own account alone** (§8.3): the aisle order and a person's own categories are theirs, whoever is on a list of the group.
+    if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    const existing = await dbGet<{ starter_key: string | null }>(
+      database,
+      sql`SELECT starter_key FROM ${appTable(database, 'category')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    // A starter category is renamed, hidden and put in order, never deleted; and Other is where an item with no better place goes, so it is never hidden.
+    if (existing?.starter_key) {
+      if (change.fields.deletedAt !== undefined && change.fields.deletedAt !== null)
+        throw invalid('a starter category cannot be deleted');
+      if (existing.starter_key === OTHER && Number(change.fields.hidden) === 1)
+        throw invalid('Other cannot be hidden');
+    }
+    return undefined;
+  }
   // No rule for this table: nobody may write it (it reads as not found, as every refusal does).
   throw notFound();
 }
@@ -872,6 +890,17 @@ function checkNamed(change: Change, existing: Row | undefined): void {
 }
 
 /**
+ * **A category of the person's own has a name** (§8.3), whichever form the group is in (there is no `derive` for it): a change that says `name: null` is for a
+ * starter category, which has the code's, and is refused for one of their own.
+ */
+function checkCategoryNamed(change: Change, existing: Row | undefined): void {
+  if (change.fields.name !== null) return;
+  const starter = existing ? existing.starter_key : null;
+  if (typeof starter !== 'string' || starter === '')
+    throw invalid('a category of the person’s own has a name');
+}
+
+/**
  * **In a group that has moved, a value is for its row's list** (RFC 0004, task 21.4): each list has its own keys, so a value encrypted for another list
  * could be opened by nobody on the row's. The row's list is a list's own id, else the list it is on after this change. An item that changes list comes
  * with its name and note encrypted again for the new one, or the old list's values would stay on it.
@@ -886,7 +915,7 @@ function checkBoundToList(
   // nobody else's. An explicit rule, not a case of the one below, which would find no list and refuse every value; and a value bound to a list is refused, so
   // that a list's ciphertext cannot be put into a person's Inventory, nor an Inventory's into a list. The row is not checked here (the server cannot open the
   // value, and a fold moves a row's later values to the row that stands, §12.4): the device opens a value for its row or one folded into it.
-  if (spec.table === 'inventory_item') {
+  if (spec.table === 'inventory_item' || spec.table === 'category') {
     for (const field of spec.sealed) {
       const value = change.fields[field];
       if (typeof value === 'string' && boundTo(value)?.list !== household) throw otherList();

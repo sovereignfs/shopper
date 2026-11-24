@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, join, somebody, type Someone } from '../access/test-support';
 import type { Env } from '../actions/env';
+import { makeCategory, renameCategory } from '../actions/categories';
 import type { Mutation, SyncedTable } from '../actions/format';
 import {
   changeInventoryItem,
@@ -20,7 +21,7 @@ import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { SyncClient } from '../local/client';
 import { type LocalDatabase, deleteLocal, localName, openLocal } from '../local/db';
-import { failedOf, inventoryOf } from '../local/store';
+import { failedOf, inventoryOf, ownerCategoriesOf } from '../local/store';
 import { type Wire, serverTransport } from '../local/test-support';
 import type { EndpointDeps } from '../sync/endpoint';
 import {
@@ -66,6 +67,7 @@ const deps = (): EndpointDeps => ({
     listOpenItems: 500,
     householdProducts: 5000,
     inventoryItems: 5000,
+    householdCategories: 100,
   },
   intervalSeconds: 20,
 });
@@ -151,6 +153,13 @@ const shown = async (d: Dev) =>
   (await inventory(d))
     .map((row) => [row.name, row.note, row.starterKey, row.recurring, row.hidden, row.deletedAt])
     .sort((a, b) => String(a[0] ?? a[2]).localeCompare(String(b[0] ?? b[2])));
+const categories = (d: Dev, who: Someone) =>
+  d.client.read((db) => ownerCategoriesOf(db, who.household));
+const serverCategories = (who: Someone) =>
+  dbAll<Record<string, unknown>>(
+    database,
+    sql`SELECT * FROM ${appTable(database, 'category')} WHERE household_id = ${who.household} ORDER BY id`,
+  );
 const serverRows = (who: Someone) =>
   dbAll<Record<string, unknown>>(
     database,
@@ -180,6 +189,15 @@ async function moved(name: string) {
   );
   await first.client.commit(
     makeInventoryItem(env(), { householdId: who.household, name: `Old thing ${MARKER}` }),
+  );
+  // Their categories (§8.3): one of their own, and a name they gave the starter _Produce_.
+  await first.client.commit(
+    makeCategory(env(), { householdId: who.household, name: `Garden ${MARKER}`, last: null }),
+  );
+  const produce = (await categories(first, who)).find((row) => row.starterKey === 'produce');
+  if (!produce) throw new Error('no starter category');
+  await first.client.commit(
+    renameCategory(env(), produce, `Fruit and veg ${MARKER}`) ?? (undefined as never),
   );
   await first.client.sync();
   const old = (await inventory(first)).find((row) => row.name === `Old thing ${MARKER}`);
@@ -213,6 +231,25 @@ describe(`a person’s Inventory in a group that has moved (${leg})`, () => {
     const second = await deviceOf(who, key);
     await second.client.sync();
     expect(await shown(second)).toEqual(expected);
+    // Their categories went with the group: the two that held a name are ciphertext for the group, no other starter category was touched, and the second device
+    // reads the names.
+    const named = (await serverCategories(who)).filter((row) => row.encrypted !== null);
+    expect(named).toHaveLength(2);
+    for (const row of named) {
+      expect(row.sealed).toBe('');
+      expect(JSON.stringify(row)).not.toContain(MARKER);
+    }
+    expect(
+      (await serverCategories(who)).some((row) => row.sealed !== '' && row.sealed !== null),
+    ).toBe(false);
+    for (const d of [first, second]) {
+      const mine = await categories(d, who);
+      expect(mine.find((row) => row.starterKey === 'produce')?.name).toBe(
+        `Fruit and veg ${MARKER}`,
+      );
+      expect(mine.find((row) => row.starterKey === null)?.name).toBe(`Garden ${MARKER}`);
+      expect(mine.find((row) => row.starterKey === 'bakery')?.name).toBe('Bakery');
+    }
     expect(await failedOf(second.db)).toEqual([]);
     // Derived here, apart from the code under test: the group's Inventory keys open a value the transport wrote, and a list's derivation with the group's id, which is
     // what a careless call would use, does not.
@@ -286,6 +323,31 @@ describe(`a person’s Inventory in a group that has moved (${leg})`, () => {
     await second.client.sync();
     expect((await keys())[soap.id]).toBe(before);
     expect((await inventory(second)).find((row) => row.id === soap.id)?.hidden).toBe(true);
+    // Categories after the move: made and given a name offline, encrypted for the group, read on the other device; and the code's name given back as `null`.
+    await first.client.commit(
+      makeCategory(env(), { householdId: who.household, name: `Shed ${MARKER}`, last: null }),
+    );
+    const dairy = (await categories(first, who)).find((row) => row.starterKey === 'dairy-eggs');
+    if (!dairy) throw new Error('no starter category');
+    await first.client.commit(
+      renameCategory(env(), dairy, `Milk ${MARKER}`) ?? (undefined as never),
+    );
+    await first.client.sync();
+    await second.client.sync();
+    const there = await categories(second, who);
+    expect(there.find((row) => row.starterKey === 'dairy-eggs')?.name).toBe(`Milk ${MARKER}`);
+    expect(there.some((row) => row.name === `Shed ${MARKER}`)).toBe(true);
+    const dairyThere = there.find((row) => row.starterKey === 'dairy-eggs');
+    if (!dairyThere) throw new Error('no starter category');
+    await second.client.commit(renameCategory(env(), dairyThere, null) ?? (undefined as never));
+    await second.client.sync();
+    await first.client.sync();
+    expect(
+      (await categories(first, who)).find((row) => row.starterKey === 'dairy-eggs')?.name,
+    ).toBe('Dairy & eggs');
+    for (const row of await serverCategories(who))
+      expect(JSON.stringify(row)).not.toContain(MARKER);
+    for (const d of [first, second]) expect(await failedOf(d.db)).toEqual([]);
     for (const row of await serverRows(who)) expect(JSON.stringify(row)).not.toContain(MARKER);
   });
 

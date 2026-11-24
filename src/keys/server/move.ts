@@ -27,12 +27,22 @@ import { FIELD_VALUE, NAME_KEY, boundTo } from '../household';
  * a list, under the group's Inventory keys, which the device derives from the keyring it makes (§13.2).
  */
 type MovedTable = SyncedTable;
-const MOVED: readonly MovedTable[] = ['list', 'item', 'product', 'inventory_item'];
+const MOVED: readonly MovedTable[] = ['list', 'item', 'product', 'inventory_item', 'category'];
 
 export interface MoveDeps {
   readonly database: Database;
   readonly ring: KeyRing;
 }
+
+/**
+ * **A group's categories that hold content** (§8.3): its starter categories are 15 rows with the code's names, which are nothing to encrypt; the move answers
+ * for the ones with a sealed name (a person's own, and a starter one they renamed, even back to the code's), in the manifest and in the count alike, so that a
+ * group that has none, and a shell from before, move as they did.
+ */
+const categoriesWithContent = (database: Database, household: string, withContent: boolean) =>
+  withContent
+    ? sql`SELECT id, sealed FROM ${appTable(database, 'category')} WHERE household_id = ${household} AND sealed IS NOT NULL AND sealed <> '' ORDER BY id`
+    : sql`SELECT id FROM ${appTable(database, 'category')} WHERE household_id = ${household} AND sealed IS NOT NULL AND sealed <> ''`;
 
 /** A row as the manifest gives it to its device: its content opened, and what its values are bound to. */
 export interface ManifestRow {
@@ -62,7 +72,11 @@ const listOfRow = (
   row: { id: string; list_id?: string | null },
   household: string,
 ): string =>
-  table === 'list' ? row.id : table === 'inventory_item' ? household : (row.list_id ?? '');
+  table === 'list'
+    ? row.id
+    : table === 'inventory_item' || table === 'category'
+      ? household
+      : (row.list_id ?? '');
 
 /**
  * The group, if it is this account's own, nobody else is on any of its lists (RFC 0004), no link to one of them is waiting, and it is still sealed: its
@@ -116,7 +130,9 @@ export async function moveManifest(
         ? sql`SELECT id, sealed FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
         : table === 'inventory_item'
           ? sql`SELECT id, sealed, starter_key FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
-          : sql`SELECT id, sealed, list_id FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`,
+          : table === 'category'
+            ? categoriesWithContent(database, household, true)
+            : sql`SELECT id, sealed, list_id FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`,
     );
     rows[table] = found.map((row) => {
       const opened = row.sealed ? unsealRow(table, row.id, row.sealed, ring) : {};
@@ -154,6 +170,8 @@ export const moveInput = z.object({
     product: z.array(movedRow),
     // A shell from before Inventory moved sends none; the count below refuses it if the group has any (and the device asks again with a newer one).
     inventory_item: z.array(movedRow).default([]),
+    // The group's categories that hold content: a name a person gave a starter, and their own (§8.3). The rest have nothing to move.
+    category: z.array(movedRow).default([]),
   }),
 });
 
@@ -184,9 +202,11 @@ export async function moveHousehold(
     for (const table of MOVED) {
       const found = await dbAll<{ id: string; list_id?: string | null }>(
         tx,
-        table === 'list' || table === 'inventory_item'
-          ? sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`
-          : sql`SELECT id, list_id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
+        table === 'category'
+          ? categoriesWithContent(tx, household, false)
+          : table === 'list' || table === 'inventory_item'
+            ? sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`
+            : sql`SELECT id, list_id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
       );
       const ids = found.map((row) => row.id);
       const listOf = new Map(found.map((row) => [row.id, listOfRow(table, row, household)]));

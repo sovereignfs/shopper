@@ -7,7 +7,7 @@ import { makeInventoryItem, overrideStarterEntry } from '../../actions/inventory
 import { canonicalName } from '../../catalog/canonical';
 import { starterEntryByKey } from '../../catalog/starter';
 import type { Database } from '../../db/client';
-import { dbAll, dbGet } from '../../db/exec';
+import { dbAll, dbGet, dbRun } from '../../db/exec';
 import { runMigrations } from '../../db/migrate';
 import { appTable } from '../../db/tables';
 import { freshDatabase, testTarget } from '../../db/test-support';
@@ -26,6 +26,7 @@ import {
   wrapKeyring,
 } from '../household';
 import { type Manifest, moveHousehold, moveInput, moveManifest } from './move';
+import { sealRow } from '../../crypto/sealed';
 
 const { leg } = testTarget();
 const LIMITS: Limits = {
@@ -35,6 +36,7 @@ const LIMITS: Limits = {
   listOpenItems: 500,
   householdProducts: 5000,
   inventoryItems: 5000,
+  householdCategories: 100,
 };
 const MARKER = 'MARKERmv4';
 /** A list's icon and colour, as a person chose them: names a design system might one day have, and a colour no swatch offers. */
@@ -48,6 +50,8 @@ const deps = () => ({ database, ring: TEST_RING });
 const deps3 = () => ({ database, ring: TEST_RING, limits: LIMITS });
 /** The ids of Ada's Inventory rows. */
 const INVENTORY = { flour: '', bread: '', old: '' };
+/** The ids of Ada's categories that hold content: one of her own, and a starter she named. */
+const CATEGORY = { own: crypto.randomUUID(), produce: '' };
 
 beforeAll(async () => {
   ({ database } = await freshDatabase('app'));
@@ -111,6 +115,29 @@ beforeAll(async () => {
   ];
   for (const each of made)
     expect((await applyMutation(deps3(), ada.accountId, each)).status).toBe('applied');
+  // Her categories: one of her own, and the starter _Produce_ named by her. The other fourteen starter categories have nothing to encrypt, and stay as they are.
+  const catSeq = Number(
+    (
+      await dbGet<{ seq: number | string }>(
+        database,
+        sql`UPDATE ${appTable(database, 'household')} SET seq = seq + 1 WHERE id = ${ada.household} RETURNING seq`,
+      )
+    )?.seq,
+  );
+  await dbRun(
+    database,
+    sql`INSERT INTO ${appTable(database, 'category')} (id, household_id, starter_key, sealed, icon, position, hidden, seq)
+        VALUES (${CATEGORY.own}, ${ada.household}, ${null}, ${sealRow('category', CATEGORY.own, { name: `Hardware ${MARKER}` }, TEST_RING)}, ${'package'}, ${'zz'}, ${false}, ${catSeq})`,
+  );
+  const produce = await dbGet<{ id: string }>(
+    database,
+    sql`SELECT id FROM ${appTable(database, 'category')} WHERE household_id = ${ada.household} AND starter_key = ${'produce'}`,
+  );
+  CATEGORY.produce = produce?.id ?? '';
+  await dbRun(
+    database,
+    sql`UPDATE ${appTable(database, 'category')} SET sealed = ${sealRow('category', CATEGORY.produce, { name: `Fruit and veg ${MARKER}` }, TEST_RING)}, seq = ${catSeq} WHERE id = ${CATEGORY.produce}`,
+  );
   INVENTORY.flour = made[0]?.changes[0]?.id ?? '';
   INVENTORY.bread = made[1]?.changes[0]?.id ?? '';
   INVENTORY.old = made[2]?.changes[0]?.id ?? '';
@@ -136,6 +163,8 @@ async function answer(
   wrongList?: string,
   /** How an Inventory row is answered wrongly, to see it refused: bound to another place, or with no name key. */
   inventory: { slot?: string; omitNameKey?: boolean; withListKeys?: boolean } = {},
+  /** The place a category's name is bound to, when it is answered wrongly (a list's, to see it refused). */
+  categorySlot?: string,
 ) {
   const rows = {} as Record<
     SyncedTable,
@@ -161,6 +190,21 @@ async function answer(
   }
   // An Inventory item is for its group, in the place of a list, under the group's Inventory keys (§13.2).
   const inventoryRing = await deriveInventoryKeyring(ring, household);
+  // A category's name is for the group too, under the same keys, with no name key (§8.3).
+  rows.category = [];
+  for (const row of manifest.rows.category) {
+    const fields: Record<string, string | null> = {};
+    for (const [field, value] of Object.entries(row.fields))
+      fields[field] =
+        value === null
+          ? null
+          : await sealField(
+              inventoryRing,
+              { list: categorySlot ?? household, table: 'category', row: row.id, field },
+              value,
+            );
+    rows.category.push({ id: row.id, fields });
+  }
   const slot = inventory.slot ?? household;
   const keys = inventory.withListKeys ? await deriveListKeyring(ring, slot) : inventoryRing;
   rows.inventory_item = [];
@@ -213,6 +257,16 @@ describe(`moving a household (${leg})`, () => {
       starterKey: 'bread',
       fields: { name: null, note: null },
     });
+    // Her categories that hold content, and only those: the one of her own and the starter she named, each for the group. The fourteen others have nothing to move.
+    const categories = manifest?.rows.category ?? [];
+    expect(categories.map((row) => row.id).sort()).toEqual([CATEGORY.own, CATEGORY.produce].sort());
+    expect(categories.every((row) => row.list === ada.household)).toBe(true);
+    expect(categories.find((row) => row.id === CATEGORY.own)?.fields.name).toBe(
+      `Hardware ${MARKER}`,
+    );
+    expect(categories.find((row) => row.id === CATEGORY.produce)?.fields.name).toBe(
+      `Fruit and veg ${MARKER}`,
+    );
     expect(await moveManifest(deps(), ada.household, grace.accountId)).toBeUndefined();
     expect(await moveManifest(deps(), lin.household, lin.accountId)).toBeUndefined();
   });
@@ -285,6 +339,25 @@ describe(`moving a household (${leg})`, () => {
         ok: false,
         why: 'incomplete',
       });
+    // Her categories are answered for the same way: every one that holds content, each name for the group, and not for a list.
+    const noCategories = { ...full, rows: { ...full.rows, category: [] } };
+    expect(await moveHousehold(deps(), ada.household, ada.accountId, noCategories)).toEqual({
+      ok: false,
+      why: 'incomplete',
+    });
+    const category = await answer(ring, ada.household, manifest, key, undefined, {}, ada.list);
+    expect(await moveHousehold(deps(), ada.household, ada.accountId, category)).toEqual({
+      ok: false,
+      why: 'incomplete',
+    });
+    const swappedNames = structuredClone(full);
+    const [one, two] = swappedNames.rows.category;
+    if (!one || !two) throw new Error('needs two categories');
+    [one.fields, two.fields] = [two.fields, one.fields];
+    expect(await moveHousehold(deps(), ada.household, ada.accountId, swappedNames)).toEqual({
+      ok: false,
+      why: 'incomplete',
+    });
     // A value for another row of the group (its fields swapped with another's) is not for its own.
     const swapped = structuredClone(full);
     const [first, second] = swapped.rows.inventory_item;
@@ -316,6 +389,11 @@ describe(`moving a household (${leg})`, () => {
     );
     expect(kept).toHaveLength(3);
     expect(kept.every((row) => row.sealed !== '' && !row.name_key.startsWith('n3.'))).toBe(true);
+    const namedCategories = await dbAll<{ id: string; sealed: string | null }>(
+      database,
+      sql`SELECT id, sealed FROM ${appTable(database, 'category')} WHERE household_id = ${ada.household} AND sealed IS NOT NULL AND sealed <> ''`,
+    );
+    expect(namedCategories).toHaveLength(2);
   });
 
   it('takes the input of a shell from before Inventory moved when the group has none, and refuses it when the group has some', async () => {
@@ -459,6 +537,51 @@ describe(`moving a household (${leg})`, () => {
       await deriveInventoryKeyring(newKeyring(), ada.household),
     ])
       expect(await openField(wrong, at('name'), flour?.encrypted?.name ?? '')).toBeUndefined();
+    // Her categories: the two that held a name are ciphertext now, for the group, opened under the Inventory keys and under nothing else; the fourteen starter
+    // categories nobody named were not touched, and a pull is told of the two.
+    const categoryRows = await dbAll<{
+      id: string;
+      sealed: string | null;
+      encrypted: string | null;
+    }>(
+      database,
+      sql`SELECT id, sealed, encrypted FROM ${appTable(database, 'category')} WHERE household_id = ${ada.household}`,
+    );
+    expect(categoryRows.filter((row) => row.sealed !== null && row.sealed !== '')).toEqual([]);
+    expect(
+      categoryRows
+        .filter((row) => row.encrypted !== null)
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual([CATEGORY.own, CATEGORY.produce].sort());
+    const pulledCategories = (pulled?.categories ?? []) as {
+      id: string;
+      encrypted?: Record<string, string>;
+    }[];
+    const hardware = pulledCategories.find((row) => row.id === CATEGORY.own);
+    const categoryAt = (id: string) => ({
+      list: ada.household,
+      table: 'category',
+      row: id,
+      field: 'name',
+    });
+    expect(
+      await openField(inventoryRing, categoryAt(CATEGORY.own), hardware?.encrypted?.name ?? ''),
+    ).toBe(`Hardware ${MARKER}`);
+    expect(
+      await openField(
+        inventoryRing,
+        categoryAt(CATEGORY.produce),
+        pulledCategories.find((row) => row.id === CATEGORY.produce)?.encrypted?.name ?? '',
+      ),
+    ).toBe(`Fruit and veg ${MARKER}`);
+    for (const wrong of [
+      await deriveListKeyring(ring, ada.household),
+      await deriveListKeyring(ring, ada.list),
+    ])
+      expect(
+        await openField(wrong, categoryAt(CATEGORY.own), hardware?.encrypted?.name ?? ''),
+      ).toBeUndefined();
     // The name keys are the device's (`n3.`): the override's is the starter entry's name, which the server could not have made from nothing.
     const keys = await dbAll<{ id: string; name_key: string }>(
       database,

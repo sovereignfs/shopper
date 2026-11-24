@@ -91,7 +91,7 @@ export class Mover {
     > = {};
     // The group's Inventory keys, made from the keyring just made and kept by nobody else (§13.2).
     const inventoryRing = await deriveInventoryKeyring(ring, household);
-    for (const table of ['list', 'item', 'product', 'inventory_item'] as const) {
+    for (const table of ['list', 'item', 'product', 'inventory_item', 'category'] as const) {
       rows[table] = [];
       const taken = new Set<string>();
       for (const row of manifest.rows[table] ?? []) {
@@ -102,6 +102,21 @@ export class Mover {
           if (!made || taken.has(made.nameKey ?? '')) return 'cannot';
           taken.add(made.nameKey ?? '');
           rows[table].push(made);
+          continue;
+        }
+        // A group's category (§8.3): its name for the group under the Inventory keys, like Inventory's, and nothing to make a name key of.
+        if (table === 'category') {
+          const fields: Record<string, string | null> = {};
+          for (const [field, value] of Object.entries(row.fields))
+            fields[field] =
+              value === null
+                ? null
+                : await sealField(
+                    inventoryRing,
+                    { list: household, table: 'category', row: row.id, field },
+                    value,
+                  );
+          rows[table].push({ id: row.id, fields });
           continue;
         }
         // A product from before lists had catalogs has no list, and its group cannot move until the server gives it one.

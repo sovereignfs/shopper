@@ -34,8 +34,8 @@ const newItem = (over: Record<string, unknown> = {}) =>
     { create: true },
   );
 
-const problem = (input: unknown): string => {
-  const verdict = validateMutation(input);
+const problem = (input: unknown, mode: 'plain' | 'encrypted' = 'plain'): string => {
+  const verdict = validateMutation(input, mode);
   if (verdict.ok) throw new Error('expected the mutation to be refused');
   return verdict.problem;
 };
@@ -105,8 +105,8 @@ describe('a mutation that is refused', () => {
       /table/,
     ],
     [
-      'a category, which is fixed in 0.1.0',
-      make([{ table: 'category', id: ID, fields: { hidden: true } }]),
+      'a table that is not synced',
+      make([{ table: 'shop', id: ID, fields: { name: 'Corner shop' } }]),
       /table/,
     ],
     ['a row id that is not an id', make([item({ boughtAt: 5 }, { id: 'x' })]), /change 1/],
@@ -235,5 +235,44 @@ describe('an item of a person’s Inventory (23.3)', () => {
     expect(validateMutation(make([change])).ok).toBe(true);
     const unname = { table: 'inventory_item', id: ID, fields: { name: null } };
     expect(validateMutation(make([unname])).ok).toBe(true);
+  });
+});
+
+describe('a category of the group (23.3, DESIGN.md §8.3)', () => {
+  const entry = (fields: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
+    table: 'category',
+    id: ID,
+    create: true,
+    fields: { position: 'a5', hidden: 0, ...fields },
+    ...over,
+  });
+
+  it('is made with a name and a place, and has no field for the key of a starter category, which only the server makes', () => {
+    expect(validateMutation(make([entry({ name: 'Hardware' })])).ok).toBe(true);
+    expect(problem(make([entry({ icon: 'package' })]))).toContain('a new category needs a name');
+    expect(problem(make([entry({ name: null })]))).toContain('a new category needs a name');
+    expect(problem(make([entry({ name: 'Hardware', position: undefined })]))).toContain('position');
+    expect(problem(make([entry({ name: 'x', starterKey: 'produce' })]))).toContain(
+      'no field starterKey',
+    );
+  });
+
+  it('says a flag as 0 or 1, and a change may be a field at a time, a starter category given the code’s name again among them', () => {
+    expect(problem(make([entry({ name: 'x', hidden: true })]))).toContain('hidden');
+    expect(validateMutation(make([{ table: 'category', id: ID, fields: { hidden: 1 } }])).ok).toBe(
+      true,
+    );
+    expect(
+      validateMutation(make([{ table: 'category', id: ID, fields: { position: 'a7' } }])).ok,
+    ).toBe(true);
+    expect(validateMutation(make([{ table: 'category', id: ID, fields: { name: null } }])).ok).toBe(
+      true,
+    );
+  });
+
+  it('has no name key, in either form of the group', () => {
+    expect(problem(make([entry({ name: 'x', nameKey: 'n3.abc' })]))).toContain('no field nameKey');
+    const key = { table: 'category', id: ID, fields: { nameKey: `n3.${'A'.repeat(43)}` } };
+    expect(problem(make([key]), 'encrypted')).toContain('no field nameKey');
   });
 });

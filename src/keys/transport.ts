@@ -384,6 +384,12 @@ export async function encryptMutation(
       changes.push(sealed);
       continue;
     }
+    if (change.table === 'category') {
+      const sealed = await encryptCategory(change, mutation.householdId, inventoryRingOf);
+      if (!sealed) return undefined;
+      changes.push(sealed);
+      continue;
+    }
     const fields: Record<string, string | number | null> = { ...change.fields };
     const content = CONTENT[change.table].filter((field) => typeof fields[field] === 'string');
     const naming = change.table === 'product' && typeof change.fields.name === 'string';
@@ -403,6 +409,32 @@ export async function encryptMutation(
     changes.push({ ...change, fields });
   }
   return { ...mutation, changes };
+}
+
+/**
+ * **A category's change, encrypted for its group** (§13.1): its name, when the change says one, under the group's Inventory keys, bound to the group in the place
+ * of a list. There is no name key (a name is not folded). `undefined` if the group's keys are not open. A starter category given the code's name says `null`,
+ * and there is nothing to encrypt.
+ */
+async function encryptCategory(
+  change: Mutation['changes'][number],
+  household: string,
+  inventoryRingOf: (household: string) => Promise<Keyring | undefined>,
+): Promise<Mutation['changes'][number] | undefined> {
+  if (typeof change.fields.name !== 'string') return change;
+  const ring = await inventoryRingOf(household);
+  if (!ring) return undefined;
+  return {
+    ...change,
+    fields: {
+      ...change.fields,
+      name: await sealField(
+        ring,
+        { list: household, table: 'category', row: change.id, field: 'name' },
+        change.fields.name,
+      ),
+    },
+  };
 }
 
 /**
@@ -471,11 +503,12 @@ async function openAnswer(
   return { ...answer, households };
 }
 
-const TABLE_OF: Record<'lists' | 'items' | 'products' | 'inventory', SyncedTable> = {
+const TABLE_OF: Record<'lists' | 'items' | 'products' | 'inventory' | 'categories', SyncedTable> = {
   lists: 'list',
   items: 'item',
   products: 'product',
   inventory: 'inventory_item',
+  categories: 'category',
 };
 
 /** Every row of a moved group's pull, its content opened under its list's keys; `undefined` if a value does not open, so that none of the page is taken. */
@@ -486,13 +519,17 @@ export async function openPull(
 ): Promise<HouseholdPull | undefined> {
   const aliasesOf = (table: SyncedTable, row: string) =>
     pull.aliases.filter((each) => each.table === table && each.to === row).map((each) => each.from);
-  const out: Record<'lists' | 'items' | 'products' | 'inventory', Record<string, unknown>[]> = {
+  const out: Record<
+    'lists' | 'items' | 'products' | 'inventory' | 'categories',
+    Record<string, unknown>[]
+  > = {
     lists: [],
     items: [],
     products: [],
     inventory: [],
+    categories: [],
   };
-  for (const key of ['lists', 'items', 'products', 'inventory'] as const) {
+  for (const key of ['lists', 'items', 'products', 'inventory', 'categories'] as const) {
     const table = TABLE_OF[key];
     for (const row of pull[key] ?? []) {
       const { encrypted, ...rest } = row as Record<string, unknown> & {
@@ -503,7 +540,7 @@ export async function openPull(
       const list =
         table === 'list'
           ? id
-          : table === 'inventory_item'
+          : table === 'inventory_item' || table === 'category'
             ? pull.household
             : typeof row.listId === 'string'
               ? row.listId
@@ -517,7 +554,7 @@ export async function openPull(
         }
         const ring = !list
           ? undefined
-          : table === 'inventory_item'
+          : table === 'inventory_item' || table === 'category'
             ? await inventoryRingOf(list)
             : await ringOf(list);
         const text =

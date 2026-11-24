@@ -1,5 +1,6 @@
 import type { Change, FieldValue, SyncedTable } from '../actions/format';
-import type { InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
+import type { CategoryRow, InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
+import { starterCategory } from '../catalog/categories';
 import { mergeChange } from '../sync/merge';
 import { withoutSecondTick } from '../sync/items';
 
@@ -8,19 +9,7 @@ import { withoutSecondTick } from '../sync/items';
  * a screen reads a row, hands it to an action and gets a mutation back. Two pure functions say how a row changes on the device, and neither touches
  * IndexedDB, so they are tested with none.
  */
-export type { InventoryRow, ItemRow, ListRow, ProductRow };
-
-export interface CategoryRow {
-  readonly id: string;
-  readonly householdId: string;
-  readonly starterKey: string | null;
-  readonly name: string;
-  readonly icon: string | null;
-  readonly position: string;
-  readonly hidden: boolean;
-  readonly deletedAt: number | null;
-  readonly seq: number;
-}
+export type { CategoryRow, InventoryRow, ItemRow, ListRow, ProductRow };
 
 /** A person's place in a household, as the reader may see it (an address only where `canSeeEmail` allows). */
 export interface MemberRow {
@@ -52,6 +41,7 @@ export type RowOf = {
   item: ItemRow;
   product: ProductRow;
   inventory_item: InventoryRow;
+  category: CategoryRow;
 };
 export type SyncedRow = RowOf[SyncedTable];
 
@@ -91,6 +81,8 @@ const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
     hidden: 0,
     deletedAt: null,
   },
+  // A category a device makes is the person's own (a starter one comes from the server with the group).
+  category: { starterKey: null, name: '', icon: null, hidden: 0, deletedAt: null },
 };
 
 /** The fields of a table that are flags: `0` or `1` in a mutation, and a boolean in a row as a device keeps it (the same as the pull hands it). */
@@ -99,6 +91,7 @@ const FLAGS: { [T in SyncedTable]: readonly string[] } = {
   item: [],
   product: [],
   inventory_item: ['recurring', 'hidden'],
+  category: ['hidden'],
 };
 const asFlags = (row: Record<string, FieldValue | boolean>) => {
   const out: Record<string, FieldValue> = {};
@@ -131,7 +124,7 @@ export function applyChange<T extends SyncedTable>(
       id: change.id,
       householdId,
       seq: 0,
-      ...(table === 'item' ? {} : { createdAt: now }),
+      ...(table === 'item' || table === 'category' ? {} : { createdAt: now }),
       ...DEFAULTS[table],
     }) as unknown as Record<string, FieldValue | boolean>,
   );
@@ -139,7 +132,12 @@ export function applyChange<T extends SyncedTable>(
     table === 'item'
       ? withoutSecondTick(typeof base.boughtAt === 'number' ? base.boughtAt : null, change.fields)
       : change.fields;
-  return asBooleans(table, mergeChange(base, {}, fields, 0).values) as unknown as RowOf[T];
+  const merged = asBooleans(table, mergeChange(base, {}, fields, 0).values);
+  // A starter category given back the code's name (`name: null`) shows it at once, as a pull will.
+  if (table === 'category' && merged.name === null)
+    merged.name =
+      starterCategory(typeof merged.starterKey === 'string' ? merged.starterKey : '')?.name ?? '';
+  return merged as unknown as RowOf[T];
 }
 
 /**
@@ -169,5 +167,11 @@ export function reversal(
   }
   if (before.deletedAt !== after.deletedAt && before.deletedAt !== undefined)
     fields.deletedAt = before.deletedAt;
+  // A starter category that had the code's name has it again as `null`, not as the text: a row of the group's with no name of the person's holds no content (§8.3).
+  if (table === 'category' && typeof fields.name === 'string') {
+    const starter =
+      typeof before.starterKey === 'string' ? starterCategory(before.starterKey) : undefined;
+    if (starter && fields.name === starter.name) fields.name = null;
+  }
   return Object.keys(fields).length === 0 ? null : { table, id: change.id, fields };
 }
