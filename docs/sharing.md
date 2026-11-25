@@ -47,8 +47,7 @@ link, send it any way you like, and whoever accepts it has that card and **nothi
 The link carries the card's key and no other, after the `#` in the address, which no browser sends to a server. It is shown once, works for one person, and
 expires in 14 days; you can revoke a link that has not been used, and remove someone from the card, which takes it from their devices. Someone who has a card
 can leave it. **Sharing a list shares no card.** A card shared with a person is not changed when they go: what they saw of it stays what they saw, and its
-key is not changed yet, which comes later for lists and cards together. Deleting a card takes it from everyone. **Coming in a later release:** a card linked
-to a list opens from shopping mode, only for the people on both. **Your Inventory**, your own library of what you buy, **is shared with nobody**: the people on a
+key is not changed yet, which comes later for lists and cards together. Deleting a card takes it from everyone. **A card linked to a list** (in the list's settings, by its Admin) opens from shopping mode with one tap, only for the people who are on both the list and the card: someone who has the list and not the card sees no button, and cannot tell the card is there. **Your Inventory**, your own library of what you buy, **is shared with nobody**: the people on a
 list you share see the names of the categories its items use, and nothing else of it.
 
 Each list has its own catalog, the products it remembers: what someone adds on a list you share never finds or changes a product of another of your

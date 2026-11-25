@@ -23,6 +23,7 @@ import { AddField } from './AddField';
 import { ItemBeside, useItemParam } from './ItemEditor';
 import { iconOf } from './ListScreen';
 import { ListGlyph } from './ListGlyph';
+import { ShopCard } from './ShopCard';
 import { shopEntry } from './shop-entry';
 import { useTitle } from './title';
 import { useUndo } from './Undo';
@@ -113,6 +114,8 @@ function Shopping({ data }: { data: Found }) {
               {open.length} to get · {bought.length} in basket
             </p>
           </div>
+          {/* The card for this shop, if the list's Admin linked one that this person is on (24.6): nothing otherwise. */}
+          <ShopCard listId={list.id} />
         </header>
 
         <div className={styles.add}>

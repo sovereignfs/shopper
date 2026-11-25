@@ -23,6 +23,9 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   shown once, works for one person and expires in 14 days, and you can revoke a link nobody has used. You can see who has the card and remove someone, which takes it from their devices; someone who has a
   card can leave it. A card shared with you opens with no network, like your own. Deleting a card takes it from everyone, and the links to it. A card's key is not changed when someone goes (that comes
   later for lists and cards together). That encryption is not yet audited.
+- **A card on a list, in shopping mode.** In a list's settings, a new **Cards** section (for the list's Admin) lets you choose which of your cards belong to that list. Shopping mode then has a card button, one tap
+  from where you are: it opens the card with its code and its number, large, and works with no network; with several cards linked it asks which. People you share a list with see the button only if you have also
+  shared that card with them: someone who has the list and not the card sees nothing of it and cannot tell that it is there.
 
 ### Changed
 

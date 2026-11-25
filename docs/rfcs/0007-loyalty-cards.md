@@ -89,4 +89,7 @@ first block has **Loyalty cards**; on a phone it is the footer's right icon.
    included (making one still counts the group's own cards alone). Nothing else of the group is joined: no list, no other card.
 8. **A card's keys are not changed when someone leaves or is removed** (§13.2: a new epoch comes with 16.8, for lists and cards together): what they hold on a device is not taken back, only their copy on the
    server, their place and their devices' copy of the card. The sharing dialog and the documentation say so.
-9. **The invitation page says whether a link is to a list or to a card,** besides who invited: it is what joining gives, and it names no shop, number or list. DESIGN.md §7.3 says it.
+9. **A link between a list and a card has the id of its pair, and is handed to the people on both** (24.6), as DESIGN.md §7.7 says: the same pair is one row on every device, so there is no fold to tell the
+   people of a list that a card exists, and someone on the list who is not on the card learns nothing of it. Making, unlinking and linking again are the list's Admin's who is also on the card; the card
+   and the list are of the same group; joining the list or the card after the link restamps it, so that it reaches the person at once.
+10. **The invitation page says whether a link is to a list or to a card,** besides who invited: it is what joining gives, and it names no shop, number or list. DESIGN.md §7.3 says it.

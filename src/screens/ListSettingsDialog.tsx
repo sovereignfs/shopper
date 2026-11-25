@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   Alert,
   Button,
@@ -11,20 +12,23 @@ import {
   IconPicker,
   Input,
   SettingsDialog,
+  Toggle,
 } from '@sovereignfs/ui';
+import { canLink, linkCard, unlinkCard } from '../actions/list-cards';
 import { archiveList, renameList, restoreList, styleList } from '../actions/lists';
 import type { ListRow } from '../actions/rows';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import type { ListData } from '../local/listview';
 import { LIST_ICONS, LIST_SWATCHES, listColorOf, listIconOf } from '../lists/appearance';
+import { linkableCardsOf } from '../local/list-cards-view';
 import { callOperation } from '../local/ops';
-import { useLocal } from '../local/react';
+import { useLocal, useLocalQuery } from '../local/react';
 import styles from './ListSettingsDialog.module.css';
 
 type Found = Extract<ListData, { found: true }>;
 
 /** The sections, in the order the dialog lists them; an address names one by its id (`?settings=general`). */
-export const LIST_SETTINGS_SECTIONS = ['general', 'archive'] as const;
+export const LIST_SETTINGS_SECTIONS = ['general', 'cards', 'archive'] as const;
 export type ListSettingsSection = (typeof LIST_SETTINGS_SECTIONS)[number];
 
 /** The section an address names, or `null` for none (the sections alone on a phone, the first on a wider screen): a value that is not a section is none. */
@@ -37,7 +41,7 @@ const env = () => ({ now: Date.now(), newId: () => crypto.randomUUID() });
 
 /**
  * **A list's settings** (RFC 0005, DESIGN.md §9.1, §16.5): the design system's settings dialog over the list, at `?settings=<section>`, so that Back closes it
- * and a link opens it, offline too. Two sections, each its own group: **General** (its name, icon and colour) and **Archive and delete**. Renaming, styling,
+ * and a link opens it, offline too. Three sections: **General** (its name, icon and colour), **Cards** (the list's Admin's, 24.6) and **Archive and delete**. Renaming, styling,
  * archiving and restoring are synced changes, so they work with no network; deleting for good is **an Admin's online operation, offered only for an archived
  * list** (it removes the list and its items), and says why when the server will not. The clearing rule and moving to another household come with trips (7.2)
  * and households (3.6).
@@ -54,13 +58,16 @@ export function ListSettingsDialog({
   onSection: (section: ListSettingsSection | null) => void;
   onClose: () => void;
 }) {
+  // The cards section is the list's Admin's: the address of one who is not an Admin names no section, as it would for any that is not there.
+  const admin = canLink(data.members.find((member) => member.self)?.role);
+  const active = section === 'cards' && !admin ? null : section;
   return (
     <SettingsDialog
       open
       onClose={onClose}
       title="List settings"
       size="fixed"
-      active={section}
+      active={active}
       onSelect={(id) => onSection(id === null ? null : sectionOfAddress(id))}
       backLabel="Back to the sections"
       groups={[
@@ -73,6 +80,16 @@ export function ListSettingsDialog({
               icon: 'settings',
               content: <General list={data.list} />,
             },
+            ...(admin
+              ? [
+                  {
+                    id: 'cards',
+                    label: 'Cards',
+                    icon: 'wallet-cards' as const,
+                    content: <CardsSection list={data.list} />,
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -88,6 +105,56 @@ export function ListSettingsDialog({
         },
       ]}
     />
+  );
+}
+
+/**
+ * **The cards linked to this list** (DESIGN.md §7.7, §16.5, RFC 0007, task 24.6): the list's Admin chooses, among **the cards of this list's group that they are on**, the ones Shopping mode offers
+ * on this list. A link is written as it is chosen, offline as well; it names the list and the card and nothing else, and **the people on the list see a card's button only if they are on the card
+ * too**, which the text says. A card of another group is not offered: a link is of one group's.
+ */
+function CardsSection({ list }: { list: ListRow }) {
+  const { client } = useLocal();
+  const cards = useLocalQuery((db) => linkableCardsOf(db, list), [list.id, list.householdId]).data;
+  return (
+    <div className={styles.section}>
+      <section className={styles.group} aria-label="Cards">
+        <h3>Cards for this list</h3>
+        <p className={styles.muted}>
+          A card you link here opens with one tap from shopping mode. Someone on this list sees it
+          only if they have the card too.
+        </p>
+        {cards && cards.length === 0 ? (
+          <p className={styles.muted}>
+            You have no cards here yet. <Link href="/cards">Add one under Loyalty cards.</Link>
+          </p>
+        ) : null}
+        <ul className={styles.cards}>
+          {(cards ?? []).map(({ card, link, linked }) => (
+            <li key={card.id} className={styles.row}>
+              <Toggle
+                aria-label={`Link ${card.shop}`}
+                checked={linked}
+                onChange={(on) => {
+                  const mutation = on
+                    ? linkCard(env(), {
+                        householdId: list.householdId,
+                        listId: list.id,
+                        cardId: card.id,
+                        existing: link,
+                      })
+                    : link
+                      ? unlinkCard(env(), link)
+                      : null;
+                  if (mutation && client) void client.commit(mutation);
+                }}
+              />
+              <span>{card.shop}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 

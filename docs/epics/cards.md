@@ -170,7 +170,7 @@ a link used and revoked and every Admin operation as someone else, and a copy th
 what a Member is shown, and the page's wording (browser). **What was left out:** a new key when someone goes (16.8, for lists and cards together; RFC 0007 item 8), the card's Admin passing the role while
 alive, and showing a Member who else has the card.
 
-#### 📋 24.6 — Cards on a list, in Shop mode
+#### ✅ 24.6 — Cards on a list, in Shop mode
 
 **Goal:** the card for this shop, one tap from Shop mode. **Design:** RFC 0007, "Cards and lists". **Depends on:** 24.3, 22.5, 22.9.
 
@@ -179,3 +179,24 @@ may see; Shop mode's header button, a choice when several; nobody sees a button 
 
 **Accepts when:** a linked card opens from Shop mode offline; a person on the list but not the card sees no button; linking a card of another group is
 refused as not found.
+
+**Done as (0.8.0, 2026-11-25):** in two parts, the server and then the device. **The server:** `list_card` (migration `0022`, both dialects), a synced table written through the one path like
+`list_category`, **with no fold**: its `id` is made from its two ids (`listCardId`, `src/cards/links.ts`: the two UUIDs combined bit by bit and given a version and variant, pure, the browser's and the server's one
+implementation), so the same pair is one row on every device, a link made twice is one, and a link made again after an unlink is that row with `deleted_at` cleared (a fold would have been told to the people
+of a list, and **someone on a list who is not on a card must not learn that a card exists**); `apply` holds a row to its pair's id, the pair never changes (the unique pair is the backstop), the list and the card
+are the household's (`checkReferences`, whose reference targets now include a card), and **only the list's Admin who is also on the card** makes, unlinks or links it (`checkListAccess`); everyone else, a Member
+of both, an Admin of the list not on the card, a card-only person, a stranger and an id that is not the pair's, reads as not found. **The pull hands a link to the people who are on both** (`onList` and `onCard`
+in the one statement), **both joins restamp it** (`stampList`, `stampCard`) so that someone given the card after the list, or the list after the card, with a cursor already past it, is handed it, and **it goes with its
+list, its card and its group** (`list.delete`, `card.delete`, `deletePerson`'s two deletions, `HOUSEHOLD_TABLES`); the export holds it for the same people. The table has nothing sealed: it is registered in
+`SEALED` and the rotation with no field, the design's §13.1 says so, and **the group's move takes nothing of it** (`MovedTable`). **The device:** store version 7 (`list_card`, three indexes, nothing reset); the pull's
+links through the same merge as every row; a link leaves the device with its list, its card and its group in each of the ways a device forgets (`forgetLinks`: a list or card the device no longer holds, a tombstone, the
+whole group); `linkCard` and `unlinkCard` (`src/actions/list-cards.ts`, pure); `cardsOfList` and `linkableCardsOf` (`src/local/list-cards-view.ts`: only live links of cards the device holds and that are not deleted, and
+the cards of the list's own group that the account is on); a **Cards** section in the list's settings, the list's Admin's (a Member's address for it names no section), a switch for each card, written as it is chosen
+and offline too; and **`ShopCard`** in Shopping mode's header, which draws nothing with no link, a button for one card that opens it over shopping (a full-screen sheet on a phone) with its code and its number beneath
+it, and a choice for several. **Tested:** every statement as a second person and through the three databases (`src/sync/list-cards.test.ts`), the id, both orders of joining with a cursor already past the link,
+deletion with the list and the card, account deletion (a card's links, a list's links, and a link of a list and a card that both carry on, which stays), the export for the people on both and no one else, the
+store's upgrade and each way of forgetting, the actions and the view, the link sent by a moved group's device with nothing to encrypt and shown, opened, on a device that is on both
+(`src/keys/cards.device.test.ts`), and in both browsers the Admin linking in the settings, the button, the card opened offline, the unlink, a person on the list and not the card with no row and no button until
+they are given the card, and a Member offered no Cards section. **Seen to fail when removed:** every guard above, in the unit tests (server and device) and, for visibility, restamping and the Admin-only section, in
+the browsers. **What was left out:** linking a card to a shop (13.5), putting a card's button on a list's own screen, and offering a card of another group (a link is of one group's, so there is none to offer).
+Settings text corrected with it: `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS` now says it bounds a card's people as a list's, and `SHOPPER_LIMIT_ACCOUNT_CARDS` the cards a person is on.
