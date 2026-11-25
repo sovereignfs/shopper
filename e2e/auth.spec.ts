@@ -3,6 +3,7 @@ import {
   DERIVED_SHAPE,
   PASSWORD,
   deleteInSettings,
+  fillSignUp,
   PHONE,
   forgetSession,
   newEmail,
@@ -21,6 +22,48 @@ import { PORTS } from './ports';
 test('an account can be made, and signs the person in', async ({ page }) => {
   const email = await signUp(page);
   expect((await sessionOf(page))?.user.email).toBe(email);
+});
+
+test('a browser that cannot make the keys does not leave sign-up busy: the account is there, the form says what is missing, and the password unlocks it later', async ({
+  page,
+}) => {
+  // The signing key is the first thing the keys' set-up asks of the browser that Playwright's WebKit on a Linux runner now and then refuses with an OperationError. Here it is refused until
+  // the test says it is not (a flag in the tab's storage, which a new page load keeps).
+  await page.addInitScript(() => {
+    const generate = crypto.subtle.generateKey.bind(crypto.subtle);
+    Object.defineProperty(crypto.subtle, 'generateKey', {
+      configurable: true,
+      value: (algorithm: AlgorithmIdentifier, ...rest: unknown[]) => {
+        const name = typeof algorithm === 'string' ? algorithm : algorithm.name;
+        if (name === 'Ed25519' && !sessionStorage.getItem('keys-allowed'))
+          return Promise.reject(
+            new DOMException(
+              'The operation failed for an operation-specific reason',
+              'OperationError',
+            ),
+          );
+        return Reflect.apply(generate, crypto.subtle, [algorithm, ...rest]) as Promise<unknown>;
+      },
+    });
+  });
+  const email = newEmail();
+  await page.goto('/sign-up');
+  await fillSignUp(page, { name: 'Ada', email, password: PASSWORD });
+  await page.getByRole('button', { name: 'Create account' }).click();
+  // Not the "Creating account…" it was left on: the button is back, and the sentence says the account was made and what is not.
+  await expect(
+    page.getByText(/Your account was made, but this browser could not set up/),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled();
+  // And it was made: the person is signed in, and the browser, allowed to now, is asked for the password to make the keys.
+  expect((await sessionOf(page))?.user.email).toBe(email);
+  await page.evaluate(() => sessionStorage.setItem('keys-allowed', '1'));
+  await page.goto('/');
+  await page.getByLabel('Your password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Unlock' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible({
+    timeout: 30_000,
+  });
 });
 
 test('signing in with the right password signs in, and signing in again, signed in, has nothing to ask', async ({

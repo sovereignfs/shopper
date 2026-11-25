@@ -6,6 +6,14 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.7] - 2026-11-25
+
+### Fixed
+
+- **Sign-up no longer stays on "Creating account…" when the browser cannot make the account's keys.** The account is made first and its keys after, in the browser; when that second step was refused
+  (a browser's encryption failed it now and then), nothing said so and the button stayed disabled for good. The form now says that the account was made and that this browser could not set up its
+  keys, and the password unlocks it the next time Shopper is opened. A password that cannot be derived reads "Something went wrong. Please try again." in the same way.
+
 ## [0.8.6] - 2026-11-25
 
 ### Changed

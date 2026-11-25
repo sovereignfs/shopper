@@ -7,6 +7,10 @@ import { messageFor } from '../messages';
 import { nextQuery } from '../next';
 import { SignUpForm as DesignSystemSignUpForm } from '@sovereignfs/ui';
 
+/** What a person is told when the account was made and this browser could not make its keys (the next time they open Shopper, it asks for the password to do it). */
+const KEYS_NOT_MADE =
+  'Your account was made, but this browser could not set up its keys. Open Shopper again and unlock it with your password.';
+
 /**
  * Standalone mode's sign-up (RFC 0005): the design system's `SignUpForm`, as core renders it. Shopper's own is what happens on submit: the password
  * is checked and derived here and never sent (RFC 0001), and the keys are made at once, with the recovery kit shown before anything else. Without
@@ -51,27 +55,37 @@ export function SignUpForm({
     }
     setBusy(true);
     setError(null);
-    const vault = shopperVault(vaultId);
-    const derived = await vault.derive(password, addressOf(email));
-    const { error: failure } = await authClient.signUp.email({
-      name,
-      email,
-      password: derived.signIn,
-    });
-    if (failure) {
+    // Once the account is made, a failure is of another kind: the account is there, and only its keys are not.
+    let made = false;
+    try {
+      const vault = shopperVault(vaultId);
+      const derived = await vault.derive(password, addressOf(email));
+      const { error: failure } = await authClient.signUp.email({
+        name,
+        email,
+        password: derived.signIn,
+      });
+      if (failure) {
+        setBusy(false);
+        setError(messageFor(failure));
+        return;
+      }
+      made = true;
+      // With mail the account is not signed in until the link in the message is used; without it the person is signed in at once.
+      if (mail) {
+        setBusy(false);
+        setSentTo(email);
+        return;
+      }
+      // Signed in now: the keys are made here, and the kit is shown before anything else.
+      await vault.afterSignIn(derived.secret);
+      window.location.assign(kitPath(next));
+    } catch {
+      // A browser that cannot do one of the things this asks of it (derive the password, make the keys) throws, and the form would stay busy for good.
+      // Nothing is logged: what was thrown has nothing in it a person can use, and it must not carry the password.
       setBusy(false);
-      setError(messageFor(failure));
-      return;
+      setError(made ? KEYS_NOT_MADE : messageFor(null));
     }
-    // With mail the account is not signed in until the link in the message is used; without it the person is signed in at once.
-    if (mail) {
-      setBusy(false);
-      setSentTo(email);
-      return;
-    }
-    // Signed in now: the keys are made here, and the kit is shown before anything else.
-    await vault.afterSignIn(derived.secret);
-    window.location.assign(kitPath(next));
   }
 
   return (
