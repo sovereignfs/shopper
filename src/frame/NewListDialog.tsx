@@ -56,7 +56,8 @@ export function NewListDialog({ place, onClose }: { place: Place; onClose: () =>
   }
 
   return (
-    <Dialog open onClose={onClose} size="sm" title="New list" aria-label="New list">
+    // A header, not a title: a title is shown on a phone only, and on a desktop the close button would float over the body.
+    <Dialog open onClose={onClose} size="sm" header="New list" aria-label="New list">
       <form ref={form} className={styles.form} onSubmit={(event) => void make(event)}>
         <FormField label="Name of the new list">
           {(field) => (

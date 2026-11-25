@@ -212,7 +212,8 @@ function Shopping({ data }: { data: Found }) {
           <Dialog
             open
             size="sm"
-            title="Finish shopping"
+            // A header, not a title: a title is shown on a phone only, and on a desktop the close button would float over the body.
+            header="Finish shopping"
             aria-label="Finish shopping"
             onClose={() => setFinishing(false)}
             footer={

@@ -41,7 +41,8 @@ export function ShopCard({ listId }: { listId: string }) {
           open
           onClose={close}
           size="md"
-          title={shown ? shown.shop : 'Cards'}
+          // A header, not a title: a title is shown on a phone only, and on a desktop the close button would float over the body.
+          header={shown ? shown.shop : 'Cards'}
           aria-label={shown ? shown.shop : 'Cards for this list'}
           footer={
             <div className={styles.footer}>

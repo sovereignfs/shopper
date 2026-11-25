@@ -27,6 +27,8 @@ test('a list is made in a dialog, on the device, and opened; the one open is mar
   await signUp(page);
   await sidebar(page).getByRole('button', { name: 'New list' }).click({ timeout: 15_000 });
   const dialog = page.getByRole('dialog', { name: 'New list' });
+  // A header of its own, with the close button in it: the title is there on a desktop too, where a dialog with a title alone has no row for it.
+  await expect(dialog.getByText('New list', { exact: true })).toBeVisible();
   const field = dialog.getByRole('textbox', { name: 'Name of the new list' });
   await expect(field).toBeFocused();
   await field.fill('Hardware store');

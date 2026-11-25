@@ -113,7 +113,8 @@ export function ScanDialog({
 
   const stuck = state === 'denied' || state === 'none' || state === 'broken';
   return (
-    <Dialog open onClose={onClose} size="md" title="Scan a card" aria-label="Scan a card">
+    // A header, not a title: a title is shown on a phone only, and on a desktop the close button would float over the body.
+    <Dialog open onClose={onClose} size="md" header="Scan a card" aria-label="Scan a card">
       <div className={styles.scan}>
         {stuck ? (
           <Alert variant="info">

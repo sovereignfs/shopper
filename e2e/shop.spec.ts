@@ -128,6 +128,12 @@ test('with the network cut: tick, add, add straight into the basket, finish by c
   ).toBeChecked();
 
   await page.getByRole('button', { name: 'Finish shopping' }).click();
+  // A header of its own, with the close button in it: the title is there on a desktop too, where a dialog with a title alone has no row for it.
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Finish shopping' })
+      .getByText('Finish shopping', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Clear 2 bought items from Groceries?')).toBeVisible();
   await page.getByRole('button', { name: 'Clear' }).click();
   // Back on the list, with the bought items gone from it, and no network yet.

@@ -49,6 +49,8 @@ async function addCard(
 ) {
   await page.getByRole('button', { name: 'Add card' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add a card' });
+  // A header of its own, with the close button in it: the title is there on a desktop too, where a dialog with a title alone has no row for it.
+  await expect(dialog.getByText('Add a card', { exact: true })).toBeVisible();
   await dialog.getByLabel('Shop or brand').fill(card.shop);
   await dialog.getByLabel('Number', { exact: true }).fill(card.number);
   if (card.kind) await dialog.getByLabel('Kind of code').selectOption({ label: card.kind });

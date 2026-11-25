@@ -240,6 +240,8 @@ test.describe('with no way to scan', () => {
     await toCards(page, baseURL);
     await page.getByRole('button', { name: 'Scan card' }).click();
     const scan = page.getByRole('dialog', { name: 'Scan a card' });
+    // A header of its own, with the close button in it: the title is there on a desktop too, where a dialog with a title alone has no row for it.
+    await expect(scan.getByText('Scan a card', { exact: true })).toBeVisible();
     await expect(scan.getByText('The camera is not allowed here')).toBeVisible();
     await scan.getByRole('button', { name: 'Type the number instead' }).click();
     const form = page.getByRole('dialog', { name: 'Add a card' });

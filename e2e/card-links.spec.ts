@@ -100,6 +100,8 @@ test('the list’s Admin links a card in the list’s settings, Shopping mode op
   await showCard(page).click();
   const shown = page.getByRole('dialog', { name: 'Tesco' });
   await expect(shown).toBeVisible();
+  // A header of its own, with the close button in it: the title is there on a desktop too, where a dialog with a title alone has no row for it.
+  await expect(shown.getByText('Tesco', { exact: true })).toBeVisible();
   await expect(shown.getByRole('img', { name: /^Tesco: EAN-13/ })).toBeVisible();
   await expect(shown.getByLabel('Number', { exact: true })).toHaveText('5901234123457');
   await shown.getByRole('button', { name: 'Done' }).click();
