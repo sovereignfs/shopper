@@ -338,7 +338,7 @@ async function leaveGroup(
 
 /** A card nobody else is on, with what is of it alone: its people, their copies of its keys, its links (which hold its keys under a secret) and the records about it (§7.7). */
 async function deleteCard(tx: Database, household: string, card: string): Promise<void> {
-  for (const table of ['card_member', 'card_key', 'invitation', 'tombstone'] as const)
+  for (const table of ['card_member', 'card_key', 'invitation', 'list_card', 'tombstone'] as const)
     await dbAll(
       tx,
       sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND card_id = ${card} RETURNING 1 AS gone`,
@@ -361,6 +361,7 @@ async function deleteList(
     'list_category',
     'list_member',
     'list_key',
+    'list_card',
     'invitation',
     'alias',
     'tombstone',

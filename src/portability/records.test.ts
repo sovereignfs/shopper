@@ -7,6 +7,7 @@ import { sealRow } from '../crypto/sealed';
 import { runMigrations } from '../db/migrate';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
+import { listCardId } from '../cards/links';
 import { addCardMember } from '../cards/members';
 import type { Limits } from '../limits/config';
 import { applyMutation } from '../sync/apply';
@@ -345,5 +346,79 @@ describe(`a person's export (${testTarget().leg})`, () => {
     ).toEqual([shared, alone].sort());
     const none = await personRecords(database, TEST_RING, stranger.accountId);
     expect(none.some((part) => part.kind.startsWith('card'))).toBe(false);
+  });
+  it('holds the cards linked to lists for the people who are on both the list and the card, and for no one else (24.6)', async () => {
+    const owner = await somebody(database, 'Linker');
+    const both = await somebody(database, 'Linkboth');
+    const listOnly = await somebody(database, 'Linklist');
+    const cardOnly = await somebody(database, 'Linkcard');
+    await dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${owner.household}`,
+    );
+    const card = crypto.randomUUID();
+    const value = `e2.1.${card}.${card}.${'A'.repeat(24)}`;
+    const made = await applyMutation(
+      { database, ring: TEST_RING, limits: LIMITS },
+      owner.accountId,
+      {
+        mutationId: crypto.randomUUID(),
+        householdId: owner.household,
+        changes: [
+          {
+            table: 'card',
+            id: card,
+            create: true,
+            fields: {
+              shop: value,
+              number: value,
+              kind: value,
+              code: value,
+              position: 'a1',
+              createdAt: 1,
+            },
+          },
+          {
+            table: 'list_card',
+            id: listCardId(owner.list, card),
+            create: true,
+            fields: { listId: owner.list, cardId: card, createdAt: 7 },
+          },
+        ],
+      },
+    );
+    expect(made.status).toBe('applied');
+    for (const who of [both, cardOnly])
+      await addCardMember(database, {
+        household: owner.household,
+        card,
+        person: who.personId,
+        role: 'member',
+        seq: 9,
+        now: 1,
+      });
+    for (const who of [both, listOnly]) await joinList(database, owner.household, owner.list, who);
+    const link = (parts: Awaited<ReturnType<typeof personRecords>>) =>
+      parts.find((part) => part.kind === 'list_card');
+    const expected = [
+      {
+        id: listCardId(owner.list, card),
+        household: owner.household,
+        list: owner.list,
+        card,
+        deletedAt: null,
+        createdAt: 7,
+      },
+    ];
+    expect(link(await personRecords(database, TEST_RING, owner.accountId))?.records).toEqual(
+      expected,
+    );
+    expect(link(await personRecords(database, TEST_RING, both.accountId))?.records).toEqual(
+      expected,
+    );
+    expect(link(await personRecords(database, TEST_RING, listOnly.accountId))).toBeUndefined();
+    expect(link(await personRecords(database, TEST_RING, cardOnly.accountId))).toBeUndefined();
+    // A link holds nothing of what a person wrote, and is not end-to-end: ids and times.
+    expect(link(await personRecords(database, TEST_RING, owner.accountId))?.endToEnd).toBe(false);
   });
 });

@@ -155,6 +155,13 @@
       "when": 1795597326863,
       "tag": "0021_add_invitation_card",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795599614514,
+      "tag": "0022_add_list_card",
+      "breakpoints": true
     }
   ]
 }

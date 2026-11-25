@@ -42,7 +42,7 @@ export async function stampCard(
     database,
     sql`UPDATE ${appTable(database, 'card')} SET seq = ${seq} WHERE household_id = ${household} AND id = ${card} RETURNING id`,
   );
-  for (const table of ['card_member', 'tombstone'] as const)
+  for (const table of ['card_member', 'tombstone', 'list_card'] as const)
     await dbAll(
       database,
       sql`UPDATE ${appTable(database, table)} SET seq = ${seq} WHERE household_id = ${household} AND card_id = ${card} RETURNING household_id`,

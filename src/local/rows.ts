@@ -4,6 +4,7 @@ import type {
   CategoryRow,
   InventoryRow,
   ItemRow,
+  ListCardRow,
   ListCategoryRow,
   ListRow,
   ProductRow,
@@ -17,7 +18,16 @@ import { withoutSecondTick } from '../sync/items';
  * a screen reads a row, hands it to an action and gets a mutation back. Two pure functions say how a row changes on the device, and neither touches
  * IndexedDB, so they are tested with none.
  */
-export type { CardRow, CategoryRow, InventoryRow, ItemRow, ListCategoryRow, ListRow, ProductRow };
+export type {
+  CardRow,
+  CategoryRow,
+  InventoryRow,
+  ItemRow,
+  ListCardRow,
+  ListCategoryRow,
+  ListRow,
+  ProductRow,
+};
 
 /** A person's place in a household, as the reader may see it (an address only where `canSeeEmail` allows). */
 export interface MemberRow {
@@ -57,6 +67,7 @@ export type RowOf = {
   category: CategoryRow;
   list_category: ListCategoryRow;
   card: CardRow;
+  list_card: ListCardRow;
 };
 export type SyncedRow = RowOf[SyncedTable];
 
@@ -102,6 +113,8 @@ const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
   list_category: { name: '', icon: null, deletedAt: null },
   // A card a device makes: what it is comes with the make (the shop, the number, the kind and the code), and nothing else is anyone's yet.
   card: { icon: null, color: null, holder: null, note: null, deletedAt: null },
+  // A link a device makes: the pair comes with the make.
+  list_card: { deletedAt: null },
 };
 
 /** The fields of a table that are flags: `0` or `1` in a mutation, and a boolean in a row as a device keeps it (the same as the pull hands it). */
@@ -113,6 +126,7 @@ const FLAGS: { [T in SyncedTable]: readonly string[] } = {
   category: ['hidden'],
   list_category: [],
   card: [],
+  list_card: [],
 };
 const asFlags = (row: Record<string, FieldValue | boolean>) => {
   const out: Record<string, FieldValue> = {};

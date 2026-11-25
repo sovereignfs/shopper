@@ -360,6 +360,8 @@ async function takeHousehold(
     ['list_category', pull.listCategories ?? []],
     // The cards the reader is on (RFC 0007), a server from before them sending none: through the same merge, so that what waits to be sent is not overwritten by a pull.
     ['card', pull.cards ?? []],
+    // The cards linked to lists, for the lists and cards the reader is on both of (§7.7, 24.6), a server from before them sending none: the same merge.
+    ['list_card', pull.listCards ?? []],
     // The group's categories, through the same merge as the rest now that the owner can change them: what waits to be sent is not overwritten by a pull.
     ['category', pull.categories],
   ];
@@ -395,12 +397,15 @@ async function takeHousehold(
       await tx.objectStore('shadow').delete([gone.table, gone.id]);
       touched.delete(keyOf(gone.table, gone.id));
     }
-    // A card deleted took its people with it (RFC 0007), and left a tombstone for the card alone.
-    if (gone.table === 'card')
+    // A card deleted took its people with it (RFC 0007), and its links to lists, and left a tombstone for the card alone.
+    if (gone.table === 'card') {
       for (const member of await tx.objectStore('card_member').index('byCard').getAll(gone.id))
         await tx.objectStore('card_member').delete([member.cardId, member.personId]);
-    // A list deleted for good took its items and its catalog with it, and left a tombstone for the list alone.
+      await forgetLinks(tx, 'byCard', gone.id, touched);
+    }
+    // A list deleted for good took its items, its catalog and the cards linked to it with it, and left a tombstone for the list alone.
     if (gone.table === 'list') {
+      await forgetLinks(tx, 'byList', gone.id, touched);
       for (const item of await tx.objectStore('item').index('byList').getAll(gone.id)) {
         await tx.objectStore('item').delete(item.id);
         await tx.objectStore('shadow').delete(['item', item.id]);
@@ -429,8 +434,24 @@ async function forgetHiddenCards(
     if (keep.has(card.id) || (await tx.objectStore('shadow').get(['card', card.id]))) continue;
     for (const member of await tx.objectStore('card_member').index('byCard').getAll(card.id))
       await tx.objectStore('card_member').delete([member.cardId, member.personId]);
+    // Its links to lists go with it: a link of a card the device no longer holds is no link.
+    await forgetLinks(tx, 'byCard', card.id, touched);
     await tx.objectStore('card').delete(card.id);
     touched.delete(keyOf('card', card.id));
+  }
+}
+
+/** The cards linked to a list, or the links of a card, leave the device with the list or the card (§7.7, 24.6): a link is for the people who are on both. */
+async function forgetLinks(
+  tx: Tx,
+  index: 'byList' | 'byCard',
+  id: string,
+  touched: Set<string>,
+): Promise<void> {
+  for (const link of await tx.objectStore('list_card').index(index).getAll(id)) {
+    await tx.objectStore('list_card').delete(link.id);
+    await tx.objectStore('shadow').delete(['list_card', link.id]);
+    touched.delete(keyOf('list_card', link.id));
   }
 }
 
@@ -455,6 +476,7 @@ async function forgetHidden(
     }
     for (const member of await tx.objectStore('member').index('byList').getAll(list.id))
       await tx.objectStore('member').delete([member.listId, member.personId]);
+    await forgetLinks(tx, 'byList', list.id, touched);
     await forgetCatalog(tx, household, list.id, touched);
     await tx.objectStore('list').delete(list.id);
     touched.delete(keyOf('list', list.id));
@@ -596,6 +618,7 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
     ['inventory_item', await tx.objectStore('inventory_item').index('byHousehold').getAll(id)],
     ['list_category', await tx.objectStore('list_category').index('byHousehold').getAll(id)],
     ['card', await tx.objectStore('card').index('byHousehold').getAll(id)],
+    ['list_card', await tx.objectStore('list_card').index('byHousehold').getAll(id)],
   ] as const;
   for (const [table, rows] of owned) {
     for (const row of rows) {

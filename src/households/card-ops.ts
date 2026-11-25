@@ -55,6 +55,11 @@ export const deleteCard: Operation = {
         tx,
         sql`DELETE FROM ${appTable(tx, 'card_member')} WHERE card_id = ${cardId} AND household_id = ${household} RETURNING id`,
       );
+      // The lists it was linked to (24.6): a link of a card that is gone is no link.
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'list_card')} WHERE card_id = ${cardId} AND household_id = ${household} RETURNING id`,
+      );
       // And the links to it: a link holds the card's keys under a secret, which must not outlive the card.
       await dbAll(
         tx,

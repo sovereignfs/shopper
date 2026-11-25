@@ -18,8 +18,17 @@ import { rowListOf } from '../local/row-list';
 import { cardMembersOf, cardsOf, failedOf } from '../local/store';
 import { type Wire, serverTransport } from '../local/test-support';
 import type { EndpointDeps } from '../sync/endpoint';
-import { deriveCardKeyring, wrapCardKeyring } from './household';
+import {
+  deriveCardKeyring,
+  deriveListKeyring,
+  wrapCardKeyring,
+  wrapListKeyring,
+} from './household';
+import { linkCard } from '../actions/list-cards';
+import { cardsOfList } from '../local/list-cards-view';
+import { joinList } from '../access/test-support';
 import { acceptInvitation } from '../households/invitations';
+import { listCardId } from '../cards/links';
 import { addPendingCard } from './pending';
 import { newLinkSecret, openCardFromLink, wrapCardForLink } from './link';
 import { Mover } from './mover';
@@ -515,5 +524,58 @@ describe(`sharing a card (${leg})`, () => {
     const later = await deviceOf(grace, g.key, storage);
     await later.client.sync();
     expect(await cards(later)).toMatchObject([{ id: card, shop: 'Waiting' }]);
+  });
+});
+
+/**
+ * **A card linked to a list, through the devices' own transport** (task 24.6, RFC 0007), in a group that has moved: the Admin's device links a card to a list and **sends it with no key to make for it** (a
+ * link holds nothing a person wrote, so the transport holds and refuses nothing), and the person who is on the list and the card, whose device opens each under its own keys, is shown the card by the list.
+ */
+describe(`a card linked to a list (${leg})`, () => {
+  it('is sent by a moved group’s device with nothing to encrypt, and shows the card, opened, from the list on a device that is on both', async () => {
+    const ada = await somebody(database, 'AdaLink');
+    const mia = await somebody(database, 'MiaLink');
+    const a = await movedDevice(ada);
+    const m = await movedDevice(mia);
+    const made = makeCard(env(), {
+      householdId: ada.household,
+      position: 'a1',
+      shop: 'TescoLink',
+      number: '5901234123457',
+      kind: 'ean13',
+      code: '5901234123457',
+    });
+    const card = made.changes[0]?.id ?? '';
+    await a.client.commit(made);
+    const linked = linkCard(env(), { householdId: ada.household, listId: ada.list, cardId: card });
+    if (linked) await a.client.commit(linked);
+    await a.client.sync();
+    // Nothing held, refused or left waiting: the change went as it was, in a group that has moved.
+    expect(await failedOf(a.db)).toEqual([]);
+    expect(await a.db.getAll('outbox')).toEqual([]);
+    const rows = await dbAll<{ id: string; sealed: string; encrypted: string }>(
+      database,
+      sql`SELECT id, sealed, encrypted FROM ${appTable(database, 'list_card')} WHERE household_id = ${ada.household}`,
+    );
+    expect(rows.map((row) => row.id)).toEqual([listCardId(ada.list, card)]);
+    // Mia is on the card (with her own copy of its keys) and on the list (with her own copy of its keys, as a join by a link gives it).
+    await giveCard(a, card, m);
+    const group = await a.memory.keyring(ada.household, a.key);
+    if (!group) throw new Error('no keyring');
+    const record = await wrapListKeyring(m.key, await deriveListKeyring(group, ada.list), {
+      person: mia.personId,
+      list: ada.list,
+    });
+    await joinList(database, ada.household, ada.list, mia);
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'list_key')} (list_id, person_id, household_id, epoch, record, created_at)
+          VALUES (${ada.list}, ${mia.personId}, ${ada.household}, 1, ${record}, 1)`,
+    );
+    await m.client.sync();
+    const shown = await m.client.read((db) => cardsOfList(db, ada.list));
+    expect(shown).toMatchObject([{ id: card, shop: 'TescoLink', number: '5901234123457' }]);
+    // Nothing the server holds of the link or the card is readable.
+    expect(await everyRow()).not.toContain('TescoLink');
   });
 });

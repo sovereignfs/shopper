@@ -7,6 +7,7 @@ import type {
   HouseholdRecord,
   InventoryRow,
   ItemRow,
+  ListCardRow,
   ListCategoryRow,
   ListRow,
   MemberRow,
@@ -18,7 +19,7 @@ import type {
  * The browser's working copy (DESIGN.md §12.1): IndexedDB through `idb`, **one database per account**, named for it, so that a second account on the same
  * device sees nothing of the first and signing out can delete exactly one. The UI reads and writes only this; the server is something the sync loop talks to.
  *
- * - `household`, `list`, `item`, `product`, `category`, `list_category`, `inventory_item`, `member`, `card`, `card_member`
+ * - `household`, `list`, `item`, `product`, `category`, `list_category`, `inventory_item`, `member`, `card`, `card_member`, `list_card`
  *                  the rows as the device shows them: the server's, with this device's unanswered edits laid over (`store.ts`).
  * - `shadow`       for a row that has unanswered edits, the row as the server last had it, so that an edit can be taken back and a pull can be merged under
  *                  the edits. A row with no unanswered edit has none; one the device made and the server has not answered has `row: null`.
@@ -81,6 +82,12 @@ export interface LocalSchema extends DBSchema {
     value: CardMemberRow;
     indexes: { byHousehold: string; byCard: string };
   };
+  /** The cards linked to lists (§7.7, 24.6): only those whose list and card the account is on, since the server hands a link to no one else. */
+  list_card: {
+    key: string;
+    value: ListCardRow;
+    indexes: { byHousehold: string; byList: string; byCard: string };
+  };
   shadow: { key: [string, string]; value: Shadow };
   outbox: { key: number; value: OutboxEntry };
   failed: { key: number; value: FailedEntry };
@@ -101,6 +108,7 @@ export const WRITE_STORES = [
   'member',
   'card',
   'card_member',
+  'list_card',
   'shadow',
   'outbox',
   'failed',
@@ -108,7 +116,7 @@ export const WRITE_STORES = [
 ] as const;
 
 /** The version of the stores. A change to them adds a step to `upgrade` and raises this; it never edits an earlier step. */
-export const LOCAL_VERSION = 6;
+export const LOCAL_VERSION = 7;
 
 /** The database for an account (DESIGN.md §12.1). */
 export const localName = (accountId: string): string => `shopper-${accountId}`;
@@ -174,6 +182,13 @@ export async function openLocal(
         const people = db.createObjectStore('card_member', { keyPath: ['cardId', 'personId'] });
         people.createIndex('byHousehold', 'householdId');
         people.createIndex('byCard', 'cardId');
+      }
+      // Version 7 (DESIGN.md §7.7, task 24.6): the cards linked to lists. Nothing is reset: no link was ever written before, so no cursor has passed any of them.
+      if (oldVersion < 7) {
+        const links = db.createObjectStore('list_card', { keyPath: 'id' });
+        links.createIndex('byHousehold', 'householdId');
+        links.createIndex('byList', 'listId');
+        links.createIndex('byCard', 'cardId');
       }
     },
     // Another tab is deleting this account's database (it signed out, or the account was deleted): this connection is in the way, so it lets go. Without it

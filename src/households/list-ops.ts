@@ -51,6 +51,11 @@ export const deleteList: Operation = {
         tx,
         sql`DELETE FROM ${appTable(tx, 'list_category')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
       );
+      // The cards linked to it (24.6): a link of a list that is gone is no link.
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'list_card')} WHERE list_id = ${listId} AND household_id = ${household} RETURNING id`,
+      );
       // Its catalog goes with it (21.3).
       await deleteListProducts(tx, household, listId, Number(stepped.seq));
       // Its links go with it, so that nobody joins a list that is gone (RFC 0004).

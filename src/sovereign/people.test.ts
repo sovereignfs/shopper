@@ -20,6 +20,7 @@ import * as sqliteApp from '../db/schema/sqlite/app';
 import { appTable } from '../db/tables';
 import { AUTH_TABLES, freshDatabase, testTarget } from '../db/test-support';
 import { householdsOf, membersOf, readHousehold } from '../households/households';
+import { listCardId } from '../cards/links';
 import { addCardMember } from '../cards/members';
 import { createInvitation } from '../households/invitations';
 import { personById } from '../people/people';
@@ -54,6 +55,8 @@ const DECIDED_APP: Record<string, string> = {
   list_category:
     'a list’s copy of a person’s category (§8.3): deleted with its list and with its household; a copy a person made on a list of someone else’s stays with the list, as what they added does',
   card: 'a card (§7.7): deleted with a card nobody else is on and with its household; one a person shared stays with the people on it, the Admin passing to the person on it longest',
+  list_card:
+    'a card linked to a list (24.6): ids only, deleted with its list, with its card and with its household',
   card_member:
     'ended (left_at) on a card that carries on, the Admin passing to the person on it longest; deleted with a card nobody else is on',
   card_key:
@@ -594,6 +597,99 @@ describe(`deleting a person (${leg})`, () => {
     ).toBe(1);
     // The group carries on for the one who is only on a card.
     expect(await count(app, appTable(app, 'household'), sql`id = ${ada.household}`)).toBe(1);
+  });
+
+  it('takes a card’s links with a card nobody else is on and with a list nobody else is on, and keeps a link of a list and a card that both carry on (24.6)', async () => {
+    const ada = await somebody(app, 'Ada-links');
+    const grace = await somebody(app, 'Grace-links');
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    const cipher = (id: string) => `e2.1.${id}.${id}.${'A'.repeat(24)}`;
+    const send = (changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
+          },
+        },
+        ada.accountId,
+        { mutationId: crypto.randomUUID(), householdId: ada.household, changes },
+      );
+    const card = (id: string) => ({
+      table: 'card',
+      id,
+      create: true,
+      fields: {
+        shop: cipher(id),
+        number: cipher(id),
+        kind: cipher(id),
+        code: cipher(id),
+        position: 'a1',
+        createdAt: 1,
+      },
+    });
+    const alone = crypto.randomUUID();
+    const shared = crypto.randomUUID();
+    const kept = crypto.randomUUID();
+    expect(
+      (
+        await send([
+          card(alone),
+          card(shared),
+          {
+            table: 'list',
+            id: kept,
+            create: true,
+            fields: { name: cipher(kept), position: 'a2', createdAt: 1 },
+          },
+        ])
+      ).status,
+    ).toBe('applied');
+    // Grace is on the second list and on the shared card, so both carry on when Ada goes; Ada's Groceries has nobody else, and the card `alone` has nobody else.
+    await addCardMember(app, {
+      household: ada.household,
+      card: shared,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: Date.now(),
+    });
+    await joinList(app, ada.household, kept, grace);
+    const link = async (list: string, cardId: string) =>
+      dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'list_card')} (id, household_id, list_id, card_id, created_at, seq)
+            VALUES (${listCardId(list, cardId)}, ${ada.household}, ${list}, ${cardId}, 1, 1)`,
+      );
+    await link(kept, alone);
+    await link(kept, shared);
+    await link(ada.list, shared);
+    await seedAuth(ada);
+    const links = async () =>
+      (
+        await dbAll<{ id: string }>(
+          app,
+          sql`SELECT id FROM ${appTable(app, 'list_card')} WHERE household_id = ${ada.household}`,
+        )
+      ).map((row) => row.id);
+    expect(await links()).toHaveLength(3);
+
+    await deletePerson(deps(), ada.accountId);
+    // The link of the card that went (`alone`) and the link of the list that went (Groceries) are gone; the one of a list and a card that both carry on stays, for Grace.
+    expect(await links()).toEqual([listCardId(kept, shared)]);
+    expect(await count(app, appTable(app, 'card'), sql`id = ${shared}`)).toBe(1);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${kept}`)).toBe(1);
   });
 
   it('ends the membership of a person who is on someone else’s card only, deletes every copy of card keys they hold, and leaves the card to the rest (24.2)', async () => {

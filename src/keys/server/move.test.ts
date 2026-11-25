@@ -248,8 +248,11 @@ describe(`moving a household (${leg})`, () => {
     const manifest = await moveManifest(deps(), ada.household, ada.accountId);
     expect(manifest?.rows.item[0]?.fields.note).toBe(`barista ${MARKER}`);
     // Her Inventory, deleted or not, opened with the rest, each row for its group (it has no list) and with its starter entry.
-    // Every synced table is moved: one added without its move (a person's own categories, step 5) fails here, and not in a browser, a group at a time.
-    expect(Object.keys(manifest?.rows ?? {}).sort()).toEqual([...SYNCED_TABLES].sort());
+    // Every synced table is moved: one added without its move (a person's own categories, step 5) fails here, and not in a browser, a group at a time. **A card linked to a list is the one
+    // that is not** (24.6): it names two ids and holds nothing a person wrote, so there is nothing of it to give keys.
+    expect(Object.keys(manifest?.rows ?? {}).sort()).toEqual(
+      SYNCED_TABLES.filter((table) => table !== 'list_card').sort(),
+    );
     const inventory = manifest?.rows.inventory_item ?? [];
     expect(inventory.map((row) => row.id).sort()).toEqual(Object.values(INVENTORY).sort());
     expect(inventory.every((row) => row.list === ada.household)).toBe(true);

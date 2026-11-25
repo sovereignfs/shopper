@@ -26,7 +26,8 @@ import { FIELD_VALUE, NAME_KEY, boundTo } from '../household';
  * the person's own group's alone, and the move is for that group's only member, so nobody else's Inventory is in one. Its values are for the group, in the place of
  * a list, under the group's Inventory keys, which the device derives from the keyring it makes (§13.2).
  */
-type MovedTable = SyncedTable;
+// A link between a list and a card (24.6) holds nothing a person wrote, so the move takes nothing of it: it is the table the move does not carry.
+type MovedTable = Exclude<SyncedTable, 'list_card'>;
 const MOVED: readonly MovedTable[] = [
   'list',
   'item',

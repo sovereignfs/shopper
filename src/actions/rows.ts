@@ -127,6 +127,17 @@ export interface ListCategoryRow {
   readonly seq: number;
 }
 
+/** **A card linked to a list** (§7.7, task 24.6): the pair and nothing else. `deletedAt` is an unlink, which linking again clears. */
+export interface ListCardRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly listId: string;
+  readonly cardId: string;
+  readonly deletedAt: number | null;
+  readonly createdAt: number;
+  readonly seq: number;
+}
+
 /**
  * **A loyalty card as a device holds it** (§7.7): the person's words opened under the card's keys (the device holds every row plain; the transport encrypts and opens each field),
  * what kind of code it is and the value that code carries.

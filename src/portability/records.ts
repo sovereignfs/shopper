@@ -58,6 +58,7 @@ export async function personRecords(
     household: [],
     member: [],
     card_member: [],
+    list_card: [],
   };
   const encrypted: Record<string, Record<string, unknown>[]> = {
     household_key: [],
@@ -145,6 +146,28 @@ export async function personRecords(
         role: member.role,
         joinedAt: Number(member.joined_at),
         leftAt: member.left_at === null ? null : Number(member.left_at),
+      });
+    // The cards linked to their lists (24.6), for the person who is on both the list and the card, as the pull hands them: the pair and an unlink, which hold nothing sealed.
+    const links = await dbAll<{
+      id: string;
+      list_id: string;
+      card_id: string;
+      deleted_at: number | null;
+      created_at: number;
+    }>(
+      database,
+      sql`SELECT r.id, r.list_id, r.card_id, r.deleted_at, r.created_at FROM ${appTable(database, 'list_card')} r
+          WHERE r.household_id = ${household.id} AND ${onList(database, sql`r.list_id`, accountId)} AND ${onCard(database, sql`r.card_id`, accountId)}
+          ORDER BY r.id`,
+    );
+    for (const link of links)
+      plain.list_card?.push({
+        id: link.id,
+        household: household.id,
+        list: link.list_id,
+        card: link.card_id,
+        deletedAt: link.deleted_at === null ? null : Number(link.deleted_at),
+        createdAt: Number(link.created_at),
       });
     for (const table of CONTENT_TABLES) {
       const rows = await dbAll<Record<string, unknown>>(

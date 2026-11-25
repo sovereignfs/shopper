@@ -100,6 +100,7 @@ export async function pullHousehold(
     cardMembers,
     cardTombstones,
     visibleCards,
+    listCards,
   ] = await Promise.all([
     take('list', onList(database, sql`r.id`, accountId)),
     take('item', onList(database, sql`r.list_id`, accountId)),
@@ -168,6 +169,12 @@ export async function pullHousehold(
       database,
       sql`SELECT c.id FROM ${t('card')} c WHERE c.household_id = ${household} AND ${onCard(database, sql`c.id`, accountId)} ORDER BY c.id`,
     ),
+    // **A card linked to a list is handed to the people who are on both** (§7.7, 24.6): two conditions of the one statement. Someone on the list who is not on the card is not handed the link, and
+    // someone on the card who is not on the list is not either (they are on no list of the group, and `take` is closed to them).
+    take(
+      'list_card',
+      sql`(${onList(database, sql`r.list_id`, accountId)} AND ${onCard(database, sql`r.card_id`, accountId)})`,
+    ),
   ]);
 
   // The page ends at a seq that is whole: where a table overflowed, just before the seq of its first row past the page, and never before the cursor.
@@ -186,6 +193,7 @@ export async function pullHousehold(
     cards,
     cardMembers,
     cardTombstones,
+    listCards,
   ]) {
     if (rows.length > pageRows) {
       more = true;
@@ -220,6 +228,7 @@ export async function pullHousehold(
     cards: within(cards).map((row) => cardOf(row)),
     cardMembers: within(cardMembers).map((row) => cardMemberRow(row, ring, accountId)),
     visibleCards: visibleCards.map((row) => row.id),
+    listCards: within(listCards).map((row) => listCardOf(row)),
     tombstones: [...within(tombstones), ...within(cardTombstones)].map((row) => ({
       table: String(row.table_name),
       id: String(row.id),
@@ -380,6 +389,19 @@ function categoryOf(row: Raw, ring: KeyRing, own: boolean) {
     deletedAt: num(row.deleted_at),
     seq: seqOf(row),
     ...(own ? encryptedOf(row) : {}),
+  };
+}
+
+/** A card linked to a list: the pair, and when it was unlinked. There is nothing in it to open. */
+function listCardOf(row: Raw) {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    listId: row.list_id,
+    cardId: row.card_id,
+    deletedAt: num(row.deleted_at),
+    createdAt: Number(row.created_at),
+    seq: seqOf(row),
   };
 }
 

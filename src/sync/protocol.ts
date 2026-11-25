@@ -67,6 +67,8 @@ export interface HouseholdPull {
   readonly cardMembers?: readonly Record<string, unknown>[];
   /** Every card of this group the reader may see now: the device forgets any other it holds. */
   readonly visibleCards?: readonly string[];
+  /** The cards linked to the reader's lists, for the reader who is on both the list and the card (§7.7, 24.6): the pair and an unlink, nothing sealed. A server from before them sends none. */
+  readonly listCards?: readonly Record<string, unknown>[];
   readonly tombstones: readonly { table: string; id: string; seq: number }[];
   readonly aliases: readonly {
     table: string;

@@ -6,7 +6,8 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { cardAdminOf, listAdminOf, onList, ownerOf, reaches } from '../access/membership';
+import { cardAdminOf, listAdminOf, onCard, onList, ownerOf, reaches } from '../access/membership';
+import { listCardId } from '../cards/links';
 import { addCardMember } from '../cards/members';
 import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
@@ -650,7 +651,7 @@ async function checkReferences(
     } else {
       found = await dbGet<{ yes: number }>(
         database,
-        sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
+        sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' || target === 'card' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
       );
     }
     if (!found) throw notFound();
@@ -783,6 +784,33 @@ export async function checkListAccess(
       ? await allowed(cardAdminOf(database, change.id, accountId))
       : await allowed(ownerOf(database, household, accountId));
     if (!ok) throw notFound();
+    return undefined;
+  }
+  if (spec.table === 'list_card') {
+    // **A card linked to a list** (§7.7, 24.6): made, unlinked and linked again by **the list's Admin who is also on the card**, the two being the household's (`checkReferences` asks, for the ones a
+    // change names). The pair is the row's and never changes, and **its id is the pair's** (`listCardId`), so that the same pair is one row for ever and a link made twice is the one link. Anyone else,
+    // a card-only person and someone on the list who is not on the card included, reads as not found.
+    const existing = await dbGet<{ list_id: string; card_id: string }>(
+      database,
+      sql`SELECT list_id, card_id FROM ${appTable(database, 'list_card')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const { listId, cardId } = change.fields;
+    if (existing) {
+      if (
+        (listId !== undefined && listId !== existing.list_id) ||
+        (cardId !== undefined && cardId !== existing.card_id)
+      )
+        throw notFound();
+    } else if (typeof listId !== 'string' || typeof cardId !== 'string') throw notFound();
+    const list = existing?.list_id ?? String(listId);
+    const card = existing?.card_id ?? String(cardId);
+    if (change.id !== listCardId(list, card)) throw notFound();
+    if (
+      !(await allowed(
+        sql`${listAdminOf(database, list, accountId)} AND ${onCard(database, card, accountId)}`,
+      ))
+    )
+      throw notFound();
     return undefined;
   }
   if (spec.table === 'list_category') {

@@ -13,6 +13,7 @@ export const HOUSEHOLD_TABLES: readonly string[] = [
   'category',
   'list',
   'list_category',
+  'list_card',
   'card',
   'item',
   'product',

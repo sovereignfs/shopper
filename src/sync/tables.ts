@@ -39,7 +39,7 @@ export interface TableSpec {
    * change** (a person's own categories are theirs alone, and a copy names no row of another group); `category` is any of the group's, for the person's own Inventory.
    */
   readonly refs: Readonly<
-    Record<string, 'list' | 'product' | 'category' | 'category_of_list' | 'person'>
+    Record<string, 'list' | 'product' | 'category' | 'category_of_list' | 'person' | 'card'>
   >;
   /** Columns the server sets from what the row says, not the device: a product's name key. */
   derive?(input: {
@@ -201,5 +201,19 @@ export const TABLES: Partial<Record<SyncedTable, TableSpec>> = {
     ],
     refs: {},
     limit: { kind: 'accountCards', of: (limits) => limits.accountCards },
+  },
+  // A card linked to a list (§7.7, 24.6): the pair, and a deletion for an unlink. There is nothing sealed. Both ids name a row of the household (`checkReferences`), and who may write it is a rule
+  // of its own in `checkListAccess`: the list's Admin who is also on the card.
+  list_card: {
+    table: 'list_card',
+    sql: 'list_card',
+    sealed: [],
+    plain: [
+      { field: 'listId', column: 'list_id' },
+      { field: 'cardId', column: 'card_id' },
+      { field: 'deletedAt', column: 'deleted_at' },
+      { field: 'createdAt', column: 'created_at' },
+    ],
+    refs: { listId: 'list', cardId: 'card' },
   },
 };

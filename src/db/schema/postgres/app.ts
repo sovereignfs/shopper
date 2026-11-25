@@ -266,6 +266,33 @@ export const card = app.table(
 );
 
 /**
+ * **A card linked to a list** (DESIGN.md §7.7, RFC 0007, task 24.6): the card for this shop, one tap from Shop mode. A link names a card and a list **of the same group, and holds nothing else**, so it has
+ * nothing to encrypt (`sealed` and `encrypted` are there, empty, so that the one write path treats the table as it treats the rest). Its `id` is **made from its two ids** (`src/cards/links.ts`), so that the
+ * same pair is one row on every device and a link made twice is the same link (an unlink is `deleted_at`, and linking again clears it), and the pair is unique. **Who may read it is two conditions:** being on
+ * the list and being on the card, in the statement; somebody on the list who is not on the card is not handed it. It goes with the list, or the card, that it is of.
+ */
+export const listCard = app.table(
+  'list_card',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    cardId: ref('card_id').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('list_card_pair_idx').on(table.listId, table.cardId),
+    index('list_card_household_seq_idx').on(table.householdId, table.seq),
+    index('list_card_card_idx').on(table.cardId),
+  ],
+);
+
+/**
  * **Every mutation the server has applied** (DESIGN.md §12.3), by the account that sent it and the id the device made, with the household's `seq` it
  * was applied at. A mutation sent again, because an answer was lost, finds its row and **writes nothing**: it is answered as it was. Pruned after ninety
  * days with the history (task 6.6, phase 2). Not a row of a household's: it is the account's, and goes with it (`deletePerson`).

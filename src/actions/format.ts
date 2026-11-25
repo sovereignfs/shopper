@@ -48,6 +48,7 @@ export const SYNCED_TABLES = [
   'category',
   'list_category',
   'card',
+  'list_card',
 ] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
@@ -226,6 +227,16 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['shop', 'number', 'kind', 'code', 'position', 'createdAt'],
   },
+  // A card linked to a list (§7.7, 24.6): a list and a card and nothing else, so there is nothing of it to encrypt. Its id is made from the two (`src/cards/links.ts`), which the server holds it to.
+  list_card: {
+    fields: {
+      listId: id,
+      cardId: id,
+      deletedAt: nullable(time),
+      createdAt: time,
+    },
+    required: ['listId', 'cardId', 'createdAt'],
+  },
 };
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
@@ -237,6 +248,8 @@ export const CONTENT: Record<SyncedTable, readonly string[]> = {
   category: ['name'],
   list_category: ['name'],
   card: ['shop', 'number', 'kind', 'code', 'icon', 'color', 'holder', 'note'],
+  // A link names a list and a card and holds nothing of what a person wrote.
+  list_card: [],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */
