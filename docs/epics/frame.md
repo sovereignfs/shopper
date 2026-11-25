@@ -206,8 +206,9 @@ field; a standalone account changes its password and keeps its lists.
 
 - **The dialog and its routes.** `SettingsHost` is `SettingsDialog` with four sections, **Profile, Security, Preferences and Data**, rendered by the server for the mode
   (`SettingsRoute`, which asks for the session) and shown by the client. Opened from a page it is over that page by an intercepting route
-  (`app/(app)/@modal/(.)settings`, with `@modal/default.tsx`, **`@modal/page.tsx` and `@modal/[...catchAll]` drawing nothing, so that the dialog does not stay open over the next
-  page**, which Next's docs say a slot would do), and Back closes it; loaded directly, `app/(app)/settings` draws Home (`HomeScreen`) with the dialog open and closes to `/`.
+  (`app/(app)/@modal/(.)settings`, with `@modal/default.tsx`, **and a page in `@modal` for each other address of the area drawing nothing (`Nothing.tsx`), so that the dialog does not
+  stay open over the next page**, which Next's docs say a slot would do; it was a catch-all and a page for `/` until 0.8.2, which Next's strict route matching read as the slot claiming
+  every address in the app, so that `pnpm dev` served the front page and sign-in as not found, and `src/access/modal-slot.test.ts` keeps the slot to the area's own addresses), and Back closes it; loaded directly, `app/(app)/settings` draws Home (`HomeScreen`) with the dialog open and closes to `/`.
   **The section shown is the address's** (`/settings/<section>`, a section chosen in place with the browser's own history: no round trip, one Back leaves Settings, and Back and
   Forward agree); **`/settings` alone names none**, which is the first on a wide screen and the sections alone on a phone, so that the route does not depend on the viewport.
   `/settings?section=` redirects to the section that took the old one's place (`sectionBefore`); a name that is not a section is not found. The title is `<section> · Settings · Shopper`.

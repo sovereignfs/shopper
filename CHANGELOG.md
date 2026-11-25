@@ -6,6 +6,15 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.2] - 2026-11-25
+
+### Fixed
+
+- **The development server (`pnpm dev`) served the front page, sign-in, sign-up and the other pages outside the signed-in area as "not found"** under Next.js 16.4.5, whose route matching is now
+  strict, so that nobody who was signed out could reach them. The settings dialog's slot drew nothing over any address through a catch-all, which that matching read as claiming every
+  address in the app; it now has a page for each address of the signed-in area and none for any other. A running instance was not affected, and the dialog behaves as it did: it opens over the page it
+  was opened from, and a navigation to another page closes it.
+
 ## [0.8.1] - 2026-11-25
 
 ### Changed
