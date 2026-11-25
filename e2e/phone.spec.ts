@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { PHONE, recordViolations, seedItems, signUp, test } from './helpers';
 
 /**
- * The phone, in a browser (tasks 8.8 and 22.11): the design system's footer (Home, the lists' drawer, and Settings until the cards have a page), the way back to the lists, the add field at the top, ticking and a long
+ * The phone, in a browser (tasks 8.8 and 22.11): the design system's footer (Home, the lists' drawer, and the loyalty cards, which took Settings' place there in 24.3), the way back to the lists, the add field at the top, ticking and a long
  * press to edit, the item's dialog the whole screen, and nothing that scrolls sideways at a phone's width. The same routes and the same data as on a wide
  * screen: only what is drawn differs, so the wide screen has no footer.
  */
@@ -19,7 +19,7 @@ test('a wide screen has no footer', async ({ page }) => {
 test.describe('on a phone', () => {
   test.use({ viewport: PHONE });
 
-  test('the footer is Home, the lists’ drawer and Settings, and the header opens the same drawer', async ({
+  test('the footer is Home, the lists’ drawer and the cards, and the header opens the same drawer', async ({
     page,
   }) => {
     const violations = await recordViolations(page);
@@ -42,13 +42,17 @@ test.describe('on a phone', () => {
     ).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // Settings is in the footer until the cards have a page, and in the avatar's menu always; there is no app launcher on a phone.
-    await footer(page).getByRole('link', { name: 'Settings' }).click();
-    await expect(page).toHaveURL(/\/settings$/);
-    await expect(footer(page).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+    // The cards are the footer's right icon (24.3), a link that is the page shown; Settings is in the avatar's menu; there is no app launcher on a phone.
+    await footer(page).getByRole('link', { name: 'Loyalty cards' }).click();
+    await expect(page).toHaveURL(/\/cards$/);
+    await expect(footer(page).getByRole('link', { name: 'Loyalty cards' })).toHaveAttribute(
       'aria-current',
       /.+/,
     );
+    await expect(footer(page).getByRole('link', { name: 'Settings' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
     await expect(page.getByRole('button', { name: 'Apps' })).toHaveCount(0);
     expect(await nothingSideways(page)).toBe(true);
     expect(await violations()).toEqual([]);

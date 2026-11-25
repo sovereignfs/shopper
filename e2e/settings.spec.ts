@@ -211,30 +211,30 @@ test('opened from a page, a section is chosen and a setting changed in place: on
   await expect(dialog(page).getByText('Saved.')).toBeVisible();
 });
 
+/** Settings on a phone is in the avatar's menu: the footer's right icon is the cards (24.3). */
+async function settingsFromMenu(page: Page) {
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+}
+
 test.describe('on a phone', () => {
   test.use({ viewport: PHONE });
 
-  test('Settings from the footer is the sections, and reaching a list from the drawer closes it', async ({
+  test('Settings from the avatar’s menu is the sections, and reaching a list from the drawer closes it', async ({
     page,
     baseURL,
   }) => {
     await signUp(page);
     await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
     await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
-    await page
-      .getByRole('navigation', { name: 'App navigation' })
-      .getByRole('link', { name: 'Settings' })
-      .click();
+    await settingsFromMenu(page);
     await expect(page).toHaveURL(/\/settings$/);
     await expect(dialog(page).getByRole('button', { name: 'Preferences' })).toBeVisible();
     await expect(dialog(page).getByRole('textbox', { name: /^Name/ })).toHaveCount(0);
     // To a list through the drawer, which a dialog is over: the dialog does not stay open over the next page.
     await dialog(page).getByRole('button', { name: /close/i }).click();
     await expect(dialog(page)).toHaveCount(0);
-    await page
-      .getByRole('navigation', { name: 'App navigation' })
-      .getByRole('link', { name: 'Settings' })
-      .click();
+    await settingsFromMenu(page);
     await expect(dialog(page)).toBeVisible();
     await page.goBack();
     await expect(dialog(page)).toHaveCount(0);
@@ -256,10 +256,7 @@ test.describe('on a phone', () => {
   }) => {
     await signUp(page);
     await seedItems(page, [{ name: 'Milk', category: 'dairy-eggs' }], baseURL ?? '');
-    await page
-      .getByRole('navigation', { name: 'App navigation' })
-      .getByRole('link', { name: 'Settings' })
-      .click();
+    await settingsFromMenu(page);
     await expect(dialog(page)).toBeVisible();
     // The drawer is under the dialog, so the way to a list is the browser's: Home by a link in the header's wordmark.
     await page.getByRole('link', { name: 'Shopper' }).first().click({ force: true });
