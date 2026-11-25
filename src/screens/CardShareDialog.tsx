@@ -118,7 +118,8 @@ export function CardShareDialog({ card, onClose }: { card: CardRow; onClose: () 
       open
       onClose={onClose}
       size="md"
-      title="Share"
+      // A header, not a title: a title is shown on a phone only, and on a desktop the close button would float over the first line of the body.
+      header="Share"
       aria-label={`Share ${card.shop}`}
       footer={
         <div className={styles.footer}>

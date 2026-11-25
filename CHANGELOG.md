@@ -6,6 +6,13 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.4] - 2026-11-25
+
+### Fixed
+
+- **The Share dialogs, for a list and for a card, have a header:** "Share", with the close button in it. On a desktop they had none, so the close button floated over the first line of the
+  text beneath; a phone already showed the title.
+
 ## [0.8.3] - 2026-11-25
 
 ### Changed
