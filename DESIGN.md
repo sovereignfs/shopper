@@ -352,18 +352,20 @@ A group is made with one list, _Groceries_, and the starter categories.
 
 People join a list only by accepting, never by being added: joining shows them your name.
 
-**An invitation is a link to one list** (`invitation.list_id`). _Share_, on the list, makes one, shown once to copy and send any way; there is no email
+**An invitation is a link to one list** (`invitation.list_id`) **or to one card** (`invitation.card_id`, §7.7), never both. _Share_, on the list, makes one, shown once to copy and send any way; there is no email
 field, no resend, no directory search and no notice in phase 1: the person who shared sees the new person appear among the list's people. Email, the
 directory and the bell are phase 2.
 
 - **An invitation** is a random token of 32 bytes, stored only as its hash, compared in constant time, valid for 14 days, single-use, revocable by
-  whoever made it or the list's Admin. At most 20 live links a list. Deleting a list revokes its links.
-- **`/invite/<token>`** says who invited, and nothing else (a list's name may be one the server cannot read). It offers to sign in or to create an
+  whoever made it or the list's Admin (a card's links are its Admin's alone). At most 20 live links a list, and a card. Deleting a list revokes its links, and deleting a card deletes its links with the keys they hold.
+- **`/invite/<token>`** says who invited and whether it is to a list or to a card, and nothing else (a list's name may be one the server cannot read, and a card's shop never is shown). It offers to sign in or to create an
   account: in suite mode, through core; standalone, with Shopper's forms, as the sign-up policy allows (§6.3). **Whoever holds the link can accept it,** whatever address it was
   sent to.
 - **Accepting** puts the person on that list as a Member, in one transaction, re-stamps the list's rows so that their devices pull them (§12.3), and
   tells the list's other people's devices (RFC 0002). **A link to an encrypted list carries that list's keys in its fragment**, which the server never
-  sees (§13.5).
+  sees (§13.5). **Accepting a link to a card** does the same for that card: the person is a Member of it and **on nothing else of its group** (no list, no other card), the card's rows are
+  stamped at the join, and the card's other people's devices are told. A card's people are bounded by the same setting as a list's (`SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`) and the cards an
+  account is on, its own included, by `SHOPPER_LIMIT_ACCOUNT_CARDS`, both in the statement that adds the person.
 
 ### 7.4 My lists, and those shared with me
 
@@ -982,7 +984,7 @@ by a cryptographer or audited, and every place Shopper describes the feature say
   anyone: no link carries them and no `list_key` holds them, so nobody on a shared list can open a person's Inventory or own categories, even from a
   copy of the database.
 - **A card's keyring is derived from its group's** as a list's is (`shopper:card-key:v1`, with the card's id), and someone given a card by a link
-  keeps their own copy in `card_key`, as `list_key` (`lr1.`), deleted when they leave it or are removed. Its epochs follow a list's: none is made
+  keeps their own copy in `card_key` (`cr1.`, kept by `card.key.mine`, as `list_key` is by `list.key.mine`), deleted when they leave it or are removed. Its epochs follow a list's: none is made
   until 16.8, so removing someone from a card does not change its keys yet (§13.6).
 - **Someone given a list by a link keeps their own copy of its keyring** in `list_key`, wrapped under their own app key (`lr1.`), kept by
   `list.key.mine`, handed back to them in each pull of a list they are on, and deleted when they leave it or are removed, with the list and with the
@@ -1017,7 +1019,7 @@ Rotation is `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, re-wrapping those only. `docs/enc
   inviter's browser stores **the list's keyring, and no other**, wrapped under it (`lk2.`, `src/keys/link.ts`), beside the token's hash; the invitation
   page keeps the fragment in the tab and removes it from the address first; accepting gives the newcomer the wrapped copy once and deletes it, and
   their browser keeps the keyring under their own app key (`list.key.mine`, §13.2). A used, revoked or expired link opens nothing. Whoever holds the
-  link can accept it (§7.3). **A link to a card** is the same, with **the card's keyring, and no other** (§7.7).
+  link can accept it (§7.3). **A link to a card** is the same, with **the card's keyring, and no other** (§7.7), wrapped under the secret as `ck2.` (`src/keys/link.ts`) and kept by the newcomer's browser under their own app key (`card.key.mine`).
 - **By email or from the directory** (phase 2), the link carries no fragment, since the server sends it: the newcomer joins and waits until a device of
   someone on the list seals the key to them.
 

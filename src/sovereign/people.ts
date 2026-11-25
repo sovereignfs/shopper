@@ -84,7 +84,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   if (person)
     await dbAll(
       database,
-      sql`UPDATE ${appTable(database, 'invitation')} SET revoked_at = ${now}
+      sql`UPDATE ${appTable(database, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL
           WHERE created_by = ${person.id} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
     );
 
@@ -336,9 +336,9 @@ async function leaveGroup(
   });
 }
 
-/** A card nobody else is on, with what is of it alone: its people, their copies of its keys and the records about it (§7.7). */
+/** A card nobody else is on, with what is of it alone: its people, their copies of its keys, its links (which hold its keys under a secret) and the records about it (§7.7). */
 async function deleteCard(tx: Database, household: string, card: string): Promise<void> {
-  for (const table of ['card_member', 'card_key', 'tombstone'] as const)
+  for (const table of ['card_member', 'card_key', 'invitation', 'tombstone'] as const)
     await dbAll(
       tx,
       sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND card_id = ${card} RETURNING 1 AS gone`,

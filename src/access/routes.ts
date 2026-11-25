@@ -213,6 +213,42 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'operation',
+    address: 'card.invite.create',
+    who: 'admin',
+    note: 'A card’s Admin makes a link to it, in the statement; the link carries the card’s keys under a secret the server never sees, its token is returned once and only its hash is stored. A Member of the card, a person on a list of its group, an outsider and an unknown card read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.invite.revoke',
+    who: 'admin',
+    note: 'A card’s Admin revokes a link to it, in the statement; a Member of the card, a person on a list of its group, an outsider and a link that is gone read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.invite.list',
+    who: 'admin',
+    note: 'A card’s Admin reads its live links (who made each), never a link itself; a Member of the card, a person on a list of its group and an outsider read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.member.leave',
+    who: 'member',
+    note: 'Someone on a card leaves it, in one transaction that steps the group’s counter and deletes their copy of its keys; its Admin cannot. An outsider and a person on a list of its group read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.member.remove',
+    who: 'admin',
+    note: 'A card’s Admin removes someone from it, never an Admin; a Member’s attempt, a person on a list of its group and an outsider read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.key.mine',
+    who: 'member',
+    note: 'Someone on a card keeps their own copy of its keys, wrapped under their app key: only their own row, only for a card they are on, in the statement; an outsider and a person on a list of its group read as not found.',
+  },
+  {
+    kind: 'operation',
     address: 'invite.create',
     who: 'member',
     note: 'Any member makes a link for the household; its token is returned once and only its hash is stored. An outsider reads as not found.',
@@ -227,13 +263,13 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/invite/[token]',
     who: 'public',
-    note: 'An invitation: the household’s name and who invited, and nothing else; one page for every link that does not work. Opening it is rate limited.',
+    note: 'An invitation to a list or a card: who invited and which of the two it is, and nothing else; one page for every link that does not work. Opening it is rate limited.',
   },
   {
     kind: 'route',
     address: '/api/invite/accept',
     who: 'signed-in',
-    note: 'Accepts a link as the session’s account: one transaction that claims it, checks both limits and adds a Member. Rate limited.',
+    note: 'Accepts a link, to a list or to a card, as the session’s account: one transaction that claims it, checks its limits and adds a Member. Rate limited.',
   },
   {
     kind: 'operation',

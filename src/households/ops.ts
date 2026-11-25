@@ -9,9 +9,10 @@ import { dbGet } from '../db/exec';
 import { personOfAccount } from '../people/people';
 import { createInvite, listInvites, revokeInvite } from './invite-ops';
 import { leaveHousehold, removeMember } from './member-ops';
-import { deleteCard } from './card-ops';
+import { createCardInvite, deleteCard, listCardInvites, revokeCardInvite } from './card-ops';
+import { leaveCard, removeCardMember } from './card-member-ops';
 import { deleteList } from './list-ops';
-import { keepListKeys } from '../keys/server/key-ops';
+import { keepCardKeys, keepListKeys } from '../keys/server/key-ops';
 
 /**
  * **The online operations** (DESIGN.md §12.8): households, membership, roles, invitations and moving a list are decided by the server at once, never queued
@@ -52,6 +53,12 @@ export interface Operation {
 export const OPERATIONS: readonly Operation[] = [
   deleteList,
   deleteCard,
+  createCardInvite,
+  revokeCardInvite,
+  listCardInvites,
+  leaveCard,
+  removeCardMember,
+  keepCardKeys,
   createInvite,
   revokeInvite,
   listInvites,

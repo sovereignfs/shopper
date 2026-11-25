@@ -4,6 +4,11 @@ import { cardAdminOf } from '../access/membership';
 import { isId } from '../actions/format';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
+import {
+  createCardInvitation,
+  liveCardInvitations,
+  revokeCardInvitation,
+} from './card-invitations';
 import type { Operation } from './ops';
 
 /**
@@ -50,7 +55,90 @@ export const deleteCard: Operation = {
         tx,
         sql`DELETE FROM ${appTable(tx, 'card_member')} WHERE card_id = ${cardId} AND household_id = ${household} RETURNING id`,
       );
+      // And the links to it: a link holds the card's keys under a secret, which must not outlive the card.
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'invitation')} WHERE card_id = ${cardId} AND household_id = ${household} RETURNING id`,
+      );
       return { ok: true as const };
     });
+  },
+};
+
+/**
+ * **`card.invite.create`: make a link to a card** (DESIGN.md §7.7, §12.8), its **Admin's** alone. The link is in the answer **once**: only its hash is stored, so the sharing dialog shows it with a copy
+ * button and a person who loses it makes another. It carries the card's keys, wrapped by the Admin's browser under the secret that goes after `#` (`ck2.`), and no other card's and no list's. The path
+ * is the page `/invite/<token>`, which the caller joins to the app's own address.
+ */
+export const createCardInvite: Operation = {
+  name: 'card.invite.create',
+  who: 'admin',
+  scope: 'card',
+  input: z.object({
+    card: z.string().refine(isId, 'not an id'),
+    wrappedKey: z
+      .string()
+      .regex(/^ck2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+      .max(8192),
+  }),
+  async run({ database, accountId, personId, household, now }, input) {
+    const made = await createCardInvitation(database, {
+      household,
+      card: String(input.card),
+      accountId,
+      personId,
+      now,
+      wrappedKey: String(input.wrappedKey),
+    });
+    if (!made.ok) return { ok: false as const, refused: made.refused };
+    return {
+      ok: true as const,
+      result: { id: made.id, path: `/invite/${made.token}`, expiresAt: made.expiresAt },
+    };
+  },
+};
+
+/** **`card.invite.revoke`**: a link to a card stops working, by its Admin; for anyone else it reads as not found, as a link that is gone. */
+export const revokeCardInvite: Operation = {
+  name: 'card.invite.revoke',
+  who: 'admin',
+  scope: 'card',
+  input: z.object({
+    card: z.string().refine(isId, 'not an id'),
+    invitation: z.string().refine(isId, 'not an id'),
+  }),
+  async run({ database, accountId, household, now }, input) {
+    const done = await revokeCardInvitation(database, {
+      household,
+      card: String(input.card),
+      accountId,
+      invitation: String(input.invitation),
+      now,
+    });
+    return done
+      ? { ok: true as const }
+      : {
+          ok: false as const,
+          refused: 'That link is not there any more, or is not yours to revoke.',
+        };
+  },
+};
+
+/** **`card.invite.list`**: a card's live links for the sharing dialog (§16.14): who made each and when it expires. A link itself is never in the answer. Its Admin's. */
+export const listCardInvites: Operation = {
+  name: 'card.invite.list',
+  who: 'admin',
+  scope: 'card',
+  input: z.object({ card: z.string().refine(isId, 'not an id') }),
+  async run({ database, ring, accountId, household, now }, input) {
+    return {
+      ok: true as const,
+      result: await liveCardInvitations(database, ring, {
+        household,
+        card: String(input.card),
+        accountId,
+        now,
+      }),
+    };
   },
 };

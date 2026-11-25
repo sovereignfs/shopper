@@ -98,6 +98,8 @@ export const invitation = app.table(
     householdId: ref('household_id').notNull(),
     // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
     listId: ref('list_id'),
+    // The card the row is about (RFC 0007), instead of a list: a link is to one or the other, never both. Whoever joins by it is on that card and nothing else of the group.
+    cardId: ref('card_id'),
     tokenHash: ref('token_hash').notNull(),
     // A moved household's keyring, wrapped under the secret in the link's fragment, which the server never sees (RFC 0001). Gone on accept or
     // revoke.
@@ -112,6 +114,7 @@ export const invitation = app.table(
   (table) => [
     uniqueIndex('invitation_token_hash_idx').on(table.tokenHash),
     index('invitation_household_idx').on(table.householdId),
+    index('invitation_card_idx').on(table.cardId),
   ],
 );
 

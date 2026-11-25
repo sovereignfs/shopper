@@ -118,6 +118,7 @@ describe(`invitations by link (${leg})`, () => {
     const grace = await somebody(database, 'Grace3');
     const live = await make(ada);
     expect(await previewInvitation(database, TEST_RING, live.token, NOW + 1)).toEqual({
+      kind: 'list',
       invitedBy: 'Ada3',
       encrypted: false,
     });

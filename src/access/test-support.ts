@@ -122,8 +122,9 @@ export function callAs(
   operations: readonly Operation[],
   who: Pick<Someone, 'accountId'>,
   body: Record<string, unknown>,
+  now?: number,
 ): Promise<Reply> {
-  return dispatch({ database, ring: TEST_RING, operations }, who.accountId, body);
+  return dispatch({ database, ring: TEST_RING, operations }, who.accountId, body, now);
 }
 
 /** What an unknown operation answers: what everything that is not for the caller answers as well. */

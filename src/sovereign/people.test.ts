@@ -538,6 +538,16 @@ describe(`deleting a person (${leg})`, () => {
         sql`INSERT INTO ${appTable(app, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
             VALUES (${cardId}, ${person}, ${ada.household}, 1, 'cr1.record', 1)`,
       );
+    // A link to each, waiting (a link holds the card's keys under a secret): one dies with its card, the other with its maker.
+    for (const [cardId, hash] of [
+      [alone, 'a'.repeat(64)],
+      [shared, 'b'.repeat(64)],
+    ] as const)
+      await dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'invitation')} (id, household_id, card_id, token_hash, wrapped_key, created_by, created_at, expires_at)
+            VALUES (${crypto.randomUUID()}, ${ada.household}, ${cardId}, ${hash}, 'ck2.a.b', ${ada.personId}, ${Date.now()}, ${Date.now() + 86_400_000})`,
+      );
     await seedAuth(ada);
     const members = (id: string) =>
       count(app, appTable(app, 'card_member'), sql`card_id = ${id} AND left_at IS NULL`);
@@ -549,6 +559,15 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count(app, appTable(app, 'card'), sql`id = ${alone}`)).toBe(0);
     expect(await count(app, appTable(app, 'card_member'), sql`card_id = ${alone}`)).toBe(0);
     expect(await count(app, appTable(app, 'card_key'), sql`card_id = ${alone}`)).toBe(0);
+    expect(await count(app, appTable(app, 'invitation'), sql`card_id = ${alone}`)).toBe(0);
+    // The shared one's link is dead and holds no key.
+    expect(
+      await count(
+        app,
+        appTable(app, 'invitation'),
+        sql`card_id = ${shared} AND revoked_at IS NOT NULL AND wrapped_key IS NULL`,
+      ),
+    ).toBe(1);
     // The shared one stays with Grace, now its Admin, and Ada's copy of its keys is gone with her.
     expect(await count(app, appTable(app, 'card'), sql`id = ${shared}`)).toBe(1);
     expect(await members(shared)).toBe(1);
