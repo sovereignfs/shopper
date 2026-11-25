@@ -2,7 +2,7 @@ import { CONTENT, type Mutation, type SyncedTable } from '../actions/format';
 import { canonicalName } from '../catalog/canonical';
 import { starterEntryByKey } from '../catalog/starter';
 import type { Transport } from '../local/transport';
-import { readPending } from './pending';
+import { readPending, readPendingCards } from './pending';
 import type { HouseholdPull, SyncAnswer, SyncRequest } from '../sync/protocol';
 import {
   type Keyring,
@@ -77,6 +77,9 @@ export class EncryptionMemory {
     // Copies of lists' keys from a link that the server has not taken yet (`pending.ts`): used meanwhile.
     for (const each of readPending(storage))
       this.listRecords.set(each.list, { record: each.record, person: each.person });
+    // And a card's (RFC 0007), the same way.
+    for (const each of readPendingCards(storage))
+      this.cardRecords.set(each.card, { record: each.record, person: each.person });
   }
 
   isEncrypted(household: string): boolean {

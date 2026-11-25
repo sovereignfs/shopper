@@ -19,6 +19,9 @@ import { cardMembersOf, cardsOf, failedOf } from '../local/store';
 import { type Wire, serverTransport } from '../local/test-support';
 import type { EndpointDeps } from '../sync/endpoint';
 import { deriveCardKeyring, wrapCardKeyring } from './household';
+import { acceptInvitation } from '../households/invitations';
+import { addPendingCard } from './pending';
+import { newLinkSecret, openCardFromLink, wrapCardForLink } from './link';
 import { Mover } from './mover';
 import { moveHousehold, moveInput, moveManifest } from './server/move';
 import { EncryptionMemory, encryptingTransport } from './transport';
@@ -73,13 +76,13 @@ const memoryStore = () => {
 };
 
 /** A device as the page makes one (`react.tsx`): the transport that encrypts and opens, and the one row-to-list lookup. */
-async function deviceOf(who: Someone, key: CryptoKey) {
+async function deviceOf(who: Someone, key: CryptoKey, storage = memoryStore()) {
   const name = localName(`${who.accountId}-${crypto.randomUUID()}`);
   names.push(name);
   const db = await openLocal('', name);
   opened.push(db);
   const wire: Wire = { offline: false, requests: [] };
-  const memory = new EncryptionMemory(memoryStore(), `k-${crypto.randomUUID()}`);
+  const memory = new EncryptionMemory(storage, `k-${crypto.randomUUID()}`);
   const client = new SyncClient({
     db,
     transport: encryptingTransport(
@@ -124,9 +127,9 @@ const moveFetch =
   };
 
 /** A person's group moved to device encryption by the real `Mover`, and the device that moved it. */
-async function movedDevice(who: Someone): Promise<Dev> {
+async function movedDevice(who: Someone, storage = memoryStore()): Promise<Dev> {
   const key = await appKey();
-  const dev = await deviceOf(who, key);
+  const dev = await deviceOf(who, key, storage);
   await dev.client.sync();
   expect(await new Mover(dev.memory, moveFetch(who)).run([who.household], key)).toBe(true);
   await dev.client.sync();
@@ -359,5 +362,158 @@ describe(`a loyalty card on devices (${leg})`, () => {
         })
       ).status,
     ).toBe(404);
+  });
+});
+
+/**
+ * **Sharing a card, from the link to the removal** (task 24.5, RFC 0007), through the real operations and the devices' own transport: the Admin's device makes the link (the card's keys, wrapped under a
+ * secret the server never sees), the guest accepts it, their browser opens the keys from the link and keeps its own copy (`card.key.mine`), their device opens the card **and nothing else of the
+ * group**, and the Admin removing them (or their leaving) takes the card, and the group they reached it by, from the device.
+ */
+const door = (who: Someone, household: string, body: Record<string, unknown>) =>
+  callAs(database, OPERATIONS, who, { household, ...body });
+const NOT_FOUND = { status: 404, body: { ok: false, error: 'not_found' } };
+
+describe(`sharing a card (${leg})`, () => {
+  async function shared(label: string) {
+    const ada = await somebody(database, `Ada${label}`);
+    const grace = await somebody(database, `Grace${label}`);
+    const a = await movedDevice(ada);
+    const g = await movedDevice(grace);
+    const made = makeCard(env(), {
+      householdId: ada.household,
+      position: 'a1',
+      shop: `Tesco${label}`,
+      number: '5901234123457',
+      kind: 'ean13',
+      code: '5901234123457',
+    });
+    const card = made.changes[0]?.id ?? '';
+    await a.client.commit(made);
+    await a.client.sync();
+    return { ada, grace, a, g, card };
+  }
+
+  /** Ada's browser makes the link (`CardShareDialog`), Grace's accepts it and keeps its keys (`AcceptInvite`): what a person does, in the order they do it. */
+  async function join(ada: Dev, grace: Dev, card: string, keep = true) {
+    const secret = newLinkSecret();
+    const group = await ada.memory.keyring(ada.who.household, ada.key);
+    const ring = await ada.memory.cardKeyring(ada.who.household, card, ada.key);
+    if (!group || !ring) throw new Error('no keys');
+    const link = await door(ada.who, ada.who.household, {
+      op: 'card.invite.create',
+      card,
+      wrappedKey: await wrapCardForLink(ring, secret, card),
+    });
+    expect(link.status).toBe(200);
+    const token = String((link.body.result as { path: string }).path).replace('/invite/', '');
+    const accepted = await acceptInvitation(database, TEST_RING, {
+      token,
+      accountId: grace.who.accountId,
+      limits: deps().limits,
+      now: Date.now(),
+    });
+    if (accepted.status !== 'joined' || !('card' in accepted)) throw new Error('not joined');
+    expect(accepted.card).toBe(card);
+    const given = await openCardFromLink(accepted.wrappedKey ?? '', secret, card);
+    if (!given) throw new Error('the link did not open');
+    const record = await wrapCardKeyring(grace.key, given, { person: accepted.person, card });
+    if (keep)
+      expect(
+        (await door(grace.who, ada.who.household, { op: 'card.key.mine', card, record })).status,
+      ).toBe(200);
+    return { record, person: accepted.person };
+  }
+
+  it('gives the guest the card and nothing else of the group, opened with the keys the link carried, and takes it from them when they are removed', async () => {
+    const { ada, grace, a, g, card } = await shared('Journey');
+    await join(a, g, card);
+    await g.client.sync();
+    expect(await cards(g)).toMatchObject([
+      { id: card, shop: 'TescoJourney', number: '5901234123457' },
+    ]);
+    // Nothing of Ada's group but the card: no list, no item, no product, no category, and the group is not a place of theirs.
+    for (const table of ['list', 'product', 'category', 'inventory_item', 'list_category'] as const)
+      expect(
+        await g.client.read((db) => db.getAllFromIndex(table, 'byHousehold', ada.household)),
+      ).toEqual([]);
+    expect(await g.client.read((db) => db.getAll('item'))).toEqual([]);
+    expect(
+      (await g.client.read((db) => db.getAll('household'))).some(
+        (each) => each.id === ada.household && each.own,
+      ),
+    ).toBe(false);
+    // The server holds nothing readable of it, and the link's secret was never in a row.
+    expect(await everyRow()).not.toContain('TescoJourney');
+    // Her own group's rows are still hers.
+    expect(
+      (await g.client.read((db) => db.getAllFromIndex('list', 'byHousehold', grace.household)))
+        .length,
+    ).toBeGreaterThan(0);
+
+    // Ada removes her: the card goes from her device, and the group she reached it by with it; her own stays.
+    const gone = await door(ada, ada.household, {
+      op: 'card.member.remove',
+      card,
+      person: grace.personId,
+    });
+    expect(gone.status).toBe(200);
+    await g.client.sync();
+    expect(await cards(g)).toEqual([]);
+    expect(await g.client.read((db) => cardMembersOf(db, card))).toEqual([]);
+    expect((await g.client.read((db) => db.getAll('household'))).map((each) => each.id)).toEqual([
+      grace.household,
+    ]);
+    // Ada still has it, with her alone on it.
+    await a.client.sync();
+    expect(await cards(a)).toHaveLength(1);
+    expect((await a.client.read((db) => cardMembersOf(db, card))).map((m) => m.self)).toEqual([
+      true,
+    ]);
+  });
+
+  it('takes the card from a guest who leaves it, and from the devices of the card’s other people at their next sync', async () => {
+    const { ada, grace, a, g, card } = await shared('Leaves');
+    await join(a, g, card);
+    await g.client.sync();
+    expect(await cards(g)).toHaveLength(1);
+    expect((await door(grace, ada.household, { op: 'card.member.leave', card })).status).toBe(200);
+    await g.client.sync();
+    expect(await cards(g)).toEqual([]);
+    // Ada's device hears that she left.
+    await a.client.sync();
+    expect((await a.client.read((db) => cardMembersOf(db, card))).map((m) => m.self)).toEqual([
+      true,
+    ]);
+    // And leaving is not hers again: it reads as not found.
+    expect(await door(grace, ada.household, { op: 'card.member.leave', card })).toEqual(NOT_FOUND);
+  });
+
+  it('is opened meanwhile from the copy that waits in the browser, when keeping it on the server has not got through', async () => {
+    const ada = await somebody(database, 'AdaPending');
+    const grace = await somebody(database, 'GracePending');
+    const storage = memoryStore();
+    const a = await movedDevice(ada);
+    const g = await movedDevice(grace, storage);
+    const made = makeCard(env(), {
+      householdId: ada.household,
+      position: 'a1',
+      shop: 'Waiting',
+      number: '1234',
+      kind: 'code128',
+      code: '1234',
+    });
+    const card = made.changes[0]?.id ?? '';
+    await a.client.commit(made);
+    await a.client.sync();
+    // Joined, with the call that keeps her copy not sent: the server has none to hand back, so the group is held and the card shows nothing.
+    const { record, person } = await join(a, g, card, false);
+    await g.client.sync();
+    expect(await cards(g)).toEqual([]);
+    // The copy waits in her browser, and a device made after it (the page's next load) opens the card with it.
+    addPendingCard(storage, { household: ada.household, card, person, record });
+    const later = await deviceOf(grace, g.key, storage);
+    await later.client.sync();
+    expect(await cards(later)).toMatchObject([{ id: card, shop: 'Waiting' }]);
   });
 });

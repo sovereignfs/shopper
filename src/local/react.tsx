@@ -24,7 +24,7 @@ import { EncryptionMemory, encryptingTransport } from '../keys/transport';
 import { useKeys } from '../keys/keys';
 import type { Keyring } from '../keys/household';
 import { Mover } from '../keys/mover';
-import { keepPending } from '../keys/pending';
+import { keepPending, keepPendingCards } from '../keys/pending';
 import { callOperation } from './ops';
 import { rowListOf } from './row-list';
 import { householdsOf } from './store';
@@ -53,6 +53,11 @@ interface Local {
   keysOf(
     household: string,
     list?: string,
+  ): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
+  /** A card's keyring (RFC 0007): the reader's own copy of it, or derived from the group's where the reader has the group's (its Admin, who alone makes a link to it, always has). */
+  cardKeysOf(
+    household: string,
+    card: string,
   ): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
 }
 
@@ -87,6 +92,16 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         op: 'list.key.mine',
         household: entry.household,
         list: entry.list,
+        record: entry.record,
+      });
+      return answer.ok;
+    });
+    // And the cards' (RFC 0007).
+    void keepPendingCards(storage(), async (entry) => {
+      const answer = await callOperation({
+        op: 'card.key.mine',
+        household: entry.household,
+        card: entry.card,
         record: entry.record,
       });
       return answer.ok;
@@ -247,8 +262,17 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     };
   }, []);
 
+  const cardKeysOf = useCallback(async (household: string, card: string) => {
+    const memory = memoryRef.current;
+    if (!memory) return { encrypted: false, ring: undefined };
+    return {
+      encrypted: memory.isEncrypted(household),
+      ring: await memory.cardKeyring(household, card, appKeyRef.current),
+    };
+  }, []);
+
   return (
-    <Context.Provider value={{ accountId, client, leave, holdFresh, keysOf }}>
+    <Context.Provider value={{ accountId, client, leave, holdFresh, keysOf, cardKeysOf }}>
       {children}
     </Context.Provider>
   );

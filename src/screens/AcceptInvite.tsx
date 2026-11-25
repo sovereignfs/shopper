@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { AuthButton, AuthError } from '@sovereignfs/ui';
-import { wrapListKeyring } from '../keys/household';
-import { addPending } from '../keys/pending';
+import { wrapCardKeyring, wrapListKeyring } from '../keys/household';
+import { addPending, addPendingCard } from '../keys/pending';
 import { KeyPrompt } from '../keys/KeyPrompt';
 import { forgetLinkSecret, readLinkSecret } from '../keys/KeepLinkSecret';
 import { useKeys } from '../keys/keys';
-import { openFromLink } from '../keys/link';
+import { openCardFromLink, openFromLink } from '../keys/link';
 import { callOperation } from '../local/ops';
 
 /** Where the next page starts, once someone has joined: the household's first list (`HomeScreen` reads it once and forgets it). */
@@ -16,9 +16,19 @@ export const JOINED_KEY = 'shopper.joined';
 /**
  * The button on the invitation page for someone signed in (DESIGN.md §7.3): it accepts the link, and then opens Shopper on the household's lists, which the
  * device has at its first sync. A person already in the household is told so and nothing changes; a limit is said in its sentence; a link that has stopped
- * working says what the page says.
+ * working says what the page says. **A link to a card** (RFC 0007) is the same page and the same call: the card's keys are kept under the person's own key
+ * (`card.key.mine`, waiting in the browser if it does not get through, as a list's do), and what opens is the person's cards, **never the group's lists**, which
+ * they are not on.
  */
-export function AcceptInvite({ token, encrypted = false }: { token: string; encrypted?: boolean }) {
+export function AcceptInvite({
+  token,
+  encrypted = false,
+  kind = 'list',
+}: {
+  token: string;
+  encrypted?: boolean;
+  kind?: 'list' | 'card';
+}) {
   const keys = useKeys();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +48,7 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
     const secret = encrypted ? readLinkSecret(token) : null;
     if (encrypted && !secret)
       return setError(
-        'Open the whole link you were sent, in this browser: its end, after #, is what opens the list.',
+        `Open the whole link you were sent, in this browser: its end, after #, is what opens the ${kind}.`,
       );
     if (encrypted && keys.current.state !== 'open')
       return setError('Unlock Shopper first, then join.');
@@ -60,6 +70,7 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
       status?: string;
       household?: string;
       list?: string;
+      card?: string;
       message?: string;
       person?: string;
       wrappedKey?: string | null;
@@ -93,6 +104,35 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
           if (!kept.ok) addPending(window.localStorage, entry);
         }
       }
+      if (body.card) {
+        // The card's keys, from the link, kept under this person's own key: the link gives them once, and a copy that does not get through waits in this browser.
+        if (body.wrappedKey && secret && body.person && keys.current.state === 'open') {
+          const ring = await openCardFromLink(body.wrappedKey, secret, body.card);
+          if (ring) {
+            const record = await wrapCardKeyring(keys.current.key, ring, {
+              person: body.person,
+              card: body.card,
+            });
+            const entry = {
+              household: body.household,
+              card: body.card,
+              person: body.person,
+              record,
+            };
+            const kept = await callOperation({
+              op: 'card.key.mine',
+              household: entry.household,
+              card: entry.card,
+              record,
+            }).catch(() => ({ ok: false }));
+            if (!kept.ok) addPendingCard(window.localStorage, entry);
+          }
+        }
+        forgetLinkSecret(token);
+        // The person's cards, where the one just added is, once the device has pulled it: they are on no list of the group it is in.
+        window.location.assign('/cards');
+        return;
+      }
       forgetLinkSecret(token);
       return go(body.household);
     }
@@ -106,9 +146,12 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
   if (already)
     return (
       <p role="status">
-        You are already on this list.{' '}
-        <button type="button" onClick={() => window.location.assign('/')}>
-          Go to your lists
+        {kind === 'card' ? 'You already have this card.' : 'You are already on this list.'}{' '}
+        <button
+          type="button"
+          onClick={() => window.location.assign(kind === 'card' ? '/cards' : '/')}
+        >
+          {kind === 'card' ? 'Go to your cards' : 'Go to your lists'}
         </button>
       </p>
     );
@@ -123,7 +166,7 @@ export function AcceptInvite({ token, encrypted = false }: { token: string; encr
         loading={busy || (encrypted && keys.current.state === 'checking')}
         onClick={() => void accept()}
       >
-        Join
+        {kind === 'card' ? 'Add the card' : 'Join'}
       </AuthButton>
     </>
   );

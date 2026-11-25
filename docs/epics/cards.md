@@ -140,7 +140,7 @@ after a blank spell with the `.wasm` from this origin, every request this origin
 (the decoder never loaded); a QR code; the camera refused; no camera. **What was left out:** a torch or zoom control, choosing among several cameras, scanning an image from a file, and a real phone's
 camera, which has not been tried (the fake one is a canvas); the native detector is tried only through a stand-in, since neither test browser has one that supports all six.
 
-#### 📋 24.5 — Sharing a card
+#### ✅ 24.5 — Sharing a card
 
 **Goal:** a card shared by a link, as a list is. **Design:** RFC 0007, "Sharing a card". **Depends on:** 24.2.
 
@@ -149,6 +149,26 @@ for a list; a removed person's device forgets the card; a new key when someone l
 settled with the owner).
 
 **Accepts when:** Grace accepts Ada's card and shows it offline, and sees none of Ada's lists or other cards; removed, the card leaves her device.
+
+**Done as (0.8.0, 2026-11-25):** in two parts, the server and then the device. **The server:** `invitation.card_id` (migration `0021`, both dialects; a link is to a list or a card, never both), and the card's
+half of the one accept (`src/households/card-join.ts`, called from `acceptInvitation`'s transaction so that a refusal rolls the claim of the link back): the person is added **in one statement that carries
+both limits**, the people a card may have (the setting for a list's) and the cards an account is on, its own included (`SHOPPER_LIMIT_ACCOUNT_CARDS`); the card, its people and its records are stamped at the
+join (`stampCard`); the card's other people are sent a notice; a person already on the card, the Admin included, changes nothing and leaves the link unused. **Only the card's Admin makes, lists and revokes
+links, and removes people** (`card.invite.create`, `card.invite.revoke`, `card.invite.list`, `card.member.remove`, each with `cardAdminOf` in its statement; `src/households/card-invitations.ts`,
+`card-ops.ts`, `card-member-ops.ts`), at most 20 links waiting for a card, each requiring the card's keys in the link (`ck2.`) and a group that has moved. Anyone on a card leaves it (`card.member.leave`: the
+Admin never does, and deletes it instead) and keeps their own copy of its keys (`card.key.mine`, `src/keys/server/key-ops.ts`, with `onCard` and the card's being the group's in the statement). Leaving or
+removal ends the row with the group's `seq`, deletes the person's copy of the keys and revokes the links they made; **deleting a card, or the last person's account, deletes the card's links, and a link revoked
+by an account's deletion no longer holds a key**. The invitation preview says whether a link is to a list or a card (`kind`). **The device:** `wrapCardForLink` and `openCardFromLink` (`src/keys/link.ts`,
+`ck2.`, bound to the card and to nothing else); `AcceptInvite` opens the keys from the link, wraps them under the person's own app key and keeps them (`card.key.mine`), **with a copy that waits in the browser
+if that does not get through** (`src/keys/pending.ts`, a card's apart from a list's, loaded into `EncryptionMemory` and sent again by `LocalProvider`), and then opens `/cards`, **never the group's lists**,
+which they are not on; the invitation page says "invited you to a loyalty card"; the card screen gives its Admin _Share_ (`CardShareDialog` at `?share=1`: the people with _Remove_, _Make a link_ shown once with
+its terms, the links waiting with _Revoke_) and a Member _Leave this card…_, each after a confirmation where it changes something. **Tested:** every statement as a second person, a Member of the card, a person
+on a list of the same group who is not on the card, and a stranger, both through the door and directly (`src/households/card-sharing.test.ts`, on all three databases), the whole journey on devices through the real
+operations (a link, accepting, opening the card with the link's keys and nothing else of the group, removal and leaving taking the card and the group from the device, a waiting copy opening the card; `src/keys/cards.device.test.ts`),
+the link's wrap (a card's never opens a list's), the waiting copies, and, in both browsers, Ada sharing and Grace adding a card, her device holding that card and no row of Ada's group, offline, removed, leaving,
+a link used and revoked and every Admin operation as someone else, and a copy that does not get through. **Seen to fail when removed:** every guard above (server), and the waiting copy's loading and sending,
+what a Member is shown, and the page's wording (browser). **What was left out:** a new key when someone goes (16.8, for lists and cards together; RFC 0007 item 8), the card's Admin passing the role while
+alive, and showing a Member who else has the card.
 
 #### 📋 24.6 — Cards on a list, in Shop mode
 

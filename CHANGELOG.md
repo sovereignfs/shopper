@@ -17,11 +17,16 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   encrypted on your device, and the server holds only what it cannot read. A card can be kept once your lists are encrypted on your devices, which happens when you first open Shopper after signing up.
   **Scan card** adds one with the camera instead: hold the card's code in view and the form opens with its number and kind filled in. The picture is read on your device and goes nowhere, nothing is
   requested from the network while it scans (the reader is part of Shopper and is only fetched when you first scan), and the camera is let go the moment the code is read. If the camera is refused or
-  there is none, you can type the number as before. Sharing a card comes next.
+  there is none, you can type the number as before.
+- **Share a card.** Open a card and choose **Share** (only the person who added it can): make a link and send it any way you like. Whoever opens it, signs in or makes an account and adds the card has
+  that card and **nothing else of yours**: no list, no other card, nothing of your Inventory. The link carries the card's key and no other, after the `#`, which is never sent to Shopper's server; it is
+  shown once, works for one person and expires in 14 days, and you can revoke a link nobody has used. You can see who has the card and remove someone, which takes it from their devices; someone who has a
+  card can leave it. A card shared with you opens with no network, like your own. Deleting a card takes it from everyone, and the links to it. A card's key is not changed when someone goes (that comes
+  later for lists and cards together). That encryption is not yet audited.
 
 ### Changed
 
-- **Under the hood:** Shopper's server and your device can now hold **loyalty cards** (RFC 0007), which nothing in Shopper offers yet. A card has its own people and its own keys, as a list does: each
+- **Under the hood:** Shopper's server and your device can now hold **loyalty cards** (RFC 0007), and a card's link is a new kind of invitation (`invitation.card_id`, migration `0021`). A card has its own people and its own keys, as a list does: each
   thing you write on it (the shop, the number, the kind of code, the code itself, an icon, a colour, the name on the card, a note) is encrypted on your device under keys of that card alone,
   and the server holds only ciphertext, **so a card can be kept only once your lists are encrypted on your devices** (every account made in a browser is, at its first load); before that the
   server refuses one, and says so. Only the card's Admin changes or deletes it; someone on a card sees that card and the people on it and **nothing else of the group it is in**, even though

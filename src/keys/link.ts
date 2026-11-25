@@ -2,7 +2,9 @@ import {
   type Keyring,
   fromBase64url,
   toBase64url,
+  unwrapCardKeyring,
   unwrapListKeyring,
+  wrapCardKeyring,
   wrapListKeyring,
 } from './household';
 
@@ -40,6 +42,39 @@ export async function openFromLink(
       await linkKey(fromBase64url(secret)),
       `lr1.${wrapped.slice('lk2.'.length)}`,
       { person: LINK_PERSON, list },
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * **A card's keys in a link** (RFC 0007, DESIGN.md §13.5): the same wrap under the link's secret, of **the card's keyring and no other**, bound to the card (`ck2.`). It is its own prefix, so that a
+ * link to a card is never opened as a list's and the other way round, and its binding is the card's id, so that it opens for that card alone.
+ */
+export async function wrapCardForLink(
+  ring: Keyring,
+  secret: string,
+  card: string,
+): Promise<string> {
+  const wrapped = await wrapCardKeyring(await linkKey(fromBase64url(secret)), ring, {
+    person: LINK_PERSON,
+    card,
+  });
+  return `ck2.${wrapped.slice('cr1.'.length)}`;
+}
+
+export async function openCardFromLink(
+  wrapped: string,
+  secret: string,
+  card: string,
+): Promise<Keyring | undefined> {
+  if (!wrapped.startsWith('ck2.')) return undefined;
+  try {
+    return await unwrapCardKeyring(
+      await linkKey(fromBase64url(secret)),
+      `cr1.${wrapped.slice('ck2.'.length)}`,
+      { person: LINK_PERSON, card },
     );
   } catch {
     return undefined;

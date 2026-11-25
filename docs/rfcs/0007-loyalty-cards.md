@@ -83,3 +83,10 @@ first block has **Loyalty cards**; on a phone it is the footer's right icon.
    the group they are given it from.
 5. **Someone on a card only reaches the group by it:** their device syncs the group and is handed that card, its people and their own copy of its keys, and nothing else of the group; the group is not
    a place in their sidebar. DESIGN.md §7.7 says it.
+6. **Only a card's Admin shares it** (makes, lists and revokes links, and removes people), unlike a list, where any person on it may invite: a card is a person's own, and what they hold of a shop is theirs
+   to give. A Member shows it and leaves. The Admin never leaves: with no way to pass the role, they delete it. DESIGN.md §7.7 says it.
+7. **Joining a card is bounded in the statement** by the setting for a list's people (`SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`) and by `SHOPPER_LIMIT_ACCOUNT_CARDS` counted as the cards an account is on, its own
+   included (making one still counts the group's own cards alone). Nothing else of the group is joined: no list, no other card.
+8. **A card's keys are not changed when someone leaves or is removed** (§13.2: a new epoch comes with 16.8, for lists and cards together): what they hold on a device is not taken back, only their copy on the
+   server, their place and their devices' copy of the card. The sharing dialog and the documentation say so.
+9. **The invitation page says whether a link is to a list or to a card,** besides who invited: it is what joining gives, and it names no shop, number or list. DESIGN.md §7.3 says it.

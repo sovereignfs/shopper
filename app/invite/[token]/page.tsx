@@ -19,7 +19,7 @@ export const metadata = { title: 'Invitation', robots: { index: false, follow: f
 const RATE = { limit: 60, windowMs: 10 * 60_000 };
 
 /**
- * **An invitation to a list** (DESIGN.md §7.3, RFC 0004), at `/invite/<token>`, for anyone. It says who invited, **and nothing else**, and it is **one
+ * **An invitation to a list, or to a loyalty card** (DESIGN.md §7.3, RFC 0004, RFC 0007), at `/invite/<token>`, for anyone. It says who invited and which of the two it is, **and nothing else**, and it is **one
  * page for every link that does not work** (unknown, expired, used or revoked). It offers to sign in or make an account, and the link survives that round
  * trip; under a closed instance it says an account is needed first. Signed in, it offers to join. Whoever holds the link can accept it.
  */
@@ -42,8 +42,17 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       />
     );
 
-  const title = preview.invitedBy ? `Join ${preview.invitedBy}’s list` : 'Join a shared list';
-  const lead = `${preview.invitedBy ? `${preview.invitedBy} invited you` : 'You are invited'} to a shopping list. You will see and change that list, and nothing else of theirs.`;
+  const card = preview.kind === 'card';
+  const title = card
+    ? preview.invitedBy
+      ? `${preview.invitedBy} shared a card with you`
+      : 'A card shared with you'
+    : preview.invitedBy
+      ? `Join ${preview.invitedBy}’s list`
+      : 'Join a shared list';
+  const lead = card
+    ? `${preview.invitedBy ? `${preview.invitedBy} invited you` : 'You are invited'} to a loyalty card. You will see and show that card, and nothing else of theirs.`
+    : `${preview.invitedBy ? `${preview.invitedBy} invited you` : 'You are invited'} to a shopping list. You will see and change that list, and nothing else of theirs.`;
   const session = await getSession();
   if (session) {
     const found = await keySourceOf(session.user.id);
@@ -57,7 +66,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <AuthShell title={title} lead={lead}>
         <KeepLinkSecret token={token} />
         <KeysProvider source={source}>
-          <AcceptInvite token={token} encrypted={preview.encrypted} />
+          <AcceptInvite token={token} encrypted={preview.encrypted} kind={preview.kind} />
         </KeysProvider>
       </AuthShell>
     );
@@ -87,7 +96,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           {canSignUp ? (
             <>
               {' '}
-              or <AuthLink href={`/sign-up?next=${next}`}>create an account</AuthLink> to join.
+              or <AuthLink href={`/sign-up?next=${next}`}>create an account</AuthLink> to{' '}
+              {card ? 'add the card' : 'join'}.
             </>
           ) : null}
         </p>
