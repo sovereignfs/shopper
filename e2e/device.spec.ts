@@ -225,7 +225,7 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
   // The avatar menu leads to it, and it is read in words.
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: /Couldn.t sync \(1\)/ }).click();
-  await expect(page).toHaveURL(/\/settings\/preferences$/);
+  await expect(page).toHaveURL(/\/settings\/device$/);
   const entry = page
     .getByRole('list', { name: 'Changes that could not be synced' })
     .getByRole('listitem');
@@ -287,7 +287,7 @@ test('resetting the device sends what is waiting, clears it and loads the househ
   page,
 }) => {
   await signUp(page);
-  await page.goto('/settings/preferences');
+  await page.goto('/settings/device');
   const account = await accountId(page);
   await expect
     .poll(async () => (await read(page, account, 'household')).length, { timeout: 15_000 })

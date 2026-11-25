@@ -90,6 +90,9 @@ fed by a new core endpoint. Shopper adopts it first; Tusk and Tally are not part
   core's own address, the one place an image comes from beyond Shopper.
 - _Sign-in_ becomes **Security**, and the **Encryption** section moves into it. **Notifications** move into Preferences and wait for 9.4. **This device**
   moves into Preferences.
+- **Amended on 2026-11-25 (the owner's decision):** **Notifications** and **This device** are sections of their own, after Preferences and before Data, at
+  `/settings/notifications` and `/settings/device`, not parts of Preferences (`DESIGN.md` §17). A tab of their own is easier to find than a part of a long one, and
+  the avatar's _Couldn't sync_ goes straight to This device.
 
 ## A readable export
 

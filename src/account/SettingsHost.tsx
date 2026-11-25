@@ -9,11 +9,13 @@ import { type AccountSection, sectionOf } from './query';
 const SECTIONS: {
   id: AccountSection;
   label: string;
-  icon: 'user' | 'shield' | 'sliders-horizontal' | 'database';
+  icon: 'user' | 'shield' | 'sliders-horizontal' | 'bell' | 'smartphone' | 'database';
 }[] = [
   { id: 'profile', label: 'Profile', icon: 'user' },
   { id: 'security', label: 'Security', icon: 'shield' },
   { id: 'preferences', label: 'Preferences', icon: 'sliders-horizontal' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell' },
+  { id: 'device', label: 'This device', icon: 'smartphone' },
   { id: 'data', label: 'Data', icon: 'database' },
 ];
 

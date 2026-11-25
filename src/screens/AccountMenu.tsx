@@ -75,7 +75,7 @@ export function AccountMenu({
                 {
                   label: `Couldn't sync (${refused})`,
                   icon: 'alert-triangle' as const,
-                  onSelect: () => router.push('/settings/preferences'),
+                  onSelect: () => router.push('/settings/device'),
                 },
               ]
             : []),

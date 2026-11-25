@@ -2,8 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { SECTIONS, one, sectionBefore, sectionOf } from './query';
 
 describe('which section of Settings an address names', () => {
-  it('is one of the four, and nothing for any other segment', () => {
-    expect([...SECTIONS]).toEqual(['profile', 'security', 'preferences', 'data']);
+  it('is one of the six, and nothing for any other segment', () => {
+    expect([...SECTIONS]).toEqual([
+      'profile',
+      'security',
+      'preferences',
+      'notifications',
+      'device',
+      'data',
+    ]);
     for (const section of SECTIONS) expect(sectionOf(section)).toBe(section);
     for (const section of [
       undefined,
@@ -24,8 +31,9 @@ describe('where an old /settings?section= address goes', () => {
     expect(sectionBefore('profile')).toBe('profile');
     expect(sectionBefore('sign-in')).toBe('security');
     expect(sectionBefore('encryption')).toBe('security');
-    expect(sectionBefore('device')).toBe('preferences');
-    expect(sectionBefore('notifications')).toBe('preferences');
+    // They were Preferences' for 0.5.0 to 0.8.2; they are sections of their own.
+    expect(sectionBefore('device')).toBe('device');
+    expect(sectionBefore('notifications')).toBe('notifications');
     expect(sectionBefore('data')).toBe('data');
   });
 

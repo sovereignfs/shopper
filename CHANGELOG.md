@@ -6,6 +6,14 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.3] - 2026-11-25
+
+### Changed
+
+- **Settings: Notifications and This device are sections of their own,** after Preferences, in place of parts of it, at `/settings/notifications` and `/settings/device`. Preferences keeps how a
+  list shows its items, how Shopper looks, and the time zone and language. The avatar's _Couldn't sync_ goes straight to This device, and an old `/settings?section=device` or
+  `?section=notifications` address goes to its section.
+
 ## [0.8.2] - 2026-11-25
 
 ### Fixed

@@ -3,7 +3,7 @@ import { PHONE, continueToList, seedItems, signUp, test } from './helpers';
 
 /**
  * Settings, the dialog (task 22.7, RFC 0005), running alone: it is over the page it was opened from, by Next's intercepting route, and over Home when its address
- * is loaded directly; each of its four sections has an address and a title; the old addresses go to the section that took their place; and Preferences keeps
+ * is loaded directly; each of its six sections has an address and a title; the old addresses go to the section that took their place; and Preferences keeps
  * how a list shows its items and how Shopper looks on this device. Profile, Security and Data are covered by `auth.spec.ts`, `export.spec.ts` and `security.spec.ts`.
  */
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Settings' });
@@ -45,6 +45,8 @@ test('each section is an address and a title, chosen in place, and loaded direct
   for (const [name, section] of [
     ['Security', 'security'],
     ['Preferences', 'preferences'],
+    ['Notifications', 'notifications'],
+    ['This device', 'device'],
     ['Data', 'data'],
     ['Profile', 'profile'],
   ] as const) {
@@ -76,8 +78,8 @@ test('the old addresses go to the section that took their place, and a name that
   for (const [from, to] of [
     ['/settings?section=sign-in', 'security'],
     ['/settings?section=encryption', 'security'],
-    ['/settings?section=device', 'preferences'],
-    ['/settings?section=notifications', 'preferences'],
+    ['/settings?section=device', 'device'],
+    ['/settings?section=notifications', 'notifications'],
     ['/settings?section=data', 'data'],
     ['/settings?section=__proto__', 'profile'],
   ] as const) {
@@ -91,6 +93,39 @@ test('the old addresses go to the section that took their place, and a name that
   await expect(dialog(page)).toBeVisible();
   await page.goto('/settings/sign-in');
   await expect(page.getByRole('heading', { name: 'That is not here' })).toBeVisible();
+});
+
+test('Notifications and This device are sections of their own, and Preferences holds neither', async ({
+  page,
+}) => {
+  await signUp(page);
+  // Preferences is how a list shows its items, how Shopper looks, and the time zone and language: nothing of the device or of notifications.
+  await page.goto('/settings/preferences');
+  await expect(dialog(page).getByRole('radio', { name: 'By aisle' })).toBeVisible();
+  await expect(dialog(page).getByRole('heading', { name: 'This device', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    dialog(page).getByRole('heading', { name: 'Notifications', exact: true }),
+  ).toHaveCount(0);
+  await expect(dialog(page).getByText(/Last synced/)).toHaveCount(0);
+
+  await dialog(page).getByRole('button', { name: 'Notifications' }).click();
+  await expect(page).toHaveURL(/\/settings\/notifications$/);
+  await expect(
+    dialog(page).getByRole('heading', { name: 'Notifications', exact: true }),
+  ).toBeVisible();
+  await expect(dialog(page).getByText(/It never names a list or an item/)).toBeVisible();
+  await expect(dialog(page).getByRole('radio', { name: 'By aisle' })).toHaveCount(0);
+
+  await dialog(page).getByRole('button', { name: 'This device' }).click();
+  await expect(page).toHaveURL(/\/settings\/device$/);
+  await expect(
+    dialog(page).getByRole('heading', { name: 'This device', exact: true }),
+  ).toBeVisible();
+  await expect(dialog(page).getByText(/Last synced/)).toBeVisible({ timeout: 15_000 });
+  await expect(dialog(page).getByRole('button', { name: 'Reset this device' })).toBeVisible();
+  await expect(dialog(page).getByText(/It never names a list or an item/)).toHaveCount(0);
 });
 
 test('Preferences: how a list shows its items and how Shopper looks are kept on this device', async ({

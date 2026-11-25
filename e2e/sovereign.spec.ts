@@ -169,7 +169,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       `${core}/keys`,
     );
     await expect(dialog.getByRole('form', { name: 'Change password' })).toHaveCount(0);
-    // Preferences: appearance, language and notifications are core's; the list's view and this device are Shopper's.
+    // Preferences: the language and time zone are core's; the list's view and appearance are Shopper's.
     await dialog.getByRole('button', { name: 'Preferences' }).click();
     await expect(dialog.getByRole('link', { name: 'Change them in Sovereign' })).toHaveAttribute(
       'href',
@@ -205,14 +205,16 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await page.getByRole('menuitem', { name: 'Settings' }).click();
     const dialog = page.getByRole('dialog', { name: 'Settings' });
     await dialog.getByRole('button', { name: 'Preferences' }).click();
-    // Used and not edited here; the device's own times follow them.
+    // Used and not edited here.
     await expect(dialog.getByText(/These are Sovereign’s/)).toBeVisible();
     await expect(dialog.getByLabel('Time zone')).toHaveCount(0);
+    // Appearance stays Shopper's, since it cannot follow Sovereign's.
+    await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
+    // The device's own times follow them (This device is a section of its own).
+    await dialog.getByRole('button', { name: 'This device' }).click();
     await expect(dialog.getByText(/Last synced \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/)).toBeVisible({
       timeout: 30_000,
     });
-    // Appearance stays Shopper's, since it cannot follow Sovereign's.
-    await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
     await page.keyboard.press('Escape');
     await signOut(page);
   });

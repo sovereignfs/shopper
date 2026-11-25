@@ -204,7 +204,7 @@ field; a standalone account changes its password and keeps its lists.
 
 **Done as (0.5.0, 2026-11-23, on ui 0.107.0):**
 
-- **The dialog and its routes.** `SettingsHost` is `SettingsDialog` with four sections, **Profile, Security, Preferences and Data**, rendered by the server for the mode
+- **The dialog and its routes.** `SettingsHost` is `SettingsDialog` with four sections, **Profile, Security, Preferences and Data** (six from 0.8.3: **Notifications** and **This device**, which were parts of Preferences, are sections of their own, at `/settings/notifications` and `/settings/device`), rendered by the server for the mode
   (`SettingsRoute`, which asks for the session) and shown by the client. Opened from a page it is over that page by an intercepting route
   (`app/(app)/@modal/(.)settings`, with `@modal/default.tsx`, **and a page in `@modal` for each other address of the area drawing nothing (`Nothing.tsx`), so that the dialog does not
   stay open over the next page**, which Next's docs say a slot would do; it was a catch-all and a page for `/` until 0.8.2, which Next's strict route matching read as the slot claiming

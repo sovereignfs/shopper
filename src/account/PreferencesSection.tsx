@@ -8,14 +8,13 @@ import { LOCALES, localeOf, timeZoneOf, timeZones, type Regional } from '../form
 import { readView, type View, writeView } from '../lists/view-preference';
 import { chooseTheme, readTheme, type ThemeChoice } from '../theme/preferences';
 import { useAccount } from './AccountProvider';
-import { NotificationsSection } from './NotificationsSection';
-import { ThisDeviceSection } from './ThisDeviceSection';
 import styles from './Account.module.css';
 
 /**
- * Settings, Preferences (RFC 0005, DESIGN.md §17): how a list shows its items by default, how Shopper looks **on this device**, this device, and notifications on
- * it. **Running alone,** the time zone and language dates are written in are chosen here; hosted by a Sovereign instance they are Sovereign's, used here and changed
- * there (`core`). Appearance stays Shopper's in both: it cannot follow Sovereign's, so a choice here is the one that works. What is chosen here about how this device draws things is kept in this browser (`src/lists/view-preference.ts`, `src/theme/preferences.ts`).
+ * Settings, Preferences (RFC 0005, DESIGN.md §17): how a list shows its items by default, and how Shopper looks **on this device**. **Running alone,** the time zone and
+ * language dates are written in are chosen here; hosted by a Sovereign instance they are Sovereign's, used here and changed there (`core`). Appearance stays Shopper's in
+ * both: it cannot follow Sovereign's, so a choice here is the one that works. What is chosen here about how this device draws things is kept in this browser
+ * (`src/lists/view-preference.ts`, `src/theme/preferences.ts`). **Notifications and This device are sections of their own** (`NotificationsSection`, `ThisDeviceSection`).
  */
 export function PreferencesSection({
   core,
@@ -40,8 +39,6 @@ export function PreferencesSection({
           </p>
         </div>
       )}
-      <ThisDeviceSection />
-      <NotificationsSection />
     </div>
   );
 }

@@ -2,10 +2,12 @@ import { CoreDelete, CoreProfile, CoreSecurity } from './CoreSections';
 import { DeleteAccountSection } from './DeleteAccountSection';
 import { EncryptionSection } from './EncryptionSection';
 import { ExportSection } from './ExportSection';
+import { NotificationsSection } from './NotificationsSection';
 import { PasswordSection } from './PasswordSection';
 import { PreferencesSection } from './PreferencesSection';
 import { ProfileSection } from './ProfileSection';
 import { SettingsHost } from './SettingsHost';
+import { ThisDeviceSection } from './ThisDeviceSection';
 import { accountHasPassword } from '../auth/password';
 import { accountFacts } from '../auth/profile';
 import { authSettings } from '../auth/server';
@@ -60,6 +62,17 @@ export async function SettingsRoute({ close }: { close: 'back' | 'home' }) {
           </div>
         ),
         preferences: <PreferencesSection core={core} regional={{ locale, timeZone }} />,
+        // Shopper's in both modes: nothing of core's can reach what this browser does with pushes, or the working copy it keeps.
+        notifications: (
+          <div className={styles.panel}>
+            <NotificationsSection />
+          </div>
+        ),
+        device: (
+          <div className={styles.panel}>
+            <ThisDeviceSection />
+          </div>
+        ),
         data: (
           <div className={styles.panel}>
             <ExportSection suite={core !== null} email={session.user.email} vaultId={vaultId} />

@@ -878,7 +878,7 @@ server cannot read (§13): it keeps the later item's note, still encrypted, on t
 
 The server re-checks everything, whatever the device said: the account is on the list a change is for; every row a change points at is the group's,
 and an item's product is on its list; a value is encrypted for its row's list (§13.1); the list is not deleted for good; the limits (§7.6); the sizes; a quantity is positive and well-formed; a unit is known; a category is
-the group's. **A refused change is not thrown away:** it goes to **Couldn't sync** (Settings › Preferences › This device, and a quiet mark on the avatar) with the reason in a
+the group's. **A refused change is not thrown away:** it goes to **Couldn't sync** (Settings › This device, and a quiet mark on the avatar) with the reason in a
 sentence ("That list is not shared with you any more", "Groceries was deleted", "Groceries has 500 items, the most it can hold"), from where it can be moved to another
 list, or discarded. A refused tick is undone with a toast that says why.
 
@@ -896,7 +896,7 @@ How soon a device sees another member's change is **a setting**, chosen per devi
 | `SHOPPER_SYNC_INTERVAL_MIN_SECONDS` | `10`    | The shortest interval anyone may choose (10 to 600)                    |
 | `SHOPPER_SYNC_LIVE_MAX_CONNECTIONS` | `10`    | Live connections an account may hold at once (one per open tab or app) |
 
-In **Settings › Preferences › This device › Updates from others**: **Live** (the default where offered), **Every 10 seconds**, **Every 30 seconds**, **Every 2
+In **Settings › This device › Updates from others**: **Live** (the default where offered), **Every 10 seconds**, **Every 30 seconds**, **Every 2
 minutes**, or **Only when I open Shopper**, with the choices below the operator's minimum not offered. It is kept on the device, not the account: a
 laptop and a phone may want different things. **Shopping mode always uses the fastest choice offered** while it is open (§11.1).
 
@@ -1080,7 +1080,7 @@ themselves.**
 
 ### 14.2 Preferences
 
-Per kind and per channel, in **Settings › Preferences › Notifications** (`notice_pref`). Shopper's bell is the channel for every kind that is on; the defaults are
+Per kind and per channel, in **Settings › Notifications** (`notice_pref`). Shopper's bell is the channel for every kind that is on; the defaults are
 the table's.
 
 ### 14.3 Delivery
@@ -1447,7 +1447,7 @@ dialog, as a list's (§16.9).
 ## 17. Settings
 
 **One dialog with a side navigation,** `SettingsDialog` (§16.10, 16.19), over the page it was opened from, from the avatar's menu. Every section has
-an address (`/settings/profile`, `/settings/security`, `/settings/preferences`, `/settings/data`), through Next's intercepting routes: opened from a
+an address (`/settings/profile`, `/settings/security`, `/settings/preferences`, `/settings/notifications`, `/settings/device`, `/settings/data`), through Next's intercepting routes: opened from a
 page, the dialog is over that page; loaded directly, the same address shows Home with the dialog open, so Settings always looks the same.
 `/settings?section=…` redirects. **`/settings` alone names no section:** the first on a wide screen and the sections alone on a phone, so that nothing about the
 route depends on the viewport; the avatar's menu and the phone's footer go there. A list's settings are the same dialog with the list's sections (§16.5). What each
@@ -1455,18 +1455,20 @@ section says depends on the mode (§15.1); in suite mode, core owns the person's
 than copying them. **Two things stay Shopper's in suite mode, because nothing of core's can reach them:** **Appearance** (light, dark or the system's, kept on the device,
 which the page cannot take from core) and **notifications on this device** (the push control, §14.1); a language and time zone core says are used for dates, and changed there.
 
-| Section         | Suite mode                                                                                                                                      | Standalone                                                                                                                 |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Profile**     | Name, email and picture from core (the SDK session's `name`, `email`, `picture`), read only, refreshed at sign-in; _Edit in Sovereign_          | Name (editable; the person's name everywhere, §6.1) and email; initials, a photo of one's own later                        |
-| **Security**    | Links to core's sign-in and security, and to its keys and recovery kit                                                                          | Change the password (through `@sovereignfs/auth`, as core does); passkeys and two-factor (phase 2)                         |
-| **Preferences** | How a list shows its items by default; **Appearance**; **This device**; notifications on this device; "language and time zone are in Sovereign" | The same, with appearance, time zone, language and region; **Notifications** on this device, each kind by channel from 9.4 |
-| **Data**        | Shopper's readable export (§18.1); a line that core's export holds Shopper's part, encrypted; deleting the account is core's                    | The readable export; delete the account (§19); for the first account, the app's export (§18.1)                             |
+| Section           | Suite mode                                                                                                                             | Standalone                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Profile**       | Name, email and picture from core (the SDK session's `name`, `email`, `picture`), read only, refreshed at sign-in; _Edit in Sovereign_ | Name (editable; the person's name everywhere, §6.1) and email; initials, a photo of one's own later |
+| **Security**      | Links to core's sign-in and security, and to its keys and recovery kit                                                                 | Change the password (through `@sovereignfs/auth`, as core does); passkeys and two-factor (phase 2)  |
+| **Preferences**   | How a list shows its items by default; **Appearance**; "language and time zone are in Sovereign"                                       | The same, with appearance, time zone, language and region                                           |
+| **Notifications** | Notifications on this device (the push control); each kind by channel from 9.4                                                         | The same                                                                                            |
+| **This device**   | Updates from others (phase 2); when it last synced; persistent storage; Couldn't sync; Reset this device                               | The same                                                                                            |
+| **Data**          | Shopper's readable export (§18.1); a line that core's export holds Shopper's part, encrypted; deleting the account is core's           | The readable export; delete the account (§19); for the first account, the app's export (§18.1)      |
 
 - **Security** also holds **Encryption:** "Each list is encrypted with keys of its own, held only by the people on it. Not yet audited.", and which
   lists are not yet (§13.7). Standalone, the recovery kit (§13.2); in suite mode, a line that the kit and passkeys that unlock are core's.
-- **This device** (in Preferences): **Updates from others** (§12.6, phase 2); when it last synced; whether persistent storage was granted;
+- **This device** (a section of its own, after Notifications): **Updates from others** (§12.6, phase 2); when it last synced; whether persistent storage was granted;
   **Couldn't sync** (§12.5); "Reset this device" (sends the outbox, then reloads every list).
-- **Notifications** (in Preferences, from 9.4): notifications on this device (`PushControl`, RFC 0002); each kind (§14.1) by channel, with what is not
+- **Notifications** (a section of its own, from 9.4): notifications on this device (`PushControl`, RFC 0002); each kind (§14.1) by channel, with what is not
   available said plainly.
 - **Import,** and import from the old Shopper plugin (§18.2, §18.3), join Data when they are built.
 
