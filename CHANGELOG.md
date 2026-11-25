@@ -6,6 +6,14 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.6] - 2026-11-25
+
+### Changed
+
+- **Shopper uses `@sovereignfs/ui` 0.107.3**, the design system's release for what was polished in Shopper's screens. **The icon picker opens on the side that has room:** on Inventory's
+  Categories tab, where it sits before the name at the left, it no longer opens past the left edge of the page. **The menu button is drawn larger and bolder.** **Settings' title row is
+  compact:** the title and its close button take less height, so more of the dialog is the section you are in.
+
 ## [0.8.5] - 2026-11-25
 
 ### Fixed
