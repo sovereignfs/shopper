@@ -55,9 +55,9 @@ async function joinThrough(
   await guest.page.getByRole('button', { name: 'Create account' }).click();
   await keepKit(guest.page);
   await guest.page.getByRole('button', { name: 'Join' }).click();
-  // Landed on the list just joined: it is under Shared with you once the device has pulled it.
+  // Landed on the list just joined: it is under Shared with me once the device has pulled it.
   await expect(
-    guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+    guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
   ).toBeVisible({ timeout: 30_000 });
   return { ...guest, email };
 }
@@ -70,11 +70,17 @@ test('the dialog says the list and nothing else is shared, lists its people, and
   const email = await signUp(page, { name: 'Ada' });
   await openShare(page);
   await expect(page).toHaveURL(/\?share=1$/);
-  await expect(
-    dialog(page).getByText(
-      'People you share this list with can see and change it, and nothing else of yours.',
-    ),
-  ).toBeVisible();
+  const lead = dialog(page).getByText(
+    'People you share this list with can see and change it, and nothing else of yours.',
+  );
+  await expect(lead).toBeVisible();
+  // A header of its own, with the close button in it: not a button floating over the first line of the body, as a dialog with no header has on a desktop.
+  await expect(dialog(page).getByText('Share', { exact: true })).toBeVisible();
+  const closeBox = await dialog(page).getByRole('button', { name: 'Close' }).boundingBox();
+  const leadBox = await lead.boundingBox();
+  expect(closeBox).not.toBeNull();
+  expect(leadBox).not.toBeNull();
+  expect((closeBox?.y ?? 0) + (closeBox?.height ?? 0)).toBeLessThanOrEqual(leadBox?.y ?? 0);
   const people = dialog(page).getByRole('region', { name: 'People' });
   await expect(people).toContainText('Ada (you)');
   await expect(people).toContainText('Admin');
@@ -236,9 +242,9 @@ test('the sidebar names lists, never a group, and Share is on a list (RFC 0004)'
   await signUp(page, { name: 'Ada' });
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
   const sidebar = page.getByRole('navigation', { name: 'Shopper' });
-  await expect(sidebar.getByRole('heading', { name: 'Your lists' })).toBeVisible();
+  await expect(sidebar.getByRole('heading', { name: 'My lists' })).toBeVisible();
   await expect(sidebar.getByRole('button', { name: 'Share' })).toHaveCount(0);
-  await expect(sidebar).not.toContainText(/household|group|My lists/i);
+  await expect(sidebar).not.toContainText(/household|group/i);
   await openShare(page);
   await expect(page).toHaveURL(/\?share=1$/);
 });

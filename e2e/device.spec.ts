@@ -225,7 +225,7 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
   // The avatar menu leads to it, and it is read in words.
   await page.getByRole('button', { name: 'User menu' }).click();
   await page.getByRole('menuitem', { name: /Couldn.t sync \(1\)/ }).click();
-  await expect(page).toHaveURL(/section=device/);
+  await expect(page).toHaveURL(/\/settings\/device$/);
   const entry = page
     .getByRole('list', { name: 'Changes that could not be synced' })
     .getByRole('listitem');
@@ -274,7 +274,11 @@ test('a change the server refuses is kept in Couldn’t sync with its sentence, 
     timeout: 15_000,
   });
   await page.getByRole('button', { name: 'Discard' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click();
+  // The confirmation is a dialog over the settings dialog, so it is named.
+  await page
+    .getByRole('dialog', { name: /Discard this change/ })
+    .getByRole('button', { name: 'Discard' })
+    .click();
   await expect(page.getByText(/Nothing is waiting here/)).toBeVisible();
   expect(await read(page, account, 'failed')).toHaveLength(0);
 });
@@ -283,14 +287,18 @@ test('resetting the device sends what is waiting, clears it and loads the househ
   page,
 }) => {
   await signUp(page);
-  await page.goto('/settings?section=device');
+  await page.goto('/settings/device');
   const account = await accountId(page);
   await expect
     .poll(async () => (await read(page, account, 'household')).length, { timeout: 15_000 })
     .toBe(1);
   const [before] = (await read(page, account, 'household')) as { id: string }[];
+  // Nothing was waiting, so it does not ask: the page reloads and the device fills again from the server. **The reload is waited for**, and it is the proof that the reset ran (the page reloads
+  // for nothing else here): the household is there the moment the button is pressed, since the device is not cleared yet, so a poll for it alone ends at once and the read after it can land
+  // in the middle of the clearing and find none.
+  const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'Reset this device' }).click();
-  // Nothing was waiting, so it does not ask: the page reloads and the device fills again from the server.
+  await reloaded;
   await expect
     .poll(async () => (await read(page, account, 'household')).length, { timeout: 20_000 })
     .toBe(1);

@@ -24,8 +24,9 @@ import { EncryptionMemory, encryptingTransport } from '../keys/transport';
 import { useKeys } from '../keys/keys';
 import type { Keyring } from '../keys/household';
 import { Mover } from '../keys/mover';
-import { keepPending } from '../keys/pending';
+import { keepPending, keepPendingCards } from '../keys/pending';
 import { callOperation } from './ops';
+import { rowListOf } from './row-list';
 import { householdsOf } from './store';
 
 /**
@@ -52,6 +53,11 @@ interface Local {
   keysOf(
     household: string,
     list?: string,
+  ): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
+  /** A card's keyring (RFC 0007): the reader's own copy of it, or derived from the group's where the reader has the group's (its Admin, who alone makes a link to it, always has). */
+  cardKeysOf(
+    household: string,
+    card: string,
   ): Promise<{ encrypted: boolean; ring: Keyring | undefined }>;
 }
 
@@ -86,6 +92,16 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         op: 'list.key.mine',
         household: entry.household,
         list: entry.list,
+        record: entry.record,
+      });
+      return answer.ok;
+    });
+    // And the cards' (RFC 0007).
+    void keepPendingCards(storage(), async (entry) => {
+      const answer = await callOperation({
+        op: 'card.key.mine',
+        household: entry.household,
+        card: entry.card,
         record: entry.record,
       });
       return answer.ok;
@@ -130,15 +146,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
           fetchTransport(),
           { appKey: () => appKeyRef.current },
           memory,
-          // Where a row is, for its list's keys (RFC 0004): an item's or a product's list as the server has it (its shadow, while changes to it wait),
-          // which the transport follows through the outbox in order.
-          async (table, id) => {
-            if (table !== 'item' && table !== 'product') return undefined;
-            const shadow = await db.get('shadow', [table, id]);
-            const row = shadow ? shadow.row : await db.get(table, id);
-            const list = (row as { listId?: string | null } | null | undefined)?.listId;
-            return typeof list === 'string' ? list : undefined;
-          },
+          // Where a row is, for its list's keys (RFC 0004, §8.3): its list as the server has it, which the transport follows through the outbox in order.
+          rowListOf(db),
           (households) =>
             void moverRef.current?.mover
               .run(households, appKeyRef.current)
@@ -148,6 +157,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
             const item = await db.get('item', id);
             return item ? { name: item.name, note: item.note } : undefined;
           },
+          // An Inventory item's starter entry as this device holds it (never changed once made): the name key of a change that gives its name back to the starter.
+          async (id) => (await db.get('inventory_item', id))?.starterKey,
         ),
         channel: channel ?? undefined,
       });
@@ -251,8 +262,17 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     };
   }, []);
 
+  const cardKeysOf = useCallback(async (household: string, card: string) => {
+    const memory = memoryRef.current;
+    if (!memory) return { encrypted: false, ring: undefined };
+    return {
+      encrypted: memory.isEncrypted(household),
+      ring: await memory.cardKeyring(household, card, appKeyRef.current),
+    };
+  }, []);
+
   return (
-    <Context.Provider value={{ accountId, client, leave, holdFresh, keysOf }}>
+    <Context.Provider value={{ accountId, client, leave, holdFresh, keysOf, cardKeysOf }}>
       {children}
     </Context.Provider>
   );

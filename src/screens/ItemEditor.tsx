@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import type { Mutation } from '../actions/format';
 import type { ListData } from '../local/listview';
-import { ItemDialog } from './ItemDialog';
+import { ThreeColumnLayout, useIsMobile } from '@sovereignfs/ui';
+import { ItemPanel } from './ItemPanel';
+import styles from './ItemEditor.module.css';
 
 type Found = Extract<ListData, { found: true }>;
 
@@ -16,6 +18,8 @@ type Found = Extract<ListData, { found: true }>;
 export function useQueryParam(name: string): {
   value: string | null;
   open: (value: string) => void;
+  /** Changes the value in place, with no new entry in the history: a dialog's section is not a place Back goes to. */
+  replace: (value: string) => void;
   close: () => void;
 } {
   const params = useSearchParams();
@@ -30,6 +34,7 @@ export function useQueryParam(name: string): {
   return {
     value: params.get(name),
     open: (value) => window.history.pushState(null, '', to(value)),
+    replace: (value) => window.history.replaceState(null, '', to(value)),
     close: () => window.history.replaceState(null, '', to(null)),
   };
 }
@@ -44,23 +49,46 @@ export function useItemParam(): {
   return { id: value, open, close };
 }
 
-/** The dialog for the item named in the address, if it is on this list; an address naming one that is not (deleted, or another list's) closes itself. */
-export function EditedItem({
-  id,
+/**
+ * **The item beside its list** (RFC 0005): the page (`children`) and, while `?item=<id>` names an item of this list, the item in the right column of
+ * `ThreeColumnLayout` (360px, the design system's, as Tusk's card), pushing the page narrower so that another can be opened beside it; **on a phone it is
+ * a page of its own in place of the list** (which is rendered, not navigated: the address is the same). An address naming an item that is not on this list
+ * (deleted, moved, another list's) closes itself. The panel's content is `ItemPanel`: this only places it.
+ */
+export function ItemBeside({
   data,
-  close,
   change,
+  children,
 }: {
-  id: string;
   data: Found;
-  close: () => void;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
+  children: ReactNode;
 }) {
-  const item = data.items.find((each) => each.id === id && each.deletedAt === null);
+  const { id, close } = useItemParam();
+  const mobile = useIsMobile();
+  const item =
+    id === null ? undefined : data.items.find((each) => each.id === id && each.deletedAt === null);
   useEffect(() => {
-    if (!item) close();
-  }, [item, close]);
-  return item ? (
-    <ItemDialog key={item.id} data={data} item={item} onClose={close} change={change} />
+    if (id !== null && !item) close();
+  }, [id, item, close]);
+  const panel = item ? (
+    <ItemPanel
+      key={item.id}
+      data={data}
+      item={item}
+      mobile={mobile}
+      onClose={close}
+      change={change}
+    />
   ) : null;
+  if (panel && mobile) return panel;
+  return (
+    <div className={styles.layout} {...(panel ? { 'data-item-open': '' } : {})}>
+      <ThreeColumnLayout sidebarHidden>
+        <div />
+        <div className={styles.main}>{children}</div>
+        {panel}
+      </ThreeColumnLayout>
+    </div>
+  );
 }

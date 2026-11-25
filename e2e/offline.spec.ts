@@ -103,7 +103,12 @@ test('the front address, a list’s settings and shopping mode open with no netw
   const { list } = await ready(page, baseURL);
   await offline(context);
 
+  // The front address is Home, from the device, and Continue goes on to the list.
   await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole('link', { name: /^Continue/ }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
     timeout: 15_000,
   });

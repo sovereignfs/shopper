@@ -9,7 +9,7 @@ import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { createAuth } from '../auth/auth';
 import type { AuthSettings } from '../auth/config';
-import { TestClient } from '../auth/test-support';
+import { TestClient, movedAuthStore } from '../auth/test-support';
 import { ensurePerson, personById, personOfAccount, updatePerson } from './people';
 import { asSeenBy, canSeeEmail } from './visibility';
 
@@ -109,7 +109,7 @@ describe(`an account's person is made with the account (${leg})`, () => {
   it('has exactly one person for each account that signs up, and the sign-up does not fail without it', async () => {
     // The auth store beside the app store, migrated, and not reset (the stores are shared on sqld and PostgreSQL).
     const authDatabase = await openDatabase(testTarget().config, 'auth');
-    await runMigrations(authDatabase);
+    const store = await movedAuthStore(testTarget().config, authDatabase);
     const settings: AuthSettings = {
       url: 'http://localhost:3000',
       secret: 'test-secret-'.padEnd(40, 'x'),
@@ -122,7 +122,7 @@ describe(`an account's person is made with the account (${leg})`, () => {
     const auth = createAuth({
       settings,
       name: 'Shopper',
-      database: authDatabase,
+      database: store,
       onAccountCreated: async (account) => {
         if (fail) throw new Error('the app store is down');
         await ensurePerson(database, ring, account);
@@ -154,6 +154,7 @@ describe(`an account's person is made with the account (${leg})`, () => {
     fail = false;
     await ensurePerson(database, ring, { id: secondId, name: 'Lin', email: 'lin@example.com' });
     expect(await personOfAccount(database, ring, secondId)).toMatchObject({ name: 'Lin' });
+    await store.close();
     await authDatabase.close();
   });
 });

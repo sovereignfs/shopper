@@ -8,7 +8,7 @@ import { Alert, Button, FormField, Input } from '@sovereignfs/ui';
 import styles from './Account.module.css';
 
 /**
- * Settings, Sign-in, Password (DESIGN.md §17): change it, asking for the current one. **Changing it ends every other session** of the account. An account
+ * Settings, Security, Password (DESIGN.md §17): change it, asking for the current one. **Changing it ends every other session** of the account. An account
  * that came in through Sovereign alone has no password, and Sovereign has its own: it says so, and offers nothing. Needs a connection, and says so when
  * there is none.
  */

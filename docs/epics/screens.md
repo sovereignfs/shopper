@@ -75,7 +75,9 @@ with _+1_, "Add _text_" last; Enter takes the first; the field stays focused and
 **Done as:** **The dialog:** `ItemDialog` (`src/screens/ItemDialog.tsx`), a `Dialog` at `?item=<id>` (full-screen on a phone as the design system adapts it), opened by a **pencil on every row** that is a target of its own beside the whole-row tick (`Edit <name>`, in `Row`); Escape, Cancel and a scrim click close it, and an `?item=` naming an item that is not on the list (deleted, or another list's) closes itself. The address is changed with the browser's own history and not the router, which would ask the server for the page again: the dialog opens with no network, and a reload, Back and a link agree. **Fields:** name; quantity with `QuantityStepper` (its step is the unit's, `stepFor`: one for a counted unit, the product's last quantity for a measured one) and the unit `Select` over the fixed list; category (`Select` over the household's, hidden ones left out unless it is the item's own); `IconPicker` over the grocery set; note; the **list** `Select` within the household (shown when it has more than one list); **Remember for next time** (on) as a `Toggle`; **Save** sends only the fields that differ (`editItem`), and with Remember the product learns category, icon and unit in the same mutation; **Delete** is a quiet text action that deletes at once with Undo; the foot says who added it and when, and, if bought, who and when. The stepper counts in numbers, but the quantity is kept in exact decimals: only the direction is taken from it and the step is added or subtracted with `addQuantity`/`subtractQuantity`. `listViewOf` now also returns the household's lists. Tests: `listview.test.ts` (the lists) and 6 browser tests in Chromium (`e2e/item.spec.ts`: the pencil opens the address and does not tick, every field saves and the server has it; saving with the network cut and the server having it when it is back; Remember for next time making the next add come in the right category and unit; Delete with Undo; an address naming nothing, and Escape; a phone's width, full-screen with Enter saving). Left out: **the price** (8.10); **the item's history of trips** (7.1, there are no trips yet); moving an item to a list of **another household** (3.6); the list `Select` shows only the household's own lists. WebKit was not run here (its browser is not installed).
 keyboard-complete.
 
-#### 📋 8.5 — All lists (phase 2)
+#### ➖ 8.5 — All lists (phase 2)
+
+**Superseded (2026-11-23)** by 23.2 ([RFC 0006](../rfcs/0006-home-and-inventory.md)): all lists are Home's tiles, not a page of their own.
 
 **Goal:** every open item, everywhere. **Design:** §9.7. **Depends on:** 8.2.
 
@@ -84,7 +86,9 @@ on a list; adding asks which list; "All lists" in the sidebar and on the phone's
 
 **Accepts when:** an item ticked here is ticked on its list; the view works offline.
 
-#### 📋 8.6 — The catalog (phase 2)
+#### ➖ 8.6 — The catalog (phase 2)
+
+**Superseded (2026-11-23)** by 23.4 ([RFC 0006](../rfcs/0006-home-and-inventory.md)): the catalog screen is Inventory, a person's own, with the Categories tab; a list's products are tidied from an item's panel, and merged by 5.6.
 
 **Goal:** tidying what Shopper remembers. **Design:** §16.8. **Depends on:** 8.1, 5.6, 4.7.
 

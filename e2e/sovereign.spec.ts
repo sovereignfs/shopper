@@ -1,11 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 import {
-  PASSWORD,
+  PHONE,
   accountOf,
   anotherDevice,
+  continueToList,
   deviceRows,
-  fillSignUp,
-  keepKit,
   makeLink,
   test,
   signOutFromMenu,
@@ -14,15 +13,26 @@ import { PORTS } from './ports';
 
 /**
  * Signing in through Sovereign (task 2.3, DESIGN.md §15.1), a fake one (`e2e/fake-sovereign-server.ts`), on two instances of their own, **both with sign-up
- * closed**: one that takes only Sovereign, and one that takes both ways. A sign-in through core is not refused by the sign-up setting; one whose address is a
- * local account's is refused with a sentence and makes and touches nothing. The instances keep their accounts between the two browsers, so each test is the
- * same whichever runs first.
+ * closed**: one set up with Sovereign only, and one set up both ways, which runs in suite mode all the same (RFC 0005). In suite mode `/sign-in` and
+ * `/sign-up` send the browser to core at once, and the fake signs in whoever it was told to, so arriving at either is coming back signed in. A sign-in
+ * through core is not refused by the sign-up setting. The instances keep their accounts between the two browsers, so each test is the same whichever
+ * runs first.
  */
 const SOVEREIGN = `http://localhost:${PORTS.sovereign}`;
 const BOTH = `http://localhost:${PORTS.both}`;
-const LOCAL = { email: 'local-owner@both.test', name: 'Local Owner' };
 
-async function nextPersonIs(page: Page, who: { sub: string; email: string; name?: string }) {
+async function nextPersonIs(
+  page: Page,
+  who: {
+    sub: string;
+    email: string;
+    name?: string;
+    picture?: string;
+    locale?: string;
+    zoneinfo?: string;
+    signedInSecondsAgo?: number;
+  },
+) {
   const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/sign-in-as`, {
     data: who,
   });
@@ -30,14 +40,13 @@ async function nextPersonIs(page: Page, who: { sub: string; email: string; name?
 }
 
 /**
- * Starts the sign-in at Sovereign. Sign-in is rate-limited, three tries in ten seconds from one address, and both browsers reach these instances from the same
- * one: when told so, wait it out and go again, as a person would.
+ * Signs in at Sovereign by opening `/sign-in` (or `path`), which in suite mode goes to core and back. Sign-in is rate-limited, three tries in ten seconds
+ * from one address, and both browsers reach these instances from the same one: when told so, wait it out and go again, as a person would.
  */
-async function throughSovereign(page: Page) {
-  const button = page.getByRole('button', { name: 'Sign in with Sovereign' });
+async function throughSovereign(page: Page, path = '/sign-in') {
   const limited = page.getByText(/Too many tries/);
   for (let attempt = 0; attempt < 3; attempt++) {
-    await button.click();
+    await page.goto(path);
     await expect(
       limited
         .or(page.getByRole('button', { name: 'User menu' }))
@@ -46,6 +55,17 @@ async function throughSovereign(page: Page) {
     if (!(await limited.isVisible())) return;
     await page.waitForTimeout(10_500);
   }
+}
+
+/**
+ * Signed in through Sovereign, a person is on Home (RFC 0006), whose Continue is their Groceries: on to the list, for a test that wants it. Waits for the first household
+ * to be made and the device to have it, which a first sign-in takes a moment for.
+ */
+async function openGroceries(page: Page) {
+  await continueToList(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 async function signOut(page: Page) {
@@ -63,15 +83,30 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   test.use({ baseURL: SOVEREIGN, viewport: { width: 1280, height: 800 } });
   test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
-  test('offers Sovereign and nothing of the local ways, which are not there to find', async ({
+  test('sends sign-in and sign-up to core at once, and has nothing of the local ways, which are not there to find', async ({
     page,
   }) => {
-    await page.goto('/sign-in');
-    await expect(page.getByRole('button', { name: 'Sign in with Sovereign' })).toBeVisible();
-    await expect(page.getByLabel('Password')).toHaveCount(0);
-    for (const path of ['/sign-up', '/forgot-password', '/reset-password']) {
+    for (const path of ['/forgot-password', '/reset-password']) {
       expect((await page.goto(path))?.status(), path).toBe(404);
     }
+    await page.goto('/');
+    await expect(page.getByRole('link', { name: 'Sign in with Sovereign' })).toBeVisible();
+    // Sign-up has no form of its own: it is core's, so the page sends the browser there and back, asking for core's sign-up (`prompt=create`).
+    await nextPersonIs(page, person('signup'));
+    await throughSovereign(page, '/sign-up');
+    const prompts = async () =>
+      (await (await page.request.get(`http://localhost:${PORTS.coreControl}/prompts`)).json()) as (
+        string | null
+      )[];
+    expect((await prompts()).at(-1)).toBe('create');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await signOut(page);
+    // Sign-in asks for core's sign-in, with no prompt.
+    await nextPersonIs(page, person('signin'));
+    await throughSovereign(page);
+    expect((await prompts()).at(-1)).toBeNull();
+    await signOut(page);
   });
 
   test('anyone Sovereign signs in gets an account, as who Sovereign says they are, with their first household, though sign-up is closed', async ({
@@ -79,7 +114,6 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   }) => {
     for (const who of [person('first'), person('second')]) {
       await nextPersonIs(page, who);
-      await page.goto('/sign-in');
       await throughSovereign(page);
       await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
       await page.getByRole('button', { name: 'User menu' }).click();
@@ -87,14 +121,325 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
       await expect(page.getByText(who.email)).toBeVisible();
       await page.keyboard.press('Escape');
       // Their own household, with its first list, is made with the account.
-      await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-        timeout: 30_000,
-      });
+      await openGroceries(page);
       await expect(
-        page.getByRole('navigation', { name: 'Shopper' }).getByText('Your lists'),
+        page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
       ).toBeVisible();
       await signOut(page);
     }
+  });
+
+  test('Settings is core’s to say: the profile as core says it, with its picture, and links to core in place of a password and a delete', async ({
+    page,
+  }) => {
+    const core = `http://localhost:${PORTS.coreAuth}`;
+    const who = { ...person('pictured'), picture: `${core}/avatar.png` };
+    await nextPersonIs(page, who);
+    await throughSovereign(page);
+    await openGroceries(page);
+    // The page's policy lets an image come from core and from nowhere else beyond the app, and the avatar in the header is core's picture.
+    const csp = (await page.request.get('/')).headers()['content-security-policy'] ?? '';
+    expect(csp).toContain(`img-src 'self' data: blob: ${core}`);
+    await expect(page.getByRole('button', { name: 'User menu' }).locator('img')).toHaveAttribute(
+      'src',
+      `${core}/avatar.png`,
+    );
+
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog).toBeVisible();
+    // Profile: read only, as core says it, with a way to change it there.
+    await expect(dialog.getByText(who.name, { exact: true })).toBeVisible();
+    await expect(dialog.getByText(who.email)).toBeVisible();
+    await expect(dialog.getByRole('textbox')).toHaveCount(0);
+    await expect(dialog.getByRole('link', { name: 'Edit in Sovereign' })).toHaveAttribute(
+      'href',
+      `${core}/profile`,
+    );
+    await expect(dialog.locator('img').first()).toHaveAttribute('src', `${core}/avatar.png`);
+    // Security: core's, with no password to change here.
+    await dialog.getByRole('button', { name: 'Security' }).click();
+    await expect(dialog.getByRole('link', { name: /Sovereign’s security/ })).toHaveAttribute(
+      'href',
+      `${core}/security`,
+    );
+    await expect(dialog.getByRole('link', { name: 'Open your keys' })).toHaveAttribute(
+      'href',
+      `${core}/keys`,
+    );
+    await expect(dialog.getByRole('form', { name: 'Change password' })).toHaveCount(0);
+    // Preferences: the language and time zone are core's; the list's view and appearance are Shopper's.
+    await dialog.getByRole('button', { name: 'Preferences' }).click();
+    await expect(dialog.getByRole('link', { name: 'Change them in Sovereign' })).toHaveAttribute(
+      'href',
+      `${core}/preferences`,
+    );
+    await expect(dialog.getByRole('radio', { name: 'By aisle' })).toBeVisible();
+    await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
+    // Data: Shopper's export, a line about core's, and deleting is core's.
+    await dialog.getByRole('button', { name: 'Data' }).click();
+    await expect(dialog.getByText(/holds Shopper’s part/)).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'Delete it in Sovereign' })).toHaveAttribute(
+      'href',
+      `${core}/delete-account`,
+    );
+    await expect(dialog.getByRole('button', { name: 'Delete my account…' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await signOut(page);
+  });
+
+  test('Sovereign’s language and time zone are the ones dates are written in, as it says them at each sign-in, and are changed there', async ({
+    page,
+  }) => {
+    const first = person('regional');
+    await nextPersonIs(page, first);
+    await throughSovereign(page);
+    await openGroceries(page);
+    await signOut(page);
+
+    // The same person, with a language and a time zone at Sovereign now.
+    await nextPersonIs(page, { ...first, locale: 'de-DE', zoneinfo: 'Pacific/Auckland' });
+    await throughSovereign(page);
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Preferences' }).click();
+    // Used and not edited here.
+    await expect(dialog.getByText(/These are Sovereign’s/)).toBeVisible();
+    await expect(dialog.getByLabel('Time zone')).toHaveCount(0);
+    // Appearance stays Shopper's, since it cannot follow Sovereign's.
+    await expect(dialog.getByRole('radio', { name: 'Dark' })).toBeVisible();
+    // The device's own times follow them (This device is a section of its own).
+    await dialog.getByRole('button', { name: 'This device' }).click();
+    await expect(dialog.getByText(/Last synced \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/)).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.keyboard.press('Escape');
+    await signOut(page);
+  });
+
+  test('the export asks for a sign-in at Sovereign in the last few minutes, sends the person through it, and then serves their records', async ({
+    page,
+    baseURL,
+  }) => {
+    const base = baseURL ?? '';
+    // Signed in at Sovereign an hour ago, on a session that is still alive there.
+    const old = { ...person('exporter'), signedInSecondsAgo: 3600 };
+    await nextPersonIs(page, old);
+    await throughSovereign(page);
+    await openGroceries(page);
+    const ask = () =>
+      page.request.post('/api/account/export', {
+        headers: { origin: base, 'content-type': 'application/json' },
+        data: {},
+      });
+    // Nothing is served for a sign-in that old, and no password is asked for.
+    const refused = await ask();
+    expect(refused.status()).toBe(403);
+    expect(await refused.json()).toEqual({ code: 'SIGN_IN_AGAIN' });
+    // A password does not stand in for it.
+    const guessed = await page.request.post('/api/account/export', {
+      headers: { origin: base, 'content-type': 'application/json' },
+      data: { password: 'anything' },
+    });
+    expect(guessed.status()).toBe(403);
+
+    // The page says so and offers the way: through core with `prompt=login`, and back to Data.
+    await page.goto('/settings/data');
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog.getByText(/Shopper’s part/)).toBeVisible();
+    // The way through Sovereign, as the page's button has it.
+    await page.goto('/api/auth/sign-in/sovereign?prompt=login&returnTo=%2Fsettings%2Fdata');
+    await expect(page).toHaveURL(/\/settings\/data$/);
+    const prompts = (await (
+      await page.request.get(`http://localhost:${PORTS.coreControl}/prompts`)
+    ).json()) as (string | null)[];
+    expect(prompts.at(-1)).toBe('login');
+
+    // Signed in again just now, the same session is served: this person's own records, and the request names nothing.
+    const served = await ask();
+    expect(served.status()).toBe(200);
+    const body = (await served.json()) as {
+      head: { version: string };
+      records: { kind: string }[];
+    };
+    expect(body.head.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(body.records.some((part) => part.kind === 'person')).toBe(true);
+    await page.keyboard.press('Escape');
+    await signOut(page);
+  });
+
+  test('the launcher lists the apps Sovereign says the person may open, from what the device kept when core is out of reach, and is gone with the person', async ({
+    page,
+  }) => {
+    const core = `http://localhost:${PORTS.coreAuth}`;
+    const control = `http://localhost:${PORTS.coreControl}`;
+    const apps = [
+      {
+        id: 'tusk',
+        name: 'Tusk',
+        description: null,
+        icon: `${core}/avatar.png`,
+        launchUrl: 'https://tusk.example.com/',
+      },
+      // The app the launcher is in is left out, and so is what cannot be opened by an address, and an icon from another site is not drawn.
+      {
+        id: 'shopper-e2e-client',
+        name: 'Shopper',
+        description: null,
+        icon: null,
+        launchUrl: 'https://shopper.example.com/',
+      },
+      { id: 'bad', name: 'Bad', description: null, icon: null, launchUrl: 'javascript:alert(1)' },
+      {
+        id: 'tally',
+        name: 'Tally',
+        description: null,
+        icon: 'https://elsewhere.example.com/i.png',
+        launchUrl: 'https://tally.example.com/',
+      },
+    ];
+    expect((await page.request.post(`${control}/apps`, { data: apps })).ok()).toBe(true);
+    const who = person('launcher');
+    await nextPersonIs(page, who);
+    await throughSovereign(page);
+    await openGroceries(page);
+
+    // The launcher is at the right of the header, with the apps as links; the app it is in and an app with no address to open are not there.
+    const launcher = page.getByRole('banner').getByRole('button', { name: 'Apps' });
+    await expect(launcher).toBeVisible({ timeout: 15_000 });
+    await launcher.click();
+    const tusk = page.getByRole('link', { name: 'Tusk' });
+    await expect(tusk).toHaveAttribute('href', 'https://tusk.example.com/');
+    await expect(tusk.locator('img')).toHaveAttribute('src', `${core}/avatar.png`);
+    await expect(page.getByRole('link', { name: 'Tally' })).toHaveAttribute(
+      'href',
+      'https://tally.example.com/',
+    );
+    // An icon from another site is not drawn: the app is its first letter.
+    await expect(page.getByRole('link', { name: 'Tally' }).locator('img')).toHaveCount(0);
+    await expect(page.locator('a[href="https://shopper.example.com/"]')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Bad' })).toHaveCount(0);
+    await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // Shopper called core as the person: its refresh token was used, once for the list, and never twice.
+    const refreshes = (await (await page.request.get(`${control}/refreshes`)).json()) as {
+      used: number;
+      reused: number;
+    };
+    expect(refreshes.used).toBeGreaterThan(0);
+    expect(refreshes.reused).toBe(0);
+
+    // The device kept the list for the account, and only for it.
+    const kept = await page.evaluate(() =>
+      Object.keys(window.localStorage).filter((key) => key.startsWith('shopper.apps.')),
+    );
+    expect(kept).toHaveLength(1);
+
+    // There is no launcher on a phone, whatever the person has to open.
+    await page.setViewportSize(PHONE);
+    await expect(page.getByRole('button', { name: 'Open the navigation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Apps' })).toHaveCount(0);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // With core out of reach the launcher is what the device kept.
+    await page.route('**/api/account/apps', (route) => route.abort());
+    await page.reload();
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Apps' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.unroute('**/api/account/apps');
+
+    // Signing out takes the list from the device with the rest of the person.
+    await signOut(page);
+    expect(
+      await page.evaluate(() =>
+        Object.keys(window.localStorage).filter((key) => key.startsWith('shopper.apps.')),
+      ),
+    ).toEqual([]);
+
+    // A request that names no session is refused, and one that does is answered for that person alone.
+    expect((await page.request.get('/api/account/apps')).status()).toBe(401);
+  });
+
+  test('the launcher is the person’s own: what core lists for one is never shown to another, and requests at once renew the token without spending it twice', async ({
+    page,
+  }) => {
+    const control = `http://localhost:${PORTS.coreControl}`;
+    const first = person('first');
+    const second = person('second');
+    const listing = (name: string) => [
+      {
+        id: name.toLowerCase(),
+        name,
+        description: null,
+        icon: null,
+        launchUrl: `https://${name.toLowerCase()}.example.com/`,
+      },
+    ];
+    for (const [who, name] of [
+      [first, 'Alpha'],
+      [second, 'Beta'],
+    ] as const) {
+      const given = { sub: who.sub, apps: listing(name) };
+      expect((await page.request.post(`${control}/apps`, { data: given })).ok()).toBe(true);
+    }
+    const apps = async () =>
+      page.evaluate(async () => {
+        const reply = await fetch('/api/account/apps', { cache: 'no-store' });
+        return {
+          status: reply.status,
+          body: (await reply.json()) as { apps: { name: string }[] | null },
+        };
+      });
+    const refreshes = async () =>
+      (await (await page.request.get(`${control}/refreshes`)).json()) as {
+        used: number;
+        reused: number;
+      };
+
+    // The launcher's own request is held back, so that the first calls to core as this person are the ones made below, together, with nothing cached yet.
+    await page.route('**/api/account/apps', (route) => route.abort());
+    await nextPersonIs(page, first);
+    await throughSovereign(page);
+    await openGroceries(page);
+    await page.unroute('**/api/account/apps');
+    const before = await refreshes();
+    const together = await page.evaluate(async () =>
+      Promise.all(
+        Array.from({ length: 5 }, async () => {
+          const reply = await fetch('/api/account/apps', { cache: 'no-store' });
+          return (await reply.json()) as { apps: { name: string }[] | null };
+        }),
+      ),
+    );
+    // Every one was answered, for this person, and the token was renewed one at a time, never presented twice.
+    for (const answer of together) expect(answer.apps?.map((app) => app.name)).toEqual(['Alpha']);
+    const after = await refreshes();
+    expect(after.used).toBeGreaterThan(before.used);
+    expect(after.reused).toBe(0);
+
+    // The header shows theirs.
+    await page.reload();
+    await page.getByRole('banner').getByRole('button', { name: 'Apps' }).click();
+    await expect(page.getByRole('link', { name: 'Alpha' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    expect((await apps()).body.apps?.map((app) => app.name)).toEqual(['Alpha']);
+    await signOut(page);
+
+    // Another person on the same instance, from the same browser: what core lists for them, and nothing of the first's.
+    await nextPersonIs(page, second);
+    await throughSovereign(page);
+    await openGroceries(page);
+    await page.getByRole('banner').getByRole('button', { name: 'Apps' }).click();
+    await expect(page.getByRole('link', { name: 'Beta' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'Alpha' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    expect((await apps()).body.apps?.map((app) => app.name)).toEqual(['Beta']);
+    expect((await refreshes()).reused).toBe(0);
+    await signOut(page);
   });
 
   test('the same person signs in again as the same account, and signing out is local', async ({
@@ -102,20 +447,14 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
   }) => {
     const who = person('again');
     await nextPersonIs(page, who);
-    await page.goto('/sign-in');
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await signOut(page);
-    await page.goto('/sign-in');
     await throughSovereign(page);
     // The same account: its household is still the one list, not a second.
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     await expect(
-      page.getByRole('navigation', { name: 'Shopper' }).getByText('Your lists'),
+      page.getByRole('navigation', { name: 'Shopper' }).getByText('My lists'),
     ).toHaveCount(1);
     await signOut(page);
   });
@@ -125,11 +464,8 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     browser,
   }) => {
     await nextPersonIs(page, person('host'));
-    await page.goto('/sign-in');
     await throughSovereign(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     const link = await makeLink(page, SOVEREIGN);
 
     const guest = await anotherDevice(browser, SOVEREIGN);
@@ -138,18 +474,18 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     // Nothing warns of a closed instance: Sovereign is a way in whatever sign-up says.
     await expect(guest.page.getByText(/not taking new ones/)).toHaveCount(0);
     await guest.page.getByRole('link', { name: 'Sign in' }).click();
-    await guest.page.getByRole('button', { name: 'Sign in with Sovereign' }).click();
     // Back at the invitation, signed in.
     await expect(guest.page).toHaveURL(link.path.split('#')[0] ?? link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
-      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
     ).toBeVisible({ timeout: 30_000 });
     await guest.context.close();
   });
 
   // What Sovereign tells the app when a person's session there ends, or they delete their account (task 2.4). The fake signs the notice with the key it
-  // publishes, as Sovereign does, and the test posts it where the manifest says to.
+  // publishes, as Sovereign does, and the test posts it where the manifest says to. It names the person, not one of their core sessions: a notice
+  // that names a core session ends only the sessions that came from it (auth.md §8).
   type Wrong = 'signature' | 'audience' | 'expired' | 'type';
   async function noticeFrom(
     page: Page,
@@ -158,7 +494,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     wrong?: Wrong,
   ): Promise<string> {
     const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/notice`, {
-      data: { kind, sub, sid: 'core-session-1', wrong },
+      data: { kind, sub, wrong },
     });
     expect(reply.ok()).toBe(true);
     return reply.text();
@@ -169,7 +505,6 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     page.request.post('/api/sovereign/account-deleted', { form: { account_deleted_token: token } });
   async function signInAs(page: Page, who: { sub: string; email: string; name?: string }) {
     await nextPersonIs(page, who);
-    await page.goto('/sign-in');
     await throughSovereign(page);
     await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
   }
@@ -186,9 +521,10 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
 
     const reply = await sendLogout(page, await noticeFrom(page, 'logout', who.sub));
     expect(reply.status()).toBe(200);
+    // Signed out on both: no session is left. (Sent to sign in, suite mode would go straight to core, which the fake answers by signing in again.)
     for (const tab of [page, elsewhere]) {
-      await tab.goto('/home');
-      await expect(tab).toHaveURL(/\/sign-in/);
+      const session = await tab.request.get('/api/auth/get-session');
+      expect(await session.json()).toBeNull();
     }
     await other.close();
     // And they can sign in again: the account is theirs still.
@@ -203,8 +539,8 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await signInAs(page, who);
     for (const wrong of ['signature', 'audience', 'expired', 'type'] as const) {
       const reply = await sendLogout(page, await noticeFrom(page, 'logout', who.sub, wrong));
+      // Refused with nothing said (auth.md §8): what was wrong with it is not the sender's to learn.
       expect(reply.status(), wrong).toBe(400);
-      expect(await reply.json()).toEqual({ error: 'invalid_request' });
     }
     // A deletion token is not a logout token, nor the reverse.
     expect(
@@ -241,9 +577,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     const host = person('hostdel');
     const leaver = person('gone');
     await signInAs(page, host);
-    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await openGroceries(page);
     const link = await makeLink(page, SOVEREIGN);
     const hostAccount = await accountOf(page);
 
@@ -252,7 +586,7 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     await guest.page.goto(link.path);
     await guest.page.getByRole('button', { name: 'Join' }).click();
     await expect(
-      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+      guest.page.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
     ).toBeVisible({ timeout: 30_000 });
 
     const deleted = await sendDeletion(page, await noticeFrom(page, 'account-deleted', leaver.sub));
@@ -295,69 +629,37 @@ test.describe('an instance that signs in through Sovereign only, with sign-up cl
     }
   });
 
-  test('a person who declines at Sovereign is told so and is not signed in', async ({ page }) => {
-    await page.goto('/sign-in?error=access_denied');
-    await expect(page.getByText(/You declined to share/)).toBeVisible();
+  // A sign-in through core that did not complete, declined at Sovereign included, comes back with the package's one word for it (auth.md §8;
+  // a real decline is driven in `src/auth/sovereign.test.ts`).
+  test('a person who declines at Sovereign is told it did not complete and is not signed in', async ({
+    page,
+  }) => {
+    await page.goto('/sign-in?error=sovereign');
+    await expect(page.getByText(/Signing in with Sovereign did not complete/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
   });
 });
 
-test.describe('an instance that takes both ways, with sign-up closed', () => {
+test.describe('an instance set up both ways, which runs in suite mode', () => {
   test.use({ baseURL: BOTH, viewport: { width: 1280, height: 800 } });
   test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
-  /** The local account, made once by whichever browser gets here first: sign-up takes the first account and then closes. */
-  async function localAccountExists(page: Page) {
-    await page.goto('/sign-up');
-    if (await page.getByRole('heading', { name: 'Create your account' }).isVisible()) {
-      await fillSignUp(page, { name: LOCAL.name, email: LOCAL.email, password: PASSWORD });
-      await page.getByRole('button', { name: 'Create account' }).click();
-      await keepKit(page);
-      await expect(page).toHaveURL(/\/$/);
-      await signOut(page);
-    } else {
-      await expect(page.getByRole('heading', { name: 'Sign-up is closed' })).toBeVisible();
-    }
-  }
-
-  test('offers both ways, and the local one still works', async ({ page }) => {
-    await localAccountExists(page);
-    await page.goto('/sign-in');
-    await expect(page.getByRole('button', { name: 'Sign in with Sovereign' })).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
-    await page.getByLabel('Email').fill(LOCAL.email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
-    await signOut(page);
-  });
-
-  test('a stranger signs in through Sovereign though local sign-up is closed', async ({ page }) => {
-    await localAccountExists(page);
-    await nextPersonIs(page, person('stranger'));
-    await page.goto('/sign-in');
-    await throughSovereign(page);
-    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
-    await signOut(page);
-  });
-
-  test('a Sovereign login whose address is a local account’s is refused with a sentence, and the local account is as it was', async ({
+  test('signs in through Sovereign only: no password form, and the local routes are not there', async ({
     page,
+    request,
   }) => {
-    await localAccountExists(page);
-    await nextPersonIs(page, { sub: `e2e-impostor-${process.pid}`, ...LOCAL });
-    await page.goto('/sign-in');
+    for (const path of ['/forgot-password', '/reset-password']) {
+      expect((await page.goto(path))?.status(), path).toBe(404);
+    }
+    const reply = await request.post(`${BOTH}/api/auth/sign-up/email`, {
+      headers: { origin: BOTH },
+      data: { name: 'Mallory', email: 'mallory@both.test', password: 'x'.repeat(43) },
+    });
+    expect(reply.status()).toBe(404);
+    await nextPersonIs(page, person('stranger'));
     await throughSovereign(page);
-    await expect(page).toHaveURL(/\/sign-in/);
-    await expect(page.getByText(/Sign in with your password/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
-    // The local account still signs in with its password, as itself.
-    await page.getByLabel('Email').fill(LOCAL.email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await page.getByRole('button', { name: 'User menu' }).click();
-    await expect(page.getByText(LOCAL.name, { exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
     await signOut(page);
   });
 });

@@ -13,5 +13,5 @@ export interface CoreKeySettings {
 }
 
 export function coreKeys(settings: CoreKeySettings) {
-  return appKeys({ ...settings, secretPath: '/api/keys/secret' });
+  return appKeys({ ...settings, secretPath: '/api/auth/sv/key-secret' });
 }

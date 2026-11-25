@@ -1,0 +1,82 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sv-space-5);
+  padding: var(--sv-space-6) var(--sv-space-4);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  width: 100%;
+  max-width: 40rem;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sv-space-1);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--sv-font-size-2xl);
+  font-weight: var(--sv-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+/* The code is as wide as the screen lets it be: a scanner reads size and contrast, and the component draws its own white and quiet zone. */
+.code {
+  width: 100%;
+  max-width: 40rem;
+}
+
+.code > * {
+  width: 100%;
+}
+
+.number {
+  margin: 0;
+  font-size: var(--sv-font-size-xl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin: 0;
+  max-width: 40rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cannot {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sv-space-3);
+}
+
+.barActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+}

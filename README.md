@@ -10,14 +10,15 @@ instance.
 - **Private:** names, notes and the like are encrypted on your device, under keys of each list's own, before they reach the server
   ([what that does and does not do](#encryption)). Not yet audited.
 
-It is a web app that installs like any other (a PWA), with its own database (an sqld service, a SQLite file or PostgreSQL), and people sign in with an email and a
-password, through a Sovereign instance, or both. It needs no Sovereign instance: it runs fully on its own.
+It is a web app that installs like any other (a PWA), with its own database (an sqld service, a SQLite file or PostgreSQL), and people sign in one way: through the
+Sovereign instance when it is hosted (suite mode), or with an email and a password when it runs alone (standalone). It needs no Sovereign instance: it runs
+fully on its own. One set up both ways signs in through Sovereign only, and says so when it starts.
 
 ## What it does, and does not do yet
 
 **It does:** accounts (a password, or a Sovereign core); lists and items with quantities, units, categories, icons and notes; suggestions from what you buy and a
 starter catalog; ticking off, _Bought_, _Clear bought_ and undo; shopping mode; sharing a list by a link, with leaving and removing, list by list; working with no
-network, and syncing; encryption on your device; Web Push; a person's export from a Sovereign core; deleting your account.
+network, and syncing; encryption on your device; Web Push; a person's own readable export (alone) and a person's export from a Sovereign core; deleting your account.
 
 **It does not do yet:** roles other than Admin and Member; trips, shops, prices and
 totals; invitations by email, notices and the bell; live updates (a device asks every 20 seconds, every 10 in shopping mode, unless you set it); import;
@@ -66,7 +67,9 @@ docker compose -f compose.yaml -f compose.postgres.yaml up -d --build          #
 ### Hosted by a Sovereign instance
 
 `sv app add shopper` hosts it from `sovereign.manifest.json`, which is also the image's label. The instance gives it a database and its settings, and people sign in
-through it. Set `SHOPPER_AUTH_LOCAL=1` as well and people who are not on the instance can make an account, which is what lets them accept a link you send. See
+through it only: `/sign-in` and `/sign-up` go straight to the instance, and someone you send a link to makes an account there. `SHOPPER_AUTH_LOCAL` does
+nothing beside a core (Shopper says so when it starts, naming what to remove), and password accounts made before cannot sign in: a Sovereign sign-in is never
+matched to one by its email. See
 [`deploy/README.md`](deploy/README.md).
 
 ## Settings
@@ -81,7 +84,7 @@ instead of `NAME=value`, so that it is never in the process list. The server sto
 | `SHOPPER_AUTH_SECRET`                                                                                       | 32 characters or more, to sign sessions and tokens (`openssl rand -base64 48`). Changing it signs everyone out                                                                                |
 | `SHOPPER_AUTH_SIGNUP`                                                                                       | `open` (the default) or `closed`: see below                                                                                                                                                   |
 | `SHOPPER_AUTH_PASSWORD_MIN_LENGTH`                                                                          | The shortest password, 8 to 128. Default 10                                                                                                                                                   |
-| `SHOPPER_CORE_URL`, `SHOPPER_CORE_CLIENT_ID`, `SHOPPER_CORE_CLIENT_SECRET`                                  | Sign-in through a Sovereign core: all three or none. Register the client at core with the redirect `<SHOPPER_URL>/api/auth/callback/sovereign`. Either way, or both, can be on                |
+| `SHOPPER_CORE_URL`, `SHOPPER_CORE_CLIENT_ID`, `SHOPPER_CORE_CLIENT_SECRET`                                  | Sign-in through a Sovereign core: all three or none. Register the client at core with the redirect `<SHOPPER_URL>/api/auth/callback/sovereign`. With it, sign-in is core's alone              |
 | `SHOPPER_DB_DIALECT`                                                                                        | `sqld` (the default), `sqlite` or `postgres`. Nothing guesses it from an address                                                                                                              |
 | `SHOPPER_SQLD_URL`, `SHOPPER_SQLD_ADMIN_URL`                                                                | An sqld service (default `http://sqld:8080`) and its admin address, which makes the namespaces (default `http://sqld:8081`)                                                                   |
 | `SHOPPER_SQLITE_URL`                                                                                        | `file:/path/shopper.db`: a database file, for one container. Required with `sqlite`. The sign-in database, `shopper_auth.db`, is beside it                                                    |
@@ -93,11 +96,14 @@ instead of `NAME=value`, so that it is never in the process list. The server sto
 | `SHOPPER_SMTP_HOST`, `SHOPPER_SMTP_PORT`, `SHOPPER_SMTP_FROM`, `SHOPPER_SMTP_USER`, `SHOPPER_SMTP_PASSWORD` | Mail, optional: address verification and password reset. No host, no mail, and neither exists. Port 587 by default; 465 is SMTPS                                                              |
 | `SHOPPER_SYNC_INTERVAL_SECONDS`                                                                             | How often a visible device asks for what others changed, 5 to 600. Default 20; shopping mode asks every 10 seconds, or this if it is shorter                                                  |
 | `SHOPPER_WORKER`                                                                                            | Background jobs run in the web process; when several processes share one database, set `off` on all but one                                                                                   |
-| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`                                                                           | People on a list. Default 20                                                                                                                                                                  |
+| `SHOPPER_LIMIT_HOUSEHOLD_MEMBERS`                                                                           | People on a list, and on a card. Default 20                                                                                                                                                   |
 | `SHOPPER_LIMIT_ACCOUNT_HOUSEHOLDS`                                                                          | Groups an account has lists from, its own included. Default 20                                                                                                                                |
 | `SHOPPER_LIMIT_HOUSEHOLD_LISTS`                                                                             | Lists a person makes, archived included. Default 100                                                                                                                                          |
 | `SHOPPER_LIMIT_LIST_OPEN_ITEMS`                                                                             | Open items on a list. Default 500                                                                                                                                                             |
 | `SHOPPER_LIMIT_HOUSEHOLD_PRODUCTS`                                                                          | Products in a group's lists' catalogs, together. Default 5000                                                                                                                                 |
+| `SHOPPER_LIMIT_INVENTORY_ITEMS`                                                                             | Items in a person's Inventory, hidden starter entries included. Default 5000                                                                                                                  |
+| `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES`                                                                        | Categories of a group, hidden included (the starter ones and a person's own), and the copies of people's categories on one list. Default 100                                                  |
+| `SHOPPER_LIMIT_ACCOUNT_CARDS`                                                                               | Loyalty cards a person adds, and the cards a person is on, their own included. Default 100                                                                                                    |
 | `SHOPPER_VAPID_PRIVATE_KEY`                                                                                 | Web Push, optional: notifications on a device where Shopper is not open. No key, no push. 32 bytes, URL-safe base64 (`npx @sovereignfs/push keys`); a hosted Shopper has the instance make it |
 | `SHOPPER_VAPID_SUBJECT`                                                                                     | Whom the push services can tell when something is wrong, `mailto:` or `https:`. Defaults to `SHOPPER_URL` when that is https                                                                  |
 
@@ -145,4 +151,5 @@ says how a change is made, [`AGENTS.md`](AGENTS.md) holds the rules of the app a
 
 ## Licence
 
-[AGPL-3.0-or-later](LICENSE), since it bundles `@sovereignfs/ui`.
+[AGPL-3.0-or-later](LICENSE), since it bundles `@sovereignfs/ui`. Scanning a loyalty card bundles ZXing-C++ as WebAssembly (`zxing-wasm`, MIT; ZXing-C++ is Apache-2.0 and zint BSD-3-Clause),
+which is compatible, and the QR codes are drawn with `uqr` (MIT).

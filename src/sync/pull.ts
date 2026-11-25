@@ -4,7 +4,15 @@ import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet } from '../db/exec';
 import { appTable } from '../db/tables';
-import { listAdminOf, memberOf, onList, ownerOf } from '../access/membership';
+import {
+  cardAdminOf,
+  listAdminOf,
+  memberOf,
+  onCard,
+  onList,
+  ownerOf,
+  reaches,
+} from '../access/membership';
 import { STARTER_CATEGORIES } from '../catalog/categories';
 import { readHousehold } from '../households/households';
 import { canSeeEmail } from '../people/visibility';
@@ -39,12 +47,14 @@ export async function pullHousehold(
     epoch: number | string;
     record: string | null;
     person: string | null;
+    /** 1 when the reader is the group's own account (`household.own_of`), else 0. */
+    own: number | string;
   }>(
     database,
-    sql`SELECT h.encryption, h.epoch, k.record, me.id AS person FROM ${appTable(database, 'household')} h
+    sql`SELECT h.encryption, h.epoch, k.record, me.id AS person, CASE WHEN h.own_of = ${accountId} THEN 1 ELSE 0 END AS own FROM ${appTable(database, 'household')} h
         LEFT JOIN ${appTable(database, 'person')} me ON me.account_id = ${accountId}
         LEFT JOIN ${appTable(database, 'household_key')} k ON k.household_id = h.id AND k.person_id = me.id AND h.own_of = ${accountId}
-        WHERE h.id = ${household} AND ${memberOf(database, household, accountId)}`,
+        WHERE h.id = ${household} AND ${reaches(database, household, accountId)}`,
   );
   // The reader's own copies of the keys of lists they are on and did not make (RFC 0004): only theirs, only of lists they are on now.
   const listKeys = await dbAll<{ list_id: string; record: string }>(
@@ -53,6 +63,15 @@ export async function pullHousehold(
         JOIN ${appTable(database, 'person')} me ON me.id = k.person_id AND me.account_id = ${accountId}
         WHERE k.household_id = ${household} AND ${onList(database, sql`k.list_id`, accountId)}
         ORDER BY k.list_id`,
+  );
+
+  // The reader's own copies of the keys of cards they are on (RFC 0007): only theirs, only of cards they are on now.
+  const cardKeys = await dbAll<{ card_id: string; record: string }>(
+    database,
+    sql`SELECT k.card_id, k.record FROM ${appTable(database, 'card_key')} k
+        JOIN ${appTable(database, 'person')} me ON me.id = k.person_id AND me.account_id = ${accountId}
+        WHERE k.household_id = ${household} AND ${onCard(database, sql`k.card_id`, accountId)}
+        ORDER BY k.card_id`,
   );
 
   // **Only the reader's lists** (RFC 0004): a list, its items and their tombstones and aliases only if the reader is on that list; a product only if an
@@ -66,48 +85,116 @@ export async function pullHousehold(
           WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)} AND ${visible}
           ORDER BY r.seq, r.id LIMIT ${pageRows + 1}`,
     );
-  const [lists, items, products, categories, members, tombstones, aliases, visibleLists] =
-    await Promise.all([
-      take('list', onList(database, sql`r.id`, accountId)),
-      take('item', onList(database, sql`r.list_id`, accountId)),
-      take(
-        'product',
-        // A list's catalog (21.3): an item's product is always on the item's list, so this is every product the reader's items use.
-        sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own}))`,
-      ),
-      take('category', sql`1 = 1`),
-      dbAll<Raw>(
-        database,
-        sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
+  const [
+    lists,
+    items,
+    products,
+    categories,
+    inventory,
+    listCategories,
+    members,
+    tombstones,
+    aliases,
+    visibleLists,
+    cards,
+    cardMembers,
+    cardTombstones,
+    visibleCards,
+    listCards,
+  ] = await Promise.all([
+    take('list', onList(database, sql`r.id`, accountId)),
+    take('item', onList(database, sql`r.list_id`, accountId)),
+    take(
+      'product',
+      // A list's catalog (21.3): an item's product is always on the item's list, so this is every product the reader's items use.
+      sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${own}))`,
+    ),
+    // **A person's own categories are theirs alone** (§8.3): everyone on a list of the group reads the starter categories, by their key, and nothing else. A condition
+    // of this statement, as Inventory's is.
+    take('category', sql`(r.starter_key IS NOT NULL OR ${own})`),
+    // **A person's Inventory is handed to nobody but its group's own account** (§8.8, §12.3): a condition of this statement, as a list's is.
+    take('inventory_item', own),
+    // **A list's copies of people's categories are its people's** (§8.3): a condition of this statement, as an item's is.
+    take('list_category', onList(database, sql`r.list_id`, accountId)),
+    dbAll<Raw>(
+      database,
+      sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${listAdminOf(database, sql`m.list_id`, accountId)} AS viewer_is_admin
           FROM ${t('list_member')} m JOIN ${t('person')} p ON p.id = m.person_id
           WHERE m.household_id = ${household} AND m.seq > ${cursor} AND ${onList(database, sql`m.list_id`, accountId)}
           ORDER BY m.seq, m.id LIMIT ${pageRows + 1}`,
-      ),
-      dbAll<Raw>(
-        database,
-        sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
-          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+          AND r.card_id IS NULL AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+          -- What a fold or a delete of an Inventory item or of an own category leaves is of no list, and is the group's own account's alone, as the rows are.
+          AND (r.table_name NOT IN ('inventory_item', 'category') OR ${own})
           -- An item moved away from a list (RFC 0004) is gone only for a reader who cannot see it where it is now.
           AND NOT (r.table_name = 'item' AND EXISTS (SELECT 1 FROM ${t('item')} ti WHERE ti.id = r.id AND ti.household_id = r.household_id
                    AND ${onList(database, sql`ti.list_id`, accountId)}))
           ORDER BY r.seq LIMIT ${pageRows + 1}`,
-      ),
-      dbAll<Raw>(
-        database,
-        sql`SELECT * FROM ${t('alias')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
-          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
-      ),
-      // Every list the reader may see in this group, whatever its seq: the device forgets any other it holds.
-      dbAll<{ id: string }>(
-        database,
-        sql`SELECT l.id FROM ${t('list')} l WHERE l.household_id = ${household} AND ${onList(database, sql`l.id`, accountId)} ORDER BY l.id`,
-      ),
-    ]);
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('alias')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${memberOf(database, household, accountId)}
+          AND (r.list_id IS NULL OR ${onList(database, sql`r.list_id`, accountId)})
+          AND (r.table_name NOT IN ('inventory_item', 'category') OR ${own}) ORDER BY r.seq LIMIT ${pageRows + 1}`,
+    ),
+    // Every list the reader may see in this group, whatever its seq: the device forgets any other it holds.
+    dbAll<{ id: string }>(
+      database,
+      sql`SELECT l.id FROM ${t('list')} l WHERE l.household_id = ${household} AND ${onList(database, sql`l.id`, accountId)} ORDER BY l.id`,
+    ),
+    // **A card is its people's, and nobody else's** (§7.7, RFC 0007): a condition of each statement, as a list's is, **whatever else the reader is on in the group**. A person on a card
+    // only is on no list, so every statement above is closed to them, and these are all they are handed.
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('card')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND ${onCard(database, sql`r.id`, accountId)}
+          ORDER BY r.seq, r.id LIMIT ${pageRows + 1}`,
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT m.*, p.account_id, p.sealed AS person_sealed, ${cardAdminOf(database, sql`m.card_id`, accountId)} AS viewer_is_admin
+          FROM ${t('card_member')} m JOIN ${t('person')} p ON p.id = m.person_id
+          WHERE m.household_id = ${household} AND m.seq > ${cursor} AND ${onCard(database, sql`m.card_id`, accountId)}
+          ORDER BY m.seq, m.id LIMIT ${pageRows + 1}`,
+    ),
+    dbAll<Raw>(
+      database,
+      sql`SELECT * FROM ${t('tombstone')} r WHERE r.household_id = ${household} AND r.seq > ${cursor} AND r.card_id IS NOT NULL AND ${onCard(database, sql`r.card_id`, accountId)}
+          ORDER BY r.seq LIMIT ${pageRows + 1}`,
+    ),
+    // Every card the reader may see in this group, whatever its seq: the device forgets any other it holds.
+    dbAll<{ id: string }>(
+      database,
+      sql`SELECT c.id FROM ${t('card')} c WHERE c.household_id = ${household} AND ${onCard(database, sql`c.id`, accountId)} ORDER BY c.id`,
+    ),
+    // **A card linked to a list is handed to the people who are on both** (§7.7, 24.6): two conditions of the one statement. Someone on the list who is not on the card is not handed the link, and
+    // someone on the card who is not on the list is not either (they are on no list of the group, and `take` is closed to them).
+    take(
+      'list_card',
+      sql`(${onList(database, sql`r.list_id`, accountId)} AND ${onCard(database, sql`r.card_id`, accountId)})`,
+    ),
+  ]);
 
   // The page ends at a seq that is whole: where a table overflowed, just before the seq of its first row past the page, and never before the cursor.
   let upTo = Number(view.seq);
   let more = false;
-  for (const rows of [lists, items, products, categories, members, tombstones, aliases]) {
+  for (const rows of [
+    lists,
+    items,
+    products,
+    categories,
+    inventory,
+    listCategories,
+    members,
+    tombstones,
+    aliases,
+    cards,
+    cardMembers,
+    cardTombstones,
+    listCards,
+  ]) {
     if (rows.length > pageRows) {
       more = true;
       const first = seqOf(rows[pageRows] as Raw);
@@ -127,15 +214,22 @@ export async function pullHousehold(
       epoch: Number(state?.epoch ?? 0),
       keyring: state?.record ?? null,
       lists: Object.fromEntries(listKeys.map((row) => [row.list_id, row.record])),
+      cards: Object.fromEntries(cardKeys.map((row) => [row.card_id, row.record])),
       person: state?.person ?? null,
     },
     lists: within(lists).map((row) => listOf(row, ring)),
     items: within(items).map((row) => itemOf(row, ring)),
     products: within(products).map((row) => productOf(row, ring)),
-    categories: within(categories).map((row) => categoryOf(row, ring)),
+    categories: within(categories).map((row) => categoryOf(row, ring, Number(state?.own) === 1)),
+    inventory: within(inventory).map((row) => inventoryOf(row, ring)),
+    listCategories: within(listCategories).map((row) => listCategoryOf(row)),
     members: within(members).map((row) => memberRow(row, ring, accountId)),
     visibleLists: visibleLists.map((row) => row.id),
-    tombstones: within(tombstones).map((row) => ({
+    cards: within(cards).map((row) => cardOf(row)),
+    cardMembers: within(cardMembers).map((row) => cardMemberRow(row, ring, accountId)),
+    visibleCards: visibleCards.map((row) => row.id),
+    listCards: within(listCards).map((row) => listCardOf(row)),
+    tombstones: [...within(tombstones), ...within(cardTombstones)].map((row) => ({
       table: String(row.table_name),
       id: String(row.id),
       seq: seqOf(row),
@@ -174,10 +268,13 @@ const num = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
 function listOf(row: Raw, ring: KeyRing) {
+  const sealed = opened('list', row, ring);
   return {
     id: row.id,
     householdId: row.household_id,
-    name: text(opened('list', row, ring).name) ?? '',
+    name: text(sealed.name) ?? '',
+    icon: text(sealed.icon),
+    color: text(sealed.color),
     position: row.position,
     clearing: row.clearing,
     archivedAt: num(row.archived_at),
@@ -235,10 +332,49 @@ function productOf(row: Raw, ring: KeyRing) {
   };
 }
 
-function categoryOf(row: Raw, ring: KeyRing) {
-  // A starter category's name is the code's, until a person names it (task 4.7); then it is sealed.
+function inventoryOf(row: Raw, ring: KeyRing) {
+  const sealed = opened('inventory_item', row, ring);
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    starterKey: nullable(row.starter_key),
+    // Null for an override that keeps the starter's name: the device layers the starter entry under it.
+    name: text(sealed.name),
+    note: text(sealed.note),
+    categoryId: nullable(row.category_id),
+    icon: nullable(row.icon),
+    unit: nullable(row.unit),
+    quantity: nullable(row.quantity),
+    recurring: Boolean(row.recurring),
+    hidden: Boolean(row.hidden),
+    deletedAt: num(row.deleted_at),
+    createdAt: Number(row.created_at),
+    seq: seqOf(row),
+    ...encryptedOf(row),
+  };
+}
+
+/** A list's copy of a person's category: its name is the device's ciphertext, and the source key is the device's HMAC (never an id). */
+function listCategoryOf(row: Raw) {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    listId: row.list_id,
+    sourceKey: row.source_key,
+    name: '',
+    icon: nullable(row.icon),
+    position: row.position,
+    deletedAt: num(row.deleted_at),
+    seq: seqOf(row),
+    ...encryptedOf(row),
+  };
+}
+
+function categoryOf(row: Raw, ring: KeyRing, own: boolean) {
+  // A starter category's name is the code's, until a person names it (task 4.7); then it is sealed. **Only its own account is given that name** (§8.3):
+  // anyone else on a list of the group reads the starter's, and nothing of what the person made of it.
   const named =
-    typeof row.sealed === 'string' && row.sealed !== ''
+    own && typeof row.sealed === 'string' && row.sealed !== ''
       ? text(unsealRow('category', String(row.id), row.sealed, ring).name)
       : null;
   const starter = STARTER_CATEGORIES.find((each) => each.key === row.starter_key);
@@ -252,7 +388,48 @@ function categoryOf(row: Raw, ring: KeyRing) {
     hidden: Boolean(row.hidden),
     deletedAt: num(row.deleted_at),
     seq: seqOf(row),
+    ...(own ? encryptedOf(row) : {}),
   };
+}
+
+/** A card linked to a list: the pair, and when it was unlinked. There is nothing in it to open. */
+function listCardOf(row: Raw) {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    listId: row.list_id,
+    cardId: row.card_id,
+    deletedAt: num(row.deleted_at),
+    createdAt: Number(row.created_at),
+    seq: seqOf(row),
+  };
+}
+
+/** A card: its fields are the device's ciphertext, field by field, and the server holds nothing it can read of it. */
+function cardOf(row: Raw) {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    shop: '',
+    number: '',
+    kind: 'qr',
+    code: '',
+    icon: null,
+    color: null,
+    holder: null,
+    note: null,
+    position: row.position,
+    deletedAt: num(row.deleted_at),
+    createdAt: Number(row.created_at),
+    seq: seqOf(row),
+    ...encryptedOf(row),
+  };
+}
+
+/** A person on a card, as the reader may see them (§6.1): the same rule as a list's people, an address only where `canSeeEmail` allows. */
+function cardMemberRow(row: Raw, ring: KeyRing, accountId: string) {
+  const { listId: _listId, ...rest } = memberRow({ ...row, list_id: null }, ring, accountId);
+  return { ...rest, cardId: row.card_id };
 }
 
 function memberRow(row: Raw, ring: KeyRing, accountId: string) {

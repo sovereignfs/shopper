@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, join, leave, somebody, type Someone } from '../access/test-support';
-import type { Mutation } from '../actions/format';
+import type { Mutation, SyncedTable } from '../actions/format';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbGet } from '../db/exec';
@@ -11,7 +11,8 @@ import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import type { Limits } from '../limits/config';
 import { productNameKey } from '../catalog/product-key';
-import { type ApplyResult, applyMutation } from './apply';
+import { type ApplyResult, applyMutation, checkListAccess } from './apply';
+import { TABLES, type TableSpec } from './tables';
 import { mergeChange } from './merge';
 
 const { leg } = testTarget();
@@ -21,8 +22,13 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
+  householdCategories: 100,
+  accountCards: 100,
 };
 const PLANTED = 'PLANTED-Oat-Milk-Brand';
+/** An icon's name is lower case and hyphens; this one is not in the design system, which is for the table to hold as it was sent. */
+const ICON = 'planted-icon-xq7';
 
 let database: Database;
 let ada: Someone;
@@ -262,6 +268,32 @@ describe(`what is refused (${leg})`, () => {
     expect(await productRow(id)).toBeUndefined();
   });
 
+  it('a table that has no rule for who may write it is refused, not let through, though its sender is in the household', async () => {
+    // A spec for a table the access check has no branch for, as a table added without one would be. A mutation names only tables that `validate.ts` knows, so the
+    // check is asked directly: it is what stands between `memberOf`, which lets any member in, and a row of a table nobody has said who may write.
+    const unruled: TableSpec = {
+      ...(TABLES.product as TableSpec),
+      table: 'unruled' as unknown as SyncedTable,
+    };
+    await expect(
+      checkListAccess(deps(), unruled, ada.household, ada.accountId, {
+        table: unruled.table,
+        id: crypto.randomUUID(),
+        create: true,
+        fields: { name: 'Nobody may', createdAt: 1 },
+      }),
+    ).rejects.toMatchObject({ reason: 'not_found' });
+    // The tables that have a rule are as they were: a member on the list writes its product.
+    await expect(
+      checkListAccess(deps(), TABLES.product as TableSpec, ada.household, ada.accountId, {
+        table: 'product',
+        id: crypto.randomUUID(),
+        create: true,
+        fields: { name: 'Fine', createdAt: 1, listId: ada.list },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('a household that does not exist reads the same as one that is not the account’s', async () => {
     const a = await applyMutation(
       deps(),
@@ -358,6 +390,32 @@ describe(`what is refused (${leg})`, () => {
     expect(result).toMatchObject({ status: 'refused', reason: 'unsupported' });
   });
 
+  it('a list’s icon and colour are sealed with its name, merged by field, and are in no column in the clear', async () => {
+    const row = () =>
+      dbGet<Record<string, unknown>>(
+        database,
+        sql`SELECT * FROM ${appTable(database, 'list')} WHERE id = ${ada.list}`,
+      );
+    const open = async () => unsealRow('list', ada.list, String((await row())?.sealed), TEST_RING);
+    const listChange = (fields: Record<string, string | number | null>) =>
+      mutation(ada.household, [{ table: 'list', id: ada.list, fields }]);
+    applied(await applyMutation(deps(), ada.accountId, listChange({ icon: ICON })));
+    applied(await applyMutation(deps(), ada.accountId, listChange({ color: '#12ab34' })));
+    expect(await open()).toMatchObject({ icon: ICON, color: '#12ab34' });
+    // The name was not touched by either, and nothing of the two is a column of its own.
+    expect((await open()).name).toBeTruthy();
+    expect(JSON.stringify({ ...(await row()), sealed: '' })).not.toContain(ICON);
+    expect(JSON.stringify({ ...(await row()), sealed: '' })).not.toContain('12ab34');
+    // Back to the defaults takes both away.
+    applied(await applyMutation(deps(), ada.accountId, listChange({ icon: null, color: null })));
+    expect(await open()).not.toHaveProperty('icon');
+    expect(await open()).not.toHaveProperty('color');
+    // A colour that is not a colour is refused, whoever sent it.
+    expect(
+      await applyMutation(deps(), ada.accountId, listChange({ color: 'url(x)' })),
+    ).toMatchObject({ status: 'refused' });
+  });
+
   it('a rename to a name the household already has, which is a person’s decision and is refused', async () => {
     const taken = crypto.randomUUID();
     const other = crypto.randomUUID();
@@ -377,7 +435,7 @@ describe(`what is refused (${leg})`, () => {
 
   it('a product past the household’s limit, with the limit’s sentence, and a deleted one does not count', async () => {
     const owner = await somebody(database, 'Limited');
-    const small = { ...LIMITS, householdProducts: 2 };
+    const small = { ...LIMITS, householdProducts: 2, inventoryItems: 2 };
     const ids = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
     applied(
       await applyMutation(

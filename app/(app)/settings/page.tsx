@@ -1,51 +1,25 @@
-import type { Metadata } from 'next';
-import { sectionOf, one } from '@/src/account/query';
-import { DeleteAccountSection } from '@/src/account/DeleteAccountSection';
-import { EncryptionSection } from '@/src/account/EncryptionSection';
-import { NotificationsSection } from '@/src/account/NotificationsSection';
-import { PasswordSection } from '@/src/account/PasswordSection';
-import { ProfileSection } from '@/src/account/ProfileSection';
-import { ThisDeviceSection } from '@/src/account/ThisDeviceSection';
-import { SettingsShell } from '@/src/account/SettingsShell';
-import { accountHasPassword } from '@/src/auth/password';
-import { authSettings } from '@/src/auth/server';
-import { requireSession } from '@/src/auth/session';
-import { getVaultId } from '@/src/keys/server/vault';
+import { redirect } from 'next/navigation';
+import { one, sectionBefore } from '@/src/account/query';
+import { SettingsRoute } from '@/src/account/SettingsRoute';
+import { HomeScreen } from '@/src/screens/HomeScreen';
 
-export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
 /**
- * Settings (DESIGN.md §17): the person's profile, how they sign in, and their data. Each section is rendered here, by the server, and handed to the shell,
- * which only shows one. This device is the exception: it is read from the device's own store, in the browser.
+ * `/settings` **loaded directly** (RFC 0005, DESIGN.md §17): Home with the dialog open and no section named, which is the first on a wide screen and the sections
+ * alone on a phone. The old `/settings?section=…` of before the settings dialog goes to the section that took the old one's place (`sectionBefore`).
  */
-export default async function SettingsPage({
+export default async function Settings({
   searchParams,
 }: {
   searchParams: Promise<{ section?: string | string[] }>;
 }) {
-  const session = await requireSession();
-  const query = await searchParams;
-  const settings = authSettings();
-  const vaultId = await getVaultId();
+  const asked = one((await searchParams).section);
+  if (asked !== undefined) redirect(`/settings/${sectionBefore(asked)}`);
   return (
-    <SettingsShell
-      initial={sectionOf({ section: one(query.section) })}
-      panels={{
-        profile: <ProfileSection name={session.user.name} email={session.user.email} />,
-        device: <ThisDeviceSection />,
-        'sign-in': (
-          <PasswordSection
-            hasPassword={await accountHasPassword(session.user.id)}
-            minLength={settings?.passwordMinLength ?? 10}
-            email={session.user.email}
-            vaultId={vaultId}
-          />
-        ),
-        encryption: <EncryptionSection />,
-        notifications: <NotificationsSection />,
-        data: <DeleteAccountSection email={session.user.email} vaultId={vaultId} />,
-      }}
-    />
+    <>
+      <HomeScreen />
+      <SettingsRoute close="home" />
+    </>
   );
 }

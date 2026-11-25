@@ -169,8 +169,32 @@ export const VAULT_TABLES: readonly string[] = [
 /** What the app store holds once it is migrated: Shopper's tables and the vault's. */
 export const APP_TABLES: readonly string[] = [...namesIn(sqliteApp), ...VAULT_TABLES].sort();
 
-/** What the auth store holds once it is migrated. */
-export const AUTH_TABLES: readonly string[] = namesIn(sqliteAuth);
+/** What Shopper's own auth migrations make: the store as 0.1.0 and 0.2.x left it, which the package then moves (ADR 0001). */
+export const LEGACY_AUTH_TABLES: readonly string[] = namesIn(sqliteAuth);
+
+/**
+ * What the auth store holds once the server has started: `@sovereignfs/auth`'s tables, the core sign-in's, the SDK's stores, the record of
+ * the move, and each one's migration history (`src/auth/migrate.ts`).
+ */
+export const AUTH_TABLES: readonly string[] = [
+  'accounts',
+  'passkeys',
+  'rate_limits',
+  'sessions',
+  'shopper_sdk_store_migrations',
+  'sv_auth_adoption',
+  'sv_auth_migrations',
+  'sv_core_notices',
+  'sv_core_sign_in_migrations',
+  'sv_core_sign_ins',
+  'sv_key_secrets',
+  'sv_legacy_passwords',
+  'sv_sessions',
+  'sv_tokens',
+  'two_factors',
+  'users',
+  'verifications',
+];
 
 /** A migrated app store, from empty, for the tests of what the server writes there; `close` it afterwards. */
 export async function makeStore(): Promise<{ database: Database; close(): Promise<void> }> {

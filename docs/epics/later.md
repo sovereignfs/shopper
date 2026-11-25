@@ -42,3 +42,17 @@ offered by the platform.
 
 **Outline:** starter entries and number words per language, chosen by the person's locale; the interface's own translation follows the suite's
 approach when it has one.
+
+#### 🚧 15.5 — A standalone instance into a suite
+
+**Goal:** the password accounts of a standalone Shopper keep their lists when the instance joins a suite. **Design:**
+[RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md), "Sign-in". **Depends on:** 22.2.
+
+**Outline:** each account, signed in once more with its password, is tied to its core account by `sub`, never by email; or its export (22.8) imported
+into the core account (20.4). Not now, by the owner's decision of 2026-11-23.
+
+#### 🚧 15.6 — Cards to and from Wallet
+
+**Goal:** a loyalty card moves between Shopper and Wallet in a suite. **Design:** [RFC 0007](../rfcs/0007-loyalty-cards.md). **Depends on:** 24.2.
+
+**Outline:** through each app's export and import, in the suite's format; nothing read across apps.

@@ -26,6 +26,9 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
+  householdCategories: 100,
+  accountCards: 100,
 };
 const MARKER = 'MARKERxq7Oat';
 
@@ -204,6 +207,97 @@ describe(`a household whose content is encrypted (${leg})`, () => {
     const kept = pulled?.items.find((each) => each.id === first) as
       { encrypted?: { note: string } } | undefined;
     expect(await openField(ring, target, kept?.encrypted?.note ?? '')).toBe('green');
+  });
+
+  it("keeps a list's icon and colour as ciphertext, each its own field, so that two devices' changes both stay", async () => {
+    // Two devices, each changing one of the two (RFC 0005): the merge is by field, and neither value is ever in a table in the clear.
+    const icon = `pill-${MARKER}`;
+    const color = '#12ab34';
+    const first = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        {
+          table: 'list',
+          id: ada.list,
+          fields: { icon: await field('list', ada.list, 'icon', icon) },
+        },
+      ]),
+    );
+    const second = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        {
+          table: 'list',
+          id: ada.list,
+          fields: { color: await field('list', ada.list, 'color', color) },
+        },
+      ]),
+    );
+    expect(first.status).toBe('applied');
+    expect(second.status).toBe('applied');
+    const row = await dbGet<Record<string, unknown>>(
+      database,
+      sql`SELECT * FROM ${appTable(database, 'list')} WHERE id = ${ada.list}`,
+    );
+    expect(JSON.stringify(row)).not.toContain(MARKER);
+    expect(JSON.stringify(row)).not.toContain(color);
+    const stored = JSON.parse(String(row?.encrypted)) as Record<string, string>;
+    const target = (name: string) => ({
+      list: ada.list,
+      table: 'list',
+      row: ada.list,
+      field: name,
+    });
+    expect(await openField(ring, target('icon'), stored.icon ?? '')).toBe(icon);
+    expect(await openField(ring, target('color'), stored.color ?? '')).toBe(color);
+
+    // What a pull hands out is the same ciphertext.
+    const pulled = await pullHousehold(database, TEST_RING, ada.accountId, ada.household, 0);
+    const listed = pulled?.lists.find((each) => each.id === ada.list) as
+      { encrypted?: Record<string, string> } | undefined;
+    expect(listed?.encrypted?.icon).toBe(stored.icon);
+
+    // Back to the defaults: a null is not a value to encrypt, and takes the field away.
+    const reset = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        { table: 'list', id: ada.list, fields: { icon: null, color: null } },
+      ]),
+    );
+    expect(reset.status).toBe('applied');
+    const after = await dbGet<Record<string, unknown>>(
+      database,
+      sql`SELECT * FROM ${appTable(database, 'list')} WHERE id = ${ada.list}`,
+    );
+    const left = JSON.parse(String(after?.encrypted)) as Record<string, string>;
+    expect(left.icon).toBeUndefined();
+    expect(left.color).toBeUndefined();
+  });
+
+  it("holds a list's icon sent in plain text, and refuses one encrypted for another list", async () => {
+    const plain = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [{ table: 'list', id: ada.list, fields: { icon: 'milk' } }]),
+    );
+    expect(plain.status).toBe('held');
+    const elsewhere = await applyMutation(
+      deps(),
+      ada.accountId,
+      mutation(ada.household, [
+        {
+          table: 'list',
+          id: ada.list,
+          fields: {
+            icon: await field('list', ada.list, 'icon', 'milk', crypto.randomUUID()),
+          },
+        },
+      ]),
+    );
+    expect(elsewhere.status).toBe('refused');
   });
 
   it('holds ciphertext sent to a household the server still seals', async () => {

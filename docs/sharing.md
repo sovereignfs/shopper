@@ -42,5 +42,13 @@ _Share_, on a list, opens the sharing dialog. **Make a link** gives one, shown o
 
 Roles beyond Admin and Member; inviting by email; trips, shops and prices. [`ROADMAP.md`](../ROADMAP.md) has the order.
 
+**Loyalty cards** are shared the way lists are, one card at a time. Open a card and choose **Share** (only its Admin, the person who added it, can): make a
+link, send it any way you like, and whoever accepts it has that card and **nothing else of yours**: no list, no other card, nothing of what is in your Inventory.
+The link carries the card's key and no other, after the `#` in the address, which no browser sends to a server. It is shown once, works for one person, and
+expires in 14 days; you can revoke a link that has not been used, and remove someone from the card, which takes it from their devices. Someone who has a card
+can leave it. **Sharing a list shares no card.** A card shared with a person is not changed when they go: what they saw of it stays what they saw, and its
+key is not changed yet, which comes later for lists and cards together. Deleting a card takes it from everyone. **A card linked to a list** (in the list's settings, by its Admin) opens from shopping mode with one tap, only for the people who are on both the list and the card: someone who has the list and not the card sees no button, and cannot tell the card is there. **Your Inventory**, your own library of what you buy, **is shared with nobody**: the people on a
+list you share see the names of the categories its items use, and nothing else of it.
+
 Each list has its own catalog, the products it remembers: what someone adds on a list you share never finds or changes a product of another of your
 lists. A name you use on another list still comes up as a suggestion.

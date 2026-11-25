@@ -46,12 +46,13 @@ export const POST = accountRoute(async ({ request, accountId }) => {
     now: Date.now(),
   });
   switch (accepted.status) {
+    // A link is to a list or to a card (RFC 0007): the answer names the one it was to, and the browser keeps that one's keys.
     case 'joined':
       return reply(200, {
         ok: true,
         status: accepted.status,
         household: accepted.household,
-        list: accepted.list,
+        ...('card' in accepted ? { card: accepted.card } : { list: accepted.list }),
         person: accepted.person,
         wrappedKey: accepted.wrappedKey,
       });
@@ -60,7 +61,7 @@ export const POST = accountRoute(async ({ request, accountId }) => {
         ok: true,
         status: accepted.status,
         household: accepted.household,
-        list: accepted.list,
+        ...('card' in accepted ? { card: accepted.card } : { list: accepted.list }),
       });
     case 'refused':
       return reply(409, { ok: false, error: 'refused', message: accepted.message });

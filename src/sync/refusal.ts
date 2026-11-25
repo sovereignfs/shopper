@@ -42,6 +42,23 @@ export const otherList = () =>
     'That moved to another list in the meantime. Make the change again there.',
   );
 
+/**
+ * A list's copy of a person's category in a group the server still seals (§8.3, decision 16): a copy's name and its source key are made by a device under the list's keys, which
+ * such a group has none of. Not `held`: it would keep itself and everything after it in the outbox; the person's own categories can be put on the list once its group is encrypted.
+ */
+export const copiesNeedMove = () =>
+  new Refusal(
+    'unsupported',
+    'Your own categories can be put on this list once its group is encrypted.',
+  );
+
+/**
+ * A loyalty card in a group the server still seals (§7.7): a card's every field is a ciphertext under the card's own keys, which a group that has not moved has none of, and the server never
+ * holds a card's number in a form it can read. Not `held`, for the reason a copy's refusal is not: it would keep itself and everything after it in the outbox for ever.
+ */
+export const cardsNeedMove = () =>
+  new Refusal('unsupported', 'Cards can be kept once your lists are encrypted on your devices.');
+
 /** The mutation names a kind of row the server does not apply yet. */
 export const unsupported = (table: string) =>
   new Refusal('unsupported', `Changes to ${table} are not accepted by this server yet.`);

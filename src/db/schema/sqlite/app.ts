@@ -24,8 +24,8 @@ export const rateBucket = sqliteTable(
 /**
  * Shopper's record of someone who appears on shared rows (DESIGN.md §6.1): every account has exactly one, made with it, and it keeps the name when the
  * account is deleted. The name and the email are sealed (`src/crypto/sealed.ts`). `account_id` is better-auth's user id, a reference by value because it
- * lives in the other store, and it is unique and may be null (a person whose account is gone, or an imported one); `core_sub` is the identity a core
- * knows the person by, set when they sign in through one (task 2.3), and is unique too. `kind` is `account` or, with import (task 11.2), `imported`.
+ * lives in the other store, and it is unique and may be null (a person whose account is gone, or an imported one); `core_sub` is unique and is
+ * not set yet: the identity a core knows the person by is the account id of their sign-in through core, in the auth store (`subOfAccount`). `kind` is `account` or, with import (task 11.2), `imported`.
  */
 export const person = sqliteTable(
   'person',
@@ -103,6 +103,8 @@ export const invitation = sqliteTable(
     householdId: ref('household_id').notNull(),
     // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
     listId: ref('list_id'),
+    // The card the row is about (RFC 0007), instead of a list: a link is to one or the other, never both. Whoever joins by it is on that card and nothing else of the group.
+    cardId: ref('card_id'),
     tokenHash: ref('token_hash').notNull(),
     // A moved household's keyring, wrapped under the secret in the link's fragment, which the server never sees (RFC 0001). Gone on accept or
     // revoke.
@@ -117,6 +119,7 @@ export const invitation = sqliteTable(
   (table) => [
     uniqueIndex('invitation_token_hash_idx').on(table.tokenHash),
     index('invitation_household_idx').on(table.householdId),
+    index('invitation_card_idx').on(table.cardId),
   ],
 );
 
@@ -184,6 +187,117 @@ export const category = sqliteTable(
 );
 
 /**
+ * **An item of a person's Inventory** (DESIGN.md §8.8, RFC 0006), a row of **their own group** (`household.own_of` their account) and of nobody else's: it is
+ * read and written by that account alone, in the statement (`ownerOf`), and no pull hands it to anyone on one of the group's lists. It is a person's own
+ * library of what they buy, shown with the starter catalog it layers over: `starter_key` names the starter entry it overrides (null for one of their own),
+ * `name` (sealed, null when an override keeps the starter's) with its **name key**, unique in the group, and `note`. `recurring` and `hidden` are flags (a hidden
+ * starter entry is offered nowhere). `on_hand` and `low_point` come with the pantry (phase 3).
+ */
+export const inventoryItem = sqliteTable(
+  'inventory_item',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    /** The starter entry this overrides, or null for one of the person's own; one override per entry. */
+    starterKey: text('starter_key'),
+    nameKey: ref('name_key').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    categoryId: ref('category_id'),
+    icon: text('icon'),
+    unit: text('unit'),
+    quantity: decimal('quantity'),
+    recurring: bool('recurring').notNull().default(false),
+    hidden: bool('hidden').notNull().default(false),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('inventory_item_name_key_idx').on(table.householdId, table.nameKey),
+    uniqueIndex('inventory_item_starter_key_idx').on(table.householdId, table.starterKey),
+    index('inventory_item_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **A list's copy of a person's own category** (DESIGN.md §8.3, decisions 15 to 17), a row of the **list's** group: the name of a category an item of the list uses,
+ * under **the list's keys**, so that the people on the list read it and nothing else of anyone's categories. `source_key` says which category it copies, as a
+ * device-made HMAC under the list's keys (never an id of the person's own group), unique on the list. Only a group that has moved has copies (a device makes the key and
+ * the name), so `sealed` is always empty and `encrypted` holds the name.
+ */
+export const listCategory = sqliteTable(
+  'list_category',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    sourceKey: ref('source_key').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    icon: text('icon'),
+    position: position('position').notNull(),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+  },
+  (table) => [
+    uniqueIndex('list_category_source_key_idx').on(table.listId, table.sourceKey),
+    index('list_category_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **A loyalty card** (DESIGN.md §7.7, RFC 0007), a row of its group: the shop, the number, the kind of code and its value, the icon, the colour, the name on the card and the note are
+ * **one ciphertext per field under the card's own keys** (`encrypted`, §13.1), and the server holds nothing readable of a card. Only a group that has moved has any (a device makes the
+ * keys), so `sealed` is always empty; it is there as `list_category`'s is, so that the one write path treats the table as it treats the rest. `position` orders the person's cards; a card's
+ * people are `card_member`, and **who may read it is the statement's condition** (`onCard`), never the group's.
+ */
+export const card = sqliteTable(
+  'card',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    position: position('position').notNull(),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [index('card_household_seq_idx').on(table.householdId, table.seq)],
+);
+
+/**
+ * **A card linked to a list** (DESIGN.md §7.7, RFC 0007, task 24.6): the card for this shop, one tap from Shop mode. A link names a card and a list **of the same group, and holds nothing else**, so it has
+ * nothing to encrypt (`sealed` and `encrypted` are there, empty, so that the one write path treats the table as it treats the rest). Its `id` is **made from its two ids** (`src/cards/links.ts`), so that the
+ * same pair is one row on every device and a link made twice is the same link (an unlink is `deleted_at`, and linking again clears it), and the pair is unique. **Who may read it is two conditions:** being on
+ * the list and being on the card, in the statement; somebody on the list who is not on the card is not handed it. It goes with the list, or the card, that it is of.
+ */
+export const listCard = sqliteTable(
+  'list_card',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    listId: ref('list_id').notNull(),
+    cardId: ref('card_id').notNull(),
+    sealed: sealed('sealed'),
+    encrypted: sealed('encrypted'),
+    deletedAt: epochMs('deleted_at'),
+    seq: counter('seq').notNull().default(0),
+    fseq: fseq('fseq').notNull().default('{}'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('list_card_pair_idx').on(table.listId, table.cardId),
+    index('list_card_household_seq_idx').on(table.householdId, table.seq),
+    index('list_card_card_idx').on(table.cardId),
+  ],
+);
+
+/**
  * **Every mutation the server has applied** (DESIGN.md §12.3), by the account that sent it and the id the device made, with the household's `seq` it
  * was applied at. A mutation sent again, because an answer was lost, finds its row and **writes nothing**: it is answered as it was. Pruned after ninety
  * days with the history (task 6.6, phase 2). Not a row of a household's: it is the account's, and goes with it (`deletePerson`).
@@ -236,6 +350,8 @@ export const tombstone = sqliteTable(
     householdId: ref('household_id').notNull(),
     // The list the row is about (RFC 0004): who may see it. None for what is the group's (a category's).
     listId: ref('list_id'),
+    // The card the row is about (RFC 0007): who may see it, as a list's is. None for what is a list's or the group's.
+    cardId: ref('card_id'),
     tableName: text('table_name').notNull(),
     id: ref('id').notNull(),
     seq: counter('seq').notNull(),
@@ -412,5 +528,48 @@ export const listMember = sqliteTable(
     uniqueIndex('list_member_list_person_idx').on(table.listId, table.personId),
     index('list_member_person_idx').on(table.personId),
     index('list_member_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **A person on a card** (DESIGN.md §7.7), as `list_member` is for a list: a card's people are its own, joined only by accepting an invitation to it, and its **Admin** (who added it, or
+ * to whom it passed) edits and deletes it. `left_at` keeps the person named on what they did.
+ */
+export const cardMember = sqliteTable(
+  'card_member',
+  {
+    id: id('id'),
+    householdId: ref('household_id').notNull(),
+    cardId: ref('card_id').notNull(),
+    personId: ref('person_id').notNull(),
+    role: text('role').notNull(),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('card_member_card_person_idx').on(table.cardId, table.personId),
+    index('card_member_person_idx').on(table.personId),
+    index('card_member_household_seq_idx').on(table.householdId, table.seq),
+  ],
+);
+
+/**
+ * **A person's own copy of a card's keyring** (DESIGN.md §13.2), wrapped under that person's app key, as `list_key` is for a list: handed back to them in each pull of a card they are on,
+ * and deleted when they leave it or are removed, with the card and with the person. A card's keys are derived from its group's, and someone given a card by a link keeps this copy.
+ */
+export const cardKey = sqliteTable(
+  'card_key',
+  {
+    cardId: ref('card_id').notNull(),
+    personId: ref('person_id').notNull(),
+    householdId: ref('household_id').notNull(),
+    epoch: counter('epoch').notNull(),
+    record: text('record').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.cardId, table.personId] }),
+    index('card_key_person_idx').on(table.personId),
   ],
 );

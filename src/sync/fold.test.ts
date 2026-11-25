@@ -11,7 +11,7 @@ import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import type { Limits } from '../limits/config';
 import { applyMutation, type ApplyResult } from './apply';
-import { foldProductFields, resolveAlias } from './fold';
+import { foldInventoryFields, foldProductFields, resolveAlias } from './fold';
 
 const { leg } = testTarget();
 const LIMITS: Limits = {
@@ -20,6 +20,9 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
+  householdCategories: 100,
+  accountCards: 100,
 };
 
 let database: Database;
@@ -141,7 +144,7 @@ describe(`folding a product made twice (${leg})`, () => {
     const a = crypto.randomUUID();
     const b = crypto.randomUUID();
     const owner = await somebody(database, 'Chain');
-    const small: Limits = { ...LIMITS, householdProducts: 1 };
+    const small: Limits = { ...LIMITS, householdProducts: 1, inventoryItems: 1 };
     const m = (changes: Mutation['changes'][number][]): Mutation => ({
       mutationId: crypto.randomUUID(),
       householdId: owner.household,
@@ -230,5 +233,29 @@ describe('what a fold takes from the new row', () => {
       {},
     );
     expect(foldProductFields({}, {})).toEqual({});
+  });
+});
+
+describe('what folding an Inventory item adds (23.3)', () => {
+  it('takes what the existing one has nothing in, keeps what it has, and never carries a name or an entry over', () => {
+    expect(
+      foldInventoryFields(
+        { note: null, categoryId: 'c1', icon: null, unit: 'pcs', quantity: null, deletedAt: null },
+        {
+          name: 'other spelling',
+          starterKey: 'bread',
+          note: 'sliced',
+          categoryId: 'c2',
+          icon: 'apple',
+          unit: 'kg',
+          quantity: '2',
+        },
+      ),
+    ).toEqual({ note: 'sliced', icon: 'apple', quantity: '2' });
+  });
+
+  it('restores an existing one that was deleted, and does nothing for one that was not and has all it needs', () => {
+    expect(foldInventoryFields({ deletedAt: 5 }, {})).toEqual({ deletedAt: null });
+    expect(foldInventoryFields({ deletedAt: null, note: 'a' }, { note: 'b' })).toEqual({});
   });
 });

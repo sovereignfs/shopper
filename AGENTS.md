@@ -17,8 +17,8 @@ people, catalog and keys), a catalog that learns what is bought, ticking things 
 syncing in the background, with others' changes arriving as fast as each person chooses (up to live, from phase 2). A Sovereign instance can host it, and **it runs fully on its
 own, with every feature, needing no instance**: its own accounts, people, mail and notices. It replaces the legacy plugin
 `sovereignfs/sovereign-plugin-shopper`, whose behaviour is the starting point and none of whose code or interface is carried over; its export can be
-imported. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL), signing people in locally, through a Sovereign core, or
-both, from one image.
+imported. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL), signing people in through a Sovereign core in a suite
+or with its own accounts alone, never both, from one image.
 
 **Nothing is built yet.** `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A starts by copying Tusk's infrastructure (`DESIGN.md`
 §5.1).
@@ -123,39 +123,40 @@ and security reviews (`docs/security/`) are used as Sovereign and Tusk use them.
 
 Tusk's rules, as they apply here, and Shopper's own. They describe the app as `DESIGN.md` designs it.
 
-- **Every feature works with no Sovereign instance.** Core adds a way in, a directory, a bell and email; a feature that only works with core is not
+- **Every feature works with no Sovereign instance.** In a suite, core is the way in (never beside Shopper's own, `DESIGN.md` §15.1) and adds a directory, a bell and email; a feature that only works with core is not
   done. A call to core that fails, is refused or is not supported changes nothing but that call (`DESIGN.md` §15.4).
 - **An account is known by its better-auth user id (`account_id`); someone on a shared row is a `person`.** Every account has exactly one person and
   exactly one group (`household`, `own_of`) made with it, holding the lists it makes and **never shown** (RFC 0004): others are invited to a list,
   never to the group. Names are read from `person`, never from the auth store. A `sub` is identity; an email is never matched to an account or
   a person at sign-in.
-- **People join a list only by accepting an invitation to it;** nobody is added without agreeing, and joining one list shows nothing else of its
+- **People join a list, or a card, only by accepting an invitation to it;** nobody is added without agreeing, and joining one list shows nothing else of its
   group. An email is shown only to whom `DESIGN.md` §6.1
   allows, through the one visibility function, and never in a notice or another person's export.
 - **Everything personal of an account is removed by `People.deletePerson`** (`src/sovereign/people.ts`), which keeps only the name on the shared
   record, safe to run twice. **A new table is handled there, and exported and imported, in the same change,** with a test that seeds one of each.
 - **Every row of a group carries `household_id`, and the permission is in the statement:** for a list, its items and its products, being on the list
   (`list_member`, `onList` in `src/access/membership.ts`) as a condition of the same query (`DESIGN.md` §5.2, RFC 0004), never checked first and then
-  touched; a list's Admin's operation adds the role to it. Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
+  touched; a list's Admin's operation adds the role to it. **A person's Inventory and own categories are their account's alone:** the statement names
+  the group whose `own_of` is the session's account (`ownerOf`), and no pull hands an `inventory_item` to anyone else (`DESIGN.md` §8.8). **A card is a list's equal** (`card_member`, `onCard`, §7.7). Anything a change points at must be the same group's, in the same statement. **A refusal reads as not found.** A route, operation, mutation or stream finds the session first,
   checks `Origin` on a write, is listed in `src/access/routes.ts`, and has a test calling it as a second person.
-- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes, under the list's
-  keys (derived from the group's, RFC 0004), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
+- **What people write is encrypted in the browser** (`DESIGN.md` §13, RFC 0001): names, notes, prices, shops and barcodes (and a list's icon and colour, a card's fields, an Inventory item's name and note), under the list's
+  keys (derived from the group's, RFC 0004; Inventory's from the group's too, given to nobody, and a card's of its own), through `src/keys/` on `@sovereignfs/sdk`, never Shopper's own cipher. **The server never decrypts, shows or logs them,** and they are never in
   a `WHERE`, `ORDER BY` or index. A product's identity on a list is its **name key** (`DESIGN.md` §13.3), made in the browser, never its name.
   What the server must hold itself (a person's name and email, an invitation's email, credentials) is sealed through `src/crypto/sealed.ts`
   (§13.4). A table that adds such a field adds it to §13.1's or §13.4's table and its registry test in the same change. **The words "not yet
   audited" go wherever Shopper describes its encryption.**
-- **Lists, items, products, categories, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
+- **Lists, items, products, categories, a list's categories, Inventory items, cards and their links to lists, shops, trips and trip lines are written only through the one path:** an action in `src/actions/` makes the
   mutation, and `src/sync/apply.ts` applies it, re-checking membership and limits, merging field by field, folding duplicates (`src/sync/fold.ts`), in
   one short transaction that increments the group's `seq`. A replayed mutation writes nothing. The property tests pass.
 - **Changes merge by field;** a field's later write wins; an edit restores a deleted row; **the first tick stands** (and, from phase 2, a second makes no trip line);
   the same product twice on a list, or open twice on one list, folds into one, recorded as an alias. Nothing anyone typed is thrown away: a
   refused change goes to Couldn't sync, never to nowhere.
-- **A list's people, roles, invitations and deleting a list are online operations** (`/api/ops`), decided by the server at once. They are not queued offline.
+- **A list's or a card's people, roles, invitations and deleting it are online operations** (`/api/ops`), decided by the server at once. They are not queued offline.
 - **The live stream carries signals only** (`{household, seq}`), never a row; the device pulls through `/api/sync`. The hub is in the process;
   `LISTEN/NOTIFY` is not used.
 - **Quantities are canonical decimal strings and money is integer minor units,** calculated in `src/quantity/`; no binary float touches either. One
   figure has one implementation, pure, shared by the browser, the server and the tests (suggestions, totals, unit prices, aisle order).
-- **The device's store is per account and holds only the lists the account is on;** it is deleted at sign-out. **The service worker caches the shell
+- **The device's store is per account and holds only the lists and cards the account is on, and its own Inventory;** it is deleted at sign-out. **The service worker caches the shell
   only,** by allow-list; no page or answer with a person's data is ever in a cache.
 - **Notices are raised in the change's transaction or by the digest job, never for the person who acted.** Mail goes
   through `mail_outbox`, in the background; no address or content is logged.
@@ -180,7 +181,7 @@ Tusk's rules, as they apply here, and Shopper's own. They describe the app as `D
 - **Never fork a navigation decision by viewport;** fork only what is rendered.
 - **No third-party loads and no third-party requests from the browser.** What people write is rendered as text, never as HTML. A lookup by barcode
   (phase 4) is made by the server.
-- **User-facing words are "list", "item", "catalog", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
+- **User-facing words are "list", "item", "catalog", "Inventory", "Home", "card", "loyalty card", "trip", "shop", "bought", "basket", "shopping", "Admin", "Member", "app"**
   (`DESIGN.md` §4), never "household" or "group" (RFC 0004: the group is never shown), "ledger", "purchase transaction", "owner", "viewer",
   "editor", "tenant", "client" or "plugin".
 - **Next.js tracks the latest stable release.** Read the guide bundled with the installed version (`node_modules/next/dist/docs/`) before writing Next

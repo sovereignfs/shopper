@@ -27,6 +27,8 @@ export async function placesOf(db: LocalDatabase): Promise<Place[]> {
   for (const household of await householdsOf(db)) {
     const lists = await listsOf(db, household.id);
     const archived = await listsOf(db, household.id, { archived: true });
+    // A group the person reaches by a card only has no list of theirs in it (RFC 0007): it is not a place the sidebar shows, and a card is shown from the Cards screen.
+    if (!household.own && lists.length === 0 && archived.length === 0) continue;
     const counts = await openCounts(db, household.id);
     const last =
       [...lists, ...archived]

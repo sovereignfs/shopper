@@ -59,7 +59,8 @@ SHOPPER_POSTGRES_URL=postgres://user:password@host:5432/shopper
 `sv app add` hosts Shopper from `sovereign.manifest.json`, which is also the image's label: the instance builds nothing of its own, gives the app a database, and
 tells it where it is. What it sets is the settings above under Shopper's own names: `SHOPPER_URL`, `SHOPPER_CORE_URL`, `SHOPPER_CORE_CLIENT_ID` and
 `SHOPPER_CORE_CLIENT_SECRET` (or `_FILE`), the database (`SHOPPER_DB_DIALECT` and its address) and `PORT`, and it makes `SHOPPER_AUTH_SECRET` and `SHOPPER_ENCRYPTION_KEY`
-once and keeps them. With `SHOPPER_AUTH_LOCAL` unset, people sign in through the instance only: there is no password, sign-up or reset to find. Anyone the instance
+once and keeps them. People sign in through the instance only (suite mode): there is no password or reset to find, and `/sign-in` and `/sign-up` go
+straight to the instance. `SHOPPER_AUTH_LOCAL` set beside a core does nothing, and Shopper says so once when it starts. Anyone the instance
 signs in gets an account, whatever `SHOPPER_AUTH_SIGNUP` says (it is about local accounts). Mail (`SHOPPER_SMTP_*`) is not used when there is no password. The instance can
 end a person's sessions here, and delete their account, by signed notices to `/api/sovereign/backchannel-logout` and `/api/sovereign/account-deleted`; both are
 answered only when they carry a token the instance signed.
@@ -105,7 +106,7 @@ minor may, and going back is restoring the backup you took before it.
 
 ## Checking a setup
 
-`scripts/deploy-check.sh` brings each setup up from nothing, checks the database it is on, restarts it, and stops it with SIGTERM, and CI runs it. Its last setup, `sovereign`, is an instance hosting the app (secrets as files, a PostgreSQL of its own, a port that is not the image's): it checks that the image's label is the manifest, that sign-in offers Sovereign and no password, that the icon and the addresses of core's notices answer, and that it stops on SIGTERM:
+`scripts/deploy-check.sh` brings each setup up from nothing, checks the database it is on, restarts it, and stops it with SIGTERM, and CI runs it. Its last setup, `sovereign`, is an instance hosting the app (secrets as files, a PostgreSQL of its own, a port that is not the image's): it checks that the image's label is the manifest, that sign-in and sign-up go to core (here, one that cannot be reached, which the sign-in page says) with no password asked, that the icon and the addresses of core's notices answer, and that it stops on SIGTERM:
 
 ```bash
 eval "docker build $(pnpm exec sovereign-manifest docker-args) -t shopper:ci ."

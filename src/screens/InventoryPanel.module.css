@@ -1,0 +1,106 @@
+/* An Inventory entry beside the screen: the right column's content, 360px on a wide screen (the design system's detail column), the whole page on a phone. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  padding: var(--sv-space-5);
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: var(--sv-space-4);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+}
+
+.head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sv-space-3);
+  align-items: end;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sv-space-3);
+}
+
+.toggle small {
+  display: block;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.note {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.problem {
+  margin: 0;
+  color: var(--sv-color-error-text);
+  font-size: var(--sv-font-size-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-3);
+}
+
+.delete {
+  padding: var(--sv-space-2);
+  color: var(--sv-color-error-text);
+  font: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--sv-radius-sm);
+  cursor: pointer;
+}
+
+.delete:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Add to a list: its own group, set apart from the item's fields above it. */
+.add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+  padding-top: var(--sv-space-4);
+  border-top: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.add h3 {
+  margin: 0;
+  font-size: var(--sv-font-size-md);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.added {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}

@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { Mutation } from '../actions/format';
 import type { HouseholdPull, SyncAnswer, SyncRequest } from '../sync/protocol';
 import {
+  deriveCardKeyring,
   deriveListKeyring,
   newKeyring,
   openField,
+  sealField,
+  wrapCardKeyring,
   wrapKeyring,
   wrapListKeyring,
 } from './household';
@@ -211,6 +214,43 @@ describe('the transport', () => {
     expect(JSON.stringify(sent)).not.toContain(MARKER);
   });
 
+  it('refuses a change to Inventory whose group keys are not here, in words about Inventory and not a list', async () => {
+    const key = await appKey();
+    const kept = storage();
+    new EncryptionMemory(kept, 'k').markEncrypted(H);
+    const memory = new EncryptionMemory(kept, 'k');
+    const transport = encryptingTransport(
+      async () => ({
+        kind: 'ok' as const,
+        answer: answerOf([
+          pullOf({ encryption: { state: 'encrypted', epoch: 1, keyring: null, person: P } }),
+        ]),
+      }),
+      { appKey: () => key },
+      memory,
+      noRows,
+    );
+    const inventory: Mutation = {
+      mutationId: crypto.randomUUID(),
+      householdId: H,
+      changes: [
+        {
+          table: 'inventory_item',
+          id: ROW,
+          create: true,
+          fields: { name: 'Zorblax', createdAt: 1 },
+        },
+      ],
+    };
+    const request = { version: 2, outbox: [inventory], cursors: { [H]: 3 } };
+    await transport(request);
+    const second = await transport(request);
+    const refused = second.kind === 'ok' ? second.answer.refused : [];
+    expect(refused.map((r) => r.mutationId)).toEqual([inventory.mutationId]);
+    expect(refused[0]?.sentence).toMatch(/Inventory/);
+    expect(refused[0]?.sentence).not.toMatch(/list/i);
+  });
+
   it('uses a copy of a list’s keys the server has not taken yet', async () => {
     const key = await appKey();
     const groceries = await deriveListKeyring(newKeyring(), LIST);
@@ -245,5 +285,213 @@ describe('a moved group’s pull', () => {
       ],
     });
     expect(await openPull(ringOf, elsewhere)).toBeUndefined();
+  });
+});
+
+describe('a card on a moved group (task 24.2, RFC 0007)', () => {
+  const CARD = '77777777-7777-4777-8777-777777777777';
+  const OTHER_CARD = '88888888-8888-4888-8888-888888888888';
+  const card = (fields: Record<string, string | number | null>): Mutation => ({
+    mutationId: crypto.randomUUID(),
+    householdId: H,
+    changes: [
+      {
+        table: 'card',
+        id: CARD,
+        create: true,
+        fields: {
+          shop: `Tesco ${MARKER}`,
+          number: `${MARKER}1234`,
+          kind: 'ean13',
+          code: `${MARKER}5000000000000`,
+          position: 'a1',
+          createdAt: 1,
+          ...fields,
+        },
+      },
+    ],
+  });
+
+  it('goes with every field encrypted under the card’s own keys, bound to the card, and none in plain text; a cleared one goes as null', async () => {
+    const group = newKeyring();
+    const ring = await deriveCardKeyring(group, CARD);
+    const sent = await encryptMutation(
+      card({ icon: null, holder: `A. Lovelace ${MARKER}` }),
+      async () => undefined,
+      noRows,
+      undefined,
+      undefined,
+      async (id) => (id === CARD ? ring : undefined),
+    );
+    expect(JSON.stringify(sent)).not.toContain(MARKER);
+    const fields = sent?.changes[0]?.fields ?? {};
+    expect(fields.icon).toBeNull();
+    expect(fields.position).toBe('a1');
+    for (const [field, text] of [
+      ['shop', `Tesco ${MARKER}`],
+      ['number', `${MARKER}1234`],
+      ['kind', 'ean13'],
+      ['code', `${MARKER}5000000000000`],
+      ['holder', `A. Lovelace ${MARKER}`],
+    ] as const)
+      expect(
+        await openField(
+          ring,
+          { list: CARD, table: 'card', row: CARD, field },
+          String(fields[field]),
+        ),
+      ).toBe(text);
+    // Not for another card, a list, or the group's own keys.
+    for (const other of [
+      await deriveCardKeyring(group, OTHER_CARD),
+      await deriveListKeyring(group, CARD),
+      group,
+    ])
+      expect(
+        await openField(
+          other,
+          { list: CARD, table: 'card', row: CARD, field: 'shop' },
+          String(fields.shop),
+        ),
+      ).toBeUndefined();
+  });
+
+  it('is not sent when the card’s keys are not here, and a list’s keys are not a way to them', async () => {
+    const listRing = await deriveListKeyring(newKeyring(), CARD);
+    expect(
+      await encryptMutation(
+        card({}),
+        async () => listRing,
+        noRows,
+        undefined,
+        undefined,
+        async () => undefined,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('refuses a change for a card whose keys this device will not get, in words about the card, and sends what came after it', async () => {
+    const memory = new EncryptionMemory(storage(), 'k');
+    memory.markEncrypted(H);
+    const key = await appKey();
+    // The group has been heard of this session, with no keyring for this reader (a person on a card only) and no copy of the card's keys.
+    memory.hear(H, { keyring: null, person: P });
+    const seen: unknown[][] = [];
+    const transport = encryptingTransport(
+      async (request) => {
+        seen.push([...request.outbox]);
+        return { kind: 'ok', answer: answerOf([]) };
+      },
+      { appKey: () => key },
+      memory,
+      noRows,
+    );
+    const result = await transport({
+      version: 2,
+      outbox: [card({})],
+      cursors: {},
+    } as SyncRequest);
+    expect(seen[0]).toEqual([]);
+    expect(result.kind === 'ok' ? result.answer.refused[0]?.sentence : '').toContain('That card');
+  });
+
+  it('opens a card’s fields under the card’s keys, and leaves the page out if a value is another card’s', async () => {
+    const group = newKeyring();
+    const ring = await deriveCardKeyring(group, CARD);
+    const seal = async (card: string, field: string, text: string) =>
+      sealField(
+        await deriveCardKeyring(group, card),
+        { list: card, table: 'card', row: card, field },
+        text,
+      );
+    const row = {
+      id: CARD,
+      householdId: H,
+      shop: '',
+      number: '',
+      kind: 'qr',
+      code: '',
+      icon: null,
+      color: null,
+      holder: null,
+      note: null,
+      position: 'a1',
+      deletedAt: null,
+      createdAt: 1,
+      seq: 5,
+      encrypted: {
+        shop: await seal(CARD, 'shop', 'Tesco'),
+        number: await seal(CARD, 'number', '1234'),
+        kind: await seal(CARD, 'kind', 'code39'),
+        code: await seal(CARD, 'code', 'ABC'),
+        holder: await seal(CARD, 'holder', 'A. Lovelace'),
+      },
+    };
+    const opened = await openPull(
+      async () => undefined,
+      pullOf({ cards: [row] }),
+      async () => undefined,
+      async (id) => (id === CARD ? ring : undefined),
+    );
+    expect(opened?.cards?.[0]).toMatchObject({
+      shop: 'Tesco',
+      number: '1234',
+      kind: 'code39',
+      code: 'ABC',
+      holder: 'A. Lovelace',
+      icon: null,
+      note: null,
+    });
+    expect(JSON.stringify(opened?.cards)).not.toContain('encrypted');
+    // A value made for another card does not open, and the page is not taken.
+    const stolen = {
+      ...row,
+      encrypted: { ...row.encrypted, shop: await seal(OTHER_CARD, 'shop', 'X') },
+    };
+    expect(
+      await openPull(
+        async () => undefined,
+        pullOf({ cards: [stolen] }),
+        async () => undefined,
+        async (id) => (id === CARD ? ring : undefined),
+      ),
+    ).toBeUndefined();
+    // Without the card's keys, nothing opens.
+    expect(await openPull(async () => undefined, pullOf({ cards: [row] }))).toBeUndefined();
+  });
+
+  it('uses the reader’s own copy of a card’s keys first, and derives them from the group’s keyring when there is none; a person on a card only has the copy alone', async () => {
+    const key = await appKey();
+    const group = newKeyring();
+    const derived = await deriveCardKeyring(group, CARD);
+    const memory = new EncryptionMemory(storage(), 'k');
+    // The owner: the group's keyring, no copy.
+    memory.hear(H, {
+      keyring: await wrapKeyring(key, group, { person: P, household: H }),
+      person: P,
+    });
+    const mine = await memory.cardKeyring(H, CARD, key);
+    expect(mine && Object.keys(mine)).toEqual(Object.keys(derived));
+    // A guest: no keyring, a copy under their own app key.
+    const guest = new EncryptionMemory(storage(), 'g');
+    expect(await guest.cardKeyring(H, CARD, key)).toBeUndefined();
+    guest.hear(H, {
+      keyring: null,
+      cards: { [CARD]: await wrapCardKeyring(key, derived, { person: P, card: CARD }) },
+      person: P,
+    });
+    expect(Object.values((await guest.cardKeyring(H, CARD, key)) ?? {})[0]).toEqual(
+      Object.values(derived)[0],
+    );
+    // A copy bound to another card, or to another person, is not one that opens it.
+    const wrong = new EncryptionMemory(storage(), 'w');
+    wrong.hear(H, {
+      keyring: null,
+      cards: { [CARD]: await wrapCardKeyring(key, derived, { person: P, card: OTHER_CARD }) },
+      person: P,
+    });
+    expect(await wrong.cardKeyring(H, CARD, key)).toBeUndefined();
+    // Locked: nothing opens.
+    expect(await guest.cardKeyring(H, OTHER_CARD, undefined)).toBeUndefined();
   });
 });

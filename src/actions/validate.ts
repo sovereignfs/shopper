@@ -63,10 +63,17 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
     for (const name of names) {
       const encrypted = mode === 'encrypted' && content.includes(name);
       const shape =
-        mode === 'encrypted' && table === 'product' && name === 'nameKey'
+        mode === 'encrypted' &&
+        (table === 'product' || table === 'inventory_item') &&
+        name === 'nameKey'
           ? nameKey
           : encrypted
-            ? name === 'note'
+            ? name === 'note' ||
+              (table === 'list' && name !== 'name') ||
+              // An Inventory override that keeps the starter's name has none (the starter entry is named instead), and a starter category has the code's.
+              ((table === 'inventory_item' || table === 'category') && name === 'name') ||
+              // A card's icon, colour and the name on it may be cleared (the shop, the number, the kind and the code may not).
+              (table === 'card' && (name === 'icon' || name === 'color' || name === 'holder'))
               ? z.union([cipher, z.null()])
               : cipher
             : spec.fields[name];
@@ -86,12 +93,32 @@ export function validateMutation(input: unknown, mode: ContentMode = 'plain'): V
         ok: false,
         problem: `change ${index + 1}: a product's name and its name key go together`,
       };
+    // An encrypted Inventory item's name key comes with every make and every change that says a name, `null` (the starter entry's) too, since the server cannot
+    // make one there; and it is never sent alone (§13.3).
+    if (
+      mode === 'encrypted' &&
+      table === 'inventory_item' &&
+      'nameKey' in clean !== (Boolean(create) || 'name' in clean)
+    )
+      return {
+        ok: false,
+        problem: `change ${index + 1}: an inventory_item's name key goes with a new item and with a name`,
+      };
     if (create) {
       const missing = spec.required.filter((name) => !(name in clean));
       if (missing.length > 0)
         return {
           ok: false,
           problem: `change ${index + 1}: a new ${table} needs ${missing.join(', ')}`,
+        };
+      // A category a device makes is the person's own, and has a name: a starter category is made by the server, with the group.
+      if (table === 'category' && clean.name == null)
+        return { ok: false, problem: `change ${index + 1}: a new category needs a name` };
+      // An Inventory item is a name of the person's own, or an override of a starter entry (which has the starter's name): never neither.
+      if (table === 'inventory_item' && clean.name == null && clean.starterKey == null)
+        return {
+          ok: false,
+          problem: `change ${index + 1}: a new inventory_item needs a name or a starter entry`,
         };
     }
     changes.push({

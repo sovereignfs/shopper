@@ -18,6 +18,12 @@ export interface FakeUser {
   sub: string;
   email: string;
   name?: string;
+  /** The address of their picture, and their language and time zone, for the `profile` scope. */
+  picture?: string;
+  locale?: string;
+  zoneinfo?: string;
+  /** How long ago they last signed in at Sovereign, in seconds, for the ID token's `auth_time`: a session there that is older than this app wants. 0 by default. */
+  signedInSecondsAgo?: number;
   emailVerified?: boolean;
 }
 
@@ -44,9 +50,22 @@ interface Pending {
   redirectUri: string;
   challenge: string;
   nonce: string | undefined;
+  /** The `prompt` the authorization asked for: `login` has them sign in again, so `auth_time` is now. */
+  prompt: string | undefined;
+  /** What was asked for: `offline_access` is what gets a refresh token. */
+  scope: readonly string[];
   user: FakeUser;
   overrides: LoginOverrides;
   used: boolean;
+}
+
+/** One of the apps the launcher lists, as Sovereign's `listMyApps` answers it (`GET /api/v1/apps`). */
+export interface FakeApp {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  launchUrl: string;
 }
 
 export interface FakeSovereign {
@@ -58,6 +77,10 @@ export interface FakeSovereign {
   signInAs(user: FakeUser, overrides?: LoginOverrides): void;
   /** Answer the next authorization request with a refusal, the way a person clicking Deny would. */
   denyNext(): void;
+  /** The apps Sovereign's launcher lists: for the person `sub` names, or, with none, for every person who has no list of their own (none until set). */
+  setApps(apps: readonly FakeApp[], sub?: string): void;
+  /** How many times a refresh token was exchanged, and how many times one that was already used was sent (core treats that as theft). */
+  refreshes: { used: number; reused: number };
   /**
    * A signed notice, as Sovereign sends an app when a person's session ends (\`logout\`: the back-channel logout token of OpenID Connect) or they delete their
    * account (\`account-deleted\`): typed, for this client, good for two minutes, with a \`jti\` of its own, signed with the key it publishes. Core's carry the
@@ -95,6 +118,12 @@ export async function startFakeSovereign(
   const codes = new Map<string, Pending>();
   const accessTokens = new Map<string, FakeUser>();
   const accessTokensIssued: string[] = [];
+  /** Refresh tokens by the person they are for; a token is used once and a new one is given in its place, as core does. */
+  const refreshTokens = new Map<string, FakeUser>();
+  const spent = new Set<string>();
+  const refreshes = { used: 0, reused: 0 };
+  let apps: readonly FakeApp[] = [];
+  const appsOf = new Map<string, readonly FakeApp[]>();
   let next: { user: FakeUser; overrides: LoginOverrides } | undefined;
   let deny = false;
   const authorizations: URL[] = [];
@@ -140,14 +169,15 @@ export async function startFakeSovereign(
         res.end(JSON.stringify(body));
       };
       try {
-        if (url.pathname === `${PATH}/.well-known/openid-configuration`) {
+        // Core's issuer is the bare instance address; its endpoints are under `/api/auth` (core-app §3.6).
+        if (url.pathname === '/.well-known/openid-configuration') {
           const document: Record<string, unknown> = {
             issuer,
-            authorization_endpoint: `${issuer}/oauth2/authorize`,
-            token_endpoint: `${issuer}/oauth2/token`,
-            jwks_uri: `${issuer}/jwks`,
-            userinfo_endpoint: `${issuer}/oauth2/userinfo`,
-            end_session_endpoint: `${issuer}/oauth2/end-session`,
+            authorization_endpoint: `${issuer}${PATH}/oauth2/authorize`,
+            token_endpoint: `${issuer}${PATH}/oauth2/token`,
+            jwks_uri: `${issuer}${PATH}/jwks`,
+            userinfo_endpoint: `${issuer}${PATH}/oauth2/userinfo`,
+            end_session_endpoint: `${issuer}${PATH}/oauth2/end-session`,
             scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
             response_types_supported: ['code'],
             response_modes_supported: ['query'],
@@ -163,6 +193,17 @@ export async function startFakeSovereign(
           return json(200, document);
         }
         if (url.pathname === `${PATH}/jwks`) return json(200, { keys: [jwk] });
+        // A picture for a person to have (`FakeUser.picture`): a real image, so that a page draws it and does not fall back to initials.
+        if (url.pathname === '/avatar.png') {
+          res.writeHead(200, { 'content-type': 'image/png' });
+          res.end(
+            Buffer.from(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==',
+              'base64',
+            ),
+          );
+          return;
+        }
 
         if (url.pathname === `${PATH}/oauth2/authorize`) {
           authorizations.push(url);
@@ -197,6 +238,8 @@ export async function startFakeSovereign(
               redirectUri,
               challenge: q.get('code_challenge') as string,
               nonce: q.get('nonce') ?? undefined,
+              prompt: q.get('prompt') ?? undefined,
+              scope: (q.get('scope') ?? '').split(/[ +]/).filter(Boolean),
               user: next.user,
               overrides: next.overrides,
               used: false,
@@ -216,6 +259,29 @@ export async function startFakeSovereign(
             : [form.get('client_id'), form.get('client_secret')];
           if (id !== clientId || secret !== clientSecret)
             return json(401, { error: 'invalid_client' });
+          if (form.get('grant_type') === 'refresh_token') {
+            const presented = form.get('refresh_token') ?? '';
+            const who = refreshTokens.get(presented);
+            if (!who) {
+              // A token already used is stolen, as core sees it: every token of the person ends.
+              if (spent.has(presented)) refreshes.reused += 1;
+              return json(400, { error: 'invalid_grant' });
+            }
+            refreshTokens.delete(presented);
+            spent.add(presented);
+            refreshes.used += 1;
+            const fresh = randomBytes(24).toString('hex');
+            const rotated = randomBytes(24).toString('hex');
+            accessTokens.set(fresh, who);
+            refreshTokens.set(rotated, who);
+            return json(200, {
+              access_token: fresh,
+              token_type: 'Bearer',
+              expires_in: 900,
+              refresh_token: rotated,
+              scope: 'openid profile email offline_access',
+            });
+          }
           const pending = codes.get(form.get('code') ?? '');
           if (
             !pending ||
@@ -241,15 +307,28 @@ export async function startFakeSovereign(
             email: user.email,
             email_verified: user.emailVerified ?? true,
             ...(user.name !== undefined ? { name: user.name } : {}),
+            ...(user.picture !== undefined ? { picture: user.picture } : {}),
+            ...(user.locale !== undefined ? { locale: user.locale } : {}),
+            ...(user.zoneinfo !== undefined ? { zoneinfo: user.zoneinfo } : {}),
+            // When they signed in at Sovereign: now for a `prompt=login`, as Sovereign has them sign in again, else as long ago as the test says.
+            auth_time:
+              Math.floor(Date.now() / 1000) -
+              (pending.prompt === 'login' ? 0 : (user.signedInSecondsAgo ?? 0)),
             ...(pending.nonce && !overrides.omitNonce ? { nonce: pending.nonce } : {}),
             ...overrides.claims,
           });
+          // A refresh token, only for what asked for `offline_access`: what lets the app call as the person later.
+          const refresh = pending.scope.includes('offline_access')
+            ? randomBytes(24).toString('hex')
+            : undefined;
+          if (refresh) refreshTokens.set(refresh, user);
           return json(200, {
             access_token: accessToken,
             token_type: 'Bearer',
             expires_in: 3600,
-            scope: 'openid profile email',
+            scope: pending.scope.length > 0 ? pending.scope.join(' ') : 'openid profile email',
             id_token: idToken,
+            ...(refresh ? { refresh_token: refresh } : {}),
           });
         }
 
@@ -263,7 +342,23 @@ export async function startFakeSovereign(
             email: user.email,
             email_verified: user.emailVerified ?? true,
             ...(user.name !== undefined ? { name: user.name } : {}),
+            ...(user.picture !== undefined ? { picture: user.picture } : {}),
+            ...(user.locale !== undefined ? { locale: user.locale } : {}),
+            ...(user.zoneinfo !== undefined ? { zoneinfo: user.zoneinfo } : {}),
           });
+        }
+        // The instance document, which says what the Core API serves, and the apps the launcher lists, for a person with an access token.
+        if (url.pathname === '/.well-known/sovereign-instance')
+          return json(200, {
+            name: 'Fake Sovereign',
+            api: { versions: ['v1'], capabilities: ['directory', 'apps'] },
+          });
+        if (url.pathname === '/api/v1/apps') {
+          const who = accessTokens.get(
+            /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1] ?? '',
+          );
+          if (!who) return json(401, { error: 'invalid_token' });
+          return json(200, { apps: appsOf.get(who.sub) ?? apps });
         }
         json(404, { error: 'not_found' });
       } catch (error) {
@@ -273,7 +368,7 @@ export async function startFakeSovereign(
   });
 
   await new Promise<void>((resolve) => server.listen(options.port ?? 0, resolve));
-  issuer = `http://localhost:${(server.address() as AddressInfo).port}${PATH}`;
+  issuer = `http://localhost:${(server.address() as AddressInfo).port}`;
 
   return {
     issuer,
@@ -282,6 +377,8 @@ export async function startFakeSovereign(
     noticeToken,
     signInAs: (user, overrides = {}) => void (next = { user, overrides }),
     denyNext: () => void (deny = true),
+    setApps: (list, sub) => void (sub === undefined ? (apps = list) : appsOf.set(sub, list)),
+    refreshes,
     authorizations,
     accessTokensIssued,
     tokenRequests,

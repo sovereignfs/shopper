@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { authTable } from '../src/db/tables';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { firstList, TEST_RING } from '../src/access/test-support';
 import { type TestAuth, makeAuth } from '../src/auth/test-support';
@@ -27,7 +28,7 @@ afterAll(async () => {
 });
 
 const context = (): SeedContext => ({
-  stores: { app, auth: auth.database },
+  stores: { app, auth: auth.database, authStore: auth.store },
   settings: auth.settings,
   ring: TEST_RING,
   now: Date.UTC(2026, 10, 1, 9, 0, 0),
@@ -57,7 +58,7 @@ async function snapshot(): Promise<Record<string, number>> {
   }
   const users = await dbAll<{ n: number | string }>(
     auth.database,
-    sql`SELECT COUNT(*) AS n FROM ${auth.database.dialect === 'postgres' ? sql.raw('"shopper_auth"."user"') : sql.raw('"user"')}`,
+    sql`SELECT COUNT(*) AS n FROM ${authTable(auth.database, 'users')}`,
   );
   out.user = Number(users[0]?.n ?? 0);
   return out;
@@ -163,7 +164,7 @@ describe(`the development seed (${leg})`, () => {
     for (const seed of SEEDS) {
       const found = await dbAll(
         auth.database,
-        sql`SELECT id FROM ${auth.database.dialect === 'postgres' ? sql.raw('"shopper_auth"."user"') : sql.raw('"user"')} WHERE email = ${seed.email}`,
+        sql`SELECT id FROM ${authTable(auth.database, 'users')} WHERE email = ${seed.email}`,
       );
       expect(found, seed.email).toHaveLength(0);
     }

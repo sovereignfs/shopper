@@ -3,6 +3,7 @@ import {
   DERIVED_SHAPE,
   PASSWORD,
   deleteInSettings,
+  fillSignUp,
   PHONE,
   forgetSession,
   newEmail,
@@ -21,6 +22,48 @@ import { PORTS } from './ports';
 test('an account can be made, and signs the person in', async ({ page }) => {
   const email = await signUp(page);
   expect((await sessionOf(page))?.user.email).toBe(email);
+});
+
+test('a browser that cannot make the keys does not leave sign-up busy: the account is there, the form says what is missing, and the password unlocks it later', async ({
+  page,
+}) => {
+  // The signing key is the first thing the keys' set-up asks of the browser that Playwright's WebKit on a Linux runner now and then refuses with an OperationError. Here it is refused until
+  // the test says it is not (a flag in the tab's storage, which a new page load keeps).
+  await page.addInitScript(() => {
+    const generate = crypto.subtle.generateKey.bind(crypto.subtle);
+    Object.defineProperty(crypto.subtle, 'generateKey', {
+      configurable: true,
+      value: (algorithm: AlgorithmIdentifier, ...rest: unknown[]) => {
+        const name = typeof algorithm === 'string' ? algorithm : algorithm.name;
+        if (name === 'Ed25519' && !sessionStorage.getItem('keys-allowed'))
+          return Promise.reject(
+            new DOMException(
+              'The operation failed for an operation-specific reason',
+              'OperationError',
+            ),
+          );
+        return Reflect.apply(generate, crypto.subtle, [algorithm, ...rest]) as Promise<unknown>;
+      },
+    });
+  });
+  const email = newEmail();
+  await page.goto('/sign-up');
+  await fillSignUp(page, { name: 'Ada', email, password: PASSWORD });
+  await page.getByRole('button', { name: 'Create account' }).click();
+  // Not the "Creating account…" it was left on: the button is back, and the sentence says the account was made and what is not.
+  await expect(
+    page.getByText(/Your account was made, but this browser could not set up/),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled();
+  // And it was made: the person is signed in, and the browser, allowed to now, is asked for the password to make the keys.
+  expect((await sessionOf(page))?.user.email).toBe(email);
+  await page.evaluate(() => sessionStorage.setItem('keys-allowed', '1'));
+  await page.goto('/');
+  await page.getByLabel('Your password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Unlock' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible({
+    timeout: 30_000,
+  });
 });
 
 test('signing in with the right password signs in, and signing in again, signed in, has nothing to ask', async ({
@@ -53,7 +96,7 @@ test('a wrong password reads the same as an address with no account, and signs n
     await page.getByLabel('Email').fill(address);
     await page.getByLabel('Password').fill('not the password at all');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    const alert = page.getByText(/do not match/);
+    const alert = page.getByText(/email or password is incorrect/);
     await expect(alert).toBeVisible();
     messages.push((await alert.textContent()) ?? '');
   }
@@ -67,7 +110,7 @@ test('the form asks for the length, and the server, which is never sent a passwo
   ip,
 }) => {
   await page.goto('/sign-up');
-  await expect(page.getByLabel('Password')).toHaveAttribute('minlength', '10');
+  await expect(page.getByText('At least 10 characters.', { exact: false })).toBeVisible();
   // The page derives what it sends (RFC 0001): a password sent as itself is refused.
   const reply = await request.post('/api/auth/sign-up/email', {
     headers: { origin: new URL(page.url()).origin, 'x-forwarded-for': ip },
@@ -88,12 +131,16 @@ test('the front address is the landing page for a visitor and the signed-in area
   await expect(page.getByRole('link', { name: 'Create an account' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
 
-  await signUp(page);
+  await signUp(page, { home: true });
   await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
   await expect(page).toHaveURL('/');
+  // The signed-in area at the front address is Home.
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
   // The signed-in area's own address is the front one.
   await page.goto('/home');
   await expect(page).toHaveURL('/');
+  // Signed in on the page that has just loaded, before signing out: the helper takes a page with no menu as signed out already.
+  await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
 
   await signOutFromMenu(page);
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
@@ -126,7 +173,7 @@ test('an account is deleted with its password, and nothing of it signs in again'
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByText(/do not match/)).toBeVisible();
+  await expect(page.getByText(/email or password is incorrect/)).toBeVisible();
 });
 
 test.describe('an instance closed to sign-up', () => {
@@ -147,7 +194,8 @@ test.describe('an instance closed to sign-up', () => {
       headers: { origin: base, 'x-forwarded-for': ip },
       data: { name: 'Mallory', email: newEmail('mallory'), password: DERIVED_SHAPE },
     });
-    expect(reply.status()).toBe(403);
+    // The package's answer (auth.md §5), with the code the page reads.
+    expect(reply.status()).toBe(422);
     expect((await reply.json()).code).toBe('SIGNUP_CLOSED');
 
     await page.goto(`${base}/sign-up`);
@@ -171,8 +219,9 @@ test('Settings: a name is changed, a password is changed, and the account is del
   await expect(page.getByRole('textbox', { name: /^Name/ })).toHaveValue('Ada Lovelace');
   await expect(page.getByText(email)).toBeVisible();
 
-  // Sign-in: a wrong current password is refused, the right one changes it, and the new one signs in.
-  await page.getByRole('button', { name: 'Sign-in' }).click();
+  // Security: a wrong current password is refused, the right one changes it, and the new one signs in.
+  await page.getByRole('button', { name: 'Security' }).click();
+  await expect(page).toHaveURL(/\/settings\/security$/);
   const form = page.getByRole('form', { name: 'Change password' });
   await form.getByLabel('Current password').fill('not the password');
   await form.getByLabel(/^New password(?! again)/).fill('another horse battery');
@@ -199,8 +248,14 @@ test.describe('Settings at a phone’s width', () => {
   test('has nothing to scroll sideways, and the sections are reachable', async ({ page }) => {
     await signUp(page);
     await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-    await page.getByRole('button', { name: 'Sign-in' }).click();
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    // On a phone `/settings` is the sections alone; one is chosen, and the back arrow goes to them again.
+    await expect(page.getByRole('textbox', { name: /^Name/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Profile' }).click();
+    await expect(page).toHaveURL(/\/settings\/profile$/);
+    await page.getByRole('button', { name: 'Back to the sections' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await page.getByRole('button', { name: 'Security' }).click();
     await expect(page.getByRole('form', { name: 'Change password' })).toBeVisible();
     expect(
       await page.evaluate(

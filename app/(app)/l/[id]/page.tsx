@@ -1,9 +1,7 @@
-import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { isId } from '@/src/actions/format';
 import { ListScreen } from '@/src/screens/ListScreen';
 
-export const metadata: Metadata = { title: 'List' };
 export const dynamic = 'force-dynamic';
 
 /**

@@ -1,6 +1,14 @@
 import type { LocalDatabase } from './db';
 import type { CategoryRow, HouseholdRecord, ItemRow, ListRow, MemberRow, ProductRow } from './rows';
-import { categoriesOf, hasSynced, householdsOf, itemsOf, listsOf, productsOf } from './store';
+import {
+  categoriesOf,
+  hasSynced,
+  householdsOf,
+  itemsOf,
+  listCategoriesOf,
+  listsOf,
+  productsOf,
+} from './store';
 
 /**
  * **What a list screen reads from the device** (DESIGN.md §16.5): the list, its household, its items (open and bought, not cleared and not deleted), the
@@ -29,6 +37,31 @@ export type ListData =
       readonly showPeople: boolean;
     };
 
+/**
+ * **A list's categories, in aisle order** (§8.3): the starter categories of its group and the list's own copies of people's categories, which sit in the group's one aisle order.
+ * A copy is shown as a category of the list; a deleted one is not, so what names it falls under _Other_ until it is made again.
+ */
+export async function categoriesOfList(
+  db: LocalDatabase,
+  household: string,
+  list: string,
+): Promise<CategoryRow[]> {
+  const copies = (await listCategoriesOf(db, list)).map((copy): CategoryRow => ({
+    id: copy.id,
+    householdId: copy.householdId,
+    starterKey: null,
+    name: copy.name,
+    icon: copy.icon,
+    position: copy.position,
+    hidden: false,
+    deletedAt: copy.deletedAt,
+    seq: copy.seq,
+  }));
+  return [...(await categoriesOf(db, household)), ...copies].sort((a, b) =>
+    a.position === b.position ? (a.id < b.id ? -1 : 1) : a.position < b.position ? -1 : 1,
+  );
+}
+
 export async function listViewOf(db: LocalDatabase, id: string): Promise<ListData> {
   const list = await db.get('list', id);
   const household = list ? await db.get('household', list.householdId) : undefined;
@@ -41,7 +74,7 @@ export async function listViewOf(db: LocalDatabase, id: string): Promise<ListDat
     lists: await listsOf(db, household.id),
     household,
     items: await itemsOf(db, id),
-    categories: await categoriesOf(db, household.id),
+    categories: await categoriesOfList(db, household.id, id),
     products: await productsOf(db, household.id),
     // Someone who left is still named on what they added and ticked, and says so (DESIGN.md §7.5): "Sam (left)".
     names: Object.fromEntries(

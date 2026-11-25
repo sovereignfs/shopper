@@ -3,9 +3,7 @@ import type { KeyRing } from '../crypto/keys';
 import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
-import * as postgresAuth from '../db/schema/postgres/auth';
-import * as sqliteAuth from '../db/schema/sqlite/auth';
-import { appTable } from '../db/tables';
+import { appTable, authTable } from '../db/tables';
 import { HOUSEHOLD_TABLES } from '../households/tables';
 import { deleteListProducts } from '../lists/members';
 import { vaultOf } from '../keys/server/vault';
@@ -45,27 +43,14 @@ export interface Deleted {
   readonly deleted: number;
   /** Lists they left, with nothing to hand over. */
   readonly left: number;
+  /** The same for their cards (RFC 0007), which are counted apart: a card is not a list. */
+  readonly cards: { readonly passed: number; readonly deleted: number; readonly left: number };
 }
-
-const authTables = (database: Database) =>
-  database.dialect === 'postgres'
-    ? {
-        user: postgresAuth.user,
-        session: postgresAuth.session,
-        account: postgresAuth.account,
-        verification: postgresAuth.verification,
-      }
-    : {
-        user: sqliteAuth.user,
-        session: sqliteAuth.session,
-        account: sqliteAuth.account,
-        verification: sqliteAuth.verification,
-      };
 
 export async function deletePerson(deps: PeopleDeps, accountId: string): Promise<Deleted> {
   const { database, authDatabase } = deps;
   const now = deps.now();
-  const result = { passed: 0, deleted: 0, left: 0 };
+  const result = { passed: 0, deleted: 0, left: 0, cards: { passed: 0, deleted: 0, left: 0 } };
 
   const person = await dbGet<{ id: string; sealed: string }>(
     database,
@@ -79,13 +64,18 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       database,
       sql`SELECT household_id FROM ${appTable(database, 'list_member')} WHERE person_id = ${person.id} AND left_at IS NULL
           UNION
-          SELECT household_id FROM ${appTable(database, 'member')} WHERE person_id = ${person.id} AND left_at IS NULL`,
+          SELECT household_id FROM ${appTable(database, 'member')} WHERE person_id = ${person.id} AND left_at IS NULL
+          UNION
+          SELECT household_id FROM ${appTable(database, 'card_member')} WHERE person_id = ${person.id} AND left_at IS NULL`,
     );
     for (const { household_id: household } of groups) {
       const outcome = await leaveGroup(database, household, person.id, now);
       result.passed += outcome.passed;
       result.deleted += outcome.deleted;
       result.left += outcome.left;
+      result.cards.passed += outcome.cards.passed;
+      result.cards.deleted += outcome.cards.deleted;
+      result.cards.left += outcome.cards.left;
     }
   }
 
@@ -94,7 +84,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   if (person)
     await dbAll(
       database,
-      sql`UPDATE ${appTable(database, 'invitation')} SET revoked_at = ${now}
+      sql`UPDATE ${appTable(database, 'invitation')} SET revoked_at = ${now}, wrapped_key = NULL
           WHERE created_by = ${person.id} AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id`,
     );
 
@@ -115,6 +105,12 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       database,
       sql`DELETE FROM ${appTable(database, 'list_key')} WHERE person_id = ${person.id} RETURNING person_id`,
     );
+  // Their copies of cards' keys (RFC 0007): every one, including the copy of a card they had left, which nothing else deletes.
+  if (person)
+    await dbAll(
+      database,
+      sql`DELETE FROM ${appTable(database, 'card_key')} WHERE person_id = ${person.id} RETURNING person_id`,
+    );
   await dbAll(
     database,
     sql`DELETE FROM ${appTable(database, 'account_settings')} WHERE account_id = ${accountId} RETURNING account_id`,
@@ -129,26 +125,45 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   );
 
   // 4. The sign-in store: the pending verifications are found by the address, so it is read before the account goes.
-  const auth = authTables(authDatabase);
+  // The tables are `@sovereignfs/auth`'s (ADR 0001). Each is deleted by name rather than left to a cascade, which sqld does not
+  // promise to enforce.
+  const auth = (name: string) => authTable(authDatabase, name);
   const user = await dbGet<{ email: string }>(
     authDatabase,
-    sql`SELECT email FROM ${auth.user} WHERE id = ${accountId}`,
+    sql`SELECT email FROM ${auth('users')} WHERE id = ${accountId}`,
   );
+  const sessions = sql`SELECT id FROM ${auth('sessions')} WHERE user_id = ${accountId}`;
+  for (const table of ['sv_key_secrets', 'sv_core_sign_ins'])
+    await dbAll(
+      authDatabase,
+      sql`DELETE FROM ${auth(table)} WHERE session_id IN (${sessions}) RETURNING session_id`,
+    );
   await dbAll(
     authDatabase,
-    sql`DELETE FROM ${auth.session} WHERE user_id = ${accountId} RETURNING id`,
+    sql`DELETE FROM ${auth('sessions')} WHERE user_id = ${accountId} RETURNING id`,
   );
+  // Core's refresh token for the person, kept by the SDK under their `sub` (sdk §5.1).
   await dbAll(
     authDatabase,
-    sql`DELETE FROM ${auth.account} WHERE user_id = ${accountId} RETURNING id`,
+    sql`DELETE FROM ${auth('sv_tokens')} WHERE sub IN (
+          SELECT account_id FROM ${auth('accounts')} WHERE user_id = ${accountId} AND provider_id = 'sovereign') RETURNING sub`,
+  );
+  for (const table of ['accounts', 'two_factors', 'passkeys'])
+    await dbAll(
+      authDatabase,
+      sql`DELETE FROM ${auth(table)} WHERE user_id = ${accountId} RETURNING id`,
+    );
+  await dbAll(
+    authDatabase,
+    sql`DELETE FROM ${auth('sv_legacy_passwords')} WHERE user_id = ${accountId} RETURNING user_id`,
   );
   if (user) {
     await dbAll(
       authDatabase,
-      sql`DELETE FROM ${auth.verification} WHERE identifier = ${user.email} RETURNING id`,
+      sql`DELETE FROM ${auth('verifications')} WHERE identifier = ${user.email} RETURNING id`,
     );
   }
-  await dbAll(authDatabase, sql`DELETE FROM ${auth.user} WHERE id = ${accountId} RETURNING id`);
+  await dbAll(authDatabase, sql`DELETE FROM ${auth('users')} WHERE id = ${accountId} RETURNING id`);
 
   // 5. The person, last: a name and nothing else.
   if (person) {
@@ -175,10 +190,15 @@ async function leaveGroup(
   household: string,
   personId: string,
   now: number,
-): Promise<{ passed: number; deleted: number; left: number }> {
+): Promise<{
+  passed: number;
+  deleted: number;
+  left: number;
+  cards: { passed: number; deleted: number; left: number };
+}> {
   const listMember = appTable(database, 'list_member');
   const h = appTable(database, 'household');
-  const outcome = { passed: 0, deleted: 0, left: 0 };
+  const outcome = { passed: 0, deleted: 0, left: 0, cards: { passed: 0, deleted: 0, left: 0 } };
   return transaction(database, async (tx) => {
     const stepped = await dbGet<{ seq: number | string }>(
       tx,
@@ -218,6 +238,74 @@ async function leaveGroup(
             WHERE list_id = ${list} AND person_id = ${personId} AND left_at IS NULL RETURNING id`,
       );
     }
+    // **Their cards, as their lists are** (RFC 0007): a card nobody else is on is deleted, with its people, keys and records; a shared card whose only Admin they were passes to the person on it
+    // longest, who becomes its Admin; otherwise they just leave it.
+    const cardMember = appTable(tx, 'card_member');
+    const cards = await dbAll<{ card_id: string; role: string }>(
+      tx,
+      sql`SELECT card_id, role FROM ${cardMember}
+          WHERE household_id = ${household} AND person_id = ${personId} AND left_at IS NULL`,
+    );
+    for (const { card_id: card, role } of cards) {
+      const others = await dbAll<{ person_id: string; role: string }>(
+        tx,
+        sql`SELECT person_id, role FROM ${cardMember}
+            WHERE card_id = ${card} AND left_at IS NULL AND person_id <> ${personId}
+            ORDER BY joined_at, person_id`,
+      );
+      if (others.length === 0) {
+        await deleteCard(tx, household, card);
+        outcome.cards.deleted += 1;
+        continue;
+      }
+      const heir = others[0];
+      if (role === 'admin' && heir && !others.some((other) => other.role === 'admin')) {
+        await dbAll(
+          tx,
+          sql`UPDATE ${cardMember} SET role = 'admin', seq = ${seq}
+              WHERE card_id = ${card} AND person_id = ${heir.person_id} RETURNING id`,
+        );
+        outcome.cards.passed += 1;
+      } else outcome.cards.left += 1;
+      await dbAll(
+        tx,
+        sql`UPDATE ${cardMember} SET left_at = ${now}, seq = ${seq}
+            WHERE card_id = ${card} AND person_id = ${personId} AND left_at IS NULL RETURNING id`,
+      );
+      // Their copy of the card's keys goes with them (§13.2).
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'card_key')} WHERE card_id = ${card} AND person_id = ${personId} RETURNING 1 AS gone`,
+      );
+    }
+    // **Their Inventory goes whether or not their group stays** for a list that passed to someone else (§8.8, §19): it was theirs alone, and nobody else ever
+    // had it. With it, what a fold or a delete of one of its items left, which is of no list; and their own categories, and the names they gave the starter ones (§8.3):
+    // those rows stay with the group, as the code's.
+    const theirs = await dbGet<{ yes: number }>(
+      tx,
+      sql`SELECT 1 AS yes FROM ${h} WHERE id = ${household} AND own_of IN
+            (SELECT account_id FROM ${appTable(tx, 'person')} WHERE id = ${personId})`,
+    );
+    if (theirs) {
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'inventory_item')} WHERE household_id = ${household} RETURNING 1 AS gone`,
+      );
+      await dbAll(
+        tx,
+        sql`DELETE FROM ${appTable(tx, 'category')} WHERE household_id = ${household} AND starter_key IS NULL RETURNING 1 AS gone`,
+      );
+      await dbAll(
+        tx,
+        sql`UPDATE ${appTable(tx, 'category')} SET sealed = NULL, encrypted = NULL, seq = ${seq}
+            WHERE household_id = ${household} AND starter_key IS NOT NULL AND (sealed IS NOT NULL OR encrypted IS NOT NULL) RETURNING 1 AS gone`,
+      );
+      for (const table of ['alias', 'tombstone'] as const)
+        await dbAll(
+          tx,
+          sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND table_name IN ('inventory_item', 'category') RETURNING 1 AS gone`,
+        );
+    }
     // Their own group is theirs no more: its lists that carry on are their people's, in a group nobody owns.
     await dbAll(
       tx,
@@ -233,6 +321,7 @@ async function leaveGroup(
     const anyone = await dbGet<{ n: number | string }>(
       tx,
       sql`SELECT (SELECT COUNT(*) FROM ${listMember} WHERE household_id = ${household} AND left_at IS NULL)
+               + (SELECT COUNT(*) FROM ${appTable(tx, 'card_member')} WHERE household_id = ${household} AND left_at IS NULL)
                + (SELECT COUNT(*) FROM ${appTable(tx, 'member')} WHERE household_id = ${household} AND left_at IS NULL) AS n`,
     );
     if (Number(anyone?.n ?? 0) === 0) {
@@ -247,6 +336,19 @@ async function leaveGroup(
   });
 }
 
+/** A card nobody else is on, with what is of it alone: its people, their copies of its keys, its links (which hold its keys under a secret) and the records about it (§7.7). */
+async function deleteCard(tx: Database, household: string, card: string): Promise<void> {
+  for (const table of ['card_member', 'card_key', 'invitation', 'list_card', 'tombstone'] as const)
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${appTable(tx, table)} WHERE household_id = ${household} AND card_id = ${card} RETURNING 1 AS gone`,
+    );
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${appTable(tx, 'card')} WHERE household_id = ${household} AND id = ${card} RETURNING id`,
+  );
+}
+
 /** A list nobody else is on, with what is of it alone: its items, its catalog, people, links, and the records about them. */
 async function deleteList(
   tx: Database,
@@ -256,8 +358,10 @@ async function deleteList(
 ): Promise<void> {
   for (const table of [
     'item',
+    'list_category',
     'list_member',
     'list_key',
+    'list_card',
     'invitation',
     'alias',
     'tombstone',

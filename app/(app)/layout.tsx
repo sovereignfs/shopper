@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+import { accountFacts } from '@/src/auth/profile';
+import { authSettings } from '@/src/auth/server';
+import { AccountProvider } from '@/src/account/AccountProvider';
 import { requireSession } from '@/src/auth/session';
 import { KeyPrompt } from '@/src/keys/KeyPrompt';
 import { KeysProvider, type PageKeySource } from '@/src/keys/keys';
@@ -6,15 +9,29 @@ import { keySourceOf } from '@/src/keys/server/source';
 import { LocalProvider } from '@/src/local/react';
 import { AccountMenu } from '@/src/screens/AccountMenu';
 import { RememberIdentity } from '@/src/screens/RememberIdentity';
-import { ShellFrame } from '@/src/screens/ShellFrame';
+import { ShopperLauncher } from '@/src/frame/ShopperLauncher';
+import { SignedInFrame } from '@/src/frame/SignedInFrame';
 import { UndoProvider } from '@/src/screens/Undo';
 
 // Everything for someone who is signed in (DESIGN.md §16.2): the session is checked here, and the frame is the one the offline shell makes too.
 export const dynamic = 'force-dynamic';
 
-export default async function AppLayout({ children }: { children: ReactNode }) {
+// **No page here sets a title of its own on the server** (RFC 0005, DESIGN.md §16.13): a list's name is encrypted, so the browser sets every title in this area
+// (`useTitle`, which also keeps it against Next making the `<title>` again), and the server's is the app's name for all of them.
+
+export default async function AppLayout({
+  children,
+  modal,
+}: {
+  children: ReactNode;
+  /** The settings dialog over the page it was opened from (`@modal`, RFC 0005), or nothing. */
+  modal: ReactNode;
+}) {
   const session = await requireSession();
   const found = await keySourceOf(session.user.id);
+  // In suite mode the person's picture, time zone and language are core's (RFC 0005); running alone the zone and language are the account's and there is no picture.
+  const { picture, locale, timeZone } = await accountFacts(session);
+  const core = authSettings()?.sovereign?.issuer;
   // What the page needs to open the key (RFC 0001), read for each request: never built into the bundle.
   const source: PageKeySource | undefined =
     found?.kind === 'vault'
@@ -33,10 +50,26 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           keys={source}
         />
         <UndoProvider>
-          <ShellFrame account={<AccountMenu name={session.user.name} email={session.user.email} />}>
-            <KeyPrompt />
-            {children}
-          </ShellFrame>
+          {/* The name and the time zone and language dates are written in, which Settings changes without refreshing a route (core's, in suite mode). */}
+          <AccountProvider name={session.user.name} locale={locale} timeZone={timeZone}>
+            <SignedInFrame
+              launcher={
+                // In suite mode only: the apps the person may open on the instance, from core (RFC 0005).
+                core ? <ShopperLauncher accountId={session.user.id} core={core} /> : undefined
+              }
+              account={
+                <AccountMenu
+                  name={session.user.name}
+                  email={session.user.email}
+                  picture={picture}
+                />
+              }
+            >
+              <KeyPrompt />
+              {children}
+              {modal}
+            </SignedInFrame>
+          </AccountProvider>
         </UndoProvider>
       </LocalProvider>
     </KeysProvider>

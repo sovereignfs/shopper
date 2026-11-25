@@ -1,0 +1,89 @@
+/* The item beside its list: the right column's content, 360px wide on a wide screen (the design system's detail column), the whole page on a phone. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  padding: var(--sv-space-5);
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: var(--sv-space-4);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+}
+
+/* Beside the list the close button is at the right; on a phone the back arrow is at the left and the title follows it. */
+.head h2 {
+  flex: 1;
+}
+
+.head h2 {
+  margin: 0;
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sv-space-3);
+  align-items: end;
+}
+
+.remember {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sv-space-3);
+  cursor: pointer;
+}
+
+.remember small {
+  display: block;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.history {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+}
+
+.delete {
+  padding: var(--sv-space-2);
+  color: var(--sv-color-error-text);
+  font: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--sv-radius-sm);
+  cursor: pointer;
+}
+
+.delete:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .delete:hover {
+    text-decoration: underline;
+  }
+}

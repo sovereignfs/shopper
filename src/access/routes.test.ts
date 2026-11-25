@@ -6,22 +6,34 @@ import { ACCESS } from './routes';
 
 const ROOT = path.resolve(__dirname, '../..');
 
-/** Every page and route under `app/`, as the address it is served at: a route group, `(app)`, is not part of it. */
+/**
+ * Every page and route under `app/`, as the address it is served at: a route group, `(app)`, is not part of it, nor is a parallel route's slot, `@modal`, and an
+ * intercepting route, `(.)settings`, is the address it intercepts, which one entry of the list covers: the page that is loaded directly and the one that is opened
+ * from another are the same address and decide for themselves, each by `SettingsRoute`.
+ */
 function addresses(folder: string, kind: 'page' | 'route'): string[] {
   const file = kind === 'page' ? /^page\.tsx?$/ : /^route\.tsx?$/;
   const out: string[] = [];
-  const walk = (directory: string, parts: string[]) => {
+  const walk = (directory: string, parts: string[], slot: boolean, intercepting: boolean) => {
     for (const name of readdirSync(path.join(ROOT, directory))) {
       const full = path.join(ROOT, directory, name);
       if (statSync(full).isDirectory()) {
-        walk(path.join(directory, name), /^\(.*\)$/.test(name) ? parts : [...parts, name]);
+        const intercepts = /^\(\.+\)(.+)$/.exec(name);
+        const unlisted = /^\(.*\)$/.test(name) || name.startsWith('@');
+        walk(
+          path.join(directory, name),
+          unlisted ? parts : intercepts ? [...parts, intercepts[1] ?? name] : [...parts, name],
+          slot || name.startsWith('@'),
+          intercepting || intercepts !== null,
+        );
       } else if (file.test(name)) {
-        out.push(`/${parts.join('/')}`);
+        // A page in a slot is the slot's to draw (the dialog's, or nothing): it is an address of its own only if it intercepts one.
+        if (!slot || intercepting) out.push(`/${parts.join('/')}`);
       }
     }
   };
-  walk(folder, []);
-  return out;
+  walk(folder, [], false, false);
+  return [...new Set(out)];
 }
 
 describe('the list of who may use what', () => {

@@ -5,7 +5,7 @@ export interface Violation {
 }
 
 /**
- * Tokens that are never declared in CSS: the app that owns the shell sets them (`AppShell`), and the design system's overlays read them with a
+ * Tokens that are never declared in CSS: the frame sets them (`@sovereignfs/ui`'s `AppFrame`, and `PlainFrame` for a page with no one signed in), and the design system's overlays read them with a
  * fallback so they also work alone. See `docs/design-system.md` in the Sovereign repository.
  */
 export const SHELL_TOKENS: ReadonlySet<string> = new Set([

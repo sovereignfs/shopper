@@ -59,7 +59,8 @@ export async function fillSignUp(
   const fields = [
     [page.getByLabel('Name'), name],
     [page.getByLabel('Email'), email],
-    [page.getByLabel('Password'), password],
+    [page.getByLabel('Password', { exact: true }), password],
+    [page.getByLabel('Confirm password'), password],
   ] as const;
   await expect(async () => {
     for (const [field, value] of fields) await field.fill(value);
@@ -73,14 +74,22 @@ export const DERIVED_SHAPE = `svp1.${'A'.repeat(43)}`;
 /** Makes an account through the sign-up page, as a person would, and waits until they are signed in and on the front address. */
 export async function signUp(
   page: Page,
-  { name = 'Ada', email = newEmail(), password = PASSWORD, base = '' } = {},
+  { name = 'Ada', email = newEmail(), password = PASSWORD, base = '', home = false } = {},
 ): Promise<string> {
   await page.goto(`${base}/sign-up`);
   await fillSignUp(page, { name, email, password });
   await page.getByRole('button', { name: 'Create account' }).click();
   await keepKit(page);
   await expect(page).toHaveURL(`${base}/`);
+  // A new account opens on Home (RFC 0006), whose Continue is its Groceries: most tests want the list, and go on to it. A test of Home itself stays.
+  if (!home) await continueToList(page);
   return email;
+}
+
+/** From Home to the list it continues on (the one used last, or a new account's Groceries). */
+export async function continueToList(page: Page): Promise<void> {
+  await page.getByRole('link', { name: /^Continue/ }).click({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/l\/[0-9a-f-]{36}$/);
 }
 
 /**
@@ -98,7 +107,7 @@ export async function keepKit(page: Page): Promise<void> {
  * it to the route itself. `expect` is what the page says after: the sign-in link once the account is gone, or the refusal of a wrong password.
  */
 export async function deleteInSettings(page: Page, password: string): Promise<void> {
-  await page.goto('/settings?section=data');
+  await page.goto('/settings/data');
   await page.getByRole('button', { name: 'Delete my account…' }).click();
   const remove = page.getByRole('form', { name: 'Delete account' });
   await expect(remove.getByLabel('Your password')).toBeVisible();

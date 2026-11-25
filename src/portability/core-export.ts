@@ -1,7 +1,7 @@
 import { createSovereign } from '@sovereignfs/sdk';
 import { authSettings } from '../auth/server';
 import { getConfig } from '../config/current';
-import { getAuthDatabase, getDatabase } from '../db/boot';
+import { getAuthStore, getDatabase } from '../db/boot';
 import { accountOfSub } from '../sovereign/identity';
 import { personRecords } from './records';
 import packageJson from '../../package.json';
@@ -42,7 +42,7 @@ export async function answerCoreExport(request: Request): Promise<Response | und
     request,
     { prefix: 'shopper', version: packageJson.version },
     async ({ sub, writer }) => {
-      const accountId = await accountOfSub(await getAuthDatabase(), sub);
+      const accountId = await accountOfSub(await getAuthStore(), sub);
       if (!accountId) return;
       for (const part of await personRecords(
         await getDatabase(),

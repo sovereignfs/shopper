@@ -29,6 +29,9 @@ const deps = (): EndpointDeps => ({
     householdLists: 100,
     listOpenItems: 500,
     householdProducts: 5000,
+    inventoryItems: 5000,
+    householdCategories: 100,
+    accountCards: 100,
   },
   intervalSeconds: 20,
 });

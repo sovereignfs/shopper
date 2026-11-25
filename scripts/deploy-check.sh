@@ -13,7 +13,7 @@
 # `run` is not compose: it is the one `docker run` of DESIGN.md §23, as written, on a volume.
 #
 # `sovereign` is how an instance hosts it (task 12.5): what `sv apply` gives an app, which is the settings under Shopper's own names, secrets as `_FILE`s, a PostgreSQL
-# it made, and a PORT that is not the image's own. It must come up, offer Sovereign and no password, answer its notices' addresses, serve its icon to a visitor with
+# it made, and a PORT that is not the image's own. It must come up, send sign-in and sign-up to core with no password asked, answer its notices' addresses, serve its icon to a visitor with
 # no session, and stop on SIGTERM.
 #
 # A setting that is wrong must stop the image with a message that names it, and no value.
@@ -171,12 +171,18 @@ check_sovereign() {
     sleep 1
   done
 
-  # Offers Sovereign and no password; sign-up and reset are not there.
+  # Suite mode (RFC 0005): sign-in and sign-up send the browser to core at once, and reset is not there. This core is not there to reach, so
+  # following the way ends on the sign-in page saying so, with no password to type.
   local page
-  page="$(curl -sS --max-time 10 "$base/sign-in")"
-  echo "$page" | grep -q 'Sign in with Sovereign' || fail "sovereign: the sign-in page does not offer Sovereign"
+  # (Sign-up asks core for its sign-up, `prompt=create`: Create an account.)
+  for path in sign-in sign-up; do
+    want="$base/api/auth/sign-in/sovereign?returnTo=%2F"
+    [ "$path" = sign-up ] && want="$base/api/auth/sign-in/sovereign?prompt=create&returnTo=%2F"
+    [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "$base/$path")" = "307 $want" ] || fail "sovereign: /$path does not send the browser to core"
+  done
+  page="$(curl -sSL --max-time 20 "$base/sign-in")"
+  echo "$page" | grep -q 'could not be reached' || fail "sovereign: a core that cannot be reached is not said so on the sign-in page"
   if echo "$page" | grep -qi 'type="password"'; then fail "sovereign: the sign-in page asks for a password"; fi
-  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$base/sign-up")" = 404 ] || fail "sovereign: /sign-up is not a 404"
   [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$base/forgot-password")" = 404 ] || fail "sovereign: /forgot-password is not a 404"
 
   # Its icon, to a visitor with no session; and the addresses of its notices, which are there (a 400 for a request with no token, and not a 404).

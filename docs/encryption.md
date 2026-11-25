@@ -6,7 +6,7 @@
 ## What is encrypted, and by whom
 
 **What you write into Shopper is encrypted on your device, before it is sent,** with **keys of each list's own**, held only by the people on that list:
-the names of lists, items and products, and notes. The server stores and syncs what it cannot read, and merges changes without opening them. This is
+the names of lists, items and products, a list's icon and colour, and notes. The server stores and syncs what it cannot read, and merges changes without opening them. This is
 the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0004](rfcs/0004-lists-of-their-own.md) and `DESIGN.md` §13.
 
 - **A new account's lists are encrypted from their first item.** When you sign in, your device makes your keys and moves anything the server held
@@ -15,7 +15,7 @@ the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0
   Someone you share Groceries with cannot open anything of your other lists, even from a copy of the database. Send a link privately: whoever opens it
   first can join.
 - **Lists that were shared before they could move are not encrypted yet** (a 0.1.0 household with more than one person in it): the others could not
-  be given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Encryption** says which of your lists
+  be given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Security** says which of your lists
   are which.
 - **Removing someone from a list does not change that list's key yet.** They stop receiving anything from the server at once, but someone who kept the
   key and also got a copy of the database could read what is added to that list after. A new key for those who remain comes later.
@@ -40,6 +40,9 @@ server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted
 - **It does not protect** against whoever runs the server, which sends the app your browser runs and could send a changed one. Nor the device: a
   signed-in browser holds your lists as you see them until you sign out. Nor the people you share a list with: they see all of that list.
 - **Logs** hold ids and kinds of failure, never a name, a note or an address.
+- **Page titles:** a page's title carries a list's name, set by your browser once it has opened it; the server never has it, and until it is opened the
+  title is `Shopper`. Your browser keeps titles in its history, and a history your browser syncs leaves the device with them: the one way an opened
+  name leaves Shopper.
 
 ## The server's key
 

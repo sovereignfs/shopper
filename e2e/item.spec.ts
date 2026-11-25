@@ -13,11 +13,11 @@ import {
 } from './helpers';
 
 /**
- * An item's dialog, in a browser (task 8.4): the pencil is a target of its own (a tick is the row), the dialog is at `?item=<id>`, every field saves on the
- * device with the network cut and reaches the server, "Remember for next time" changes the next add, Delete has Undo, and on a phone it is the whole screen
- * and the keyboard reaches everything.
+ * An item beside its list, in a browser (tasks 8.4 and 22.6): a tap on the row or the pencil opens it at `?item=<id>` in the right column and a tick is the
+ * checkbox alone, every field saves as it is left, on the device with the network cut, and reaches the server, "Remember for next time" changes the next add,
+ * Delete has Undo, one item replaces another in the column, and on a phone it is a page of its own and the keyboard reaches everything.
  */
-const dialog = (page: Page) => page.getByRole('dialog');
+const panel = (page: Page) => page.getByRole('complementary', { name: /^Item:/ });
 const synced = async (page: Page) => {
   const account = await accountOf(page);
   await expect
@@ -36,30 +36,34 @@ async function signedUpWith(
   return ids;
 }
 
-test('the pencil opens the item at its address and does not tick it; every field saves, and the server has them', async ({
+test('a tap on the row opens the item beside the list and does not tick it; every field saves as it is left, and the server has them', async ({
   page,
   baseURL,
 }) => {
   const violations = await recordViolations(page);
   const [milk] = await signedUpWith(page, baseURL, [
     { name: 'Milk', category: 'dairy-eggs', quantity: '1', unit: 'L' },
+    { name: 'Bread', category: 'bakery' },
   ]);
-  await page.getByRole('button', { name: 'Edit Milk' }).click();
+  await page.getByText('Milk', { exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`\\?item=${milk}$`));
-  await expect(dialog(page)).toBeVisible();
+  await expect(panel(page)).toBeVisible();
+  // The list is still there beside it, narrower, and nothing was ticked.
+  await expect(page.getByRole('checkbox', { name: /Bread/ })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Milk/ })).not.toBeChecked();
+  await expect(panel(page).getByRole('button', { name: 'Save' })).toHaveCount(0);
 
-  await dialog(page).getByLabel('Name').fill('Oat milk');
-  await dialog(page)
+  // Each is written as it is left: the name and the note when focus moves on, the rest at once.
+  await panel(page).getByLabel('Name').fill('Oat milk');
+  await panel(page).getByLabel('Name').press('Tab');
+  await panel(page)
     .getByRole('button', { name: /increase|more|\+/i })
     .click();
-  await dialog(page).getByLabel('Unit').selectOption('bottle');
-  await dialog(page).getByLabel('Category').selectOption({ label: 'Pantry' });
-  await dialog(page).getByLabel('Note').fill('barista edition\nnot the sweet one');
-  await dialog(page).getByRole('button', { name: 'Save' }).click();
+  await panel(page).getByLabel('Unit').selectOption('bottle');
+  await panel(page).getByLabel('Category').selectOption({ label: 'Pantry' });
+  await panel(page).getByLabel('Note').fill('barista edition\nnot the sweet one');
+  await panel(page).getByLabel('Note').blur();
 
-  await expect(dialog(page)).toHaveCount(0);
-  await expect(page).toHaveURL(/^[^?]*$/);
   const row = page
     .getByRole('listitem')
     .filter({ has: page.getByRole('checkbox', { name: /Oat milk/ }) });
@@ -74,7 +78,115 @@ test('the pencil opens the item at its address and does not tick it; every field
     note: 'barista edition\nnot the sweet one',
   });
   expect(saved?.categoryId).not.toBeNull();
+
+  // Close puts the address back, and the list has the width again.
+  await panel(page).getByRole('button', { name: 'Close the item' }).click();
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/^[^?]*$/);
   expect(await violations()).toEqual([]);
+});
+
+test('two items opened one after the other replace each other in the column', async ({
+  page,
+  baseURL,
+}) => {
+  const [milk, bread] = await signedUpWith(page, baseURL, [
+    { name: 'Milk', category: 'dairy-eggs' },
+    { name: 'Bread', category: 'bakery' },
+  ]);
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(panel(page)).toHaveAccessibleName('Item: Milk');
+  const wide = await page.getByRole('checkbox', { name: /Bread/ }).boundingBox();
+  await page.getByText('Bread', { exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`\\?item=${bread}$`));
+  await expect(panel(page)).toHaveCount(1);
+  await expect(panel(page)).toHaveAccessibleName('Item: Bread');
+  await expect(panel(page).getByLabel('Name')).toHaveValue('Bread');
+  expect(milk).not.toBe(bread);
+  // The column is beside the list, which stays: the same row is not moved by opening another item.
+  expect((await page.getByRole('checkbox', { name: /Bread/ }).boundingBox())?.y).toBe(wide?.y);
+});
+
+test('the pencil opens it for a keyboard, and closing it gives focus back to the pencil', async ({
+  page,
+  baseURL,
+}) => {
+  await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  const pencil = page.getByRole('button', { name: 'Edit Milk' });
+  await pencil.focus();
+  await page.keyboard.press('Enter');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Milk/ })).not.toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toHaveCount(0);
+  await expect(pencil).toBeFocused();
+});
+
+test('what was typed and not yet left is written when the panel goes: by Escape, and by Back', async ({
+  page,
+  baseURL,
+}) => {
+  const [milk] = await signedUpWith(page, baseURL, [
+    { name: 'Milk', category: 'dairy-eggs' },
+    { name: 'Bread', category: 'bakery' },
+  ]);
+  // Escape while the note still has focus: no blur comes.
+  await page.getByText('Milk', { exact: true }).click();
+  await panel(page).getByLabel('Note').fill('the green one');
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page.getByText('the green one', { exact: true })).toBeVisible();
+
+  // Back, as a phone's gesture goes: the address leaves `?item=` and the panel goes with it.
+  await page.getByText('Bread', { exact: true }).click();
+  await panel(page).getByLabel('Note').fill('sliced');
+  await page.goBack();
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page.getByText('sliced', { exact: true })).toBeVisible();
+  await synced(page);
+  const saved = await serverItems(page, baseURL ?? '');
+  expect(saved.find((item) => item.id === milk)?.note).toBe('the green one');
+  expect(saved.find((item) => item.name === 'Bread')?.note).toBe('sliced');
+});
+
+test('Escape closes an open picker and leaves the panel, and then closes the panel', async ({
+  page,
+  baseURL,
+}) => {
+  await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  await page.getByText('Milk', { exact: true }).click();
+  await panel(page).getByRole('button', { name: /icon/i }).last().click();
+  await expect(page.getByRole('listbox', { name: 'Icon' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('listbox', { name: 'Icon' })).toHaveCount(0);
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toHaveCount(0);
+});
+
+test('where the list would be squeezed the item is the whole area in place of it, and closing it shows the list', async ({
+  page,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 820, height: 900 });
+  await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(panel(page)).toBeVisible();
+  const box = await panel(page).boundingBox();
+  // The area beside the full sidebar (280px) is all of it, and nothing scrolls sideways.
+  expect(box?.width).toBeGreaterThan(820 - 280 - 2);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await panel(page).getByRole('button', { name: 'Close the item' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+
+  // Wide enough, it is beside the list again.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await expect(panel(page)).toBeVisible();
 });
 
 test('saving with the network cut changes the device at once, and the server has it when it is back', async ({
@@ -84,10 +196,10 @@ test('saving with the network cut changes the device at once, and the server has
 }) => {
   const [rice] = await signedUpWith(page, baseURL, [{ name: 'Rice', category: 'pantry' }]);
   await offline(context);
-  await page.getByRole('button', { name: 'Edit Rice' }).click();
-  await dialog(page).getByLabel('Note').fill('basmati');
-  await dialog(page).getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('basmati')).toBeVisible();
+  await page.getByText('Rice', { exact: true }).click();
+  await panel(page).getByLabel('Note').fill('basmati');
+  await panel(page).getByLabel('Note').blur();
+  await expect(page.getByText('basmati', { exact: true }).first()).toBeVisible();
   await online(context);
   await expect
     .poll(
@@ -103,13 +215,11 @@ test('"Remember for next time" teaches the product, so that the next add comes r
 }) => {
   await signedUpWith(page, baseURL, [{ name: 'Zorblax' }]);
   await page.getByRole('button', { name: 'Edit Zorblax' }).click();
-  await dialog(page).getByLabel('Category').selectOption({ label: 'Pantry' });
-  await dialog(page).getByLabel('Unit').selectOption('jar');
-  await dialog(page).getByRole('button', { name: 'Save' }).click();
+  await panel(page).getByLabel('Category').selectOption({ label: 'Pantry' });
+  await panel(page).getByLabel('Unit').selectOption('jar');
   await synced(page);
   // Delete it, then add it again: it comes back in Pantry, in jars.
-  await page.getByRole('button', { name: 'Edit Zorblax' }).click();
-  await dialog(page).getByRole('button', { name: 'Delete' }).click();
+  await panel(page).getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('checkbox', { name: /Zorblax/ })).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Add an item' }).focus();
   await page.keyboard.type('zorblax');
@@ -121,49 +231,165 @@ test('"Remember for next time" teaches the product, so that the next add comes r
   await expect(page.getByRole('region', { name: 'Pantry' })).toContainText('Zorblax');
 });
 
+interface InventoryRow {
+  starterKey: string | null;
+  name: string | null;
+  categoryId: string | null;
+  icon: string | null;
+  unit: string | null;
+  deletedAt: number | null;
+}
+const inventoryRows = async (page: Page): Promise<InventoryRow[]> =>
+  (await deviceRows<InventoryRow>(page, await accountOf(page), 'inventory_item')).filter(
+    (row) => row.deletedAt === null,
+  );
+
+test('"Remember for next time" can also update the Inventory item, once, when asked, and leaves Inventory alone when not', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  const field = page.getByRole('combobox', { name: 'Add an item' });
+  await field.focus({ timeout: 15_000 });
+  for (const name of ['Banana', 'Apple']) {
+    await page.keyboard.type(name);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('checkbox', { name: new RegExp(name) })).toBeVisible();
+  }
+
+  // Not asked: the product learns, Inventory is not touched. Apple is a starter entry the person has not changed, so it has no row, and still has none.
+  await page.getByRole('button', { name: 'Edit Apple' }).click();
+  await expect(
+    panel(page).getByRole('switch', { name: 'Also update Inventory' }),
+  ).not.toBeChecked();
+  await panel(page).getByLabel('Category').selectOption({ label: 'Pantry' });
+  await synced(page);
+  expect(await inventoryRows(page)).toEqual([]);
+
+  // Asked, and two quick changes in one instant to an entry with no row yet (the category and the unit, as one press of a person's two hands could be): one override that holds both.
+  // The category is the person's own group's row of the same starter category.
+  await page.getByRole('button', { name: 'Edit Banana' }).click();
+  await panel(page).getByRole('switch', { name: 'Also update Inventory' }).click();
+  await expect(panel(page).getByRole('switch', { name: 'Also update Inventory' })).toBeChecked();
+  await page.evaluate(() => {
+    const open = document.querySelector('aside[aria-label^="Item:"]');
+    const set = (label: string, text: string) => {
+      const select = [...(open?.querySelectorAll('select') ?? [])].find(
+        (each) => each.labels?.[0]?.textContent === label,
+      );
+      if (!select) throw new Error(`no ${label}`);
+      const option = [...select.options].find((each) => each.text === text || each.value === text);
+      if (!option) throw new Error(`no ${text}`);
+      // React listens for the change event, and a controlled select takes its value from the native setter.
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(
+        select,
+        option.value,
+      );
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    set('Category', 'Dairy & eggs');
+    set('Unit', 'pack');
+  });
+  const account = await accountOf(page);
+  await expect
+    .poll(async () => (await inventoryRows(page)).filter((row) => row.starterKey === 'banana'), {
+      timeout: 15_000,
+    })
+    .toHaveLength(1);
+  const dairy = (
+    await deviceRows<{ id: string; starterKey: string | null }>(page, account, 'category')
+  ).find((row) => row.starterKey === 'dairy-eggs');
+  await expect
+    .poll(async () => (await inventoryRows(page)).find((row) => row.starterKey === 'banana'), {
+      timeout: 15_000,
+    })
+    .toMatchObject({ unit: 'pack', categoryId: dairy?.id });
+  expect((await inventoryRows(page)).filter((row) => row.starterKey !== null)).toHaveLength(1);
+  await synced(page);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
+});
+
 test('Delete takes the item off at once, and Undo brings it back', async ({ page, baseURL }) => {
   await signedUpWith(page, baseURL, [{ name: 'Bread', category: 'bakery' }]);
   await page.getByRole('button', { name: 'Edit Bread' }).click();
-  await dialog(page).getByRole('button', { name: 'Delete' }).click();
-  await expect(dialog(page)).toHaveCount(0);
+  await panel(page).getByRole('button', { name: 'Delete' }).click();
+  await expect(panel(page)).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: /Bread/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('checkbox', { name: /Bread/ })).toBeVisible();
 });
 
-test('an item of another list or one that is gone closes the dialog, and Escape closes it', async ({
+test('an item of another list or one that is gone closes the column, and Escape closes it', async ({
   page,
   baseURL,
 }) => {
   await signedUpWith(page, baseURL, [{ name: 'Tea', category: 'drinks' }]);
   await page.goto(`${page.url().split('?')[0]}?item=00000000-0000-4000-8000-000000000000`);
   await expect(page.getByRole('checkbox', { name: /Tea/ })).toBeVisible({ timeout: 15_000 });
-  await expect(dialog(page)).toHaveCount(0);
+  await expect(panel(page)).toHaveCount(0);
   await expect(page).toHaveURL(/^[^?]*$/);
   await page.getByRole('button', { name: 'Edit Tea' }).click();
-  await expect(dialog(page)).toBeVisible();
+  await expect(panel(page)).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(dialog(page)).toHaveCount(0);
+  await expect(panel(page)).toHaveCount(0);
 });
 
 test.describe('on a phone', () => {
   test.use({ viewport: PHONE });
 
-  test('the dialog is the whole screen, nothing scrolls sideways, and the keyboard reaches Save', async ({
+  test('the item is a page of its own in place of the list, nothing scrolls sideways, and a field is saved as it is left', async ({
     page,
     baseURL,
   }) => {
     await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
-    await page.getByRole('button', { name: 'Edit Milk' }).click();
-    const box = await dialog(page).boundingBox();
+    await page.getByText('Milk', { exact: true }).click();
+    const box = await panel(page).boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(PHONE.width - 1);
+    // In place of the list: its heading and rows are not on the page.
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toHaveCount(0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    await dialog(page).getByLabel('Name').focus();
-    await dialog(page).getByLabel('Name').fill('Whole milk');
-    await page.keyboard.press('Enter');
-    await expect(dialog(page)).toHaveCount(0);
+    await panel(page).getByLabel('Name').fill('Whole milk');
+    await panel(page).getByLabel('Name').press('Enter');
+    // A back arrow at the left, in place of the column's X.
+    await expect(panel(page).getByRole('button', { name: 'Close the item' })).toHaveCount(0);
+    await panel(page).getByRole('button', { name: 'Back to the list' }).click();
+    await expect(panel(page)).toHaveCount(0);
     await expect(page.getByRole('checkbox', { name: /Whole milk/ })).toBeVisible();
   });
+});
+
+test('an item moved to another list keeps its category, on the device and at the server, and nothing is refused for it', async ({
+  page,
+  baseURL,
+}) => {
+  const [milk] = await signedUpWith(page, baseURL, [{ name: 'Milk', category: 'dairy-eggs' }]);
+  const account = await accountOf(page);
+  const sidebar = page.getByRole('navigation', { name: 'Shopper' });
+  await sidebar.getByRole('button', { name: 'New list' }).click({ timeout: 15_000 });
+  await page.getByRole('textbox', { name: 'Name of the new list' }).fill('Hardware');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Hardware' })).toBeVisible();
+  await sidebar.getByRole('link', { name: /Groceries/ }).click();
+  await page.getByText('Milk', { exact: true }).click();
+  await expect(panel(page)).toBeVisible();
+  const item = async () =>
+    (
+      await deviceRows<{ id: string; listId: string; categoryId: string | null }>(
+        page,
+        account,
+        'item',
+      )
+    ).find((row) => row.id === milk);
+  const before = await item();
+  expect(before?.categoryId).not.toBeNull();
+  // The move goes through what an item's move takes with it (§8.3), which reads the keys of both lists: a starter category is left as it was.
+  await panel(page).getByLabel('List').selectOption({ label: 'Hardware' });
+  await expect
+    .poll(async () => (await item())?.listId, { timeout: 15_000 })
+    .not.toBe(before?.listId);
+  await synced(page);
+  expect((await item())?.categoryId).toBe(before?.categoryId);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
 });

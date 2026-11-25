@@ -4,7 +4,7 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { listAdminOf, memberOf, onList } from '../access/membership';
+import { listAdminOf, onList, reaches } from '../access/membership';
 import { STARTER_CATEGORIES, STARTER_POSITIONS } from '../catalog/categories';
 import { canSeeEmail } from '../people/visibility';
 import { STARTER_POSITIONS as _unused } from '../catalog/categories';
@@ -198,7 +198,7 @@ function toView(row: HouseholdRow, accountId: string, ring: KeyRing): HouseholdV
 
 /**
  * A group as an account sees it (RFC 0004): its own, of which it is the Admin, or another's, on one of whose lists it is. Which of them it may see is the
- * statement's condition (`memberOf`); what of each it may see is the lists it is on.
+ * statement's condition (`reaches`: on one of its lists or one of its cards); what of each it may see is the lists and cards it is on.
  */
 const SELECT_HOUSEHOLD = (database: Database, accountId: string) => sql`
   SELECT h.id, h.own_of, h.sealed, h.seq, CASE WHEN h.own_of = ${accountId} THEN 'admin' ELSE 'member' END AS role,
@@ -217,7 +217,7 @@ export async function householdsOf(
   >(
     database,
     sql`${SELECT_HOUSEHOLD(database, accountId)}
-        WHERE ${memberOf(database, sql`h.id`, accountId)}
+        WHERE ${reaches(database, sql`h.id`, accountId)}
         ORDER BY CASE WHEN h.own_of = ${accountId} THEN 0 ELSE 1 END, h.created_at, h.id`,
   );
   return rows.map((row) => toView(withOwner(row, ring), accountId, ring));
@@ -235,7 +235,7 @@ export async function readHousehold(
   >(
     database,
     sql`${SELECT_HOUSEHOLD(database, accountId)}
-        WHERE h.id = ${householdId} AND ${memberOf(database, sql`h.id`, accountId)}`,
+        WHERE h.id = ${householdId} AND ${reaches(database, sql`h.id`, accountId)}`,
   );
   return row ? toView(withOwner(row, ring), accountId, ring) : undefined;
 }

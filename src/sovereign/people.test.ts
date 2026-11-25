@@ -1,17 +1,27 @@
 import { sql } from 'drizzle-orm';
+import type { Database as AuthStore } from '@sovereignfs/auth/database';
+import { movedAuthStore } from '../auth/test-support';
 import { is } from 'drizzle-orm';
 import { SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { firstList, TEST_RING, join, somebody, type Someone } from '../access/test-support';
+import {
+  TEST_RING,
+  firstList,
+  join,
+  joinList,
+  somebody,
+  type Someone,
+} from '../access/test-support';
 import type { Database } from '../db/client';
 import { openDatabase } from '../db/client';
-import { dbAll, dbRun } from '../db/exec';
+import { dbAll, dbGet, dbRun } from '../db/exec';
 import { runMigrations } from '../db/migrate';
 import * as sqliteApp from '../db/schema/sqlite/app';
-import * as sqliteAuth from '../db/schema/sqlite/auth';
 import { appTable } from '../db/tables';
-import { freshDatabase, testTarget } from '../db/test-support';
+import { AUTH_TABLES, freshDatabase, testTarget } from '../db/test-support';
 import { householdsOf, membersOf, readHousehold } from '../households/households';
+import { listCardId } from '../cards/links';
+import { addCardMember } from '../cards/members';
 import { createInvitation } from '../households/invitations';
 import { personById } from '../people/people';
 import { addItem } from '../actions/items';
@@ -39,11 +49,23 @@ const DECIDED_APP: Record<string, string> = {
   member: 'ended (left_at), or deleted with a group nobody else is on',
   list_member:
     'ended (left_at) on a list that carries on, the Admin passing to the person on it longest; deleted with a list nobody else is on',
-  category: 'a household’s, deleted with it',
+  category:
+    'a household’s, deleted with it; in a group that stays for a list that passed on, the person’s own are deleted and the names they gave the starter ones cleared (§8.3, §19)',
   list: 'a household’s, deleted with it',
+  list_category:
+    'a list’s copy of a person’s category (§8.3): deleted with its list and with its household; a copy a person made on a list of someone else’s stays with the list, as what they added does',
+  card: 'a card (§7.7): deleted with a card nobody else is on and with its household; one a person shared stays with the people on it, the Admin passing to the person on it longest',
+  list_card:
+    'a card linked to a list (24.6): ids only, deleted with its list, with its card and with its household',
+  card_member:
+    'ended (left_at) on a card that carries on, the Admin passing to the person on it longest; deleted with a card nobody else is on',
+  card_key:
+    'a person’s copy of a card’s keys: deleted with the person, when they leave the card, and with the card',
   item: 'a household’s, deleted with it; who added and who ticked stay under their name, with no account',
   product:
     'a list’s, deleted with it (21.3); what a person added stays under their name, with no account',
+  inventory_item:
+    'the account’s own, in its own group: deleted with the person whether or not the group stays for a list that passed on, with what folds and deletes of it left',
   rate_bucket: 'deleted where its key carries the account id',
   account_settings: 'the account’s own, deleted by account_id',
   list_key:
@@ -53,13 +75,26 @@ const DECIDED_APP: Record<string, string> = {
   push_device: 'the account’s own devices for push, deleted by account_id',
   push_outbox: 'pushes waiting for the account’s devices, deleted with them',
 };
+/** The auth store's tables, `@sovereignfs/auth`'s since the move (ADR 0001), and what deleting a person does to each. */
 const DECIDED_AUTH: Record<string, string> = {
-  user: 'deleted',
-  session: 'deleted',
-  account: 'deleted',
-  verification: 'deleted, found by the address',
-  rate_limit:
-    'keyed by address, not by person, and swept when its window is over: not an account’s',
+  users: 'deleted',
+  sessions: 'deleted',
+  accounts: 'deleted',
+  verifications: 'deleted, found by the address',
+  two_factors: 'deleted',
+  passkeys: 'deleted',
+  sv_key_secrets: 'a session’s, deleted with the account’s sessions',
+  sv_core_sign_ins: 'a session’s, deleted with the account’s sessions',
+  sv_legacy_passwords: 'deleted',
+  sv_tokens: 'core’s refresh token, kept under the account’s core sub: deleted',
+  rate_limits:
+    'keyed by address or by a hash of it, not by person, and swept when its window is over: not an account’s',
+  sv_core_notices: 'core’s notices by their jti, kept until they expire: no person’s',
+  sv_sessions: 'sign-ins through core still pending, which run out: no account’s yet',
+  sv_auth_adoption: 'the record of the move: no person’s',
+  sv_auth_migrations: 'a migration history: no person’s',
+  sv_core_sign_in_migrations: 'a migration history: no person’s',
+  shopper_sdk_store_migrations: 'a migration history: no person’s',
 };
 
 const namesIn = (module: Record<string, unknown>): string[] =>
@@ -69,15 +104,17 @@ const namesIn = (module: Record<string, unknown>): string[] =>
 
 let app: Database;
 let auth: Database;
+let store: AuthStore;
 beforeAll(async () => {
   ({ database: app } = await freshDatabase('app'));
   await runMigrations(app);
   auth = await openDatabase(testTarget().config, 'auth');
-  await runMigrations(auth);
+  store = await movedAuthStore(testTarget().config, auth);
 });
 afterAll(async () => {
   await app.close();
   await auth.close();
+  await store.close();
 });
 
 const deps = () => ({
@@ -96,19 +133,19 @@ async function seedAuth(person: Someone) {
   const at = auth.dialect === 'postgres' ? sql`to_timestamp(${now / 1000})` : sql`${now}`;
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('user')} (id, name, email, email_verified, created_at, updated_at) VALUES (${person.accountId}, ${person.name}, ${person.email}, ${false}, ${at}, ${at})`,
+    sql`INSERT INTO ${q('users')} (id, name, email, email_verified, created_at, updated_at) VALUES (${person.accountId}, ${person.name}, ${person.email}, ${false}, ${at}, ${at})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('session')} (id, expires_at, token, created_at, updated_at, user_id) VALUES (${`s-${person.accountId}`}, ${at}, ${`t-${person.accountId}`}, ${at}, ${at}, ${person.accountId})`,
+    sql`INSERT INTO ${q('sessions')} (id, expires_at, token, created_at, updated_at, user_id) VALUES (${`s-${person.accountId}`}, ${at}, ${`t-${person.accountId}`}, ${at}, ${at}, ${person.accountId})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('account')} (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (${`a-${person.accountId}`}, ${person.accountId}, 'credential', ${person.accountId}, 'hash', ${at}, ${at})`,
+    sql`INSERT INTO ${q('accounts')} (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (${`a-${person.accountId}`}, ${person.accountId}, 'credential', ${person.accountId}, 'hash', ${at}, ${at})`,
   );
   await dbRun(
     auth,
-    sql`INSERT INTO ${q('verification')} (id, identifier, value, expires_at, created_at, updated_at) VALUES (${`v-${person.accountId}`}, ${person.email}, 'v', ${at}, ${at}, ${at})`,
+    sql`INSERT INTO ${q('verifications')} (id, identifier, value, expires_at, created_at, updated_at) VALUES (${`v-${person.accountId}`}, ${person.email}, 'v', ${at}, ${at}, ${at})`,
   );
   await dbRun(
     app,
@@ -158,7 +195,7 @@ const authTable = (name: string) =>
 describe(`deleting a person (${leg})`, () => {
   it('decides what happens to every table there is', () => {
     expect(Object.keys(DECIDED_APP).sort()).toEqual(namesIn(sqliteApp).sort());
-    expect(Object.keys(DECIDED_AUTH).sort()).toEqual(namesIn(sqliteAuth).sort());
+    expect(Object.keys(DECIDED_AUTH).sort()).toEqual([...AUTH_TABLES].sort());
   });
 
   it('removes what is personal, keeps the name, passes the Admin role to the member who has been in longest, and leaves the others’ households whole', async () => {
@@ -184,8 +221,40 @@ describe(`deleting a person (${leg})`, () => {
     await seedAuth(grace);
     await dbRun(
       auth,
-      sql`UPDATE ${authTable('user')} SET email = ${PLANTED_EMAIL} WHERE id = ${ada.accountId}`,
+      sql`UPDATE ${authTable('users')} SET email = ${PLANTED_EMAIL} WHERE id = ${ada.accountId}`,
     );
+    // What the package keeps of Ada beside better-auth's rows: her session's key secret and its core sign-in, the mark on her password,
+    // and, through her sign-in through core, core's refresh token under her sub.
+    const stamp = Date.now();
+    await store.run(
+      'INSERT INTO accounts (id, account_id, provider_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        `core-${ada.accountId}`,
+        `sub-${ada.accountId}`,
+        'sovereign',
+        ada.accountId,
+        store.family === 'postgres' ? new Date(stamp) : stamp,
+        store.family === 'postgres' ? new Date(stamp) : stamp,
+      ],
+    );
+    await store.run(
+      'INSERT INTO sv_key_secrets (session_id, secret, created_at) VALUES (?, ?, ?)',
+      [`s-${ada.accountId}`, 'secret', stamp],
+    );
+    await store.run('INSERT INTO sv_core_sign_ins (session_id, sub, checked_at) VALUES (?, ?, ?)', [
+      `s-${ada.accountId}`,
+      `sub-${ada.accountId}`,
+      stamp,
+    ]);
+    await store.run('INSERT INTO sv_legacy_passwords (user_id, until) VALUES (?, ?)', [
+      ada.accountId,
+      stamp + 1000,
+    ]);
+    await store.run('INSERT INTO sv_tokens (sub, sealed, fingerprint) VALUES (?, ?, ?)', [
+      `sub-${ada.accountId}`,
+      'sealed',
+      'f',
+    ]);
 
     const preview = await previewLeaving(app, TEST_RING, ada.accountId);
     expect(preview.map((p) => [p.own, p.outcome, p.to])).toEqual([
@@ -194,19 +263,48 @@ describe(`deleting a person (${leg})`, () => {
     ]);
 
     const done = await deletePerson(deps(), ada.accountId);
-    expect(done).toEqual({ passed: 1, deleted: 0, left: 1 });
+    expect(done).toEqual({
+      passed: 1,
+      deleted: 0,
+      left: 1,
+      cards: { passed: 0, deleted: 0, left: 0 },
+    });
 
     // Nothing personal of Ada's is left: the sign-in store, the counters, the link from her person to her account.
-    for (const table of ['user', 'session', 'account'])
+    for (const [table, where] of [
+      ['sv_key_secrets', 'session_id'],
+      ['sv_core_sign_ins', 'session_id'],
+      ['sv_legacy_passwords', 'user_id'],
+    ] as const)
+      expect(
+        Number(
+          (
+            await store.run(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where} = ?`, [
+              where === 'session_id' ? `s-${ada.accountId}` : ada.accountId,
+            ])
+          ).rows[0]?.n,
+        ),
+        table,
+      ).toBe(0);
+    expect(
+      Number(
+        (
+          await store.run('SELECT COUNT(*) AS n FROM sv_tokens WHERE sub = ?', [
+            `sub-${ada.accountId}`,
+          ])
+        ).rows[0]?.n,
+      ),
+    ).toBe(0);
+    for (const table of ['users', 'sessions', 'accounts'])
       expect(
         await count(
           auth,
           authTable(table),
-          sql`${sql.raw(table === 'user' ? 'id' : 'user_id')} = ${ada.accountId}`,
+          sql`${sql.raw(table === 'users' ? 'id' : 'user_id')} = ${ada.accountId}`,
         ),
         table,
       ).toBe(0);
-    expect(await count(auth, authTable('verification'), sql`identifier = ${PLANTED_EMAIL}`)).toBe(
+    expect(await count(auth, authTable('verifications'), sql`identifier = ${PLANTED_EMAIL}`)).toBe(
       0,
     );
     expect(
@@ -250,8 +348,8 @@ describe(`deleting a person (${leg})`, () => {
     ]);
     expect((await readHousehold(app, TEST_RING, lin.household, lin.accountId))?.role).toBe('admin');
     expect(await membersOf(app, TEST_RING, lin.list, lin.accountId)).toHaveLength(1);
-    expect(await count(auth, authTable('user'), sql`id = ${grace.accountId}`)).toBe(1);
-    expect(await count(auth, authTable('session'), sql`user_id = ${grace.accountId}`)).toBe(1);
+    expect(await count(auth, authTable('users'), sql`id = ${grace.accountId}`)).toBe(1);
+    expect(await count(auth, authTable('sessions'), sql`user_id = ${grace.accountId}`)).toBe(1);
     expect(
       await count(app, appTable(app, 'rate_bucket'), sql`"key" LIKE ${`%:${grace.accountId}`}`),
     ).toBe(1);
@@ -277,6 +375,9 @@ describe(`deleting a person (${leg})`, () => {
             householdLists: 100,
             listOpenItems: 500,
             householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
           },
         },
         ada.accountId,
@@ -297,10 +398,524 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count(app, appTable(app, 'list'), sql`id = ${ada.list}`)).toBe(1);
   });
 
+  it('deletes a list’s copies of categories with a list nobody else is on, and leaves those of a list that passes on, a copy made by someone else included (23.3)', async () => {
+    const ada = await somebody(app, 'Ada-copies');
+    const grace = await somebody(app, 'Grace-copies');
+    // Ada's group has moved. Grace is on Groceries, which carries on; Hardware is Ada's alone.
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    await joinList(app, ada.household, ada.list, grace);
+    const hardware = crypto.randomUUID();
+    const cipher = (list: string, row: string) => `e2.1.${list}.${row}.${'A'.repeat(24)}`;
+    const send = (account: string, changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
+          },
+        },
+        account,
+        { mutationId: crypto.randomUUID(), householdId: ada.household, changes },
+      );
+    expect(
+      (
+        await send(ada.accountId, [
+          {
+            table: 'list',
+            id: hardware,
+            create: true,
+            fields: {
+              name: cipher(hardware, hardware),
+              position: 'a1',
+              createdAt: 1,
+              clearing: 'manual',
+            },
+          },
+        ])
+      ).status,
+    ).toBe('applied');
+    const copy = (list: string) => {
+      const id = crypto.randomUUID();
+      return {
+        id,
+        change: {
+          table: 'list_category',
+          id,
+          create: true,
+          fields: {
+            listId: list,
+            sourceKey: `n3.${crypto.randomUUID().replaceAll('-', '').padEnd(43, 'A').slice(0, 43)}`,
+            name: cipher(list, id),
+            position: 'a5',
+          },
+        },
+      };
+    };
+    const alone = copy(hardware);
+    const carries = copy(ada.list);
+    expect((await send(ada.accountId, [alone.change])).status).toBe('applied');
+    // Grace, a Member of the list that carries on, made one of her own category on it.
+    expect((await send(grace.accountId, [carries.change])).status).toBe('applied');
+    await seedAuth(ada);
+    const copies = (id: string) => count(app, appTable(app, 'list_category'), sql`id = ${id}`);
+    expect(await copies(alone.id)).toBe(1);
+    expect(await copies(carries.id)).toBe(1);
+
+    await deletePerson(deps(), ada.accountId);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${hardware}`)).toBe(0);
+    expect(await copies(alone.id)).toBe(0);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${ada.list}`)).toBe(1);
+    expect(await copies(carries.id)).toBe(1);
+  });
+
+  it('deletes a card nobody else is on with its people and keys, passes a shared card to the person on it longest, and keeps the group while anyone is only on a card (24.2)', async () => {
+    const ada = await somebody(app, 'Ada-cards');
+    const grace = await somebody(app, 'Grace-cards');
+    // Ada's group has moved. Grace is on no list of it, only on a card: a shared card carries on, and with it the group.
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    const cipher = (card: string) => `e2.1.${card}.${card}.${'A'.repeat(24)}`;
+    const send = (changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
+          },
+        },
+        ada.accountId,
+        { mutationId: crypto.randomUUID(), householdId: ada.household, changes },
+      );
+    const card = (card: string) => ({
+      table: 'card',
+      id: card,
+      create: true,
+      fields: {
+        shop: cipher(card),
+        number: cipher(card),
+        kind: cipher(card),
+        code: cipher(card),
+        position: 'a1',
+        createdAt: 1,
+      },
+    });
+    const alone = crypto.randomUUID();
+    const shared = crypto.randomUUID();
+    expect((await send([card(alone), card(shared)])).status).toBe('applied');
+    await addCardMember(app, {
+      household: ada.household,
+      card: shared,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: Date.now(),
+    });
+    for (const [cardId, person] of [
+      [alone, ada.personId],
+      [shared, ada.personId],
+      [shared, grace.personId],
+    ] as const)
+      await dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
+            VALUES (${cardId}, ${person}, ${ada.household}, 1, 'cr1.record', 1)`,
+      );
+    // A link to each, waiting (a link holds the card's keys under a secret): one dies with its card, the other with its maker.
+    for (const [cardId, hash] of [
+      [alone, 'a'.repeat(64)],
+      [shared, 'b'.repeat(64)],
+    ] as const)
+      await dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'invitation')} (id, household_id, card_id, token_hash, wrapped_key, created_by, created_at, expires_at)
+            VALUES (${crypto.randomUUID()}, ${ada.household}, ${cardId}, ${hash}, 'ck2.a.b', ${ada.personId}, ${Date.now()}, ${Date.now() + 86_400_000})`,
+      );
+    await seedAuth(ada);
+    const members = (id: string) =>
+      count(app, appTable(app, 'card_member'), sql`card_id = ${id} AND left_at IS NULL`);
+    expect(await members(alone)).toBe(1);
+    expect(await members(shared)).toBe(2);
+
+    await deletePerson(deps(), ada.accountId);
+    // The card nobody else was on is gone with its people and its keys.
+    expect(await count(app, appTable(app, 'card'), sql`id = ${alone}`)).toBe(0);
+    expect(await count(app, appTable(app, 'card_member'), sql`card_id = ${alone}`)).toBe(0);
+    expect(await count(app, appTable(app, 'card_key'), sql`card_id = ${alone}`)).toBe(0);
+    expect(await count(app, appTable(app, 'invitation'), sql`card_id = ${alone}`)).toBe(0);
+    // The shared one's link is dead and holds no key.
+    expect(
+      await count(
+        app,
+        appTable(app, 'invitation'),
+        sql`card_id = ${shared} AND revoked_at IS NOT NULL AND wrapped_key IS NULL`,
+      ),
+    ).toBe(1);
+    // The shared one stays with Grace, now its Admin, and Ada's copy of its keys is gone with her.
+    expect(await count(app, appTable(app, 'card'), sql`id = ${shared}`)).toBe(1);
+    expect(await members(shared)).toBe(1);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_member'),
+        sql`card_id = ${shared} AND person_id = ${grace.personId} AND role = 'admin' AND left_at IS NULL`,
+      ),
+    ).toBe(1);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_key'),
+        sql`card_id = ${shared} AND person_id = ${ada.personId}`,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_key'),
+        sql`card_id = ${shared} AND person_id = ${grace.personId}`,
+      ),
+    ).toBe(1);
+    // The group carries on for the one who is only on a card.
+    expect(await count(app, appTable(app, 'household'), sql`id = ${ada.household}`)).toBe(1);
+  });
+
+  it('takes a card’s links with a card nobody else is on and with a list nobody else is on, and keeps a link of a list and a card that both carry on (24.6)', async () => {
+    const ada = await somebody(app, 'Ada-links');
+    const grace = await somebody(app, 'Grace-links');
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    const cipher = (id: string) => `e2.1.${id}.${id}.${'A'.repeat(24)}`;
+    const send = (changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
+          },
+        },
+        ada.accountId,
+        { mutationId: crypto.randomUUID(), householdId: ada.household, changes },
+      );
+    const card = (id: string) => ({
+      table: 'card',
+      id,
+      create: true,
+      fields: {
+        shop: cipher(id),
+        number: cipher(id),
+        kind: cipher(id),
+        code: cipher(id),
+        position: 'a1',
+        createdAt: 1,
+      },
+    });
+    const alone = crypto.randomUUID();
+    const shared = crypto.randomUUID();
+    const kept = crypto.randomUUID();
+    expect(
+      (
+        await send([
+          card(alone),
+          card(shared),
+          {
+            table: 'list',
+            id: kept,
+            create: true,
+            fields: { name: cipher(kept), position: 'a2', createdAt: 1 },
+          },
+        ])
+      ).status,
+    ).toBe('applied');
+    // Grace is on the second list and on the shared card, so both carry on when Ada goes; Ada's Groceries has nobody else, and the card `alone` has nobody else.
+    await addCardMember(app, {
+      household: ada.household,
+      card: shared,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: Date.now(),
+    });
+    await joinList(app, ada.household, kept, grace);
+    const link = async (list: string, cardId: string) =>
+      dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'list_card')} (id, household_id, list_id, card_id, created_at, seq)
+            VALUES (${listCardId(list, cardId)}, ${ada.household}, ${list}, ${cardId}, 1, 1)`,
+      );
+    await link(kept, alone);
+    await link(kept, shared);
+    await link(ada.list, shared);
+    await seedAuth(ada);
+    const links = async () =>
+      (
+        await dbAll<{ id: string }>(
+          app,
+          sql`SELECT id FROM ${appTable(app, 'list_card')} WHERE household_id = ${ada.household}`,
+        )
+      ).map((row) => row.id);
+    expect(await links()).toHaveLength(3);
+
+    await deletePerson(deps(), ada.accountId);
+    // The link of the card that went (`alone`) and the link of the list that went (Groceries) are gone; the one of a list and a card that both carry on stays, for Grace.
+    expect(await links()).toEqual([listCardId(kept, shared)]);
+    expect(await count(app, appTable(app, 'card'), sql`id = ${shared}`)).toBe(1);
+    expect(await count(app, appTable(app, 'list'), sql`id = ${kept}`)).toBe(1);
+  });
+
+  it('ends the membership of a person who is on someone else’s card only, deletes every copy of card keys they hold, and leaves the card to the rest (24.2)', async () => {
+    const ada = await somebody(app, 'Ada-guest-card');
+    const grace = await somebody(app, 'Grace-guest-card');
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${ada.household}`,
+    );
+    const cipher = (card: string) => `e2.1.${card}.${card}.${'A'.repeat(24)}`;
+    const mine = crypto.randomUUID();
+    const left = crypto.randomUUID();
+    const result = await applyMutation(
+      {
+        database: app,
+        ring: TEST_RING,
+        limits: {
+          householdMembers: 20,
+          accountHouseholds: 20,
+          householdLists: 100,
+          listOpenItems: 500,
+          householdProducts: 5000,
+          inventoryItems: 5000,
+          householdCategories: 100,
+          accountCards: 100,
+        },
+      },
+      ada.accountId,
+      {
+        mutationId: crypto.randomUUID(),
+        householdId: ada.household,
+        changes: [mine, left].map((id) => ({
+          table: 'card',
+          id,
+          create: true,
+          fields: {
+            shop: cipher(id),
+            number: cipher(id),
+            kind: cipher(id),
+            code: cipher(id),
+            position: 'a1',
+            createdAt: 1,
+          },
+        })),
+      },
+    );
+    expect(result.status).toBe('applied');
+    // Grace is on one of Ada's cards and on no list; of the other she was a Member and has left, and the server still holds her copy of its keys.
+    await addCardMember(app, {
+      household: ada.household,
+      card: mine,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: 1,
+    });
+    await addCardMember(app, {
+      household: ada.household,
+      card: left,
+      person: grace.personId,
+      role: 'member',
+      seq: 1,
+      now: 1,
+    });
+    await dbRun(
+      app,
+      sql`UPDATE ${appTable(app, 'card_member')} SET left_at = 5 WHERE card_id = ${left} AND person_id = ${grace.personId}`,
+    );
+    for (const card of [mine, left])
+      await dbRun(
+        app,
+        sql`INSERT INTO ${appTable(app, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
+            VALUES (${card}, ${grace.personId}, ${ada.household}, 1, 'cr1.grace', 1)`,
+      );
+    await seedAuth(grace);
+
+    const outcome = await deletePerson(deps(), grace.accountId);
+    // Her membership of the card she was on is over, and the card is Ada's still, with its Admin.
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_member'),
+        sql`person_id = ${grace.personId} AND left_at IS NULL`,
+      ),
+    ).toBe(0);
+    expect(await count(app, appTable(app, 'card_key'), sql`person_id = ${grace.personId}`)).toBe(0);
+    expect(await count(app, appTable(app, 'card'), sql`id IN (${mine}, ${left})`)).toBe(2);
+    expect(
+      await count(
+        app,
+        appTable(app, 'card_member'),
+        sql`card_id = ${mine} AND person_id = ${ada.personId} AND role = 'admin' AND left_at IS NULL`,
+      ),
+    ).toBe(1);
+    // Counted as cards, and not as lists.
+    expect(outcome.cards).toEqual({ passed: 0, deleted: 0, left: 1 });
+    expect(outcome.left).toBe(0);
+  });
+
+  it('deletes a person’s Inventory whether or not their group stays for a list that passed on, with what folds of it left, and leaves another person’s alone (23.3)', async () => {
+    const ada = await somebody(app, 'Ada-inventory');
+    const grace = await somebody(app, 'Grace-inventory');
+    // Grace is on Ada's list, so Ada's group carries on after her: its lists are Grace's, its Inventory was Ada's alone.
+    await join(app, ada.household, grace);
+    const send = (account: string, household: string, changes: unknown[]) =>
+      applyMutation(
+        {
+          database: app,
+          ring: TEST_RING,
+          limits: {
+            householdMembers: 20,
+            accountHouseholds: 20,
+            householdLists: 100,
+            listOpenItems: 500,
+            householdProducts: 5000,
+            inventoryItems: 5000,
+            householdCategories: 100,
+            accountCards: 100,
+          },
+        },
+        account,
+        { mutationId: crypto.randomUUID(), householdId: household, changes },
+      );
+    const item = (name: string) => ({
+      table: 'inventory_item',
+      id: crypto.randomUUID(),
+      create: true,
+      fields: { name, createdAt: 1, recurring: 0, hidden: 0 },
+    });
+    // Two of Ada's, one made twice so that a fold leaves an alias and a tombstone of no list, and one of Grace's, in her own group.
+    expect((await send(ada.accountId, ada.household, [item('Ada bin bags')])).status).toBe(
+      'applied',
+    );
+    expect((await send(ada.accountId, ada.household, [item('ada  BIN bags')])).status).toBe(
+      'applied',
+    );
+    expect((await send(grace.accountId, grace.household, [item('Grace bin bags')])).status).toBe(
+      'applied',
+    );
+    // Their categories too (§8.3): one of Ada's own and a name she gave a starter one, and one of Grace's own, in her own group.
+    const own = (name: string) => ({
+      table: 'category',
+      id: crypto.randomUUID(),
+      create: true,
+      fields: { name, position: 'a5', hidden: 0 },
+    });
+    const produce = async (household: string) =>
+      (
+        await dbGet<{ id: string }>(
+          app,
+          sql`SELECT id FROM ${appTable(app, 'category')} WHERE household_id = ${household} AND starter_key = 'produce'`,
+        )
+      )?.id ?? '';
+    expect((await send(ada.accountId, ada.household, [own('Ada hardware')])).status).toBe(
+      'applied',
+    );
+    expect(
+      (
+        await send(ada.accountId, ada.household, [
+          { table: 'category', id: await produce(ada.household), fields: { name: 'Ada’s veg' } },
+        ])
+      ).status,
+    ).toBe('applied');
+    expect((await send(grace.accountId, grace.household, [own('Grace hardware')])).status).toBe(
+      'applied',
+    );
+    const owned = (household: string) =>
+      count(
+        app,
+        appTable(app, 'category'),
+        sql`household_id = ${household} AND starter_key IS NULL`,
+      );
+    const named = (household: string) =>
+      count(
+        app,
+        appTable(app, 'category'),
+        sql`household_id = ${household} AND starter_key IS NOT NULL AND sealed IS NOT NULL AND sealed <> ''`,
+      );
+    expect(await owned(ada.household)).toBe(1);
+    expect(await named(ada.household)).toBe(1);
+    await seedAuth(ada);
+    const inventory = (household: string) =>
+      count(app, appTable(app, 'inventory_item'), sql`household_id = ${household}`);
+    const leftovers = async (household: string) =>
+      (await count(
+        app,
+        appTable(app, 'alias'),
+        sql`household_id = ${household} AND table_name = 'inventory_item'`,
+      )) +
+      (await count(
+        app,
+        appTable(app, 'tombstone'),
+        sql`household_id = ${household} AND table_name = 'inventory_item'`,
+      ));
+    expect(await inventory(ada.household)).toBe(1);
+    expect(await leftovers(ada.household)).toBeGreaterThan(0);
+
+    await deletePerson(deps(), ada.accountId);
+    // The group stays (Grace is on its list), and none of Ada's Inventory with it.
+    expect(await count(app, appTable(app, 'household'), sql`id = ${ada.household}`)).toBe(1);
+    expect(await inventory(ada.household)).toBe(0);
+    expect(await leftovers(ada.household)).toBe(0);
+    // Grace's own is as it was.
+    expect(await inventory(grace.household)).toBe(1);
+    // Ada's own categories and the name she gave a starter go with her; the starter rows stay with the group, with the code's names, for Grace's list.
+    expect(await owned(ada.household)).toBe(0);
+    expect(await named(ada.household)).toBe(0);
+    expect(
+      await count(
+        app,
+        appTable(app, 'category'),
+        sql`household_id = ${ada.household} AND starter_key IS NOT NULL`,
+      ),
+    ).toBeGreaterThan(10);
+    expect(await owned(grace.household)).toBe(1);
+  });
+
   it('deletes a household nobody else is in, with everything of it', async () => {
     const solo = await somebody(app, 'Solo');
     await seedAuth(solo);
-    expect(await deletePerson(deps(), solo.accountId)).toEqual({ passed: 0, deleted: 1, left: 0 });
+    expect(await deletePerson(deps(), solo.accountId)).toEqual({
+      passed: 0,
+      deleted: 1,
+      left: 0,
+      cards: { passed: 0, deleted: 0, left: 0 },
+    });
     expect(await count(app, appTable(app, 'household'), sql`id = ${solo.household}`)).toBe(0);
     expect(await count(app, appTable(app, 'member'), sql`household_id = ${solo.household}`)).toBe(
       0,
@@ -313,7 +928,12 @@ describe(`deleting a person (${leg})`, () => {
     await join(app, twice.household, other);
     await seedAuth(twice);
     await deletePerson(deps(), twice.accountId);
-    expect(await deletePerson(deps(), twice.accountId)).toEqual({ passed: 0, deleted: 0, left: 0 });
+    expect(await deletePerson(deps(), twice.accountId)).toEqual({
+      passed: 0,
+      deleted: 0,
+      left: 0,
+      cards: { passed: 0, deleted: 0, left: 0 },
+    });
     expect(
       (await membersOf(app, TEST_RING, twice.list, other.accountId))?.find((m) => m.self)?.role,
     ).toBe('admin');
@@ -323,15 +943,15 @@ describe(`deleting a person (${leg})`, () => {
     await seedAuth(halfway);
     await dbAll(
       auth,
-      sql`DELETE FROM ${authTable('session')} WHERE user_id = ${halfway.accountId} RETURNING id`,
+      sql`DELETE FROM ${authTable('sessions')} WHERE user_id = ${halfway.accountId} RETURNING id`,
     );
     await dbAll(
       auth,
-      sql`DELETE FROM ${authTable('account')} WHERE user_id = ${halfway.accountId} RETURNING id`,
+      sql`DELETE FROM ${authTable('accounts')} WHERE user_id = ${halfway.accountId} RETURNING id`,
     );
     await dbAll(
       auth,
-      sql`DELETE FROM ${authTable('user')} WHERE id = ${halfway.accountId} RETURNING id`,
+      sql`DELETE FROM ${authTable('users')} WHERE id = ${halfway.accountId} RETURNING id`,
     );
     expect((await personById(app, TEST_RING, halfway.personId))?.accountId).toBe(halfway.accountId);
     await deletePerson(deps(), halfway.accountId);
@@ -347,6 +967,7 @@ describe(`deleting a person (${leg})`, () => {
       passed: 0,
       deleted: 0,
       left: 0,
+      cards: { passed: 0, deleted: 0, left: 0 },
     });
   });
 });

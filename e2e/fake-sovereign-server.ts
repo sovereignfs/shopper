@@ -16,6 +16,33 @@ createServer((req, res) => {
     res.writeHead(200).end('ok');
     return;
   }
+  // The `prompt` of each authorization request so far, which a test reads to see what the app asked core to do (`create` for Create an account).
+  if (req.method === 'GET' && req.url === '/prompts') {
+    res
+      .writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify(fake.authorizations.map((url) => url.searchParams.get('prompt'))));
+    return;
+  }
+  // The apps Sovereign's launcher lists, for the app's own launcher; and how its refresh tokens were used.
+  if (req.method === 'POST' && req.url === '/apps') {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      // A list for everyone, or `{ sub, apps }` for one person.
+      const given = JSON.parse(body) as unknown;
+      if (Array.isArray(given)) fake.setApps(given);
+      else {
+        const { sub, apps } = given as { sub: string; apps: [] };
+        fake.setApps(apps, sub);
+      }
+      res.writeHead(204).end();
+    });
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/refreshes') {
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(fake.refreshes));
+    return;
+  }
   if (req.method === 'POST' && req.url === '/sign-in-as') {
     let body = '';
     req.on('data', (chunk) => (body += chunk));

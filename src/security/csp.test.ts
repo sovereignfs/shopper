@@ -48,6 +48,27 @@ describe('the Content-Security-Policy', () => {
     expect(directive(text, 'img-src')).toEqual(["'self'", 'data:', 'blob:']);
   });
 
+  it('lets an image come from core, in suite mode, and nothing else from it', () => {
+    const text = policy({ imageOrigin: 'https://sovereign.example.com' });
+    expect(directive(text, 'img-src')).toEqual([
+      "'self'",
+      'data:',
+      'blob:',
+      'https://sovereign.example.com',
+    ]);
+    // Only images: a script, a request, a frame, a form and a font are still this origin's alone.
+    for (const name of ['default-src', 'font-src', 'connect-src', 'worker-src', 'manifest-src'])
+      expect(directive(text, name), name).toEqual(["'self'"]);
+    expect(directive(text, 'script-src').join(' ')).not.toContain('sovereign.example.com');
+    expect(directive(text, 'form-action')).toEqual(["'self'"]);
+    // Running alone there is none.
+    expect(directive(policy({ imageOrigin: null }), 'img-src')).toEqual([
+      "'self'",
+      'data:',
+      'blob:',
+    ]);
+  });
+
   it('allows no frame, no plugin, no framing of a page, and no foreign form target or base', () => {
     const text = policy();
     expect(directive(text, 'frame-src')).toEqual(["'none'"]);
@@ -86,7 +107,9 @@ describe('the headers every response has', () => {
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
     expect(headers['X-Frame-Options']).toBe('DENY');
     expect(headers['Referrer-Policy']).toBe('strict-origin');
-    expect(headers['Permissions-Policy']).toContain('camera=()');
+    // The camera is this app's own and no frame's or other site's (task 24.4: a card is scanned), and the rest stay off.
+    expect(headers['Permissions-Policy']).toContain('camera=(self)');
+    expect(headers['Permissions-Policy']).not.toMatch(/camera=\(\)|camera=\*/);
     expect(headers['Cross-Origin-Opener-Policy']).toBe('same-origin');
   });
 

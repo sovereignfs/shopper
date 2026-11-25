@@ -2,11 +2,11 @@ import { expect, type Page } from '@playwright/test';
 import { PHONE, recordViolations, seedItems, signUp, test } from './helpers';
 
 /**
- * The phone, in a browser (task 8.8): the footer (Lists, the launcher, Settings), the way back to the lists, the add field at the top, ticking and a long
+ * The phone, in a browser (tasks 8.8 and 22.11): the design system's footer (Home, the lists' drawer, and the loyalty cards, which took Settings' place there in 24.3), the way back to the lists, the add field at the top, ticking and a long
  * press to edit, the item's dialog the whole screen, and nothing that scrolls sideways at a phone's width. The same routes and the same data as on a wide
  * screen: only what is drawn differs, so the wide screen has no footer.
  */
-const footer = (page: Page) => page.locator('footer');
+const footer = (page: Page) => page.getByRole('navigation', { name: 'App navigation' });
 const nothingSideways = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
@@ -19,42 +19,62 @@ test('a wide screen has no footer', async ({ page }) => {
 test.describe('on a phone', () => {
   test.use({ viewport: PHONE });
 
-  test('the footer takes you to your lists and to Settings, and its launcher offers a new list', async ({
+  test('the footer is Home, the lists’ drawer and the cards, and the header opens the same drawer', async ({
     page,
   }) => {
     const violations = await recordViolations(page);
     await signUp(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+    await expect(footer(page).getByRole('link', { name: 'Home' })).toBeVisible();
     await expect(footer(page).getByRole('button', { name: 'Lists' })).toBeVisible();
     await footer(page).getByRole('button', { name: 'Lists' }).click();
-    const drawer = page.getByRole('dialog', { name: 'Navigation' });
+    const drawer = page.getByRole('dialog', { name: 'Shopper' });
     await expect(drawer.getByRole('link', { name: /Groceries/ })).toBeVisible();
+    await expect(drawer.getByRole('link', { name: 'Home' })).toBeVisible();
     await drawer.getByRole('link', { name: /Groceries/ }).click();
     await expect(drawer).toHaveCount(0);
 
-    // The way back to the lists is in the list's own header, too.
-    await page.getByRole('button', { name: 'Lists' }).first().click();
-    await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeVisible();
+    // The way to the lists is in the header, too: the same drawer, with the same places.
+    await page.getByRole('button', { name: 'Open the navigation' }).click();
+    await expect(page.getByRole('dialog', { name: 'Shopper' })).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Shopper' }).getByRole('button', { name: 'New list' }),
+    ).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await footer(page)
-      .getByRole('button', { name: /apps|add/i })
-      .click();
-    await page.getByRole('dialog', { name: 'What to add' }).getByText('New list').click();
-    await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeVisible();
-    await page.keyboard.press('Escape');
-
-    await footer(page).getByRole('link', { name: 'Settings' }).click();
-    await expect(page).toHaveURL(/\/settings$/);
-    await expect(footer(page).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+    // The cards are the footer's right icon (24.3), a link that is the page shown; Settings is in the avatar's menu; there is no app launcher on a phone.
+    await footer(page).getByRole('link', { name: 'Loyalty cards' }).click();
+    await expect(page).toHaveURL(/\/cards$/);
+    await expect(footer(page).getByRole('link', { name: 'Loyalty cards' })).toHaveAttribute(
       'aria-current',
       /.+/,
     );
+    await expect(footer(page).getByRole('link', { name: 'Settings' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.getByRole('button', { name: 'Apps' })).toHaveCount(0);
     expect(await nothingSideways(page)).toBe(true);
     expect(await violations()).toEqual([]);
   });
 
-  test('a list is used end to end: add, tick, edit by a long press and by the pencil, with nothing sideways', async ({
+  test('New list from the drawer opens its dialog, over the page', async ({ page }) => {
+    await signUp(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+    await footer(page).getByRole('button', { name: 'Lists' }).click();
+    await page
+      .getByRole('dialog', { name: 'Shopper' })
+      .getByRole('button', { name: 'New list' })
+      .click();
+    const dialog = page.getByRole('dialog', { name: 'New list' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('textbox', { name: 'Name of the new list' }).fill('Pharmacy');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1, name: 'Pharmacy' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Shopper' })).toHaveCount(0);
+  });
+
+  test('a list is used end to end: add, tick, open the item by a tap and by the pencil, with nothing sideways', async ({
     page,
     baseURL,
   }) => {
@@ -73,25 +93,21 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('button', { name: /Bought \(1\)/ })).toBeVisible();
     expect(await nothingSideways(page)).toBe(true);
 
-    // A long press, as a finger makes it, opens the item; a tap does not.
-    const row = page.getByRole('checkbox', { name: /Bread/ });
-    await row.evaluate(async (element) => {
-      const init = { bubbles: true, pointerType: 'touch', pointerId: 7, isPrimary: true };
-      element.dispatchEvent(new PointerEvent('pointerdown', init));
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      element.dispatchEvent(new PointerEvent('pointerup', init));
-    });
-    const dialog = page.getByRole('dialog', { name: /Item: Bread/ });
-    await expect(dialog).toBeVisible();
-    const box = await dialog.boundingBox();
+    // A tap on the row, away from its checkbox, opens the item as a page of its own and ticks nothing; there is no long press on a list (RFC 0005).
+    await page.getByText('Bread', { exact: true }).click();
+    const panel = page.getByRole('complementary', { name: /Item: Bread/ });
+    await expect(panel).toBeVisible();
+    const box = await panel.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(PHONE.width - 1);
     await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(page.getByRole('checkbox', { name: /Bread/ })).not.toBeChecked();
 
     // The pencil is a target a finger can hit.
     const pencil = await page.getByRole('button', { name: 'Edit Bread' }).boundingBox();
     expect(Math.min(pencil?.width ?? 0, pencil?.height ?? 0)).toBeGreaterThanOrEqual(32);
     await page.getByRole('button', { name: 'Edit Bread' }).click();
-    await expect(dialog).toBeVisible();
+    await expect(panel).toBeVisible();
     expect(await nothingSideways(page)).toBe(true);
   });
 });

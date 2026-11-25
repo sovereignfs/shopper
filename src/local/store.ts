@@ -18,9 +18,13 @@ import {
 } from './db';
 import { type Kind, describeMutation } from './describe';
 import {
+  type CardMemberRow,
+  type CardRow,
   type CategoryRow,
   type HouseholdRecord,
+  type InventoryRow,
   type ItemRow,
+  type ListCategoryRow,
   type ListRow,
   type MemberRow,
   type ProductRow,
@@ -300,10 +304,11 @@ async function explain(
   for (const change of mutation.changes) {
     const row = await (
       tx.objectStore(change.table) as unknown as {
-        get(id: string): Promise<{ name?: string; listId?: string } | undefined>;
+        get(id: string): Promise<{ name?: string; shop?: string; listId?: string } | undefined>;
       }
     ).get(change.id);
-    if (row?.name) names.set(keyOf(change.table, change.id), row.name);
+    const called = row?.name ?? row?.shop;
+    if (called) names.set(keyOf(change.table, change.id), called);
     if (change.table === 'list') lists.add(change.id);
     if (typeof change.fields.listId === 'string') lists.add(change.fields.listId);
     else if (typeof row?.listId === 'string') lists.add(row.listId);
@@ -349,6 +354,16 @@ async function takeHousehold(
     ['list', pull.lists],
     ['item', pull.items],
     ['product', pull.products],
+    // The account's own Inventory (§8.8): a pull of anyone else's has none, and a server from before it sends no field.
+    ['inventory_item', pull.inventory ?? []],
+    // The copies of people's categories on the lists the reader is on (§8.3), a server from before them sending none.
+    ['list_category', pull.listCategories ?? []],
+    // The cards the reader is on (RFC 0007), a server from before them sending none: through the same merge, so that what waits to be sent is not overwritten by a pull.
+    ['card', pull.cards ?? []],
+    // The cards linked to lists, for the lists and cards the reader is on both of (§7.7, 24.6), a server from before them sending none: the same merge.
+    ['list_card', pull.listCards ?? []],
+    // The group's categories, through the same merge as the rest now that the owner can change them: what waits to be sent is not overwritten by a pull.
+    ['category', pull.categories],
   ];
   for (const [table, rows] of incoming) {
     for (const raw of rows) {
@@ -365,23 +380,32 @@ async function takeHousehold(
       pulled.add(keyOf(table, row.id));
     }
   }
-  for (const raw of pull.categories)
-    await tx.objectStore('category').put(raw as unknown as CategoryRow);
   for (const raw of pull.members)
     await tx
       .objectStore('member')
       .put({ ...(raw as unknown as MemberRow), householdId: pull.household });
+  for (const raw of pull.cardMembers ?? [])
+    await tx
+      .objectStore('card_member')
+      .put({ ...(raw as unknown as CardMemberRow), householdId: pull.household });
 
   for (const gone of pull.tombstones) {
-    if (isSynced(gone.table) || gone.table === 'category') {
+    if (isSynced(gone.table)) {
       await (tx.objectStore(gone.table) as unknown as { delete(id: string): Promise<void> }).delete(
         gone.id,
       );
       await tx.objectStore('shadow').delete([gone.table, gone.id]);
       touched.delete(keyOf(gone.table, gone.id));
     }
-    // A list deleted for good took its items and its catalog with it, and left a tombstone for the list alone.
+    // A card deleted took its people with it (RFC 0007), and its links to lists, and left a tombstone for the card alone.
+    if (gone.table === 'card') {
+      for (const member of await tx.objectStore('card_member').index('byCard').getAll(gone.id))
+        await tx.objectStore('card_member').delete([member.cardId, member.personId]);
+      await forgetLinks(tx, 'byCard', gone.id, touched);
+    }
+    // A list deleted for good took its items, its catalog and the cards linked to it with it, and left a tombstone for the list alone.
     if (gone.table === 'list') {
+      await forgetLinks(tx, 'byList', gone.id, touched);
       for (const item of await tx.objectStore('item').index('byList').getAll(gone.id)) {
         await tx.objectStore('item').delete(item.id);
         await tx.objectStore('shadow').delete(['item', item.id]);
@@ -392,6 +416,43 @@ async function takeHousehold(
   }
   for (const alias of pull.aliases) await repoint(tx, alias.table, alias.from, alias.to, touched);
   if (pull.visibleLists) await forgetHidden(tx, pull.household, pull.visibleLists, touched);
+  if (pull.visibleCards) await forgetHiddenCards(tx, pull.household, pull.visibleCards, touched);
+}
+
+/**
+ * **The device keeps only the cards it may see** (RFC 0007): the pull names them, and any other card of the group the device holds goes, with its people. That is what leaving or being
+ * removed from a card does on the device. A card made here and not yet sent has a shadow, and stays until the server has answered for it.
+ */
+async function forgetHiddenCards(
+  tx: Tx,
+  household: string,
+  visible: readonly string[],
+  touched: Set<string>,
+): Promise<void> {
+  const keep = new Set(visible);
+  for (const card of await tx.objectStore('card').index('byHousehold').getAll(household)) {
+    if (keep.has(card.id) || (await tx.objectStore('shadow').get(['card', card.id]))) continue;
+    for (const member of await tx.objectStore('card_member').index('byCard').getAll(card.id))
+      await tx.objectStore('card_member').delete([member.cardId, member.personId]);
+    // Its links to lists go with it: a link of a card the device no longer holds is no link.
+    await forgetLinks(tx, 'byCard', card.id, touched);
+    await tx.objectStore('card').delete(card.id);
+    touched.delete(keyOf('card', card.id));
+  }
+}
+
+/** The cards linked to a list, or the links of a card, leave the device with the list or the card (§7.7, 24.6): a link is for the people who are on both. */
+async function forgetLinks(
+  tx: Tx,
+  index: 'byList' | 'byCard',
+  id: string,
+  touched: Set<string>,
+): Promise<void> {
+  for (const link of await tx.objectStore('list_card').index(index).getAll(id)) {
+    await tx.objectStore('list_card').delete(link.id);
+    await tx.objectStore('shadow').delete(['list_card', link.id]);
+    touched.delete(keyOf('list_card', link.id));
+  }
 }
 
 /**
@@ -415,6 +476,7 @@ async function forgetHidden(
     }
     for (const member of await tx.objectStore('member').index('byList').getAll(list.id))
       await tx.objectStore('member').delete([member.listId, member.personId]);
+    await forgetLinks(tx, 'byList', list.id, touched);
     await forgetCatalog(tx, household, list.id, touched);
     await tx.objectStore('list').delete(list.id);
     touched.delete(keyOf('list', list.id));
@@ -437,6 +499,12 @@ async function forgetCatalog(
     await tx.objectStore('shadow').delete(['product', product.id]);
     touched.delete(keyOf('product', product.id));
   }
+  // Its copies of people's categories are its catalog too (§8.3), and go with it.
+  for (const copy of await tx.objectStore('list_category').index('byList').getAll(list)) {
+    await tx.objectStore('list_category').delete(copy.id);
+    await tx.objectStore('shadow').delete(['list_category', copy.id]);
+    touched.delete(keyOf('list_category', copy.id));
+  }
 }
 
 /**
@@ -451,7 +519,17 @@ async function repoint(
   to: string,
   touched: Set<string>,
 ): Promise<void> {
-  if (table !== 'product' && table !== 'item') return;
+  if (
+    table !== 'product' &&
+    table !== 'item' &&
+    table !== 'inventory_item' &&
+    table !== 'list_category'
+  )
+    return;
+  // The list a copy is on, read before the copy goes: the items and products that name it are the list's.
+  const copy =
+    table === 'list_category' ? await tx.objectStore('list_category').get(from) : undefined;
+  const copyList = copy?.listId;
   await tx.objectStore(table).delete(from);
   await tx.objectStore('shadow').delete([table, from]);
   touched.delete(keyOf(table, from));
@@ -469,6 +547,29 @@ async function repoint(
     }
   }
 
+  // A copy folded into another (§8.3): what names it names the one that stands, on the device and in what waits to be sent.
+  if (table === 'list_category' && copyList !== undefined) {
+    for (const item of await tx.objectStore('item').index('byList').getAll(copyList))
+      if (item.categoryId === from) await tx.objectStore('item').put({ ...item, categoryId: to });
+    for (const product of await tx
+      .objectStore('product')
+      .index('byHousehold')
+      .getAll(copy?.householdId ?? ''))
+      if (product.categoryId === from)
+        await tx.objectStore('product').put({ ...product, categoryId: to });
+    let shadow = await tx.objectStore('shadow').openCursor();
+    while (shadow) {
+      const row = shadow.value.row as { categoryId?: string | null } | null;
+      if (
+        (shadow.value.table === 'item' || shadow.value.table === 'product') &&
+        row &&
+        row.categoryId === from
+      )
+        await shadow.update({ ...shadow.value, row: { ...row, categoryId: to } as SyncedRow });
+      shadow = await shadow.continue();
+    }
+  }
+
   let rewritten = false;
   let cursor = await tx.objectStore('outbox').openCursor();
   while (cursor) {
@@ -481,6 +582,14 @@ async function repoint(
       }
       if (table === 'product' && change.table === 'item' && change.fields.productId === from) {
         next = { ...next, fields: { ...next.fields, productId: to } };
+        changed = true;
+      }
+      if (
+        table === 'list_category' &&
+        (change.table === 'item' || change.table === 'product') &&
+        change.fields.categoryId === from
+      ) {
+        next = { ...next, fields: { ...next.fields, categoryId: to } };
         changed = true;
       }
       return next;
@@ -506,6 +615,10 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
     ['list', await tx.objectStore('list').index('byHousehold').getAll(id)],
     ['product', await tx.objectStore('product').index('byHousehold').getAll(id)],
     ['category', await tx.objectStore('category').index('byHousehold').getAll(id)],
+    ['inventory_item', await tx.objectStore('inventory_item').index('byHousehold').getAll(id)],
+    ['list_category', await tx.objectStore('list_category').index('byHousehold').getAll(id)],
+    ['card', await tx.objectStore('card').index('byHousehold').getAll(id)],
+    ['list_card', await tx.objectStore('list_card').index('byHousehold').getAll(id)],
   ] as const;
   for (const [table, rows] of owned) {
     for (const row of rows) {
@@ -530,6 +643,8 @@ async function forgetHousehold(tx: Tx, id: string, touched: Set<string>): Promis
   }
   for (const member of await tx.objectStore('member').index('byHousehold').getAll(id))
     await tx.objectStore('member').delete([member.listId, member.personId]);
+  for (const member of await tx.objectStore('card_member').index('byHousehold').getAll(id))
+    await tx.objectStore('card_member').delete([member.cardId, member.personId]);
   await tx.objectStore('household').delete(id);
 }
 
@@ -655,15 +770,69 @@ export async function openCounts(
   return counts;
 }
 
+/** The account's own Inventory as the device holds it (§8.8): every live row. Only the account's own group's rows are ever pulled, so there is no household to ask. */
+export async function inventoryOf(db: LocalDatabase): Promise<InventoryRow[]> {
+  return (await db.getAll('inventory_item')).filter(live);
+}
+
+/**
+ * **The reader's own Inventory and the group it lives in** (§8.8): what a new name added to a list needs to make an Inventory item of the reader's, whichever group the list is
+ * in. `undefined` where the device has no group of the reader's own yet.
+ */
+export async function inventoryContextOf(
+  db: LocalDatabase,
+): Promise<{ household: string; rows: InventoryRow[] } | undefined> {
+  const own = (await db.getAll('household')).find((each) => each.own);
+  return own ? { household: own.id, rows: await inventoryOf(db) } : undefined;
+}
+
 export async function productsOf(db: LocalDatabase, householdId: string): Promise<ProductRow[]> {
   return (await db.getAllFromIndex('product', 'byHousehold', householdId)).filter(live);
 }
 
-/** The household's categories in aisle order. */
+/**
+ * The household's **starter categories** in aisle order: what a list groups its items by, and the only categories an item or a product may name (§8.3). A
+ * person's own categories are not here: they are Inventory's, and a list says one by its own copy (`ownerCategoriesOf`).
+ */
 export async function categoriesOf(db: LocalDatabase, householdId: string): Promise<CategoryRow[]> {
+  return (await db.getAllFromIndex('category', 'byHousehold', householdId))
+    .filter((row) => live(row) && row.starterKey !== null)
+    .sort(byPosition);
+}
+
+/** **Every category of the person's own group** in aisle order, the starter ones as they named them and their own (§8.3): what Inventory's Categories tab shows. */
+export async function ownerCategoriesOf(
+  db: LocalDatabase,
+  householdId: string,
+): Promise<CategoryRow[]> {
   return (await db.getAllFromIndex('category', 'byHousehold', householdId))
     .filter(live)
     .sort(byPosition);
+}
+
+/**
+ * **A list's live copies of people's categories** (§8.3) in aisle order, the list's: the starter categories of its group are `categoriesOf`'s, and a list's screens group
+ * by the two together (the copies' positions are in the group's one aisle order).
+ */
+export async function listCategoriesOf(
+  db: LocalDatabase,
+  listId: string,
+): Promise<ListCategoryRow[]> {
+  return (await db.getAllFromIndex('list_category', 'byList', listId))
+    .filter(live)
+    .sort(byPosition);
+}
+
+/** The cards the account is on, live, in the order the person put them (RFC 0007): the cards of every group a device holds one of, since a card is its people's and not a group's. */
+export async function cardsOf(db: LocalDatabase): Promise<CardRow[]> {
+  return (await db.getAll('card')).filter(live).sort(byPosition);
+}
+
+/** The people on a card now (RFC 0007). */
+export async function cardMembersOf(db: LocalDatabase, cardId: string): Promise<CardMemberRow[]> {
+  return (await db.getAllFromIndex('card_member', 'byCard', cardId)).filter(
+    (member) => member.leftAt === null,
+  );
 }
 
 /** The people on a list now (RFC 0004). */

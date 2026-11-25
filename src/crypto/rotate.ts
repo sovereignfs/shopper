@@ -3,6 +3,8 @@ import type { Database } from '../db/client';
 import { dbAll, dbRun, transaction } from '../db/exec';
 import { canonicalName } from '../catalog/canonical';
 import { appTable } from '../db/tables';
+import { inventoryNameKey } from '../catalog/inventory-key';
+import { starterEntryByKey } from '../catalog/starter';
 import { nameKeyOf } from './name-key';
 import { fingerprintOfSealed, rewrap } from './envelope';
 import type { KeyRing } from './keys';
@@ -32,6 +34,9 @@ export const SEALED_TABLES: readonly SealedTable[] = [
   { table: 'person' },
   { table: 'household' },
   { table: 'category' },
+  { table: 'list_category' },
+  { table: 'card' },
+  { table: 'list_card' },
   { table: 'list' },
   { table: 'item' },
   { table: 'push_device' },
@@ -41,6 +46,21 @@ export const SEALED_TABLES: readonly SealedTable[] = [
     read: ['household_id'],
     recompute: (row, fields, ring) => ({
       name_key: nameKeyOf(ring, String(row.household_id), canonicalName(String(fields.name ?? ''))),
+    }),
+  },
+  {
+    // An Inventory item's name key is an HMAC under a label of its own, recomputed with the row: from its name, or, for an override that keeps the starter's,
+    // from the starter entry's.
+    table: 'inventory_item',
+    read: ['household_id', 'starter_key'],
+    recompute: (row, fields, ring) => ({
+      name_key: inventoryNameKey(
+        ring,
+        String(row.household_id),
+        typeof fields.name === 'string'
+          ? fields.name
+          : (starterEntryByKey(String(row.starter_key ?? ''))?.name ?? ''),
+      ),
     }),
   },
 ];

@@ -7,7 +7,7 @@
 ## Overview
 
 From a working app to a published image hosted on the live instance: a seed to develop against, a security review written up, the documents a person
-and an operator read, the release, and hosting it. **12.1 to 12.5 are 0.1.0;** 12.7 closes workstream 0001 before phase 2; 12.6 closes phase 2, and phases 3 and 4 close with their own release tasks
+and an operator read, the release, and hosting it. **12.1 to 12.5 are 0.1.0;** 12.7 closes workstream 0001 and 12.8 workstream 0002, before phase 2; 12.6 closes phase 2, and phases 3 and 4 close with their own release tasks
 (13.9, 14.6).
 
 ## Related
@@ -105,3 +105,14 @@ a standalone account each open their lists on it.
   `docs/security/0.2.0.md`, with an addendum for epic 21. The promotion pull request is open.
 - **The owner's part:** the promotion into `main` and the publishing.
 - **Not run:** hosting it on an instance.
+
+#### 📋 12.8 — The release of workstream 0002
+
+**Goal:** the suite's frame, Home, Inventory and loyalty cards, published before phase 2. **Depends on:** epics 22 to 24, 12.7.
+
+**Technical:** the version settled at the workstream's first bump; `CHANGELOG.md` in a person's words, with "not yet audited" where it describes
+encryption, and for an operator: an instance configured with both ways in now signs in through core only (RFC 0005); a security review of the
+export route, cards' sharing and keys, and Inventory's exclusion from pulls; the release as 12.4; hosting updated as 12.5.
+
+**Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and a
+standalone account each open Home, their lists, Inventory and a card on it.

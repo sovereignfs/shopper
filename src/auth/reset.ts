@@ -10,8 +10,8 @@ import { authTable } from '../db/tables';
 export async function resetAddress(token: string): Promise<string | null> {
   if (!/^[A-Za-z0-9_-]{8,128}$/.test(token)) return null;
   const authDatabase = await getAuthDatabase();
-  const verification = authTable(authDatabase, 'verification');
-  const user = authTable(authDatabase, 'user');
+  const verification = authTable(authDatabase, 'verifications');
+  const user = authTable(authDatabase, 'users');
   const row = await dbGet<{ email: string; expires_at: unknown }>(
     authDatabase,
     sql`SELECT u.email, v.expires_at FROM ${verification} v JOIN ${user} u ON u.id = v.value

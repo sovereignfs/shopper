@@ -1,4 +1,5 @@
 import { getAuth } from '../auth/server';
+import { readSession } from '@sovereignfs/auth/server';
 import { getConfig } from '../config/current';
 import { sameOrigin } from './origin';
 
@@ -19,7 +20,7 @@ export function accountRoute(handler: (context: AccountRequest) => Promise<Respo
   return async (request: Request): Promise<Response> => {
     const auth = await getAuth();
     if (!auth) return new Response(null, { status: 404 });
-    const session = await auth.api.getSession({ headers: request.headers });
+    const session = await readSession(auth, request.headers);
     if (!session) return refuse(401, 'signed_out');
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       const url = getConfig().url;

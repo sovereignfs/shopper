@@ -5,9 +5,10 @@ import { oauthErrorMessage } from '@/src/auth/messages';
 import { authSettings, mailAvailable, signUpAvailable } from '@/src/auth/server';
 import { safeNext } from '@/src/auth/next';
 import { getSession } from '@/src/auth/session';
-import { passwordsToMove } from '@/src/auth/move';
-import { getAuthDatabase } from '@/src/db/boot';
+import { passwordsMoving } from '@sovereignfs/auth/server';
+import { getAuthStore } from '@/src/db/boot';
 import { getVaultId } from '@/src/keys/server/vault';
+import { SuitePage } from '@/src/auth/suite-page';
 
 // Decided per request from the settings and the visitor's cookies. Left to Next it would be prerendered at build time, with no settings, as the
 // "off" 404 it would then keep.
@@ -17,27 +18,29 @@ export const metadata = { title: 'Sign in' };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[]; next?: string | string[] }>;
+  searchParams: Promise<{
+    error?: string | string[];
+    next?: string | string[];
+    returnTo?: string | string[];
+  }>;
 }) {
   const settings = authSettings();
   if (!settings) notFound();
+  // Suite mode: through core only, so this page sends the browser there (RFC 0005).
+  if (settings.sovereign) return <SuitePage query={await searchParams} />;
+  if (!settings.local) notFound();
   const { error, next: wanted } = await searchParams;
   const next = safeNext(wanted);
   if (await getSession()) redirect(next ?? '/');
   return (
     <AuthShell title="Sign in to Shopper">
       <SignInForm
-        local={
-          settings.local
-            ? {
-                canSignUp: await signUpAvailable(),
-                canReset: mailAvailable(),
-                vaultId: await getVaultId(),
-                moving: await passwordsToMove(await getAuthDatabase()),
-              }
-            : undefined
-        }
-        sovereign={settings.sovereign !== undefined}
+        local={{
+          canSignUp: await signUpAvailable(),
+          canReset: mailAvailable(),
+          vaultId: await getVaultId(),
+          moving: await passwordsMoving(await getAuthStore()),
+        }}
         failure={oauthErrorMessage(typeof error === 'string' ? error : undefined)}
         next={next}
       />

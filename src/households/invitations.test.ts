@@ -37,6 +37,9 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
+  householdCategories: 100,
+  accountCards: 100,
 };
 const NOW = 1_800_000_000_000;
 
@@ -115,6 +118,7 @@ describe(`invitations by link (${leg})`, () => {
     const grace = await somebody(database, 'Grace3');
     const live = await make(ada);
     expect(await previewInvitation(database, TEST_RING, live.token, NOW + 1)).toEqual({
+      kind: 'list',
       invitedBy: 'Ada3',
       encrypted: false,
     });

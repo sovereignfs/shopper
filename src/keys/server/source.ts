@@ -1,10 +1,8 @@
-import { sql } from 'drizzle-orm';
 import { accountHasPassword } from '../../auth/password';
 import { authSettings } from '../../auth/server';
 import { getConfig } from '../../config/current';
-import { getDatabase } from '../../db/boot';
-import { dbGet } from '../../db/exec';
-import { appTable } from '../../db/tables';
+import { getAuthStore } from '../../db/boot';
+import { subOfAccount } from '../../sovereign/identity';
 import { getVaultId } from './vault';
 
 /**
@@ -28,15 +26,12 @@ export async function keySourceOf(accountId: string): Promise<KeySource | undefi
   const sovereign = authSettings()?.sovereign;
   const url = getConfig().url;
   if (!sovereign || !url) return undefined;
-  const database = await getDatabase();
-  const person = await dbGet<{ core_sub: string | null }>(
-    database,
-    sql`SELECT core_sub FROM ${appTable(database, 'person')} WHERE account_id = ${accountId}`,
-  );
-  if (!person?.core_sub) return undefined;
+  // Core's `sub` is the account id of the account's sign-in through core, as better-auth keeps it (DESIGN.md §15.1), the one place it is recorded.
+  const sub = await subOfAccount(await getAuthStore(), accountId);
+  if (!sub) return undefined;
   return {
     kind: 'core',
-    sub: person.core_sub,
+    sub,
     core: sovereign.issuer,
     clientId: sovereign.clientId,
     returnTo: `${url.replace(/\/+$/, '')}/keys/return`,

@@ -23,7 +23,15 @@ export const SEALED: SealedRegistry = {
   household: ['name'],
   product: ['name', 'note'],
   category: ['name'],
-  list: ['name'],
+  // A list's copy of a person's category (§8.3): only a group that has moved has any, so nothing is ever sealed here; the table has the column, and is registered with the rest.
+  list_category: ['name'],
+  // A loyalty card (§7.7): only a group that has moved has any, every field a ciphertext under the card's keys, so nothing is ever sealed here; the table has the column, and is registered.
+  card: ['shop', 'number', 'kind', 'code', 'icon', 'color', 'holder', 'note'],
+  // A card linked to a list (§7.7, 24.6) names two rows and holds nothing a person wrote, so nothing is ever sealed here; the table has the column the one write path fills, and is registered.
+  list_card: [],
+  // A person's own library (§8.8): its name and note, sealed like a product's. No other table holds what a person buys under their own words.
+  inventory_item: ['name', 'note'],
+  list: ['name', 'icon', 'color'],
   item: ['name', 'note'],
   // A push device's keys (RFC 0002): the server needs them to send, so it holds them sealed (DESIGN.md §13.4). The row's id is its endpoint.
   push_device: ['p256dh', 'auth'],

@@ -1,7 +1,10 @@
 import '../zod-jitless';
 import { z } from 'zod';
+import { CODE_KINDS, MAX_CARD_CODE_LENGTH, MAX_CARD_NUMBER_LENGTH } from '../cards/kinds';
 import { MAX_NAME_LENGTH, isName } from '../catalog/name';
 import { isGroceryIcon } from '../catalog/icons';
+import { NAME_KEY } from '../keys/household';
+import { isListColor } from '../lists/appearance';
 import { isQuantity } from '../quantity/decimal';
 import { isUnit } from '../quantity/units';
 
@@ -31,10 +34,22 @@ export interface Mutation {
   readonly changes: readonly Change[];
 }
 
-/** A field's value: text, a number, nothing, or (never in 0.1.0) a boolean. */
+/**
+ * A field's value: text, a number or nothing. **A flag is `0` or `1`** (an Inventory item's `recurring` and `hidden`): a mutation says it as a number, the
+ * server writes the column as the dialect's boolean (`TableSpec.plain`'s `kind: 'bool'`), and a pull hands the row back with a boolean, as a device keeps it.
+ */
 export type FieldValue = string | number | null;
 
-export const SYNCED_TABLES = ['list', 'item', 'product'] as const;
+export const SYNCED_TABLES = [
+  'list',
+  'item',
+  'product',
+  'inventory_item',
+  'category',
+  'list_category',
+  'card',
+  'list_card',
+] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 /** The most changes in one mutation: _Clear bought_ on a full list, with room. */
@@ -67,7 +82,31 @@ const position = z.string().refine(isPosition, 'not a position');
 const quantity = z.string().refine(isQuantity, 'not a quantity');
 const unit = z.string().refine(isUnit, 'not a unit');
 const icon = z.string().refine(isGroceryIcon, 'not an icon');
+/**
+ * A list's icon and colour (RFC 0005): sealed, so a server can check them only as the person typed them, in a household that has not moved. The icon's
+ * shape and not its name, since the set grows with the design system and a name this build does not know is drawn as the default; the colour is exact.
+ */
+const listIcon = z
+  .string()
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'not an icon')
+  .max(40);
+const listColor = z.string().refine(isListColor, 'not a colour');
+/** A card's number and the value its code carries (§7.7): text with no control character, of a length a card has. */
+const cardText = (most: number) =>
+  z
+    .string()
+    .min(1)
+    .max(most)
+    .refine((text) => !hasControl(text) && !/[\n\r]/.test(text), 'a control character');
 const nullable = <T extends z.ZodType>(schema: T) => z.union([schema, z.null()]);
+/** A flag, as a mutation says it. */
+const flag = z.union([z.literal(0), z.literal(1)]);
+/** The key of a starter catalog entry (`src/catalog/starter.ts`): its name as a slug, which a person's own entry never has (null). */
+const STARTER_KEY = /^[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*$/u;
+const starterKey = z
+  .string()
+  .max(64)
+  .refine((text) => STARTER_KEY.test(text), 'not a starter entry');
 
 interface TableFields {
   readonly fields: Readonly<Record<string, z.ZodType<FieldValue>>>;
@@ -79,6 +118,8 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
   list: {
     fields: {
       name,
+      icon: nullable(listIcon),
+      color: nullable(listColor),
       position,
       clearing: z.enum(['manual', 'on_finish', 'after_day']),
       archivedAt: nullable(time),
@@ -123,13 +164,92 @@ export const FIELDS: Record<SyncedTable, TableFields> = {
     },
     required: ['name', 'createdAt'],
   },
+  // An item of a person's Inventory (§8.8): the person's own group's, written by its own account alone. A name is absent when an override of a starter entry keeps
+  // the starter's, and then the starter entry is named.
+  inventory_item: {
+    fields: {
+      // The starter entry it overrides; set when it is made, never changed. Null for one of the person's own.
+      starterKey: nullable(starterKey),
+      name: nullable(name),
+      note: nullable(note),
+      categoryId: nullable(id),
+      icon: nullable(icon),
+      unit: nullable(unit),
+      quantity: nullable(quantity),
+      recurring: flag,
+      hidden: flag,
+      deletedAt: nullable(time),
+      createdAt: time,
+    },
+    required: ['createdAt'],
+  },
+  // A category of the group (§8.3): a starter one, which only the owner renames, hides and puts in order and nobody deletes, or one of the person's own. A device
+  // never makes a starter category, so there is no field for its key. The name is null when a starter category has the code's.
+  category: {
+    fields: {
+      name: nullable(name),
+      icon: nullable(icon),
+      position,
+      hidden: flag,
+      deletedAt: nullable(time),
+    },
+    required: ['position'],
+  },
+  // A list's copy of a person's own category (§8.3): only in a group that has moved. The device holds it plain as it holds every row (its name as text, and the source key it made under
+  // the list's keys), and the transport encrypts the name at the sync; a group the server seals has none (`apply.ts` refuses a copy there, whichever form was sent). Its list and
+  // source key are set when it is made and never change.
+  list_category: {
+    fields: {
+      listId: id,
+      sourceKey: z.string().regex(NAME_KEY, 'not a source key'),
+      name,
+      icon: nullable(icon),
+      position,
+      deletedAt: nullable(time),
+    },
+    required: ['listId', 'sourceKey', 'name', 'position'],
+  },
+  // A loyalty card (§7.7): only in a group that has moved, every field of what the person wrote encrypted under the card's own keys. The device holds it plain as it holds every row, and
+  // the transport encrypts each field at the sync; a group the server seals has none (`apply.ts` refuses a card there, whichever form was sent).
+  card: {
+    fields: {
+      shop: name,
+      number: cardText(MAX_CARD_NUMBER_LENGTH),
+      kind: z.enum(CODE_KINDS),
+      code: cardText(MAX_CARD_CODE_LENGTH),
+      icon: nullable(listIcon),
+      color: nullable(listColor),
+      holder: nullable(name),
+      note: nullable(note),
+      position,
+      deletedAt: nullable(time),
+      createdAt: time,
+    },
+    required: ['shop', 'number', 'kind', 'code', 'position', 'createdAt'],
+  },
+  // A card linked to a list (§7.7, 24.6): a list and a card and nothing else, so there is nothing of it to encrypt. Its id is made from the two (`src/cards/links.ts`), which the server holds it to.
+  list_card: {
+    fields: {
+      listId: id,
+      cardId: id,
+      deletedAt: nullable(time),
+      createdAt: time,
+    },
+    required: ['listId', 'cardId', 'createdAt'],
+  },
 };
 
 /** The fields of each table that are what people wrote (RFC 0001): encrypted by the device once its household has moved, and never read by the server. */
 export const CONTENT: Record<SyncedTable, readonly string[]> = {
-  list: ['name'],
+  list: ['name', 'icon', 'color'],
   item: ['name', 'note'],
   product: ['name', 'note'],
+  inventory_item: ['name', 'note'],
+  category: ['name'],
+  list_category: ['name'],
+  card: ['shop', 'number', 'kind', 'code', 'icon', 'color', 'holder', 'note'],
+  // A link names a list and a card and holds nothing of what a person wrote.
+  list_card: [],
 };
 
 /** The fields a table has, for code that has to know (a merge, a pull). */

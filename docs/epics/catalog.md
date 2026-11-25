@@ -98,7 +98,9 @@ both parse; more than three places is refused.
 
 **Done as:** `src/quantity/decimal.ts` and `units.ts`, new and pure. A quantity is a canonical decimal string (positive, up to three places, no leading or trailing zero, at most 999999.999) calculated on **thousandths as `bigint`**, so adding and subtracting are exact and nothing is rounded: `isQuantity`, `addQuantity` (which refuses a sum past the largest), `subtractQuantity`, `compareQuantity`, `largerQuantity` (what two devices' items are folded to), `parseQuantity` (a decimal point or comma, tidied; **`1,500` is one and a half and a comma is never a group separator**; a sign, words, an exponent, zero, too many places or too large are refused) and `formatQuantity` (the same digits with the locale's separator, a comma where it writes one and a point otherwise, so that what is shown can be typed back). `UNITS` is the fixed list with each unit counted or measured, `isUnit` compares exactly, and `stepFor` is one for a counted unit and the product's last quantity for a measured one. Money joins with 4.9. **Property tests (`fast-check`):** adding is exact and commutative, subtracting what was added gives back the first, comparison is antisymmetric and agrees with string equality, thousandths and strings are one-to-one, and a shown quantity parses back in six locales.
 
-#### 📋 4.7 — Editing categories and the aisle order (phase 2)
+#### ➖ 4.7 — Editing categories and the aisle order (phase 2)
+
+**Superseded (2026-11-23)** by 23.3 and 23.4 ([RFC 0006](../rfcs/0006-home-and-inventory.md)): a person's own categories and the aisle order are edited in Inventory, brought forward to workstream 0002.
 
 **Goal:** a household's categories are its own. **Design:** §8.3. **Depends on:** 4.2, 5.2.
 

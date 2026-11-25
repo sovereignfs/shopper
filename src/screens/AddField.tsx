@@ -1,23 +1,20 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Icon, type IconName, SuggestionInput } from '@sovereignfs/ui';
-import type { Env } from '../actions/env';
 import type { Mutation } from '../actions/format';
 import { isGroceryIcon } from '../catalog/icons';
 import { type Suggestion, suggest } from '../catalog/suggest';
-import { type ListData, listViewOf } from '../local/listview';
-import { useLocal } from '../local/react';
-import { inBasket, planAdd, suggestionMeta } from '../lists/adding';
+import type { ListData } from '../local/listview';
+import { suggestionMeta } from '../lists/adding';
 import styles from './ListScreen.module.css';
+import { useAdder, useInventoryEntries } from './useAdder';
 
 type Found = Extract<ListData, { found: true }>;
 
-const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
-
 /**
- * **The add field** (DESIGN.md §16.6): at the top of a list, always. Typing suggests (§8.5, `suggest`, on the device, offline), each with its icon, name,
- * quantity and unit, and "On the list · 2" for what is already open, which choosing bumps rather than doubles (§9.3). **Enter takes the first,** the
+ * **The add field** (DESIGN.md §16.6): at the top of a list, always. Typing suggests (§8.5, `suggest`, on the device, offline) from the person's Inventory first, then the
+ * list's products, each with its icon, name, quantity and unit, and "On the list · 2" for what is already open, which choosing bumps rather than doubles (§9.3). **Enter takes the first,** the
  * arrows move, a tap adds, and "Add _text_" is always last, so nobody is stuck. The field **stays focused and empty** after an add, so that a list is
  * typed as fast as it is thought. Nothing here is asynchronous: the device answers at once.
  */
@@ -25,66 +22,72 @@ export function AddField({
   data,
   change,
   basket = false,
+  focused = false,
+  onAdded,
+  onEscape,
 }: {
   data: Found;
-  /** Adds straight into the basket (shopping mode's "Already in basket"): the item is ticked by the person as it is added. */
+  /** Adds straight into the basket (shopping mode's "Put it straight in the basket"): the item is ticked by the person as it is added. */
   basket?: boolean;
+  /** Takes focus when it is drawn: shopping mode opens it from a button, and it is what the person went there to use. */
+  focused?: boolean;
+  /** Told when an item has been added (shopping mode closes the field). */
+  onAdded?: () => void;
+  /** Told when Escape is pressed in the field (shopping mode closes it). */
+  onEscape?: () => void;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
-  const { client } = useLocal();
-  const { list, products, items, me } = data;
+  const { list, products, items } = data;
   const [text, setText] = useState('');
-  const [refused, setRefused] = useState<string | null>(null);
   const [fresh, setFresh] = useState(0);
+  const inventory = useInventoryEntries();
+  const {
+    add: addSuggestion,
+    refused,
+    clearRefused,
+  } = useAdder({
+    data,
+    change,
+    basket,
+    ...(onAdded ? { onAdded } : {}),
+  });
   const id = useId();
   useEffect(() => {
-    if (fresh === 0) return;
+    if (fresh === 0 && !focused) return;
     const input = document.getElementById(id);
     if (input instanceof HTMLInputElement) input.focus();
-  }, [fresh, id]);
+  }, [fresh, focused, id]);
   const suggestions = useMemo(
-    () => (text.trim() === '' ? [] : suggest({ text, products, items }).filter(notNew)),
-    [text, products, items],
+    () =>
+      text.trim() === ''
+        ? []
+        : suggest({
+            text,
+            products,
+            items,
+            listId: list.id,
+            ...(inventory ? { inventory } : {}),
+          }).filter(notNew),
+    [text, products, items, list.id, inventory],
   );
 
-  /**
-   * Adds are done one after another, each from what the device holds **when its turn comes**: typed fast, the second would otherwise be planned from the
-   * list as it was drawn before the first was written, and "oat milk" twice would add one more only once.
-   */
-  const queue = useRef<Promise<void>>(Promise.resolve());
   function add(suggestion: Suggestion) {
-    if (!client || !me) return;
     // The design system's field closes its suggestions after a choice and opens them only when it gains focus, so a new one takes the place of the old,
     // and the effect above gives it focus before the next key: the second item of a list can be typed at once.
     setText('');
     setFresh((count) => count + 1);
-    queue.current = queue.current.then(async () => {
-      const now = await listViewOf(client.db, list.id);
-      if (!now.found) return;
-      const planned = planAdd(
-        env(),
-        {
-          list: now.list,
-          products: now.products,
-          items: now.items,
-          categories: now.categories,
-          me,
-        },
-        suggestion,
-      );
-      if (!planned) return;
-      if ('refused' in planned) {
-        setRefused(planned.refused);
-        return;
-      }
-      setRefused(null);
-      const mutation = basket ? inBasket(planned.mutation, me, Date.now()) : planned.mutation;
-      await change(mutation, planned.message);
-    });
+    addSuggestion(suggestion);
   }
 
   return (
-    <div className={styles.add}>
+    // Escape is a shortcut for the button that opened the field, which is the control; the field itself keeps every key it had.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      className={styles.add}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && onEscape) onEscape();
+      }}
+    >
       <SuggestionInput
         key={fresh}
         id={id}
@@ -93,7 +96,7 @@ export function AddField({
         value={text}
         onChange={(value) => {
           setText(value);
-          setRefused(null);
+          clearRefused();
         }}
         options={suggestions.map((suggestion, index) => {
           const meta = suggestionMeta(suggestion);

@@ -11,6 +11,7 @@ import { personById, personOfAccount } from '../people/people';
 import { stampList } from '../lists/members';
 import { enqueuePush } from '@sovereignfs/push';
 import { pushStore } from '../push/store';
+import { joinCard } from './card-join';
 
 /**
  * **Invitations by link** (DESIGN.md §7.3). People join a household only by accepting, never by being added. In 0.1.0 an invitation is a link and nothing
@@ -178,6 +179,8 @@ export async function liveInvitations(
 }
 
 export interface Preview {
+  /** What the link is to: a list (RFC 0004) or a loyalty card (RFC 0007). The one thing of it the page says besides who invited, since it is what joining gives. */
+  readonly kind: 'list' | 'card';
   /** Who made the link: the page says whose list it is by them, since a list's name may be one the server cannot read (RFC 0004). */
   readonly invitedBy: string;
   /** Whether the household has moved (RFC 0001): then joining needs the link whole, its secret after `#` included. */
@@ -185,7 +188,7 @@ export interface Preview {
 }
 
 /**
- * What the invitation page may say of a link: who invited, **and nothing else** (no group is named, RFC 0004). `null` for a link that is
+ * What the invitation page may say of a link: who invited and whether it is to a list or a card, **and nothing else** (no group is named, RFC 0004; no shop, nor name of a list). `null` for a link that is
  * not live, whatever the reason (unknown, expired, used or revoked), so that the page says one thing for all of them.
  */
 export async function previewInvitation(
@@ -201,16 +204,18 @@ export async function previewInvitation(
     token_hash: string;
     created_by: string;
     household_id: string;
+    card_id: string | null;
     encryption: string;
   }>(
     database,
-    sql`SELECT i.token_hash, i.created_by, i.household_id, h.encryption
+    sql`SELECT i.token_hash, i.created_by, i.household_id, i.card_id, h.encryption
         FROM ${table} i JOIN ${appTable(database, 'household')} h ON h.id = i.household_id
         WHERE i.token_hash = ${hash} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}`,
   );
   if (!row || !sameHash(row.token_hash, hash)) return null;
   const inviter = await personById(database, ring, row.created_by);
   return {
+    kind: row.card_id ? 'card' : 'list',
     invitedBy: inviter?.name ?? '',
     encrypted: row.encryption === 'encrypted',
   };
@@ -228,6 +233,18 @@ export type Accepted =
     }
   /** The person is already on the list: nothing changed, and the link is still unused. */
   | { readonly status: 'already'; readonly household: string; readonly list: string }
+  /**
+   * A link to a card (RFC 0007), joined or already on: the card and nothing else of its group, and the card's keyring as the link wrapped it, given once and then gone. The same page and the same door
+   * take both kinds of link; a card's answer names `card` where a list's names `list`.
+   */
+  | {
+      readonly status: 'joined';
+      readonly household: string;
+      readonly card: string;
+      readonly person: string;
+      readonly wrappedKey: string | null;
+    }
+  | { readonly status: 'already'; readonly household: string; readonly card: string }
   /** Unknown, expired, used or revoked: one answer. */
   | { readonly status: 'invalid' }
   | { readonly status: 'refused'; readonly message: string };
@@ -237,6 +254,8 @@ class Already extends Error {
   constructor(
     readonly household: string,
     readonly list: string,
+    /** Set when the link was to a card: the answer then names the card and no list. */
+    readonly card?: string,
   ) {
     super('already a member');
   }
@@ -271,15 +290,39 @@ export async function acceptInvitation(
       const claimed = await dbGet<{
         household_id: string;
         list_id: string | null;
+        card_id: string | null;
         token_hash: string;
       }>(
         tx,
         sql`UPDATE ${invitation} SET accepted_by = ${person.id}, accepted_at = ${now}, wrapped_key = NULL
             WHERE token_hash = ${hash} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
-            RETURNING household_id, list_id, token_hash`,
+            RETURNING household_id, list_id, card_id, token_hash`,
       );
-      if (!claimed || !sameHash(claimed.token_hash, hash) || !claimed.list_id) throw new Invalid();
+      if (!claimed || !sameHash(claimed.token_hash, hash)) throw new Invalid();
       const household = claimed.household_id;
+      // A link is to a list or to a card, never both and never neither.
+      if (claimed.card_id && !claimed.list_id) {
+        const card = claimed.card_id;
+        const joined = await joinCard(tx, ring, {
+          household,
+          card,
+          person: { id: person.id, name: person.name },
+          accountId,
+          limits,
+          now,
+        });
+        if (joined.status === 'already') throw new Already(household, '', card);
+        if (joined.status === 'gone') throw new Invalid();
+        if (joined.status === 'refused') throw new Refused(joined.message);
+        return {
+          status: 'joined' as const,
+          household,
+          card,
+          person: person.id,
+          wrappedKey: carried?.wrapped_key ?? null,
+        };
+      }
+      if (!claimed.list_id || claimed.card_id) throw new Invalid();
       // The list the link is to, and no other (RFC 0004).
       const list = claimed.list_id;
 
@@ -355,7 +398,9 @@ export async function acceptInvitation(
   } catch (error) {
     if (error instanceof Invalid) return { status: 'invalid' };
     if (error instanceof Already)
-      return { status: 'already', household: error.household, list: error.list };
+      return error.card
+        ? { status: 'already', household: error.household, card: error.card }
+        : { status: 'already', household: error.household, list: error.list };
     if (error instanceof Refused) return { status: 'refused', message: error.message };
     throw error;
   }

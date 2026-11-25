@@ -1,0 +1,32 @@
+/* The page beside an open item (or alone) fills its column, so that a page that pins something to its bottom, as shopping mode's Finish bar, can. */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.main > * {
+  flex: 1;
+}
+
+/*
+ * Beside the list while there is room, **in place of it when there is not** (RFC 0005): measured on the area the frame gives the page, so that it follows
+ * the sidebar being full, a rail or hidden, and not on the window. The column is 360px and the list wants about 440 beside it: under that the open item
+ * is the whole area, as it is on a phone, and closing it shows the list. A rendering choice only: the address is `?item=` either way.
+ */
+.layout {
+  height: 100%;
+  container-type: inline-size;
+}
+
+@container (max-width: 799px) {
+  .layout[data-item-open] > * > :nth-child(2) {
+    display: none;
+  }
+
+  /* The design system's column sets its own width on the element; it is the area's whole width here. */
+  .layout[data-item-open] > * > :nth-child(3) {
+    width: 100% !important;
+    border-left: 0;
+  }
+}

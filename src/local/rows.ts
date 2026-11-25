@@ -1,5 +1,15 @@
 import type { Change, FieldValue, SyncedTable } from '../actions/format';
-import type { ItemRow, ListRow, ProductRow } from '../actions/rows';
+import type {
+  CardRow,
+  CategoryRow,
+  InventoryRow,
+  ItemRow,
+  ListCardRow,
+  ListCategoryRow,
+  ListRow,
+  ProductRow,
+} from '../actions/rows';
+import { starterCategory } from '../catalog/categories';
 import { mergeChange } from '../sync/merge';
 import { withoutSecondTick } from '../sync/items';
 
@@ -8,19 +18,16 @@ import { withoutSecondTick } from '../sync/items';
  * a screen reads a row, hands it to an action and gets a mutation back. Two pure functions say how a row changes on the device, and neither touches
  * IndexedDB, so they are tested with none.
  */
-export type { ItemRow, ListRow, ProductRow };
-
-export interface CategoryRow {
-  readonly id: string;
-  readonly householdId: string;
-  readonly starterKey: string | null;
-  readonly name: string;
-  readonly icon: string | null;
-  readonly position: string;
-  readonly hidden: boolean;
-  readonly deletedAt: number | null;
-  readonly seq: number;
-}
+export type {
+  CardRow,
+  CategoryRow,
+  InventoryRow,
+  ItemRow,
+  ListCardRow,
+  ListCategoryRow,
+  ListRow,
+  ProductRow,
+};
 
 /** A person's place in a household, as the reader may see it (an address only where `canSeeEmail` allows). */
 export interface MemberRow {
@@ -37,6 +44,11 @@ export interface MemberRow {
   readonly seq: number;
 }
 
+/** A person on a card (RFC 0007), as the reader may see them: the same as a list's person, one row a card a person is on. */
+export interface CardMemberRow extends Omit<MemberRow, 'listId'> {
+  readonly cardId: string;
+}
+
 /** A household the account is in: how it is shown, and **how far this device has pulled it** (`cursor`). */
 export interface HouseholdRecord {
   readonly id: string;
@@ -47,12 +59,21 @@ export interface HouseholdRecord {
   readonly cursor: number;
 }
 
-export type RowOf = { list: ListRow; item: ItemRow; product: ProductRow };
+export type RowOf = {
+  list: ListRow;
+  item: ItemRow;
+  product: ProductRow;
+  inventory_item: InventoryRow;
+  category: CategoryRow;
+  list_category: ListCategoryRow;
+  card: CardRow;
+  list_card: ListCardRow;
+};
 export type SyncedRow = RowOf[SyncedTable];
 
 /** What a field is before anyone says anything about it, for a row a device makes. The server's defaults are these. */
 const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
-  list: { clearing: 'manual', archivedAt: null, deletedAt: null },
+  list: { icon: null, color: null, clearing: 'manual', archivedAt: null, deletedAt: null },
   item: {
     note: null,
     unit: null,
@@ -74,6 +95,49 @@ const DEFAULTS: { [T in SyncedTable]: Record<string, FieldValue> } = {
     lastAddedAt: null,
     deletedAt: null,
   },
+  inventory_item: {
+    starterKey: null,
+    name: null,
+    note: null,
+    categoryId: null,
+    icon: null,
+    unit: null,
+    quantity: null,
+    recurring: 0,
+    hidden: 0,
+    deletedAt: null,
+  },
+  // A category a device makes is the person's own (a starter one comes from the server with the group).
+  category: { starterKey: null, name: '', icon: null, hidden: 0, deletedAt: null },
+  // A list's copy a device makes: its list and source key come with the make, and nothing else is anyone's yet.
+  list_category: { name: '', icon: null, deletedAt: null },
+  // A card a device makes: what it is comes with the make (the shop, the number, the kind and the code), and nothing else is anyone's yet.
+  card: { icon: null, color: null, holder: null, note: null, deletedAt: null },
+  // A link a device makes: the pair comes with the make.
+  list_card: { deletedAt: null },
+};
+
+/** The fields of a table that are flags: `0` or `1` in a mutation, and a boolean in a row as a device keeps it (the same as the pull hands it). */
+const FLAGS: { [T in SyncedTable]: readonly string[] } = {
+  list: [],
+  item: [],
+  product: [],
+  inventory_item: ['recurring', 'hidden'],
+  category: ['hidden'],
+  list_category: [],
+  card: [],
+  list_card: [],
+};
+const asFlags = (row: Record<string, FieldValue | boolean>) => {
+  const out: Record<string, FieldValue> = {};
+  for (const [field, value] of Object.entries(row))
+    out[field] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+  return out;
+};
+const asBooleans = (table: SyncedTable, row: Record<string, FieldValue>) => {
+  const out: Record<string, FieldValue | boolean> = { ...row };
+  for (const field of FLAGS[table]) if (field in out) out[field] = out[field] === 1;
+  return out;
 };
 
 /**
@@ -89,18 +153,28 @@ export function applyChange<T extends SyncedTable>(
   householdId: string,
   now: number,
 ): RowOf[T] {
-  const base = (row ?? {
-    id: change.id,
-    householdId,
-    seq: 0,
-    ...(table === 'item' ? {} : { createdAt: now }),
-    ...DEFAULTS[table],
-  }) as unknown as Record<string, FieldValue>;
+  // A flag is a number while a change is merged into the row, and a boolean again after: the row is what a pull would hand over.
+  const base = asFlags(
+    (row ?? {
+      id: change.id,
+      householdId,
+      seq: 0,
+      ...(table === 'item' || table === 'category' || table === 'list_category'
+        ? {}
+        : { createdAt: now }),
+      ...DEFAULTS[table],
+    }) as unknown as Record<string, FieldValue | boolean>,
+  );
   const fields =
     table === 'item'
       ? withoutSecondTick(typeof base.boughtAt === 'number' ? base.boughtAt : null, change.fields)
       : change.fields;
-  return mergeChange(base, {}, fields, 0).values as unknown as RowOf[T];
+  const merged = asBooleans(table, mergeChange(base, {}, fields, 0).values);
+  // A starter category given back the code's name (`name: null`) shows it at once, as a pull will.
+  if (table === 'category' && merged.name === null)
+    merged.name =
+      starterCategory(typeof merged.starterKey === 'string' ? merged.starterKey : '')?.name ?? '';
+  return merged as unknown as RowOf[T];
 }
 
 /**
@@ -116,15 +190,27 @@ export function reversal(
   now: number,
 ): Change | null {
   if (before === undefined) {
-    return change.create && table !== 'product'
+    // The catalog learning is left, a product and a list's copy of a category alike: a copy is the list's, changed by its Admin, so a Member's Undo of the item that made it
+    // could only be refused, and would take the item's own Undo in the same mutation with it.
+    return change.create && table !== 'product' && table !== 'list_category'
       ? { table, id: change.id, fields: { deletedAt: now } }
       : null;
   }
   const fields: Record<string, FieldValue> = {};
+  // A flag as a mutation says it, whatever the row keeps it as.
+  const said = (value: FieldValue | boolean): FieldValue =>
+    typeof value === 'boolean' ? (value ? 1 : 0) : value;
   for (const name of Object.keys(change.fields)) {
-    if (before[name] !== after[name] && before[name] !== undefined) fields[name] = before[name];
+    const was = before[name] as FieldValue | boolean | undefined;
+    if (was !== after[name] && was !== undefined) fields[name] = said(was);
   }
   if (before.deletedAt !== after.deletedAt && before.deletedAt !== undefined)
     fields.deletedAt = before.deletedAt;
+  // A starter category that had the code's name has it again as `null`, not as the text: a row of the group's with no name of the person's holds no content (§8.3).
+  if (table === 'category' && typeof fields.name === 'string') {
+    const starter =
+      typeof before.starterKey === 'string' ? starterCategory(before.starterKey) : undefined;
+    if (starter && fields.name === starter.name) fields.name = null;
+  }
   return Object.keys(fields).length === 0 ? null : { table, id: change.id, fields };
 }

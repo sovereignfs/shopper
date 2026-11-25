@@ -13,15 +13,14 @@ import {
   Icon,
   type IconName,
   Menu,
-  useLongPress,
 } from '@sovereignfs/ui';
 import type { Env } from '../actions/env';
 import { clearBought, tickItem, untickItem } from '../actions/items';
 import type { Mutation } from '../actions/format';
 import type { ItemRow } from '../actions/rows';
 import { isGroceryIcon } from '../catalog/icons';
-import { type Suggestion, suggest } from '../catalog/suggest';
-import { planAdd } from '../lists/adding';
+import { suggest } from '../catalog/suggest';
+import { readView, type View, writeView } from '../lists/view-preference';
 import { type ListData, listViewOf, rememberList } from '../local/listview';
 import { useLocal, useLocalQuery } from '../local/react';
 import {
@@ -37,10 +36,14 @@ import {
 import { VERTICAL_AUTOSCROLL, spokenDrag, useDragClickGuard, useReorderSensors } from '../ui/dnd';
 import styles from './ListScreen.module.css';
 import { AddField } from './AddField';
-import { EditedItem, useItemParam, useQueryParam } from './ItemEditor';
+import { ItemBeside, useItemParam, useQueryParam } from './ItemEditor';
+import { ListGlyph } from './ListGlyph';
+import { ListSettingsDialog, sectionOfAddress } from './ListSettingsDialog';
 import { ShareDialog } from './ShareDialog';
 import { shopEntry } from './shop-entry';
+import { useTitle } from './title';
 import { useUndo } from './Undo';
+import { useAdder, useInventoryEntries } from './useAdder';
 
 /**
  * A list, from the device (DESIGN.md §16.5): its name and a menu, the open items **by aisle** (or in the order added), each a row that ticks as a whole,
@@ -49,8 +52,6 @@ import { useUndo } from './Undo';
  * not here yet, and an entry is here only when its page is.
  *
  */
-type View = 'aisle' | 'added';
-const VIEW_KEY = 'shopper:list-view';
 
 const env = (): Env => ({ now: Date.now(), newId: () => crypto.randomUUID() });
 
@@ -59,14 +60,7 @@ function useView(): [View, (view: View) => void] {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [stored, setStored] = useState<View | null>(() => {
-    try {
-      const value = window.localStorage.getItem(VIEW_KEY);
-      return value === 'added' || value === 'aisle' ? value : null;
-    } catch {
-      return null;
-    }
-  });
+  const [stored, setStored] = useState<View | null>(() => readView(window.localStorage));
   const param = params.get('view');
   const view: View =
     param === 'added' ? 'added' : param === 'aisle' ? 'aisle' : (stored ?? 'aisle');
@@ -74,11 +68,7 @@ function useView(): [View, (view: View) => void] {
     view,
     (next) => {
       setStored(next);
-      try {
-        window.localStorage.setItem(VIEW_KEY, next);
-      } catch {
-        // A private window: the choice lasts for this page.
-      }
+      writeView(window.localStorage, next);
       router.replace(next === 'added' ? `${pathname}?view=added` : pathname);
     },
   ];
@@ -114,9 +104,21 @@ function Loaded({ data }: { data: Found }) {
   const { client } = useLocal();
   const offerUndo = useUndo();
   const [view, setView] = useView();
-  const editing = useItemParam();
   const sharing = useQueryParam('share');
+  // The list's settings are a dialog at `?settings=<section>` (an empty value is the dialog with no section chosen), so Back closes it and a link opens it.
+  const settings = useQueryParam('settings');
+  const router = useRouter();
+  const pathname = usePathname();
   const { list, items, categories, me } = data;
+  /**
+   * Opens a section of the list's settings. On the list's own address that is the address's `?settings=`, written with the browser's own history so that it works
+   * with no network; from the front address, which draws the last list and would draw none once it is archived, the dialog is opened on the list's own address.
+   */
+  const openSettings = (section: string) =>
+    pathname === `/l/${list.id}`
+      ? settings.open(section)
+      : router.push(`/l/${list.id}?settings=${section}`);
+  useTitle(settings.value === null ? [list.name] : ['Settings', list.name]);
   const open = openItems(items);
   const bought = boughtItems(items);
 
@@ -135,59 +137,77 @@ function Loaded({ data }: { data: Found }) {
     );
 
   return (
-    <div className={styles.page}>
-      <Header
-        name={list.name}
-        id={list.id}
-        householdId={list.householdId}
-        share={() => sharing.open('1')}
-        shop={list.archivedAt === null}
-        view={view}
-        setView={setView}
-        canClear={bought.length > 0}
-        clear={() => void clear()}
-      />
-      {list.archivedAt !== null ? (
-        <p className={styles.note}>
-          This list is archived.{' '}
-          <Link href={`/l/${list.id}/settings`}>Restore it in its settings</Link> to use it again.
-        </p>
-      ) : null}
-      {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
-      {sharing.value === '1' ? <ShareDialog data={data} onClose={sharing.close} /> : null}
-      {editing.id !== null ? (
-        <EditedItem id={editing.id} data={data} close={editing.close} change={change} />
-      ) : null}
-      {open.length === 0 && bought.length === 0 ? (
-        <Empty data={data} change={change} />
-      ) : (
-        <>
-          {open.length === 0 ? (
-            <p className={styles.note}>Everything on {list.name} is ticked.</p>
-          ) : null}
-          {view === 'aisle' ? (
-            <ByAisle groups={groupByAisle(open, categories)} data={data} onTick={tick} />
-          ) : (
-            <ul className={styles.items} aria-label="Items in the order added">
-              {inOrderAdded(open).map((item) => (
-                <li key={item.id}>
-                  <Row item={item} data={data} checked={false} onToggle={() => void tick(item)} />
-                </li>
-              ))}
-            </ul>
-          )}
-          <Bought items={bought} data={data} onUntick={untick} onClear={() => void clear()} />
-        </>
-      )}
-    </div>
+    <ItemBeside data={data} change={change}>
+      <div className={styles.page}>
+        <Header
+          name={list.name}
+          appearance={list}
+          id={list.id}
+          householdId={list.householdId}
+          share={() => sharing.open('1')}
+          openSettings={() => openSettings('general')}
+          shop={list.archivedAt === null && open.length > 0}
+          view={view}
+          setView={setView}
+          canClear={bought.length > 0}
+          clear={() => void clear()}
+        />
+        {list.archivedAt !== null ? (
+          <p className={styles.note}>
+            This list is archived.{' '}
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => openSettings('archive')}
+            >
+              Restore it in its settings
+            </button>{' '}
+            to use it again.
+          </p>
+        ) : null}
+        {list.archivedAt === null ? <AddField data={data} change={change} /> : null}
+        {sharing.value === '1' ? <ShareDialog data={data} onClose={sharing.close} /> : null}
+        {settings.value !== null ? (
+          <ListSettingsDialog
+            data={data}
+            section={sectionOfAddress(settings.value)}
+            onSection={(next) => settings.replace(next ?? '')}
+            onClose={settings.close}
+          />
+        ) : null}
+        {open.length === 0 && bought.length === 0 ? (
+          <Empty data={data} change={change} />
+        ) : (
+          <>
+            {open.length === 0 ? (
+              <p className={styles.note}>Everything on {list.name} is ticked.</p>
+            ) : null}
+            {view === 'aisle' ? (
+              <ByAisle groups={groupByAisle(open, categories)} data={data} onTick={tick} />
+            ) : (
+              <ul className={styles.items} aria-label="Items in the order added">
+                {inOrderAdded(open).map((item) => (
+                  <li key={item.id}>
+                    <Row item={item} data={data} checked={false} onToggle={() => void tick(item)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Bought items={bought} data={data} onUntick={untick} onClear={() => void clear()} />
+          </>
+        )}
+      </div>
+    </ItemBeside>
   );
 }
 
 function Header({
   name,
+  appearance,
   id,
   householdId,
   share,
+  openSettings,
   shop,
   view,
   setView,
@@ -195,9 +215,12 @@ function Header({
   clear,
 }: {
   name: string;
+  /** The list's icon and colour (RFC 0005), drawn before its name. */
+  appearance: { icon: string | null; color: string | null };
   id: string;
   householdId: string;
   share: () => void;
+  openSettings: () => void;
   shop: boolean;
   view: View;
   setView: (view: View) => void;
@@ -208,24 +231,26 @@ function Header({
   const router = useRouter();
   return (
     <header className={styles.header}>
+      <ListGlyph list={appearance} size="lg" />
       <h1 title={name}>{name}</h1>
       <div className={styles.actions}>
-        <Button variant="secondary" size="sm" onClick={share} aria-label="Share">
-          <Icon name="users" aria-hidden />
-          <span className={styles.actionLabel}>Share</span>
-        </Button>
         {shop ? (
           <Button
-            variant="secondary"
+            variant="primary"
             size="sm"
             onClick={() => {
               shopEntry.setFromList(true);
               router.push(`/shop?h=${householdId}&l=${id}`);
             }}
           >
+            <Icon name="shopping-cart" size="sm" aria-hidden />
             Shop
           </Button>
         ) : null}
+        <Button variant="secondary" size="sm" onClick={share} aria-label="Share">
+          <Icon name="users" size="sm" aria-hidden />
+          <span className={styles.actionLabel}>Share</span>
+        </Button>
         <Menu
           open={menu}
           onClose={() => setMenu(false)}
@@ -233,14 +258,15 @@ function Header({
           aria-label="List menu"
           trigger={
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
+              className={styles.menuButton}
               aria-label="List menu"
               aria-haspopup="menu"
               aria-expanded={menu}
               onClick={() => setMenu(!menu)}
             >
-              <Icon name="ellipsis-vertical" aria-hidden />
+              <Icon name="ellipsis-vertical" size="sm" aria-hidden />
             </Button>
           }
           items={[
@@ -257,7 +283,7 @@ function Header({
             {
               label: 'List settings',
               icon: 'settings',
-              onSelect: () => router.push(`/l/${id}/settings`),
+              onSelect: openSettings,
             },
           ]}
         />
@@ -304,12 +330,17 @@ function Row({
       </span>
     ) : undefined;
   const edit = useItemParam().open;
-  // On a phone a long press on the row opens the item, as the pencil does; the checkbox alone ticks (DESIGN.md §16.5, §16.11).
-  const press = useLongPress({ onLongPress: () => edit(item.id) });
-  // On a list **only the checkbox ticks**: a tap anywhere else on the row does nothing, so that a finger that is scrolling, or aiming at the pencil, buys
-  // nothing by mistake (DESIGN.md §16.5). Shopping mode keeps the whole row as the target (`ShopScreen`), where a thumb in a trolley wants it.
+  // On a list **a tap on the row opens the item** and only the checkbox ticks (RFC 0005): opening a panel changes nothing, so a finger that is scrolling, or
+  // aiming at the checkbox, costs nothing, and there is no long press. The pencil is the visible sign of it and the way in for a keyboard and a screen reader;
+  // the checkbox and the pencil are left to do their own work. Shopping mode keeps the whole row as the tick (`ShopScreen`), where a thumb in a trolley wants it.
+  const open = (event: React.MouseEvent) => {
+    if ((event.target as HTMLElement).closest('input, label, button, a')) return;
+    edit(item.id);
+  };
   const row = (
-    <div className={`${styles.line} ${checked ? styles.ticked : ''}`}>
+    // The pencil is this row's control for a keyboard: the row itself is only a larger target for a pointer, so it is not a control of its own.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div className={`${styles.line} ${checked ? styles.ticked : ''}`} onClick={open}>
       <Checkbox
         id={`tick-${item.id}`}
         label=""
@@ -328,21 +359,20 @@ function Row({
         aria-label={`Edit ${item.name}`}
         onClick={() => edit(item.id)}
       >
-        <Icon name="pencil" aria-hidden />
+        <Icon name="square-pen" aria-hidden />
       </button>
     </div>
   );
-  const pressed = <div {...press}>{row}</div>;
   return handle ? (
     <DragHandleRow
       handleProps={handle.props}
       isDragging={handle.dragging}
       className={styles.handleRow}
     >
-      {pressed}
+      {row}
     </DragHandleRow>
   ) : (
-    pressed
+    row
   );
 }
 
@@ -513,7 +543,10 @@ function Bought({
   );
 }
 
-/** Nothing on the list: what the household buys most, as chips, so that the first thing is one tap. */
+/**
+ * Nothing on the list: **what the person's recurring Inventory items that are not on it, then what the household buys most**, as chips, so that the first thing is one tap
+ * (DESIGN.md §8.5, `suggest` with nothing typed). Added the way the add field adds (`useAdder`), from what the device holds when the tap is heard.
+ */
 function Empty({
   data,
   change,
@@ -521,16 +554,16 @@ function Empty({
   data: Found;
   change: (mutation: Mutation | null, message: string) => Promise<void>;
 }) {
-  const { list, products, items, categories, me } = data;
-  const often = suggest({ text: '', products, items }).filter(
-    (each): each is Suggestion & { productId: string } =>
-      each.kind === 'product' && each.productId !== undefined,
-  );
-  const add = (suggestion: Suggestion & { productId: string }) => {
-    if (!me) return;
-    const planned = planAdd(env(), { list, products, items, categories, me }, suggestion);
-    if (planned && 'mutation' in planned) return change(planned.mutation, planned.message);
-  };
+  const { list, products, items } = data;
+  const inventory = useInventoryEntries();
+  const { add } = useAdder({ data, change });
+  const often = suggest({
+    text: '',
+    products,
+    items,
+    listId: list.id,
+    ...(inventory ? { inventory } : {}),
+  }).filter((each) => each.kind === 'product' || each.kind === 'inventory');
   return (
     <div className={styles.empty}>
       <EmptyState
@@ -545,8 +578,8 @@ function Empty({
           <h2 className={styles.category}>Often bought</h2>
           <ul className={styles.chips}>
             {often.map((each) => (
-              <li key={each.productId}>
-                <button type="button" className={styles.chip} onClick={() => void add(each)}>
+              <li key={each.productId ?? each.entryKey ?? each.name}>
+                <button type="button" className={styles.chip} onClick={() => add(each)}>
                   {each.name}
                 </button>
               </li>

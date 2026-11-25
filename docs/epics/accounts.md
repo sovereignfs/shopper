@@ -44,7 +44,7 @@ requests; the pages answer 404 with local sign-in off; the README's note says th
 cookie, as Tusk's; the signed-in `/` resolves the last list from the device, then `account_settings.last_list_id`, then the account's first
 household's first list (the list screen itself is 8.2; until then, a placeholder).
 
-**Accepts when:** `/` shows the landing page signed out and the last list signed in, with no redirect loop.
+**Accepts when:** `/` shows the landing page signed out and the last list signed in (Home since 23.2, whose Continue is that list), with no redirect loop.
 
 **Done as:** `src/landing/` (a server component with no client code, and typed `content.ts` that says what is so today, with a test that it promises no trips, prices, live updates, notices, export or barcodes) adapted from Tusk. `proxy.ts` answers `/` for a request with a session cookie with the signed-in area's front page, `/home`, keeping the address `/`, and sends `/home` itself to `/` once (the same rewrite and loop guard as Tusk's); only the cookie is looked at, since the page checks the session and sends a forged cookie to sign in. `app/(app)/layout.tsx` checks the session and makes the frame (`ShellFrame`, which gained an `account` slot) with `AccountMenu` (the person's name and address, and _Sign out_, which ends the session and returns to the landing page; 6.2 makes it also leave the device, and 2.6 adds Settings). **`/home` is a placeholder** that says the lists are not here: resolving the last list, from the device, then `account_settings`, then the first household's first list, is 8.2's, since neither a list nor `account_settings` exists yet. Seen in the browser tests, in both browsers: the landing page with its two links for a visitor, the signed-in area at `/` after sign-up, `/home` going to `/`, and signing out returning to the landing page (28 tests).
 
@@ -130,7 +130,9 @@ Tusk's `src/auth/` parts left out of 2.1.
 **Accepts when:** a passkey and an authenticator app can each be added, used to sign in, and removed; the last way in cannot be removed; backup
 codes work once each.
 
-#### 📋 2.9 — Linking core and a local account (phase 2)
+#### ➖ 2.9 — Linking core and a local account (phase 2)
+
+**Superseded (2026-11-23)** by [RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md): an instance signs people in through core or by its own accounts, never both, so there is nothing to link (22.2). What follows is kept as it was planned.
 
 **Goal:** one person, two ways in, never joined by guessing. **Design:** §15.1. **Depends on:** 2.3.
 

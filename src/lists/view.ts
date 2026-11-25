@@ -80,7 +80,7 @@ export const inOrderAdded = (items: readonly ItemRow[]): ItemRow[] =>
  * them, so it goes after them both: nothing throws, and the drop is not lost.
  */
 export function reorderedPosition(
-  group: readonly ItemRow[],
+  group: readonly { readonly id: string; readonly position: string }[],
   activeId: string,
   overId: string,
 ): string | null {

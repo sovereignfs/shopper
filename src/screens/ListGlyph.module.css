@@ -1,0 +1,7 @@
+/* The icon takes the colour a list was given from the `color` the component sets; the surface behind it is the page's own. */
+.glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}

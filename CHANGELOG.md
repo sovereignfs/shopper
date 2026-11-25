@@ -6,6 +6,239 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.7] - 2026-11-25
+
+### Fixed
+
+- **Sign-up no longer stays on "Creating account…" when the browser cannot make the account's keys.** The account is made first and its keys after, in the browser; when that second step was refused
+  (a browser's encryption failed it now and then), nothing said so and the button stayed disabled for good. The form now says that the account was made and that this browser could not set up its
+  keys, and the password unlocks it the next time Shopper is opened. A password that cannot be derived reads "Something went wrong. Please try again." in the same way.
+
+## [0.8.6] - 2026-11-25
+
+### Changed
+
+- **Shopper uses `@sovereignfs/ui` 0.107.3**, the design system's release for what was polished in Shopper's screens. **The icon picker opens on the side that has room:** on Inventory's
+  Categories tab, where it sits before the name at the left, it no longer opens past the left edge of the page. **The menu button is drawn larger and bolder.** **Settings' title row is
+  compact:** the title and its close button take less height, so more of the dialog is the section you are in.
+
+## [0.8.5] - 2026-11-25
+
+### Fixed
+
+- **_New list_, _Scan a card_, a card's form (_Add a card_, _Change the card_), a card shown in shopping mode and _Finish shopping_ have a header,** as the Share dialogs now do: the title, and the close button in
+  it. On a desktop they had no row for either, so the close button floated over the top of what was beneath it; a phone already showed the title.
+
+## [0.8.4] - 2026-11-25
+
+### Fixed
+
+- **The Share dialogs, for a list and for a card, have a header:** "Share", with the close button in it. On a desktop they had none, so the close button floated over the first line of the
+  text beneath; a phone already showed the title.
+
+## [0.8.3] - 2026-11-25
+
+### Changed
+
+- **Settings: Notifications and This device are sections of their own,** after Preferences, in place of parts of it, at `/settings/notifications` and `/settings/device`. Preferences keeps how a
+  list shows its items, how Shopper looks, and the time zone and language. The avatar's _Couldn't sync_ goes straight to This device, and an old `/settings?section=device` or
+  `?section=notifications` address goes to its section.
+
+## [0.8.2] - 2026-11-25
+
+### Fixed
+
+- **The development server (`pnpm dev`) served the front page, sign-in, sign-up and the other pages outside the signed-in area as "not found"** under Next.js 16.4.5, whose route matching is now
+  strict, so that nobody who was signed out could reach them. The settings dialog's slot drew nothing over any address through a catch-all, which that matching read as claiming every
+  address in the app; it now has a page for each address of the signed-in area and none for any other. A running instance was not affected, and the dialog behaves as it did: it opens over the page it
+  was opened from, and a navigation to another page closes it.
+
+## [0.8.1] - 2026-11-25
+
+### Changed
+
+- **Inventory's Categories tab:** a category's icon is now before its name, and every name is as wide: _Other_'s too, and the _New category_ field below, which starts and ends where the
+  names do. _Hide_ (or _Show_) and _Delete_ have places of their own at the right, so a row with neither no longer has a longer name. _Hidden_ and _Usual name_, which only some rows have,
+  are under the name.
+
+## [0.8.0] - 2026-11-24
+
+### Added
+
+- **Loyalty cards** (RFC 0007): a page of your own, in the sidebar and on the phone's footer, for the cards you show at a till. **Add card** takes a shop, the number on the card and the kind of code
+  it is (an EAN-13, EAN-8, UPC-A, Code 128, Code 39 or a QR code): a check digit that is missing is added, and one that is wrong is refused with a sentence, so a number typed wrong is found at once and
+  not at the till. A card opens **full screen**: its code as large as the screen allows, its number in text beneath it, and the screen kept on while it is shown. You can give a card a colour, an icon, the
+  name on it and a note, change it, and delete it (deleting needs a connection, and asks first). Everything is read from your device, so a card opens with no network; every field of a card is
+  encrypted on your device, and the server holds only what it cannot read. A card can be kept once your lists are encrypted on your devices, which happens when you first open Shopper after signing up.
+  **Scan card** adds one with the camera instead: hold the card's code in view and the form opens with its number and kind filled in. The picture is read on your device and goes nowhere, nothing is
+  requested from the network while it scans (the reader is part of Shopper and is only fetched when you first scan), and the camera is let go the moment the code is read. If the camera is refused or
+  there is none, you can type the number as before.
+- **Share a card.** Open a card and choose **Share** (only the person who added it can): make a link and send it any way you like. Whoever opens it, signs in or makes an account and adds the card has
+  that card and **nothing else of yours**: no list, no other card, nothing of your Inventory. The link carries the card's key and no other, after the `#`, which is never sent to Shopper's server; it is
+  shown once, works for one person and expires in 14 days, and you can revoke a link nobody has used. You can see who has the card and remove someone, which takes it from their devices; someone who has a
+  card can leave it. A card shared with you opens with no network, like your own. Deleting a card takes it from everyone, and the links to it. A card's key is not changed when someone goes (that comes
+  later for lists and cards together). That encryption is not yet audited.
+- **A card on a list, in shopping mode.** In a list's settings, a new **Cards** section (for the list's Admin) lets you choose which of your cards belong to that list. Shopping mode then has a card button, one tap
+  from where you are: it opens the card with its code and its number, large, and works with no network; with several cards linked it asks which. People you share a list with see the button only if you have also
+  shared that card with them: someone who has the list and not the card sees nothing of it and cannot tell that it is there.
+
+### Changed
+
+- **Under the hood:** Shopper's server and your device can now hold **loyalty cards** (RFC 0007), and a card's link is a new kind of invitation (`invitation.card_id`, migration `0021`). A card has its own people and its own keys, as a list does: each
+  thing you write on it (the shop, the number, the kind of code, the code itself, an icon, a colour, the name on the card, a note) is encrypted on your device under keys of that card alone,
+  and the server holds only ciphertext, **so a card can be kept only once your lists are encrypted on your devices** (every account made in a browser is, at its first load); before that the
+  server refuses one, and says so. Only the card's Admin changes or deletes it; someone on a card sees that card and the people on it and **nothing else of the group it is in**, even though
+  they are not on any list there, and the group is not a place in their sidebar. A card goes with its Admin's account when nobody else is on it, and passes to the person on it longest when
+  someone is, and an Admin can delete a card, which takes it from every device. Your readable export opens the cards you are on. A new setting, `SHOPPER_LIMIT_ACCOUNT_CARDS` (default 100), says how many cards a person can have. That encryption is not yet audited.
+
+## [0.7.0] - 2026-11-24
+
+### Added
+
+- **Inventory** (RFC 0006): a page of your own, in the sidebar and on Home, with everything you buy: the starter's items and the ones you made, together. Search them, see them
+  grouped by category in the order of the aisles, and filter by category, by recurring or once, and by yours, the starter's or hidden. Open one to change its name, category, icon,
+  unit, quantity and note, to mark it recurring, to hide it or show it again, or to take back what you changed of a starter's; **Add item** makes one of your own. Each field is saved as
+  you leave it, with no network, and reaches your other devices. **Add to a list** puts an item on a list you choose, with its category, icon, unit and quantity (one more of it when the list has it open), and Undo takes it off; a category of your own comes to a shared list as a copy named for that list, as anything you add there. The **Categories** tab is the order of the aisles: drag a category to move it (or lift it with Space and move it with the arrow keys), rename it, give it an icon, hide it or show it again, and add your own; a category of your own can also be deleted, with Undo. Renaming one of yours renames its copies on the lists you are Admin of, and moving one moves its copies on your own lists. A hidden category is not offered, and a name you add is never put into it.
+- **The add field offers your Inventory.** As you type on a list it suggests what you have made your own first (your items, and the starter's that you changed, by the name you gave
+  them), then the list's own products, then the other lists'. A name is offered once; an item you hid is offered nowhere, and a starter item you renamed is offered by its new name and not the
+  old one. Choosing an item of yours the list has not had before makes the list's product from it, with the category, icon, unit and quantity you set (a category of your own comes to the list
+  as a copy, as it does with **Add to a list**). On a list with nothing on it, the items you marked **recurring** come first, ahead of what you buy most. Where the list already has the
+  product, what it remembers is used, as before.
+- **"Remember for next time" can update your Inventory too.** In an item's panel, for an item whose name your Inventory has, **Also update Inventory** (off until you turn it on) gives that
+  Inventory item the category, icon and unit you choose for the item, as well as the list's product. A category of yours the list holds a copy of is yours again in Inventory, and one
+  of the list's own categories is your matching one; the category of someone else's you cannot name is left, and the icon and unit are still given.
+- **Home** (RFC 0006): Shopper now opens on Home and not on the last list. **Continue** is the list you used last, with how many items are open on it (a new account's is its
+  _Groceries_, with what to do first); below it is a tile for every list, yours first and then those shared with you, with its icon in its colour, how many are open, whose it is
+  when someone shared it, and who is on it. Archived lists are behind a toggle. **At a glance** says how many items are open across your lists, how many you ticked in the last week
+  and what you buy most. All of it is worked out on your device, so it is there with no network. Someone who has just accepted an invitation still goes straight to that list.
+
+### Changed
+
+- **Under the hood:** Shopper's server and your device can now hold your **Inventory** (RFC 0006), the library of what you buy that its screen shows and the add field will use. It is yours
+  alone: no one on a list you share can reach it, and it is deleted with your account. A new setting, `SHOPPER_LIMIT_INVENTORY_ITEMS` (default 5000), says how many items it can hold. When your
+  lists are kept encrypted on your device, so is your Inventory: your device encrypts it under keys of its own, which no link to a list ever carries, and the server holds only what it
+  cannot read. That encryption is not yet audited. A list you share can now carry **the names of the categories its items use** (a copy of one of
+  your own, under the list's keys), so that the people on it read those and nothing else of your categories, once your lists are kept encrypted; nothing in Shopper offers it yet. Your own **categories** are yours alone in the same way: anyone else on a list you share sees only the starter categories by their usual
+  names, and not what you called them. A new setting, `SHOPPER_LIMIT_HOUSEHOLD_CATEGORIES` (default 100), says how many categories a group can have. A name you add to a list that your Inventory does not have yet is added to
+  it, marked once, without asking, in your own group whichever list you were on.
+
+### Fixed
+
+- **The sidebar marks Home as the page you are on** when you are at the front address, and remembers how you left the sidebar there as its own kind of page. The front address was
+  being taken for a page of its own with no name, so neither happened.
+
+## [0.6.0] - 2026-11-24
+
+**Before upgrading, hosted by Sovereign: allow `offline_access` for Shopper first.** Shopper now asks Sovereign for it, so that it can ask which apps you may open as you. In the
+Console, open Shopper's **Technical settings** and allow it (or register the manifest again) **before** the new version starts: Sovereign refuses a sign-in that asks for a scope the
+app is not allowed (`invalid_scope`, and no one can sign in) until it is. Someone already signed in gets the launcher after their next sign-in at Sovereign. No other scope is asked for.
+Shopper alone, with its own accounts, is not affected.
+
+### Added
+
+- **The apps you may open**, hosted by Sovereign: a launcher at the right of the header (on a wide screen) lists them, from what Sovereign says, and opens with no network from what your
+  device kept; it is gone when you sign out. It needs Sovereign 0.141.0 or later to list anything; before that there is no launcher.
+
+### Changed
+
+- **The frame is the suite's** (RFC 0005): the header, the sidebar and the phone's footer are the design system's, the same as in the other apps. The sidebar has **Home**, then
+  **My lists** (each with its icon in its colour and how many items are open, and _New list_) and **Shared with me** (with whose each is under its name); it is full, a rail of
+  icons or hidden, as you left it for that kind of page on this device, and what you had chosen before is kept. **_New list_ asks for the name in a dialog.** Archived lists are behind
+  a toggle under the lists. On a phone the footer is Home, the lists' drawer and Settings, and the header's button opens the same drawer; shopping mode has no footer, as before.
+  _Your lists_ is now _My lists_, and _Shared with you_ _Shared with me_.
+
+## [0.5.0] - 2026-11-23
+
+### Fixed
+
+- **Signing in through Sovereign checks the signature of the ID token** Sovereign returns, against the keys it publishes (`@sovereignfs/sdk` 2.11.1). Before, an ID token
+  signed with any key was believed, so someone able to answer for Sovereign's token endpoint could have signed a person in as anyone. Nothing to do but update.
+
+### Added
+
+- **A list's icon and colour** (RFC 0005): choose them in a list's settings, under Appearance. The icon is drawn in the colour before the list's name in
+  its header, in the sidebar (the narrow sidebar shows it in place of the letter) and in the phone's drawer. Both are encrypted on your device as the
+  list's name is (the suite's encryption is not yet audited), and a list you never gave either shows a cart and blue. Clearing the colour puts the blue back. There are icons for a shop, hardware, electronics, clothing, a gift, the garden, the office, the pharmacy, a baby, a pet and home as well as groceries.
+- **Every page has its title** (RFC 0005): a list is `<list> · Shopper`, shopping mode `Shopping <list> · Shopper`, Settings `<section> · Settings · Shopper` and
+  a list's settings `Settings · <list> · Shopper`. A list's name is encrypted, so your browser sets the title once it has opened the name, and until then
+  it is `Shopper`. A browser keeps titles in its history, and a history it syncs leaves the device with them: the one way an opened name leaves Shopper
+  (`docs/encryption.md`).
+
+### Changed
+
+- **Create an account**, hosted by a Sovereign instance, opens Sovereign's sign-up and not its sign-in (`prompt=create`). **This needs Sovereign 0.140.0 or later**:
+  an older one shows its sign-in, where there is no way to make an account.
+- **Settings is a dialog** (RFC 0005), over the page you opened it from (or over Home when you open its address), with four sections, each at its own address:
+  **Profile** (`/settings/profile`), **Security**, **Preferences** and **Data**. Sign-in and Encryption are in Security; This device and Notifications are in
+  Preferences, which also has how a list shows its items by default and, running alone, **Appearance** (light, dark or your system's) and your **time zone and
+  language**, which dates are written in. The old addresses
+  (`/settings?section=…`) go to the section that took their place. Hosted by a Sovereign instance, Profile is who Sovereign says you are, with its picture (also in the
+  header), and Security, Preferences and deleting your account link to Sovereign, which owns them.
+- **A list's settings are a dialog over the list** (RFC 0005), opened from the list's menu: **General** (its name, icon and colour) and **Archive and delete**, each at
+  its own address (`?settings=general`, `?settings=archive`), so Back closes it and a link opens it, with no network too. On a phone it is the whole screen.
+  `/l/<id>/settings` goes to it.
+- **An item opens beside its list** (RFC 0005): tap an item's row, or its pencil, and it opens in a column at the right of the list, which stays where it
+  is, so that you can open another beside it; on a phone, and wherever the list would be squeezed, it is a page of its own, with a back arrow on a phone. There
+  is no Save: each field is kept as you leave it, and what you were typing when you press Escape or go Back is kept too, on your device, with no network. A tap on a row no longer does nothing and a long press on a list no longer opens the item; the checkbox alone ticks,
+  and shopping mode is as it was.
+- **Shopping mode** (RFC 0005): the header has the list's icon and name with how many are left to get and in the basket; adding is behind **Add item**, which
+  opens the field and closes it when the item is added or you press Escape, and _Already in basket_ is now the switch **Put it straight in the basket**, off by
+  default; **Finish shopping** is a bar at the foot of the screen, with what is in the basket, that you can always reach, and the last item is never under it.
+- **A list's header** (RFC 0005): **Shop** is first and stands out, with its label on a phone too, and shows only while something is left to buy; **Share**
+  and the list's menu follow, all three of one height, with the menu's dots in line with the right edge of the items below.
+
+## [0.4.0] - 2026-11-23
+
+**Before upgrading:** an instance set up with both a Sovereign core and its own accounts (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=1`) now signs
+people in through Sovereign only, and says so once when it starts, naming the settings to remove. A person who signed in there with a password
+cannot any more: a Sovereign sign-in is never matched to a password account by its email, so through Sovereign they get a new, empty account.
+Before upgrading such an instance, have each of them move what they keep to an account they reach through Sovereign. An instance set up one way
+changes nothing.
+
+### Added
+
+- **Download my data** (Settings › Data): your lists, items, products and categories, and the people on your lists by name, as one readable `.json` file made
+  on your device. It is not encrypted, and it holds none of your keys. Running alone you type your password again first; **hosted by Sovereign you sign in
+  there again** if your last sign-in was more than five minutes ago, and come back to Settings.
+
+### Changed
+
+- **One way in** (RFC 0005): hosted by a Sovereign instance, Shopper signs people in through it only, and its `/sign-in` and `/sign-up` send the
+  browser there at once, keeping an invitation's page through the round trip. Coming back from Sovereign with a failure shows the reason and
+  **Try again**, once, and Sovereign that cannot be reached is said so, not shown as an error. The front page's button says **Sign in with
+  Sovereign**.
+- Running alone, sign-in, sign-up and the password reset are the design system's forms, as Sovereign's own are; sign-up and a new password ask for
+  the password twice. The recovery kit after a reset is still Shopper's, in the same card.
+
+## [0.3.0] - 2026-11-22
+
+**Before upgrading:** take a backup. Every session open at the upgrade ends, and each person signs in once more: with a password, which opens
+their lists as at any sign-in, or through Sovereign, whose core gives their keys again. `SHOPPER_CORE_URL` is the instance's own address with no
+path (`https://sovereign.example.com`); one ending in `/api/auth` now stops Shopper at start, naming the variable. The core it is registered with must
+let it come back to `/sign-in` after signing out (the manifest's `postLogout`). The move of the sign-in's tables happens by itself at the first start
+and cannot be undone: an older Shopper cannot read them after it.
+
+### Changed
+
+- **Sign-in is the suite's `@sovereignfs/auth`** (ADR 0001), not better-auth configured by hand: the same rules as Sovereign itself and every app,
+  and its tables. A password 0.1.0 stored still moves across at its next sign-in, for 90 days after the upgrade.
+- **Signing in through Sovereign** follows the person's Sovereign session: an hour after it was last checked, it is checked again on the next page,
+  and ends if they have signed out there. Signing out of it goes through Sovereign, which decides whether it signs them out there too. A notice from
+  Sovereign that one of its sessions ended ends only the sessions that came from it.
+- Signing in with an address not yet confirmed no longer sends another link by itself; the sign-in page offers **Send the link again**.
+- A sign-up refused because sign-up is closed is answered with 422, the package's answer, rather than 403.
+
+## [0.2.1] - 2026-11-22
+
+**If you sign in through a Sovereign core:** in 0.2.0 nothing of yours was encrypted on your device, and core never showed you a recovery kit. Open
+Shopper once after upgrading and choose **Unlock**: core shows your recovery kit the first time, and your lists are then encrypted as 0.2.0
+describes. Until then they stayed sealed by the server's key, as in 0.1.0. Accounts with a Shopper password were not affected.
+
+### Fixed
+
+- An account that signs in through a Sovereign core gets its key from core. 0.2.0 looked for the account's identity at core where it is never
+  recorded, so it asked core for no key and encrypted nothing.
+
 ## [0.2.0] - 2026-11-22
 
 **Before upgrading:** take a backup. Shopper now needs a Sovereign core of 0.126.0 or later when it is hosted. Every person who signs in with a password

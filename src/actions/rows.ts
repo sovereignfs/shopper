@@ -1,3 +1,4 @@
+import type { CodeKind } from '../cards/kinds';
 import type { Unit } from '../quantity/units';
 
 /**
@@ -12,6 +13,9 @@ export interface ListRow {
   readonly id: string;
   readonly householdId: string;
   readonly name: string;
+  /** The list's icon and colour (RFC 0005), sealed as its name is; `null` for a list that has none, which is shown with the defaults (`src/lists/appearance.ts`). */
+  readonly icon: string | null;
+  readonly color: string | null;
   /** A fractional key (DESIGN.md §9.6) among the household's lists, compared as text. */
   readonly position: string;
   /** How bought items leave the list; `manual` in 0.1.0 (§9.5). */
@@ -65,6 +69,29 @@ export interface ItemRow {
   readonly seq: number;
 }
 
+/**
+ * **An item of the person's Inventory** (DESIGN.md §8.8), in plain text as a device holds it. `name` is null for an override of a starter entry that keeps the
+ * starter's name (`starterKey` names the entry); `recurring` and `hidden` are booleans here and `0`/`1` in a mutation. It is the account's own and only a device
+ * of that account has it.
+ */
+export interface InventoryRow {
+  readonly id: string;
+  readonly householdId: string;
+  /** The starter entry this overrides, or null for one of the person's own. */
+  readonly starterKey: string | null;
+  readonly name: string | null;
+  readonly note: string | null;
+  readonly categoryId: string | null;
+  readonly icon: string | null;
+  readonly unit: Unit | null;
+  readonly quantity: string | null;
+  readonly recurring: boolean;
+  readonly hidden: boolean;
+  readonly deletedAt: number | null;
+  readonly createdAt: number;
+  readonly seq: number;
+}
+
 /** An item is open until it is ticked, then bought, then cleared; a deleted one is none of them (DESIGN.md §4). */
 export type ItemState = 'open' | 'bought' | 'cleared' | 'deleted';
 
@@ -72,4 +99,62 @@ export function itemState(item: Pick<ItemRow, 'boughtAt' | 'clearedAt' | 'delete
   if (item.deletedAt !== null) return 'deleted';
   if (item.clearedAt !== null) return 'cleared';
   return item.boughtAt !== null ? 'bought' : 'open';
+}
+
+/** A category of a group as a device holds it (§8.3): a starter category (its key set; the code's name until it is renamed) or one of the person's own. */
+export interface CategoryRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly starterKey: string | null;
+  readonly name: string;
+  readonly icon: string | null;
+  readonly position: string;
+  readonly hidden: boolean;
+  readonly deletedAt: number | null;
+  readonly seq: number;
+}
+
+/** A list's copy of a person's own category as a device holds it (§8.3): the list's, its name opened under the list's keys, and the source key a device made (never an id). */
+export interface ListCategoryRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly listId: string;
+  readonly sourceKey: string;
+  readonly name: string;
+  readonly icon: string | null;
+  readonly position: string;
+  readonly deletedAt: number | null;
+  readonly seq: number;
+}
+
+/** **A card linked to a list** (§7.7, task 24.6): the pair and nothing else. `deletedAt` is an unlink, which linking again clears. */
+export interface ListCardRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly listId: string;
+  readonly cardId: string;
+  readonly deletedAt: number | null;
+  readonly createdAt: number;
+  readonly seq: number;
+}
+
+/**
+ * **A loyalty card as a device holds it** (§7.7): the person's words opened under the card's keys (the device holds every row plain; the transport encrypts and opens each field),
+ * what kind of code it is and the value that code carries.
+ */
+export interface CardRow {
+  readonly id: string;
+  readonly householdId: string;
+  readonly shop: string;
+  readonly number: string;
+  readonly kind: CodeKind;
+  readonly code: string;
+  readonly icon: string | null;
+  readonly color: string | null;
+  readonly holder: string | null;
+  readonly note: string | null;
+  readonly position: string;
+  readonly deletedAt: number | null;
+  readonly createdAt: number;
+  readonly seq: number;
 }

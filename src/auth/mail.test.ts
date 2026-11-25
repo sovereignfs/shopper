@@ -85,16 +85,25 @@ describe(`verifying an address (${leg})`, () => {
     expect(reply.status).not.toBe(200);
   });
 
-  it('sends a new link to someone who signs in unconfirmed, and says the same of an address that has no account', async () => {
+  it('sends no link when someone signs in unconfirmed, a new one when asked, and answers the same for an address with no account', async () => {
     const { client, address } = await signedUp();
+    await t.settled();
     const before = mailer.sent.length;
+    // A wrong guess at a password must not fill an inbox (auth.md §4): signing in sends nothing.
     await client.post('/api/auth/sign-in/email', { email: address, password: PASSWORD });
+    await t.settled();
+    expect(mailer.sent.length).toBe(before);
+    // Asking for a link is its own request: the sign-in page offers it.
+    const asked = await visitor().post('/api/auth/send-verification-email', { email: address });
+    await t.settled();
     expect(mailer.sent.length).toBe(before + 1);
-    const stranger = await visitor().post('/api/auth/sign-in/email', {
+    const stranger = await visitor().post('/api/auth/send-verification-email', {
       email: 'nobody@example.com',
-      password: PASSWORD,
     });
-    expect(stranger.body).toMatchObject({ code: 'INVALID_EMAIL_OR_PASSWORD' });
+    await t.settled();
+    expect(mailer.sent.length).toBe(before + 1);
+    expect(stranger.status).toBe(asked.status);
+    expect(stranger.body).toEqual(asked.body);
   });
 });
 

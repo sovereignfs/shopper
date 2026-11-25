@@ -12,7 +12,10 @@ import type { Problem } from '../config';
  *   SHOPPER_AUTH_PASSWORD_MIN_LENGTH   the shortest password, 10 by default.
  *   SHOPPER_URL                        the address people use; required with either way (links, cookies and the redirect are made from it).
  *   SHOPPER_CORE_URL, SHOPPER_CORE_CLIENT_ID, SHOPPER_CORE_CLIENT_SECRET[_FILE]
- *                                      Sovereign sign-in, through a core: all three or none. Either way, or both, can be on.
+ *                                      Sovereign sign-in, through a core: all three or none.
+ *
+ * **One way in, never both** (RFC 0005): with a core it is suite mode, through core only; without, standalone, Shopper's own accounts. An instance
+ * that sets both starts in suite mode, with local sign-in off, and says so once at start-up (`localIgnored`), naming the settings to remove.
  *
  * With none of the ways on there is no sign-in at all, and the other settings here are not read.
  */
@@ -22,14 +25,16 @@ export interface AuthSettings {
   readonly secret: string;
   readonly signUp: 'open' | 'closed';
   readonly passwordMinLength: number;
-  /** Email and password are on. Off means off: their pages and routes answer 404. */
+  /** Email and password are on (standalone mode). Off means off: their pages and routes answer 404. Never on with `sovereign`. */
   readonly local: boolean;
+  /** `SHOPPER_AUTH_LOCAL` was on beside a core, and is off: suite mode wins. The settings that do nothing now, to say once at start-up. */
+  readonly localIgnored?: readonly string[];
   /** Sign-in through a core, or `undefined` when it is not set up. */
   readonly sovereign: SovereignSettings | undefined;
 }
 
 export interface SovereignSettings {
-  /** Core's address, its OIDC issuer: no trailing slash. Its discovery document is at `/.well-known/openid-configuration` under it. */
+  /** Core's address, its OIDC issuer: an origin, with no path. Its discovery document is at `/.well-known/openid-configuration` under it. */
   readonly issuer: string;
   readonly clientId: string;
   readonly clientSecret: string;
@@ -41,8 +46,11 @@ export const SOVEREIGN_PROVIDER_ID = 'sovereign';
 /**
  * What Shopper asks core for at sign-in. The manifest (`sovereign.manifest.json`) says the same, which a test holds it to (task 1.10). Core's key
  * release is not a scope asked for here: the manifest's `encryption` gives the app the `keys` scope once the operator allows it (RFC 0001, 18.3).
+ *
+ * `offline_access` is what gives Shopper the person's **refresh token**, which the SDK keeps sealed under `SHOPPER_ENCRYPTION_KEY` (`sdkTokenStore`) so that Shopper can
+ * call core **as the person** later: today to ask which apps they may open, for the launcher (RFC 0005, 22.11). It asks for no capability of its own.
  */
-export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email'];
+export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email', 'offline_access'];
 
 export const MIN_SECRET_LENGTH = 32;
 const DEFAULT_PASSWORD_MIN_LENGTH = 10;
@@ -63,9 +71,17 @@ export function resolveAuth(
   url: string | undefined,
   problems: Problem[],
 ): AuthSettings | undefined {
-  const local = readFlag(read, 'SHOPPER_AUTH_LOCAL', problems);
+  const asked = readFlag(read, 'SHOPPER_AUTH_LOCAL', problems);
   const sovereign = resolveSovereign(read, problems);
-  if (!local && !sovereign) return undefined;
+  if (!asked && !sovereign) return undefined;
+  // Suite mode wins: a core is the way in, never beside Shopper's own accounts.
+  const local = asked && !sovereign;
+  const localIgnored =
+    asked && sovereign
+      ? ['SHOPPER_AUTH_LOCAL', 'SHOPPER_AUTH_SIGNUP', 'SHOPPER_AUTH_PASSWORD_MIN_LENGTH'].filter(
+          (name) => read(name) !== undefined,
+        )
+      : undefined;
   const why = local ? 'SHOPPER_AUTH_LOCAL is on' : 'Sovereign sign-in is set';
 
   if (url === undefined && read('SHOPPER_URL') === undefined) {
@@ -103,7 +119,15 @@ export function resolveAuth(
   if (secret.length < MIN_SECRET_LENGTH || (rawSignUp !== 'open' && rawSignUp !== 'closed')) {
     return undefined;
   }
-  return { url, secret, signUp: rawSignUp, passwordMinLength, local, sovereign };
+  return {
+    url,
+    secret,
+    signUp: rawSignUp,
+    passwordMinLength,
+    local,
+    ...(localIgnored ? { localIgnored } : {}),
+    sovereign,
+  };
 }
 
 /**
@@ -136,8 +160,15 @@ function resolveSovereign(read: Read, problems: Problem[]): SovereignSettings | 
     problems.push('SHOPPER_CORE_URL has no user, query or fragment.');
     return undefined;
   }
+  // Core's issuer is the instance's own address (core-app §3.6), and the SDK takes no other.
+  if (parsed.pathname !== '/') {
+    problems.push(
+      'SHOPPER_CORE_URL is the instance’s own address, with no path: https://sovereign.example.com.',
+    );
+    return undefined;
+  }
   return {
-    issuer: `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, ''),
+    issuer: parsed.origin,
     clientId,
     clientSecret,
   };

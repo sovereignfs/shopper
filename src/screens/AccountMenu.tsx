@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { turnOffPush } from '@sovereignfs/pwa/client';
 import { UserMenu } from '@sovereignfs/ui';
+import { useAccount } from '../account/AccountProvider';
 import { useKeys } from '../keys/keys';
 import { useLocal, useLocalQuery } from '../local/react';
 import { failedCount } from '../local/store';
@@ -17,8 +18,19 @@ const PUSH_OFF_MS = 3_000;
  * device (`src/local/signout.ts`): it tries to send what is waiting, asks before it throws away what it cannot, ends the session, deletes this account's
  * working copy from the device and returns to the front address.
  */
-export function AccountMenu({ name, email }: { name: string; email: string }) {
+export function AccountMenu({
+  name,
+  email,
+  picture,
+}: {
+  name: string;
+  email: string;
+  /** Core's picture of the person in suite mode (RFC 0005); without one, their initials. */
+  picture?: string | undefined;
+}) {
   const router = useRouter();
+  // The name is the one Settings last saved, before the server is asked again.
+  const shown = useAccount().name ?? name;
   const { leave } = useLocal();
   const keys = useKeys();
   // What the server refused and the person has not yet seen to: a mark on the avatar and an entry in its menu (DESIGN.md §12.5).
@@ -35,18 +47,25 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         turnOffPush(),
         new Promise((resolve) => setTimeout(resolve, PUSH_OFF_MS)),
       ]);
+    // Where to go afterwards, asked while the session is still there: core's sign-out for a session that came from core (auth.md §8).
+    const throughCore = await fetch('/api/account/sign-out', { cache: 'no-store' })
+      .then(async (reply) =>
+        reply.ok ? ((await reply.json()) as { url: string | null }).url : null,
+      )
+      .catch(() => null);
     // Not left: the person kept their unsent changes, or the server could not be reached to end the session. Either way they are as they were.
     if ((await leave()).status !== 'left') return setLeaving(false);
     // What this browser keeps of the key goes too (RFC 0001); with the session gone it opened nothing anyway.
     await keys.forget();
-    window.location.assign('/');
+    window.location.assign(throughCore ?? '/');
   }
 
   return (
     <span className={styles.wrap}>
       <UserMenu
-        name={name}
+        name={shown}
         email={email}
+        {...(picture ? { avatarUrl: picture } : {})}
         size="sm"
         aria-label="User menu"
         items={[
@@ -56,7 +75,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
                 {
                   label: `Couldn't sync (${refused})`,
                   icon: 'alert-triangle' as const,
-                  onSelect: () => router.push('/settings?section=device'),
+                  onSelect: () => router.push('/settings/device'),
                 },
               ]
             : []),

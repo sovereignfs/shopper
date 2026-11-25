@@ -51,7 +51,7 @@ test('a second person opens the link, makes an account, comes back to it, joins,
   // Grace lands on Ada's list, with Ada's Milk, shared with her, and ticks it.
   await expect(guest.getByRole('checkbox', { name: /Milk/ })).toBeVisible({ timeout: 30_000 });
   await expect(
-    guest.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with you'),
+    guest.getByRole('navigation', { name: 'Shopper' }).getByText('Shared with me'),
   ).toBeVisible();
   await guest.getByRole('checkbox', { name: /Milk/ }).click();
   await expect(guest.getByRole('button', { name: /Bought \(1\)/ })).toBeVisible();

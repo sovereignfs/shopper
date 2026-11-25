@@ -33,26 +33,26 @@ households, trips and notices are built encrypted from their first line.
 - [x] A 0.1.0 database upgrades, and every household of one member opened once is encrypted with nothing lost; a shared one stays sealed and says
       so until its members can be given its keys (18.10, RFC 0001 amendment 2).
 - [ ] A push reaches a subscribed browser once, alone and hosted; turning it off stops it; deleting the account forgets the device (19.1, 19.2).
-- [ ] Core's export of a person includes Shopper's part; alone, a person and the operator each take their export from Settings; an export imports
+- [ ] Core's export of a person includes Shopper's part; alone, a person (now readable, by 22.8 of workstream 0002) and the operator each take their export from Settings; an export imports
       into a second account (20.1 to 20.4).
 - [ ] The release is published with a security review of what changed (12.7).
 
 ## Decisions locked
 
-| Decision                    | Choice                                                                                        | Rejected alternative and why                                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Whose encryption            | `sovereign`'s RFC 0005 through `@sovereignfs/sdk` (`/keys`, `/local-vault`, `/vault`)         | Shopper's `t1` envelope (§13 as it stands), Tally's own cipher: the owner's decision is to adopt the suite's |
-| Opt-in or always            | Always on, every household, no setting                                                        | Tusk's opt-in: two code paths, and a household is only as private as its least careful member                |
-| What is encrypted           | Content: names, notes, prices, shops, barcodes, receipt totals                                | Whole rows (Wallet): the sync engine moved into the browser for little gain                                  |
-| What the server still seals | Person name and email, invitation email, core's refresh token, push device keys               | Encrypting identity: mail and the invitation page need it before the reader has a key                        |
-| Key source                  | Per account, by how it signs in: core's key release, or Shopper's vault                       | Per instance: an instance with both ways in would break                                                      |
-| Household key               | An SDK document key, sealed to each member with `share()`, a new epoch when someone leaves    | One key per list: a household's catalog is shared by its lists                                               |
-| Name key                    | HMAC under a key from the household's first key, made in the browser, not rotated with epochs | Rotated with epochs: folding would miss across devices                                                       |
-| Invitation by link          | The household key wrapped under a secret in the link's fragment, built on SDK primitives      | Waiting for 16.9: sharing by link is the MVP's only way to share                                             |
-| Push                        | `@sovereignfs/push` and `@sovereignfs/pwa`, the same alone and hosted                         | Core relaying pushes: it does not, by RFC 0009                                                               |
-| Export                      | `contracts/export.md` through `@sovereignfs/export`; content as ciphertext                    | §18's plain JSON file                                                                                        |
-| Backup                      | The instance's (`sv backup`) hosted; the operator's database backup alone                     | A backup endpoint in Shopper: core has none to call                                                          |
-| Where in the order          | Before phase 2                                                                                | Folded into phase 2: households and notices would be built twice                                             |
+| Decision                    | Choice                                                                                                                | Rejected alternative and why                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Whose encryption            | `sovereign`'s RFC 0005 through `@sovereignfs/sdk` (`/keys`, `/local-vault`, `/vault`)                                 | Shopper's `t1` envelope (§13 as it stands), Tally's own cipher: the owner's decision is to adopt the suite's |
+| Opt-in or always            | Always on, every household, no setting                                                                                | Tusk's opt-in: two code paths, and a household is only as private as its least careful member                |
+| What is encrypted           | Content: names, notes, prices, shops, barcodes, receipt totals                                                        | Whole rows (Wallet): the sync engine moved into the browser for little gain                                  |
+| What the server still seals | Person name and email, invitation email, core's refresh token, push device keys                                       | Encrypting identity: mail and the invitation page need it before the reader has a key                        |
+| Key source                  | Per account, by how it signs in: core's key release, or Shopper's vault                                               | Per instance: an instance with both ways in would break                                                      |
+| Household key               | An SDK document key, sealed to each member with `share()`, a new epoch when someone leaves                            | One key per list: a household's catalog is shared by its lists                                               |
+| Name key                    | HMAC under a key from the household's first key, made in the browser, not rotated with epochs                         | Rotated with epochs: folding would miss across devices                                                       |
+| Invitation by link          | The household key wrapped under a secret in the link's fragment, built on SDK primitives                              | Waiting for 16.9: sharing by link is the MVP's only way to share                                             |
+| Push                        | `@sovereignfs/push` and `@sovereignfs/pwa`, the same alone and hosted                                                 | Core relaying pushes: it does not, by RFC 0009                                                               |
+| Export                      | `contracts/export.md` through `@sovereignfs/export`; content as ciphertext (a person's own: readable, RFC 0005, 22.8) | §18's plain JSON file                                                                                        |
+| Backup                      | The instance's (`sv backup`) hosted; the operator's database backup alone                                             | A backup endpoint in Shopper: core has none to call                                                          |
+| Where in the order          | Before phase 2                                                                                                        | Folded into phase 2: households and notices would be built twice                                             |
 
 ## Prerequisites
 

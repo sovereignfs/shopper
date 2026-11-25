@@ -41,6 +41,8 @@ export interface HouseholdPull {
     readonly epoch: number;
     readonly keyring: string | null;
     readonly lists?: Readonly<Record<string, string>>;
+    /** The reader's own copies of the keys of cards they are on (RFC 0007), by card; a server from before cards sends none. */
+    readonly cards?: Readonly<Record<string, string>>;
     /** The reader's own person, whom the keyring is wrapped for. */
     readonly person: string | null;
   };
@@ -48,10 +50,25 @@ export interface HouseholdPull {
   readonly items: readonly Record<string, unknown>[];
   readonly products: readonly Record<string, unknown>[];
   readonly categories: readonly Record<string, unknown>[];
+  /**
+   * The reader's own Inventory (§8.8): rows of the reader's own group only, and **none for anyone else** (a person on one of the group's lists is handed
+   * nothing of it). Absent from a server that does not have it yet, which a device reads as none.
+   */
+  readonly inventory?: readonly Record<string, unknown>[];
+  /** The copies of people's categories on the lists the reader is on (§8.3), their names ciphertext under the list's keys; a server from before them sends none. */
+  readonly listCategories?: readonly Record<string, unknown>[];
   /** The people of the reader's lists, one row a person a list (`listId`), as the reader may see them (§6.1). */
   readonly members: readonly Record<string, unknown>[];
   /** Every list of this group the reader may see now (RFC 0004): the device forgets any other it holds. */
   readonly visibleLists?: readonly string[];
+  /** The cards the reader is on in this group (RFC 0007), their fields ciphertext under each card's keys; a server from before cards sends none. A card is its people's alone. */
+  readonly cards?: readonly Record<string, unknown>[];
+  /** The people of the reader's cards, one row a person a card (`cardId`), as the reader may see them (§6.1). */
+  readonly cardMembers?: readonly Record<string, unknown>[];
+  /** Every card of this group the reader may see now: the device forgets any other it holds. */
+  readonly visibleCards?: readonly string[];
+  /** The cards linked to the reader's lists, for the reader who is on both the list and the card (§7.7, 24.6): the pair and an unlink, nothing sealed. A server from before them sends none. */
+  readonly listCards?: readonly Record<string, unknown>[];
   readonly tombstones: readonly { table: string; id: string; seq: number }[];
   readonly aliases: readonly {
     table: string;

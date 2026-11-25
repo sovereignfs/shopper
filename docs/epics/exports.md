@@ -37,6 +37,8 @@ items, products and categories, content as the ciphertext it is, marked as envel
 
 #### 🚧 20.2 — A person's export with no core
 
+**Replaced in form (2026-11-23)** by 22.8 ([RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md)): a person's own export is one readable JSON file made in the browser, after confirming it is them, in both modes. The operator's export (20.3) and import (20.4) stay as written.
+
 **Goal:** alone, a person takes their own export. **Design:** RFC 0003, sdk §9.5. **Depends on:** 20.1.
 
 **Technical:** `ExportJobs` on Shopper's database (`exportJobsMigrations`, both dialects), `ExportRunner` as a claimed job, `downloadExport`,
@@ -52,7 +54,7 @@ items, products and categories, content as the ciphertext it is, marked as envel
 
 #### 🚧 20.3 — The app's export for its operator
 
-**Goal:** alone, the operator takes the whole app's export, encrypted. **Design:** RFC 0003, sdk §9.5. **Depends on:** 20.2.
+**Goal:** alone, the operator takes the whole app's export, encrypted. **Design:** RFC 0003, sdk §9.5. **Depends on:** 20.2 (its form replaced by 22.8; what this needs of it is the route that selects a person's records).
 
 **Technical:** the operator as the first account; age recipients saved on Settings › Data, after the password again; `kind: "app"`, encrypted as it
 is written with `encryptTo`; anyone else gets a page that is not there.
@@ -67,7 +69,8 @@ is written with `encryptTo`; anyone else gets a page that is not there.
 
 #### 🚧 20.4 — Import
 
-**Goal:** an export comes back in as new households. **Design:** RFC 0003, "Import and restore"; §18.2. **Depends on:** 20.2.
+**Goal:** an export comes back in as new households. **Design:** RFC 0003, "Import and restore"; §18.2. **Depends on:** 20.2 (its form replaced by 22.8). **Reads both** the contract's export and 22.8's readable JSON file (RFC 0005, settled 2026-11-23); a
+readable file's values are encrypted in the browser as they are written.
 
 **Technical:** `readExport`; opened in the browser with the person's keys; new households with new keys, written through the one path; products folded
 by name key; the person's own household merged into theirs; a malformed or newer file writes nothing.

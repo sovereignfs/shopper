@@ -44,27 +44,16 @@ export function messageFor(
 }
 
 /**
- * The `?error=` code better-auth puts on the sign-in page when a sign-in through Sovereign fails after the person has left and come back. These are not API
- * errors: some are our own policy (a closed sign-up) and some are core's (it refused the client). Each says what the person can do, and none says more about
- * an account than they already know.
+ * The `?error=` code `@sovereignfs/auth/core` puts on the sign-in page when a sign-in through Sovereign fails after the person has left and come back
+ * (auth.md §8). Each says what the person can do, and none says more about an account than they already know.
  */
 const BY_OAUTH_ERROR: Record<string, string> = {
+  sovereign: 'Signing in with Sovereign did not complete. Try again.',
+  sovereign_email: 'Sovereign did not share an email address, which this app needs.',
+  sovereign_refused: 'This account cannot sign in here. Ask whoever runs this instance.',
+  sovereign_unreachable: 'Sovereign could not be reached. Try again in a moment.',
   account_not_linked:
     'There is already an account here with that email address. Sign in with your password.',
-  account_already_linked_to_different_user:
-    'That Sovereign account is already linked to another account here.',
-  unable_to_link_account: 'Sovereign could not be linked to this account. Try again.',
-  SIGNUP_CLOSED: 'Sign-up is closed on this instance. Ask whoever runs it to let you in.',
-  unable_to_create_user: 'Sign-up is closed on this instance. Ask whoever runs it to let you in.',
-  signup_disabled: 'Sign-up is closed on this instance. Ask whoever runs it to let you in.',
-  email_not_verified:
-    'Sovereign has not confirmed your email address yet. Confirm it there and try again.',
-  email_not_found: 'Sovereign did not share an email address, which this app needs.',
-  access_denied: 'You declined to share your Sovereign account, so you were not signed in.',
-  invalid_code: 'Signing in with Sovereign did not complete. Try again.',
-  state_mismatch: 'Your sign-in took too long or was started somewhere else. Start again.',
-  please_restart_the_process:
-    'Your sign-in took too long or was started somewhere else. Start again.',
 };
 
 /** A message for the `?error=` on the sign-in page, or null when there is none to show. */

@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { readSession } from '@sovereignfs/auth/server';
 import { sameOrigin } from '@/src/access/origin';
 import { getAuth } from '@/src/auth/server';
 import { getConfig } from '@/src/config/current';
@@ -21,7 +22,7 @@ const answer = (status: number, body: Record<string, unknown>) =>
 export async function POST(request: Request): Promise<Response> {
   const auth = await getAuth();
   if (!auth) return new Response(null, { status: 404 });
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await readSession(auth, await headers());
   if (!session) return answer(401, { ok: false, error: 'signed_out' });
   const config = getConfig();
   if (!config.url || !sameOrigin(request, config.url))

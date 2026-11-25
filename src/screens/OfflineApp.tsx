@@ -1,21 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '@sovereignfs/ui';
 import { isId } from '../actions/format';
 import { type Identity, readIdentity, readKeySource } from '../identity';
 import { KeysProvider, parseKeySource } from '../keys/keys';
 import { LocalProvider } from '../local/react';
-import { site } from '../site';
 import { answersOffline } from '../sw/shared';
-import { AppShell } from '../ui/AppShell';
+import { PlainFrame } from '../frame/PlainFrame';
+import { ShopperLauncher } from '../frame/ShopperLauncher';
+import { SignedInFrame } from '../frame/SignedInFrame';
 import { AccountMenu } from './AccountMenu';
 import { HomeScreen } from './HomeScreen';
+import { CardScreen } from './CardScreen';
+import { CardsScreen } from './CardsScreen';
+import { InventoryScreen } from './InventoryScreen';
 import { ListScreen } from './ListScreen';
-import { ListSettings } from './ListSettings';
-import { ShellFrame } from './ShellFrame';
 import { ShopScreen } from './ShopScreen';
 import { UndoProvider } from './Undo';
 
@@ -23,11 +25,12 @@ import { UndoProvider } from './Undo';
  * Shopper with no server document (DESIGN.md §16.11). The service worker answers a signed-in address with the one page it keeps, `/shell`, which holds
  * nothing of a person and is the same for everyone; this is what that page is. It finds who is signed in on the device (`src/identity.ts`), makes the
  * composition the server's layout makes, and **chooses the screen from the address**, since the page it came in is not the page of the address: the front
- * address and `/home` are the last list, `/l/<id>` that list, `/l/<id>/settings` its settings and `/shop?l=<id>` shopping mode. The screens read the
+ * address and `/home` are Home, `/l/<id>` that list (its settings are a dialog over it, `?settings=`), `/l/<id>/settings` an old address that goes there, `/shop?l=<id>` shopping mode, and `/inventory` the person's Inventory, `/cards` their loyalty cards and `/cards/<id>` one of them. The screens read the
  * device's store and write through `commit`, so they need none of the server. Any other address says it needs a connection (`answersOffline`).
  */
 const LIST = /^\/l\/([0-9a-f-]{36})$/;
 const LIST_SETTINGS = /^\/l\/([0-9a-f-]{36})\/settings$/;
+const CARD = /^\/cards\/([0-9a-f-]{36})$/;
 
 export function OfflineApp() {
   // Not known until the page is in the browser: the server renders nothing of a person.
@@ -39,22 +42,30 @@ export function OfflineApp() {
   if (who === undefined) return null;
   if (who === null)
     return (
-      <AppShell name={site.name}>
+      <PlainFrame>
         <EmptyState
           icon="list-todo"
           heading="Shopper"
           description="Sign in to use Shopper. This needs a connection."
           action={<Link href="/sign-in">Sign in</Link>}
         />
-      </AppShell>
+      </PlainFrame>
     );
   return (
     <KeysProvider source={keySource}>
       <LocalProvider accountId={who.id}>
         <UndoProvider>
-          <ShellFrame account={<AccountMenu name={who.name} email={who.email} />}>
+          <SignedInFrame
+            account={<AccountMenu name={who.name} email={who.email} />}
+            // In suite mode (the key comes from core) the apps this device kept for the account, with no network to ask for more.
+            launcher={
+              keySource?.kind === 'core' ? (
+                <ShopperLauncher accountId={who.id} core={keySource.core} />
+              ) : undefined
+            }
+          >
             <Screen />
-          </ShellFrame>
+          </SignedInFrame>
         </UndoProvider>
       </LocalProvider>
     </KeysProvider>
@@ -67,14 +78,25 @@ function Screen() {
   // The worker answers every address with this page when there is no network; only the signed-in screens are here (DESIGN.md §16.11).
   if (!answersOffline(pathname)) return <NeedsConnection />;
   const settings = LIST_SETTINGS.exec(pathname)?.[1];
-  if (settings) return <ListSettings id={settings} />;
+  if (settings) return <ToSettings id={settings} />;
   const list = LIST.exec(pathname)?.[1];
   if (list) return <ListScreen id={list} />;
   if (pathname === '/shop') {
     const id = params.get('l');
     return id && isId(id) ? <ShopScreen id={id} /> : <NotHere />;
   }
+  if (pathname === '/inventory') return <InventoryScreen />;
+  if (pathname === '/cards') return <CardsScreen />;
+  const card = CARD.exec(pathname)?.[1];
+  if (card) return <CardScreen id={card} />;
   return <HomeScreen />;
+}
+
+/** `/l/<id>/settings` is not a page any more: the dialog is over the list, which this goes to, with no server to do it. */
+function ToSettings({ id }: { id: string }) {
+  const router = useRouter();
+  useEffect(() => router.replace(`/l/${id}?settings=general`), [router, id]);
+  return null;
 }
 
 function NeedsConnection() {

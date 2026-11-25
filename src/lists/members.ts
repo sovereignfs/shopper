@@ -40,7 +40,8 @@ export async function stampList(
   list: string,
   seq: number,
 ): Promise<void> {
-  for (const table of ['list', 'item'] as const)
+  // The list, its items and **its copies of people's categories** (§8.3): someone who joins a list from a group they are already on has pulled past all of them.
+  for (const table of ['list', 'item', 'list_category', 'list_card'] as const)
     await dbAll(
       database,
       sql`UPDATE ${appTable(database, table)} SET seq = ${seq} WHERE household_id = ${household} AND ${table === 'list' ? sql`id` : sql`list_id`} = ${list} RETURNING id`,

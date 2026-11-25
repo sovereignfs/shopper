@@ -9,7 +9,8 @@ import styles from './Landing.module.css';
  * instance), and sign-in only where it is set up at all.
  */
 export async function Landing() {
-  const signIn = authSettings() !== undefined;
+  const settings = authSettings();
+  const signIn = settings !== undefined;
   const signUp = signIn && (await signUpAvailable());
   return (
     <main className={styles.page}>
@@ -19,7 +20,9 @@ export async function Landing() {
 
         {signIn ? (
           <div className={styles.actions}>
-            <ButtonLink href="/sign-in">{landing.signIn}</ButtonLink>
+            <ButtonLink href="/sign-in">
+              {settings?.sovereign ? landing.signInSuite : landing.signIn}
+            </ButtonLink>
             {signUp ? (
               <ButtonLink href="/sign-up" variant="secondary">
                 {landing.signUp}

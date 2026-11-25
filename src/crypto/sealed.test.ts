@@ -114,11 +114,16 @@ describe('the name key', () => {
 
 describe('the registry and the design', () => {
   const design = readFileSync(new URL('../../DESIGN.md', import.meta.url), 'utf8');
-  const squash = (text: string) => text.toLowerCase().replace(/[^a-z]/g, '');
+  // The design says "colour" and a field is `color` (Tally's, and CSS's): one word.
+  const squash = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/colour/g, 'color')
+      .replace(/[^a-z]/g, '');
 
   /** What §13.1's table says is sealed: table name to the fields, in the words of the design. */
   function sealedInDesign(): Map<string, Set<string>> {
-    const line = design.split('\n').find((l) => l.startsWith('| Household: name; list: name;'));
+    const line = design.split('\n').find((l) => l.startsWith('| Household: name; list: '));
     if (!line) throw new Error('DESIGN.md §13.1 no longer has its table of sealed fields');
     const cell = line.split('|')[1] ?? '';
     const out = new Map<string, Set<string>>();
@@ -145,6 +150,7 @@ describe('the registry and the design', () => {
     const rows = sealedInDesign();
     expect(rows.get('household')).toEqual(new Set(['name']));
     expect(rows.get('item')).toEqual(new Set(['name', 'note', 'price']));
+    expect(rows.get('list')).toEqual(new Set(['name', 'icon', 'color']));
     expect(rows.size).toBeGreaterThanOrEqual(8);
     const held = squash(design.slice(design.indexOf('### 13.4'), design.indexOf('### 13.5')));
     expect(held).toContain(squash("a person's name and email"));

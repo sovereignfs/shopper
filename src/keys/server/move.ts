@@ -13,36 +13,79 @@ import { FIELD_VALUE, NAME_KEY, boundTo } from '../household';
  * **Moving a household** (RFC 0001, amendment 2; DESIGN.md §13.7): from content the server seals to content its device encrypts. One household-level
  * operation in two calls, for the household's **only** member:
  *
- * 1. `moveManifest` opens the household's rows one last time, for that member: every list, item and product, deleted or not, with its content.
- * 2. `moveHousehold` takes them back encrypted, with the keyring wrapped for that member and each product's name key made by the device, and in one
- *    transaction writes every row's ciphertext, empties its sealed content, rewrites the name keys, keeps the keyring and marks the household encrypted,
+ * 1. `moveManifest` opens the household's rows one last time, for that member: every list, item, product and Inventory item, deleted or not, with its content.
+ * 2. `moveHousehold` takes them back encrypted, with the keyring wrapped for that member and each product's and Inventory item's name key made by the device,
+ *    and in one transaction writes every row's ciphertext, empties its sealed content, rewrites the name keys, keeps the keyring and marks the household encrypted,
  *    **only if the household's `seq` is still the manifest's** and every row is answered for, each value for its own row. Otherwise nothing changes, and
  *    the device asks again.
  *
  * A household with anyone else in it is not moved (the others could not be given its keys yet, amendment 2), nor one already moved.
  */
-const MOVED: readonly SyncedTable[] = ['list', 'item', 'product'];
+/**
+ * The tables a household's move takes into encryption: every one a household has. **An Inventory item moves with the group it is in** (§8.8, §13.7): it is
+ * the person's own group's alone, and the move is for that group's only member, so nobody else's Inventory is in one. Its values are for the group, in the place of
+ * a list, under the group's Inventory keys, which the device derives from the keyring it makes (§13.2).
+ */
+// A link between a list and a card (24.6) holds nothing a person wrote, so the move takes nothing of it: it is the table the move does not carry.
+type MovedTable = Exclude<SyncedTable, 'list_card'>;
+const MOVED: readonly MovedTable[] = [
+  'list',
+  'item',
+  'product',
+  'inventory_item',
+  'category',
+  'list_category',
+  'card',
+];
 
 export interface MoveDeps {
   readonly database: Database;
   readonly ring: KeyRing;
 }
 
+/**
+ * **A group's categories that hold content** (§8.3): its starter categories are 15 rows with the code's names, which are nothing to encrypt; the move answers
+ * for the ones with a sealed name (a person's own, and a starter one they renamed, even back to the code's), in the manifest and in the count alike, so that a
+ * group that has none, and a shell from before, move as they did.
+ */
+const categoriesWithContent = (database: Database, household: string, withContent: boolean) =>
+  withContent
+    ? sql`SELECT id, sealed FROM ${appTable(database, 'category')} WHERE household_id = ${household} AND sealed IS NOT NULL AND sealed <> '' ORDER BY id`
+    : sql`SELECT id FROM ${appTable(database, 'category')} WHERE household_id = ${household} AND sealed IS NOT NULL AND sealed <> ''`;
+
+/** A row as the manifest gives it to its device: its content opened, and what its values are bound to. */
+export interface ManifestRow {
+  readonly id: string;
+  readonly list: string;
+  readonly fields: Record<string, string | null>;
+  /** An Inventory item's starter entry, or null for one of the person's own. */
+  readonly starterKey?: string | null;
+}
+
 export interface Manifest {
   readonly seq: number;
   readonly person: string;
-  /** Each row with its list (a list's own id, an item's or a product's list), whose keys its values are encrypted under (RFC 0004). */
-  readonly rows: Readonly<
-    Record<
-      SyncedTable,
-      readonly { id: string; list: string; fields: Record<string, string | null> }[]
-    >
-  >;
+  /**
+   * Each row with its list (a list's own id, an item's or a product's list), whose keys its values are encrypted under (RFC 0004); an Inventory item's is its
+   * group (its keys are the group's Inventory keys), and it says its starter entry, whose name its name key is made from when it has none of its own.
+   */
+  readonly rows: Readonly<Record<MovedTable, readonly ManifestRow[]>>;
 }
 
-/** The list a row's values are bound to: a list's own id, else its `list_id` (empty for a product from before lists had catalogs, which cannot move). */
-const listOfRow = (table: SyncedTable, row: { id: string; list_id?: string | null }): string =>
-  table === 'list' ? row.id : (row.list_id ?? '');
+/**
+ * What a row's values are bound to: a list's own id, else its `list_id` (empty for a product from before lists had catalogs, which cannot move); for an
+ * Inventory item, the group (it has no list).
+ */
+const listOfRow = (
+  table: MovedTable,
+  row: { id: string; list_id?: string | null },
+  household: string,
+): string =>
+  table === 'list' || table === 'card'
+    ? row.id
+    : table === 'inventory_item' || table === 'category'
+      ? household
+      : (row.list_id ?? '');
 
 /**
  * The group, if it is this account's own, nobody else is on any of its lists (RFC 0004), no link to one of them is waiting, and it is still sealed: its
@@ -83,16 +126,22 @@ export async function moveManifest(
   const { database, ring } = deps;
   const here = await movable(database, household, accountId);
   if (!here) return undefined;
-  const rows = {} as Record<
-    SyncedTable,
-    { id: string; list: string; fields: Record<string, string | null> }[]
-  >;
+  const rows = {} as Record<MovedTable, ManifestRow[]>;
   for (const table of MOVED) {
-    const found = await dbAll<{ id: string; sealed: string | null; list_id?: string | null }>(
+    const found = await dbAll<{
+      id: string;
+      sealed: string | null;
+      list_id?: string | null;
+      starter_key?: string | null;
+    }>(
       database,
-      table === 'list'
+      table === 'list' || table === 'card'
         ? sql`SELECT id, sealed FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
-        : sql`SELECT id, sealed, list_id FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`,
+        : table === 'inventory_item'
+          ? sql`SELECT id, sealed, starter_key FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`
+          : table === 'category'
+            ? categoriesWithContent(database, household, true)
+            : sql`SELECT id, sealed, list_id FROM ${appTable(database, table)} WHERE household_id = ${household} ORDER BY id`,
     );
     rows[table] = found.map((row) => {
       const opened = row.sealed ? unsealRow(table, row.id, row.sealed, ring) : {};
@@ -101,7 +150,12 @@ export async function moveManifest(
         const value = opened[field];
         fields[field] = typeof value === 'string' ? value : null;
       }
-      return { id: row.id, list: listOfRow(table, row), fields };
+      return {
+        id: row.id,
+        list: listOfRow(table, row, household),
+        fields,
+        ...(table === 'inventory_item' ? { starterKey: row.starter_key ?? null } : {}),
+      };
     });
   }
   return { seq: here.seq, person: here.person, rows };
@@ -119,7 +173,19 @@ export const moveInput = z.object({
     .string()
     .regex(/^hk1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
     .max(8192),
-  rows: z.object({ list: z.array(movedRow), item: z.array(movedRow), product: z.array(movedRow) }),
+  rows: z.object({
+    list: z.array(movedRow),
+    item: z.array(movedRow),
+    product: z.array(movedRow),
+    // A shell from before Inventory moved sends none; the count below refuses it if the group has any (and the device asks again with a newer one).
+    inventory_item: z.array(movedRow).default([]),
+    // The group's categories that hold content: a name a person gave a starter, and their own (§8.3). The rest have nothing to move.
+    category: z.array(movedRow).default([]),
+    // A list's copies of people's categories (§8.3): a group the server still seals has none (a copy is refused there), so there is nothing to answer, and a device sends none.
+    list_category: z.array(movedRow).default([]),
+    // A card (§7.7) is every field a ciphertext under its own keys, which a group the server still seals has none of, so the server refuses one there: nothing to answer for.
+    card: z.array(movedRow).default([]),
+  }),
 });
 
 export type MoveInput = z.infer<typeof moveInput>;
@@ -149,12 +215,14 @@ export async function moveHousehold(
     for (const table of MOVED) {
       const found = await dbAll<{ id: string; list_id?: string | null }>(
         tx,
-        table === 'list'
-          ? sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`
-          : sql`SELECT id, list_id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
+        table === 'category'
+          ? categoriesWithContent(tx, household, false)
+          : table === 'list' || table === 'inventory_item' || table === 'card'
+            ? sql`SELECT id FROM ${appTable(tx, table)} WHERE household_id = ${household}`
+            : sql`SELECT id, list_id FROM ${appTable(tx, table)} WHERE household_id = ${household}`,
       );
       const ids = found.map((row) => row.id);
-      const listOf = new Map(found.map((row) => [row.id, listOfRow(table, row)]));
+      const listOf = new Map(found.map((row) => [row.id, listOfRow(table, row, household)]));
       const sent = input.rows[table];
       // Every row once, each value made for its own row, and nothing of another table's content.
       if (sent.length !== ids.length || new Set(sent.map((row) => row.id)).size !== sent.length)
@@ -169,13 +237,15 @@ export async function moveHousehold(
           if (value !== null && (bound?.row !== row.id || bound.list !== listOf.get(row.id)))
             throw new Incomplete();
         }
-        if (table === 'product' && !row.nameKey) throw new Incomplete();
+        // A product's name key and an Inventory item's are made by the device: the server cannot, now that it cannot read the name.
+        if ((table === 'product' || table === 'inventory_item') && !row.nameKey)
+          throw new Incomplete();
         const content = Object.fromEntries(
           Object.entries(row.fields).filter(([, value]) => value !== null),
         );
         await dbRun(
           tx,
-          table === 'product'
+          table === 'product' || table === 'inventory_item'
             ? sql`UPDATE ${appTable(tx, table)} SET encrypted = ${JSON.stringify(content)}, sealed = '', name_key = ${row.nameKey ?? null}, seq = ${seq}
                   WHERE id = ${row.id} AND household_id = ${household}`
             : sql`UPDATE ${appTable(tx, table)} SET encrypted = ${JSON.stringify(content)}, sealed = '', seq = ${seq}

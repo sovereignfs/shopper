@@ -154,7 +154,8 @@ export class SyncClient {
     const list = await db.get('list', listId);
     if (!entry || !list || list.deletedAt !== null) return false;
     const last = (await itemsOf(db, list.id, { cleared: true })).at(-1)?.position ?? null;
-    const mutation = remake(entry.mutation, list, last, this.newId);
+    const copies = new Set((await db.getAll('list_category')).map((copy) => copy.id));
+    const mutation = remake(entry.mutation, list, last, this.newId, copies);
     if (!mutation) return false;
     const verdict = validateMutation(mutation);
     if (!verdict.ok) throw new InvalidMutation(verdict.problem);

@@ -1,10 +1,17 @@
+import type { Database as AuthStore } from '@sovereignfs/auth/database';
 import { runMigrations } from '../db/migrate';
 import { freshDatabase } from '../db/test-support';
 import type { Mailer } from '../mail/mailer';
 import { createAuth } from './auth';
 import type { AuthSettings } from './config';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { createSovereign } from '@sovereignfs/sdk';
+import { ringOf } from '../crypto/keys';
+import { SOVEREIGN_SCOPES } from './config';
+import { sdkSessionStore, sdkTokenStore } from './sdk-stores';
 import { isDerived } from './derived';
+import { migrateAuthStore } from './migrate';
+import { openAuthStore } from './store';
 
 /**
  * Everything a test of the sign-in flows needs: a better-auth instance on a freshly migrated auth store (on whichever database the leg is running),
@@ -14,8 +21,13 @@ import { isDerived } from './derived';
 export interface TestAuth {
   auth: ReturnType<typeof createAuth>;
   settings: AuthSettings;
+  /** The auth store through Shopper's own handle, for a test that reads its tables. */
   database: Awaited<ReturnType<typeof freshDatabase>>['database'];
+  /** The same store as `@sovereignfs/auth` takes it. */
+  store: AuthStore;
   client(): TestClient;
+  /** Waits for every send the instance started in the background (mail), as a request never does. */
+  settled(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -32,16 +44,54 @@ const SETTINGS: AuthSettings = {
 export type AuthOverrides = Partial<AuthSettings>;
 
 export async function makeAuth(overrides: AuthOverrides = {}, mailer?: Mailer): Promise<TestAuth> {
-  const { database } = await freshDatabase('auth');
+  const { database, config } = await freshDatabase('auth');
+  // As the server starts: 0.2.x's tables, then onto the package's (`src/auth/migrate.ts`).
   await runMigrations(database);
+  const store = await openAuthStore(config);
+  await migrateAuthStore(store);
   const settings: AuthSettings = { ...SETTINGS, ...overrides };
-  const auth = createAuth({ settings, name: 'Shopper', database, mailer });
+  const pending: Promise<unknown>[] = [];
+  const ring = ringOf(randomBytes(32));
+  if (!ring) throw new Error('no key ring');
+  // With core on, the SDK's client as the server makes it (`server.ts`), its stores in the same auth store.
+  const sovereign = settings.sovereign
+    ? createSovereign({
+        appUrl: settings.url,
+        coreUrl: settings.sovereign.issuer,
+        clientId: settings.sovereign.clientId,
+        clientSecret: settings.sovereign.clientSecret,
+        scopes: SOVEREIGN_SCOPES,
+        redirectPath: '/api/auth/callback/sovereign',
+        postLogoutPath: '/sign-in',
+        sessionStore: sdkSessionStore(() => Promise.resolve(store)),
+        tokenStore: sdkTokenStore(
+          () => Promise.resolve(store),
+          () => ring,
+        ),
+      })
+    : undefined;
+  const auth = createAuth({
+    settings,
+    name: 'Shopper',
+    database: store,
+    mailer,
+    sovereign,
+    background: (task) => void pending.push(task.catch(() => undefined)),
+  });
   return {
     auth,
     settings,
     database,
+    store,
     client: () => new TestClient(auth, settings.url),
-    close: () => database.close(),
+    settled: async () => {
+      while (pending.length > 0) await Promise.all(pending.splice(0));
+    },
+    close: async () => {
+      while (pending.length > 0) await Promise.all(pending.splice(0));
+      await store.close();
+      await database.close();
+    },
   };
 }
 
@@ -156,4 +206,18 @@ function derivedBody(body: unknown): unknown {
   for (const key of PASSWORD_KEYS)
     if (typeof out[key] === 'string' && !isDerived(out[key])) out[key] = derivedFor(out[key]);
   return out;
+}
+
+/**
+ * The auth store as the server leaves it at start (`src/db/boot.ts`): 0.2.x's tables by Shopper's own migrations, then moved onto the
+ * package's. Shopper's handle for a test's raw queries, and the package's for what takes one; `close` both.
+ */
+export async function movedAuthStore(
+  config: Parameters<typeof openAuthStore>[0],
+  database: Awaited<ReturnType<typeof freshDatabase>>['database'],
+): Promise<AuthStore> {
+  await runMigrations(database);
+  const store = await openAuthStore(config);
+  await migrateAuthStore(store);
+  return store;
 }

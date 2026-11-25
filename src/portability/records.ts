@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { memberOf, onList, ownerOf } from '../access/membership';
+import { onCard, onList, ownerOf, reaches } from '../access/membership';
 import type { KeyRing } from '../crypto/keys';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -20,7 +20,15 @@ export interface ExportRecords {
   readonly endToEnd: boolean;
 }
 
-const CONTENT_TABLES = ['list', 'item', 'product', 'category'] as const;
+const CONTENT_TABLES = [
+  'list',
+  'item',
+  'product',
+  'category',
+  'inventory_item',
+  'list_category',
+  'card',
+] as const;
 
 export async function personRecords(
   database: Database,
@@ -44,10 +52,19 @@ export async function personRecords(
   const households = await dbAll<{ id: string; encryption: string; own_of: string | null }>(
     database,
     sql`SELECT h.id, h.encryption, h.own_of FROM ${appTable(database, 'household')} h
-        WHERE ${memberOf(database, sql.raw('h.id'), accountId)} ORDER BY h.id`,
+        WHERE ${reaches(database, sql.raw('h.id'), accountId)} ORDER BY h.id`,
   );
-  const plain: Record<string, Record<string, unknown>[]> = { household: [], member: [] };
-  const encrypted: Record<string, Record<string, unknown>[]> = { household_key: [], list_key: [] };
+  const plain: Record<string, Record<string, unknown>[]> = {
+    household: [],
+    member: [],
+    card_member: [],
+    list_card: [],
+  };
+  const encrypted: Record<string, Record<string, unknown>[]> = {
+    household_key: [],
+    list_key: [],
+    card_key: [],
+  };
   for (const table of CONTENT_TABLES) {
     plain[table] = [];
     encrypted[table] = [];
@@ -60,7 +77,19 @@ export async function personRecords(
         ? onList(database, sql`r.list_id`, accountId)
         : table === 'product'
           ? sql`(${onList(database, sql`r.list_id`, accountId)} OR (r.list_id IS NULL AND ${ownerOf(database, sql`r.household_id`, accountId)}))`
-          : sql`1 = 1`;
+          : table === 'inventory_item'
+            ? // Their own Inventory only (§8.8): the group whose own account they are, and nobody's else.
+              ownerOf(database, sql`r.household_id`, accountId)
+            : table === 'card'
+              ? // A card is its people's alone (§7.7): the cards they are on, whatever else they are on in the group.
+                onCard(database, sql`r.id`, accountId)
+              : table === 'list_category'
+                ? // A list's copies of people's categories are the list's (§8.3), read by its people as its items are.
+                  onList(database, sql`r.list_id`, accountId)
+                : table === 'category'
+                  ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3).
+                    sql`(r.starter_key IS NOT NULL OR ${ownerOf(database, sql`r.household_id`, accountId)})`
+                  : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
     plain.household?.push({
@@ -93,6 +122,53 @@ export async function personRecords(
         joinedAt: Number(member.joined_at),
         leftAt: member.left_at === null ? null : Number(member.left_at),
       });
+    // The people of the cards they are on, by name only, as a list's are.
+    const cardMembers = await dbAll<{
+      card_id: string;
+      person_id: string;
+      role: string;
+      joined_at: number;
+      left_at: number | null;
+      sealed: string;
+    }>(
+      database,
+      sql`SELECT m.card_id, m.person_id, m.role, m.joined_at, m.left_at, p.sealed FROM ${appTable(database, 'card_member')} m
+          JOIN ${appTable(database, 'person')} p ON p.id = m.person_id
+          WHERE m.household_id = ${household.id} AND ${onCard(database, sql`m.card_id`, accountId)}
+          ORDER BY m.card_id, m.joined_at, m.person_id`,
+    );
+    for (const member of cardMembers)
+      plain.card_member?.push({
+        household: household.id,
+        card: member.card_id,
+        person: member.person_id,
+        name: unsealRow('person', member.person_id, member.sealed, ring).name ?? null,
+        role: member.role,
+        joinedAt: Number(member.joined_at),
+        leftAt: member.left_at === null ? null : Number(member.left_at),
+      });
+    // The cards linked to their lists (24.6), for the person who is on both the list and the card, as the pull hands them: the pair and an unlink, which hold nothing sealed.
+    const links = await dbAll<{
+      id: string;
+      list_id: string;
+      card_id: string;
+      deleted_at: number | null;
+      created_at: number;
+    }>(
+      database,
+      sql`SELECT r.id, r.list_id, r.card_id, r.deleted_at, r.created_at FROM ${appTable(database, 'list_card')} r
+          WHERE r.household_id = ${household.id} AND ${onList(database, sql`r.list_id`, accountId)} AND ${onCard(database, sql`r.card_id`, accountId)}
+          ORDER BY r.id`,
+    );
+    for (const link of links)
+      plain.list_card?.push({
+        id: link.id,
+        household: household.id,
+        list: link.list_id,
+        card: link.card_id,
+        deletedAt: link.deleted_at === null ? null : Number(link.deleted_at),
+        createdAt: Number(link.created_at),
+      });
     for (const table of CONTENT_TABLES) {
       const rows = await dbAll<Record<string, unknown>>(
         database,
@@ -100,6 +176,11 @@ export async function personRecords(
       );
       for (const row of rows) {
         const { sealed, encrypted: cipher, fseq: _fseq, ...rest } = row;
+        // What another person made of a starter category (a name they gave it) is theirs: someone on a list of the group is given the row, not that.
+        if (table === 'category' && household.own_of !== accountId) {
+          plain.category?.push({ ...rest, content: {} });
+          continue;
+        }
         if (moved) encrypted[table]?.push({ ...rest, content: parse(cipher) });
         else
           plain[table]?.push({
@@ -136,6 +217,20 @@ export async function personRecords(
           epoch: Number(each.epoch),
           record: each.record,
         });
+      // Their own copies of the keys of the cards they are on (RFC 0007).
+      const cardKeys = await dbAll<{ card_id: string; epoch: number; record: string }>(
+        database,
+        sql`SELECT k.card_id, k.epoch, k.record FROM ${appTable(database, 'card_key')} k
+            WHERE k.household_id = ${household.id} AND k.person_id = ${person.id} AND ${onCard(database, sql`k.card_id`, accountId)}
+            ORDER BY k.card_id`,
+      );
+      for (const each of cardKeys)
+        encrypted.card_key?.push({
+          household: household.id,
+          card: each.card_id,
+          epoch: Number(each.epoch),
+          record: each.record,
+        });
     }
   }
   for (const [kind, records] of Object.entries(plain))
@@ -143,7 +238,10 @@ export async function personRecords(
   for (const [kind, records] of Object.entries(encrypted))
     if (records.length > 0)
       out.push({
-        kind: kind === 'household_key' || kind === 'list_key' ? kind : `${kind}_encrypted`,
+        kind:
+          kind === 'household_key' || kind === 'list_key' || kind === 'card_key'
+            ? kind
+            : `${kind}_encrypted`,
         records,
         endToEnd: true,
       });

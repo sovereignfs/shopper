@@ -6,13 +6,32 @@ import { sealRow, unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { appTable } from '../db/tables';
-import { memberOf, onList, ownerOf } from '../access/membership';
+import { cardAdminOf, listAdminOf, onCard, onList, ownerOf, reaches } from '../access/membership';
+import { listCardId } from '../cards/links';
+import { addCardMember } from '../cards/members';
 import { addListMember } from '../lists/members';
 import type { Limits } from '../limits/config';
-import { type Fold, foldProductFields, recordFold, resolveAlias } from './fold';
+import {
+  type Fold,
+  foldInventoryFields,
+  foldProductFields,
+  recordFold,
+  resolveAlias,
+} from './fold';
 import { foldItemFields, withoutSecondTick } from './items';
 import { mergeChange } from './merge';
-import { Refusal, duplicate, invalid, limited, notFound, otherList, unsupported } from './refusal';
+import { OTHER } from '../catalog/categories';
+import {
+  Refusal,
+  cardsNeedMove,
+  copiesNeedMove,
+  duplicate,
+  invalid,
+  limited,
+  notFound,
+  otherList,
+  unsupported,
+} from './refusal';
 import { boundTo } from '../keys/household';
 import { OPEN_ITEM } from './open';
 import { TABLES, type TableSpec } from './tables';
@@ -77,7 +96,7 @@ export async function applyMutation(
       ? await dbGet<{ encryption: string }>(
           database,
           // Only a member learns how a household's content travels: for anyone else it is plain, and the mutation reads as not found (§5.2).
-          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId} AND ${memberOf(database, householdId, accountId)}`,
+          sql`SELECT encryption FROM ${appTable(database, 'household')} WHERE id = ${householdId} AND ${reaches(database, householdId, accountId)}`,
         )
       : undefined;
   const mode: ContentMode = state?.encryption === 'encrypted' ? 'encrypted' : 'plain';
@@ -134,7 +153,7 @@ async function run(
   const stepped = await dbGet<{ seq: number | string; encryption: string }>(
     database,
     sql`UPDATE ${appTable(database, 'household')} SET seq = seq + 1, updated_at = ${now}
-        WHERE id = ${mutation.householdId} AND ${memberOf(database, mutation.householdId, accountId)} RETURNING seq, encryption`,
+        WHERE id = ${mutation.householdId} AND ${reaches(database, mutation.householdId, accountId)} RETURNING seq, encryption`,
   );
   if (!stepped) throw notFound();
   // It moved between the check and this statement, or was sent in the other form: the whole mutation waits for the device to send it again (and this
@@ -157,6 +176,12 @@ async function run(
     // Who did it is the sender: checked on what the device sent, and not on what the server itself writes when it folds two rows into one.
     await checkAuthorship(deps, spec, mutation.householdId, accountId, change);
     const from = await checkListAccess(deps, spec, mutation.householdId, accountId, change);
+    // A list's copy of a person's category needs a group that has moved (§8.3, decision 16): refused here, once the sender is known to be on the list, and not held,
+    // which would keep it and everything after it in the outbox for ever.
+    if (spec.table === 'list_category' && stepped.encryption !== 'encrypted')
+      throw copiesNeedMove();
+    // A card is every field a ciphertext under its own keys (§7.7): a group the server seals has none to make it under, and the server never holds a card in a form it can read.
+    if (spec.table === 'card' && stepped.encryption !== 'encrypted') throw cardsNeedMove();
     if (moved) throw new Held();
     const outcome = await applyChange(deps, spec, mutation.householdId, change, seq, now);
     // An item moved to another list leaves the devices of those on the first and not on the second (RFC 0004): a tombstone of no list, which the pull
@@ -191,6 +216,22 @@ async function run(
           now,
         });
     }
+    // A card made now has its maker as its Admin (RFC 0007), as a list has.
+    if (spec.table === 'card' && raw.create && outcome.written.includes(change.id)) {
+      const me = await dbGet<{ id: string }>(
+        database,
+        sql`SELECT id FROM ${appTable(database, 'person')} WHERE account_id = ${accountId}`,
+      );
+      if (me)
+        await addCardMember(database, {
+          household: mutation.householdId,
+          card: change.id,
+          person: me.id,
+          role: 'admin',
+          seq,
+          now,
+        });
+    }
     if (outcome.fold) folds.push(outcome.fold);
     for (const id of outcome.written) changed.push({ table: change.table, id });
   }
@@ -212,6 +253,20 @@ interface Outcome {
 }
 
 const NOTHING: Outcome = { written: [] };
+
+/** A column as a field says it: a flag column is `0` or `1` whatever the dialect read it as (a boolean, or an integer). */
+const fieldOf = (kind: 'bool' | undefined, value: unknown): FieldValue =>
+  kind === 'bool' ? (value ? 1 : 0) : ((value as FieldValue | undefined) ?? null);
+
+/** A field as its column takes it: a flag as PostgreSQL's boolean or SQLite's integer, anything else as it is. */
+const columnOf = (database: Database, kind: 'bool' | undefined, value: FieldValue): unknown =>
+  kind === 'bool' && value !== null
+    ? database.dialect === 'postgres'
+      ? value === 1
+      : value === 1
+        ? 1
+        : 0
+    : value;
 
 /** One change, merged into its row. A change that changes nothing writes nothing; a row made for a name the household has is folded into it. */
 async function applyChange(
@@ -253,8 +308,12 @@ async function applyChange(
     };
   }
 
-  await checkReferences(deps, spec, household, change);
-  if (deps.mode === 'encrypted') checkBoundToList(spec, change, existing);
+  await checkReferences(deps, spec, household, change, existing);
+  if (spec.table === 'category') checkCategoryNamed(change, existing);
+  if (deps.mode === 'encrypted') {
+    checkBoundToList(spec, change, existing, household);
+    if (spec.table === 'inventory_item') checkNamed(change, existing);
+  }
 
   // An item made for a product that is already open on the list, in the same unit, is folded into it, unless it was made with "add another anyway".
   if (spec.table === 'item' && !existing && !change.separate) {
@@ -273,8 +332,8 @@ async function applyChange(
   const values: Record<string, FieldValue> = {};
   const stamps: Record<string, number> = existing ? parseStamps(existing.fseq) : {};
   if (existing) {
-    for (const { field, column } of spec.plain)
-      values[field] = (existing[column] as FieldValue | undefined) ?? null;
+    for (const { field, column, kind } of spec.plain)
+      values[field] = fieldOf(kind, existing[column]);
     const content = contentOf(deps, spec, change.id, existing);
     for (const field of spec.sealed) values[field] = content[field] ?? null;
   }
@@ -302,16 +361,57 @@ async function applyChange(
         ? { name_key: sentNameKey }
         : {}
       : spec.derive
-        ? spec.derive({ household, ring, sealed: sealedFields })
+        ? spec.derive({
+            household,
+            ring,
+            sealed: sealedFields,
+            row: existing ? merged.values : change.fields,
+          })
         : {};
 
-  // A name already in the list's catalog is another product's (21.3): a new one is folded into it, and a rename is refused. Another list's never.
+  // **One override of a starter entry in a group** (§8.8): two devices that each overrode the same entry offline made two rows for it, and the later folds into the
+  // earlier whatever either was renamed to, or the unique key on the entry would refuse it for good.
+  if (
+    spec.table === 'inventory_item' &&
+    !existing &&
+    typeof change.fields.starterKey === 'string'
+  ) {
+    const overridden = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${t} WHERE household_id = ${household} AND starter_key = ${change.fields.starterKey} AND id <> ${change.id}`,
+    );
+    if (overridden) return foldInto(deps, spec, household, change, overridden.id, seq, now);
+  }
+
+  // **A copy made under a source key the list already has is that copy** (§8.3): folded into it, deleted or not, so that making it again restores it (an Admin's delete
+  // lasts until someone puts the category on the list again). The name and the place it has stay.
+  if (
+    spec.table === 'list_category' &&
+    !existing &&
+    typeof change.fields.listId === 'string' &&
+    typeof change.fields.sourceKey === 'string'
+  ) {
+    const same = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${t} WHERE household_id = ${household} AND list_id = ${change.fields.listId} AND source_key = ${change.fields.sourceKey} AND id <> ${change.id}`,
+    );
+    if (same) return foldInto(deps, spec, household, change, same.id, seq, now);
+  }
+
+  // A name already in the table's scope is another row's: a new one is folded into it, and a rename is refused. The scope is a list's catalog for a product
+  // (21.3: another list's never) and the whole group for what is the group's alone (an Inventory item, §8.8).
   if (derived.name_key !== undefined) {
     const list = existing ? existing.list_id : change.fields.listId;
+    const scope =
+      spec.nameScope === 'group'
+        ? sql`1 = 1`
+        : typeof list === 'string'
+          ? sql`list_id = ${list}`
+          : sql`list_id IS NULL`;
     const same = await dbGet<{ id: string }>(
       database,
       sql`SELECT id FROM ${t} WHERE household_id = ${household} AND name_key = ${derived.name_key} AND id <> ${change.id}
-          AND ${typeof list === 'string' ? sql`list_id = ${list}` : sql`list_id IS NULL`}`,
+          AND ${scope}`,
     );
     if (same) {
       // Renaming to a name that is taken is a person's decision, and is refused with the merge offered (task 5.6); making one is folded.
@@ -325,20 +425,26 @@ async function applyChange(
 
   if (!existing) {
     if (spec.limit) {
+      const perList =
+        spec.limit.per === 'list'
+          ? sql` AND list_id = ${String(change.fields.listId ?? '')}`
+          : sql``;
       const count = await dbGet<{ n: number | string }>(
         database,
-        sql`SELECT COUNT(*) AS n FROM ${t} WHERE household_id = ${household} AND deleted_at IS NULL`,
+        sql`SELECT COUNT(*) AS n FROM ${t} WHERE household_id = ${household} AND deleted_at IS NULL${perList}`,
       );
       const most = spec.limit.of(deps.limits);
-      if (Number(count?.n ?? 0) + 1 > most) throw limited(spec.limit.kind, most);
+      if (Number(count?.n ?? 0) + 1 > most)
+        throw limited(spec.limit.kind, most, spec.limit.per === 'list' ? 'a list' : undefined);
     }
     const columns: [string, unknown][] = [
       ['id', change.id],
       ['household_id', household],
     ];
-    for (const { field, column } of spec.plain)
+    for (const { field, column, kind } of spec.plain)
       // Only the fields the row was made with: the others take the table's defaults (a list's clearing rule), not a null.
-      if (field in change.fields) columns.push([column, change.fields[field] ?? null]);
+      if (field in change.fields)
+        columns.push([column, columnOf(database, kind, change.fields[field] ?? null)]);
     if (encrypted) columns.push(['sealed', ''], ['encrypted', sealedText ?? null]);
     else columns.push(['sealed', sealedText ?? null]);
     for (const [column, value] of Object.entries(derived)) columns.push([column, value]);
@@ -360,9 +466,11 @@ async function applyChange(
   }
 
   const sets: SQL[] = [];
-  for (const { field, column } of spec.plain) {
+  for (const { field, column, kind } of spec.plain) {
     if (merged.changed.includes(field))
-      sets.push(sql`${sql.raw(`"${column}"`)} = ${merged.values[field] ?? null}`);
+      sets.push(
+        sql`${sql.raw(`"${column}"`)} = ${columnOf(database, kind, merged.values[field] ?? null)}`,
+      );
   }
   if (sealedText !== undefined)
     sets.push(encrypted ? sql`"encrypted" = ${sealedText}` : sql`"sealed" = ${sealedText}`);
@@ -407,12 +515,28 @@ async function foldInto(
   );
   if (!row) throw notFound();
   const have: Record<string, FieldValue> = {};
-  for (const { field, column } of spec.plain)
-    have[field] = (row[column] as FieldValue | undefined) ?? null;
+  for (const { field, column, kind } of spec.plain) have[field] = fieldOf(kind, row[column]);
   Object.assign(have, contentOf(deps, spec, into, row));
-  const additions = foldProductFields(have, change.fields);
+  const additions =
+    spec.table === 'list_category'
+      ? // The copy that stands keeps its name and its place; making it again brings it back if an Admin deleted it.
+        have.deletedAt === null || have.deletedAt === undefined
+        ? {}
+        : { deletedAt: null }
+      : spec.table === 'inventory_item'
+        ? foldInventoryFields(have, change.fields)
+        : foldProductFields(have, change.fields);
   const fold: Fold = { table: change.table, from: change.id, to: into };
-  await recordFold(database, household, fold, seq, now);
+  // A copy's fold is told only to the list's people (an alias and a tombstone carry the list).
+  await recordFold(
+    database,
+    household,
+    fold,
+    seq,
+    now,
+    undefined,
+    spec.table === 'list_category' ? String(row.list_id) : undefined,
+  );
   if (Object.keys(additions).length === 0) return { written: [into], fold };
   const merged = await applyChange(
     deps,
@@ -484,23 +608,52 @@ async function checkReferences(
   spec: TableSpec,
   household: string,
   change: Change,
+  existing: Row | undefined,
 ): Promise<void> {
   const { database } = deps;
   for (const [field, target] of Object.entries(spec.refs)) {
-    const value = change.fields[field];
+    let value = change.fields[field];
+    // **A change of an item's list also asks about the category it has** (§8.3): this looks at the fields a change names, and an item moved to another list that names no
+    // category would keep the copy of the list it left, which the list it goes to cannot read.
+    let carried = false;
+    if (
+      target === 'category_of_list' &&
+      value === undefined &&
+      spec.table === 'item' &&
+      existing &&
+      typeof change.fields.listId === 'string' &&
+      change.fields.listId !== existing.list_id &&
+      typeof existing.category_id === 'string'
+    ) {
+      value = existing.category_id;
+      carried = true;
+    }
     if (value === undefined || value === null) continue;
-    const found =
-      target === 'person'
-        ? await dbGet<{ yes: number }>(
-            database,
-            // Someone who has been on one of the group's lists, or its own account (RFC 0004).
-            sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${String(value)}
-                UNION SELECT 1 FROM ${appTable(database, 'list_member')} WHERE household_id = ${household} AND person_id = ${String(value)}`,
-          )
-        : await dbGet<{ yes: number }>(
-            database,
-            sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
-          );
+    let found: { yes: number } | undefined;
+    if (target === 'person') {
+      found = await dbGet<{ yes: number }>(
+        database,
+        // Someone who has been on one of the group's lists, or its own account (RFC 0004).
+        sql`SELECT 1 AS yes FROM ${appTable(database, 'member')} WHERE household_id = ${household} AND person_id = ${String(value)}
+            UNION SELECT 1 FROM ${appTable(database, 'list_member')} WHERE household_id = ${household} AND person_id = ${String(value)}`,
+      );
+    } else if (target === 'category_of_list') {
+      // A starter category of the group, or a copy on the list the row is on after this change (a person's own category is theirs alone). A deleted copy may be
+      // named, as a deleted product may: the row shows under Other until the copy is made again.
+      const list =
+        typeof change.fields.listId === 'string' ? change.fields.listId : existing?.list_id;
+      found = await dbGet<{ yes: number }>(
+        database,
+        sql`SELECT 1 AS yes FROM ${appTable(database, 'category')} WHERE id = ${String(value)} AND household_id = ${household} AND starter_key IS NOT NULL AND deleted_at IS NULL
+            UNION SELECT 1 FROM ${appTable(database, 'list_category')} WHERE id = ${String(value)} AND household_id = ${household} AND list_id = ${typeof list === 'string' ? list : ''}`,
+      );
+      if (!found && carried) throw otherList();
+    } else {
+      found = await dbGet<{ yes: number }>(
+        database,
+        sql`SELECT 1 AS yes FROM ${appTable(database, target)} WHERE id = ${String(value)} AND household_id = ${household} AND ${target === 'category' || target === 'list' || target === 'card' ? sql`deleted_at IS NULL` : sql`1 = 1`}`,
+      );
+    }
     if (!found) throw notFound();
   }
 }
@@ -534,9 +687,11 @@ async function checkAuthorship(
 /**
  * **A change touches only lists its sender is on** (RFC 0004): a list itself, or an item on it (where it is, and where it is moved to). A new list is made
  * only by the group's own account, in its own group. A product is the group's until 21.3 gives it a list, and anyone on the group may write one. Every
- * refusal reads as not found, as for a row of another group.
+ * refusal reads as not found, as for a row of another group. **A table with no rule here is refused,** not let through: a new synced table says who may write
+ * it in this function, or nothing may.
  */
-async function checkListAccess(
+/** Exported for its test, which asks it about a table it has no rule for; nothing else calls it. */
+export async function checkListAccess(
   deps: ApplyDeps,
   spec: TableSpec,
   household: string,
@@ -602,8 +757,100 @@ async function checkListAccess(
     } else if (typeof sent === 'string') {
       if (!(await allowed(onList(database, sent, accountId)))) throw notFound();
     } else if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    return undefined;
   }
-  return undefined;
+  if (spec.table === 'inventory_item') {
+    // **A person's Inventory is their own account's alone** (§8.8): the group whose `own_of` is the sender, whoever else is on any of its lists, and for a row that
+    // is there and a row that is made alike. Nobody on a list of the group may touch it.
+    if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    // The starter entry a row overrides is set when it is made and never changed (as a product's list is): a row cannot be turned into another entry's override.
+    if (change.fields.starterKey !== undefined) {
+      const existing = await dbGet<{ starter_key: string | null }>(
+        database,
+        sql`SELECT starter_key FROM ${appTable(database, 'inventory_item')} WHERE id = ${change.id} AND household_id = ${household}`,
+      );
+      if (existing && (existing.starter_key ?? null) !== change.fields.starterKey) throw notFound();
+    }
+    return undefined;
+  }
+  if (spec.table === 'card') {
+    // **A card is its Admin's** (§7.7): changed and deleted by the person who added it or to whom it passed, and made by the group's own account alone (a person's cards are made in their
+    // own group, as their lists are). Someone who is only a Member of a card sees and shows it and changes nothing of it: a refusal that reads as not found.
+    const existing = await dbGet<{ id: string }>(
+      database,
+      sql`SELECT id FROM ${appTable(database, 'card')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const ok = existing
+      ? await allowed(cardAdminOf(database, change.id, accountId))
+      : await allowed(ownerOf(database, household, accountId));
+    if (!ok) throw notFound();
+    return undefined;
+  }
+  if (spec.table === 'list_card') {
+    // **A card linked to a list** (§7.7, 24.6): made, unlinked and linked again by **the list's Admin who is also on the card**, the two being the household's (`checkReferences` asks, for the ones a
+    // change names). The pair is the row's and never changes, and **its id is the pair's** (`listCardId`), so that the same pair is one row for ever and a link made twice is the one link. Anyone else,
+    // a card-only person and someone on the list who is not on the card included, reads as not found.
+    const existing = await dbGet<{ list_id: string; card_id: string }>(
+      database,
+      sql`SELECT list_id, card_id FROM ${appTable(database, 'list_card')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    const { listId, cardId } = change.fields;
+    if (existing) {
+      if (
+        (listId !== undefined && listId !== existing.list_id) ||
+        (cardId !== undefined && cardId !== existing.card_id)
+      )
+        throw notFound();
+    } else if (typeof listId !== 'string' || typeof cardId !== 'string') throw notFound();
+    const list = existing?.list_id ?? String(listId);
+    const card = existing?.card_id ?? String(cardId);
+    if (change.id !== listCardId(list, card)) throw notFound();
+    if (
+      !(await allowed(
+        sql`${listAdminOf(database, list, accountId)} AND ${onCard(database, card, accountId)}`,
+      ))
+    )
+      throw notFound();
+    return undefined;
+  }
+  if (spec.table === 'list_category') {
+    const existing = await dbGet<{ list_id: string; source_key: string }>(
+      database,
+      sql`SELECT list_id, source_key FROM ${appTable(database, 'list_category')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    if (existing) {
+      // **A copy is changed and deleted by the list's Admin** (§8.3, RFC 0006): the Member who made it cannot. Its list and its source key never change.
+      if (change.fields.listId !== undefined && change.fields.listId !== existing.list_id)
+        throw notFound();
+      if (change.fields.sourceKey !== undefined && change.fields.sourceKey !== existing.source_key)
+        throw notFound();
+      if (!(await allowed(listAdminOf(database, existing.list_id, accountId)))) throw notFound();
+    } else {
+      // **Made by anyone on the list**, when an item of their own category is first put there.
+      const list = change.fields.listId;
+      if (typeof list !== 'string' || !(await allowed(onList(database, list, accountId))))
+        throw notFound();
+    }
+    return undefined;
+  }
+  if (spec.table === 'category') {
+    // **A group's categories are written by its own account alone** (§8.3): the aisle order and a person's own categories are theirs, whoever is on a list of the group.
+    if (!(await allowed(ownerOf(database, household, accountId)))) throw notFound();
+    const existing = await dbGet<{ starter_key: string | null }>(
+      database,
+      sql`SELECT starter_key FROM ${appTable(database, 'category')} WHERE id = ${change.id} AND household_id = ${household}`,
+    );
+    // A starter category is renamed, hidden and put in order, never deleted; and Other is where an item with no better place goes, so it is never hidden.
+    if (existing?.starter_key) {
+      if (change.fields.deletedAt !== undefined && change.fields.deletedAt !== null)
+        throw invalid('a starter category cannot be deleted');
+      if (existing.starter_key === OTHER && Number(change.fields.hidden) === 1)
+        throw invalid('Other cannot be hidden');
+    }
+    return undefined;
+  }
+  // No rule for this table: nobody may write it (it reads as not found, as every refusal does).
+  throw notFound();
 }
 
 /**
@@ -633,8 +880,15 @@ async function repointRefs(
   let fields = change.fields;
   for (const [field, target] of Object.entries(spec.refs)) {
     const value = fields[field];
-    if (target !== 'product' || typeof value !== 'string') continue;
-    const to = await resolveAlias(database, household, 'product', value);
+    if ((target !== 'product' && target !== 'category_of_list') || typeof value !== 'string')
+      continue;
+    // A product folded into another is the other; so is a copy of a category (§8.3).
+    const to = await resolveAlias(
+      database,
+      household,
+      target === 'product' ? 'product' : 'list_category',
+      value,
+    );
     if (to !== value) fields = { ...fields, [field]: to };
   }
   return fields === change.fields ? change : { ...change, fields };
@@ -785,11 +1039,68 @@ async function afterItemWritten(
 }
 
 /**
+ * **An Inventory item has a name, or the starter entry that has one** (§8.8), in a group that has moved too, where the server cannot read the name and `derive`
+ * does not run: a change that says `name: null` on a row with no starter entry would leave a row nothing can show, and it is refused. A make is held to the same
+ * by the validator (a name or a starter entry), and a name always comes with the name key its device made (`validate.ts`).
+ */
+function checkNamed(change: Change, existing: Row | undefined): void {
+  if (change.fields.name !== null) return;
+  const starter = existing ? existing.starter_key : change.fields.starterKey;
+  if (typeof starter !== 'string' || starter === '')
+    throw invalid('an Inventory item of the person’s own has a name');
+}
+
+/**
+ * **A category of the person's own has a name** (§8.3), whichever form the group is in (there is no `derive` for it): a change that says `name: null` is for a
+ * starter category, which has the code's, and is refused for one of their own.
+ */
+function checkCategoryNamed(change: Change, existing: Row | undefined): void {
+  if (change.fields.name !== null) return;
+  const starter = existing ? existing.starter_key : null;
+  if (typeof starter !== 'string' || starter === '')
+    throw invalid('a category of the person’s own has a name');
+}
+
+/**
  * **In a group that has moved, a value is for its row's list** (RFC 0004, task 21.4): each list has its own keys, so a value encrypted for another list
  * could be opened by nobody on the row's. The row's list is a list's own id, else the list it is on after this change. An item that changes list comes
  * with its name and note encrypted again for the new one, or the old list's values would stay on it.
  */
-function checkBoundToList(spec: TableSpec, change: Change, existing: Row | undefined): void {
+function checkBoundToList(
+  spec: TableSpec,
+  change: Change,
+  existing: Row | undefined,
+  household: string,
+): void {
+  // **An Inventory item's values are for its group** (§13.1, §13.2): bound to the group in the place of a list, since the keys are the group's Inventory keys and
+  // nobody else's. An explicit rule, not a case of the one below, which would find no list and refuse every value; and a value bound to a list is refused, so
+  // that a list's ciphertext cannot be put into a person's Inventory, nor an Inventory's into a list. The row is not checked here (the server cannot open the
+  // value, and a fold moves a row's later values to the row that stands, §12.4): the device opens a value for its row or one folded into it.
+  if (spec.table === 'inventory_item' || spec.table === 'category') {
+    for (const field of spec.sealed) {
+      const value = change.fields[field];
+      if (typeof value === 'string' && boundTo(value)?.list !== household) throw otherList();
+    }
+    return;
+  }
+  // **A list's copy of a category is the list's** (§8.3): its name is bound to its list, under the list's keys, which the people on the list hold.
+  if (spec.table === 'list_category') {
+    const list = existing ? existing.list_id : change.fields.listId;
+    for (const field of spec.sealed) {
+      const value = change.fields[field];
+      if (typeof value === 'string' && boundTo(value)?.list !== list) throw otherList();
+    }
+    return;
+  }
+  // **A card is bound to itself** (§13.1): each field is a ciphertext under the card's own keys, and the slot a list has is the card's id, so that a value made for one card does not open as
+  // another's, and the people on a card hold the keys of that card and no other.
+  if (spec.table === 'card') {
+    for (const field of spec.sealed) {
+      const value = change.fields[field];
+      if (typeof value === 'string' && boundTo(value)?.list !== change.id) throw otherList();
+    }
+    return;
+  }
   const was = existing ? (existing.list_id as string | null | undefined) : undefined;
   const sent = change.fields.listId;
   const list =

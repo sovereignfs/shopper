@@ -1,0 +1,18 @@
+/* The frame of a page for someone who is not signed in (the front page, a page that is not found, the shell with no one to show): a header and the page. */
+.shell {
+  /* Published for the design system's overlays (Dialog, Drawer, Sheet), which stop below the header. */
+  --sv-shell-header-height: 48px;
+  --sv-dialog-inset-top: var(--sv-shell-header-height);
+  display: flex;
+  flex-direction: column;
+  /* dvh avoids clipping by a mobile browser's own bars; vh for engines without it. */
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--sv-color-surface);
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

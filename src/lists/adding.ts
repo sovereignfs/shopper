@@ -1,7 +1,9 @@
 import { addItem, addToOpen } from '../actions/items';
 import type { Env } from '../actions/env';
-import type { Mutation } from '../actions/format';
-import type { ItemRow, ListRow, ProductRow } from '../actions/rows';
+import type { Change, Mutation } from '../actions/format';
+import { makeInventoryItem } from '../actions/inventory';
+import type { InventoryRow, ItemRow, ListRow, ProductRow } from '../actions/rows';
+import { type InventoryEntry, inventoryHas, layerInventory } from '../catalog/inventory';
 import { OTHER } from '../catalog/categories';
 import { canonicalName } from '../catalog/canonical';
 import { guessCategory } from '../catalog/guess';
@@ -31,10 +33,20 @@ export interface Adding {
   readonly categories: readonly CategoryRow[];
   /** The reader's person id in the household. */
   readonly me: string;
+  /**
+   * The reader's own Inventory (§8.8), as the device holds it, and **their own group**, which is the one it lives in, whatever list this is: a new name added here makes an
+   * Inventory item of theirs (`Planned.also`). Absent where the device has no group of the reader's own yet, and nothing is made.
+   */
+  readonly inventory?: { readonly household: string; readonly rows: readonly InventoryRow[] };
 }
 
 export interface Planned {
   readonly mutation: Mutation;
+  /**
+   * **A new name makes an Inventory item** (DESIGN.md §8.8): a separate mutation to the reader's own group, beside the list's (a list may be another person's group), for a name
+   * their Inventory does not have, marked once. It is written after the list's and says nothing to the reader: nobody keeps Inventory up by hand.
+   */
+  readonly also?: Mutation;
   /** What Undo's toast says: "Added oat milk", "Added one more oat milk". */
   readonly message: string;
 }
@@ -64,9 +76,12 @@ export function productNamed(
   );
 }
 
-/** The household's category for a key that is a starter key or the household's own category id; _Other_ if it names neither. */
+/**
+ * The household's category for a key that is a starter key or the household's own category id; _Other_ if it names neither. **A hidden category is not offered** (§8.3), so a name is
+ * never guessed into one: it takes _Other_ (which cannot be hidden).
+ */
 function categoryFor(categories: readonly CategoryRow[], key: string): CategoryRow | undefined {
-  const live = categories.filter((category) => category.deletedAt === null);
+  const live = categories.filter((category) => category.deletedAt === null && !category.hidden);
   return (
     live.find((category) => category.id === key) ??
     live.find((category) => category.starterKey === key) ??
@@ -82,7 +97,7 @@ export function categoryOfNew(
 ): string | null {
   const keyOf = (category: CategoryRow): string => category.starterKey ?? category.id;
   const aisle = [...categories]
-    .filter((category) => category.deletedAt === null)
+    .filter((category) => category.deletedAt === null && !category.hidden)
     .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
   const byId = new Map(categories.map((category) => [category.id, category]));
   const key = guessCategory({
@@ -99,16 +114,162 @@ export function categoryOfNew(
   return categoryFor(categories, key)?.id ?? null;
 }
 
-/** What to do for a suggestion, or why nothing can be. */
-export function planAdd(
+/**
+ * **One more of a product the list has** (§9.3): the quantity of what is open goes up by its step, else an item of the product, with what it remembers. `Refused` when the sum would
+ * pass the largest quantity. The head of both ways of adding (`planAdd`, `planAddFromInventory`).
+ */
+function addOfProduct(env: Env, context: Adding, product: ProductRow): Planned | Refused {
+  const { list, items, me } = context;
+  const open = openItemOf(items, product.id);
+  if (open) {
+    const bumped = addToOpen(env, open, product);
+    return bumped
+      ? { mutation: bumped, message: `Added one more ${product.name}` }
+      : { refused: `There is already as much ${product.name} on the list as one item can hold.` };
+  }
+  return {
+    mutation: addItem(env, {
+      list,
+      product,
+      name: product.name,
+      last: lastPositionIn(items, product.categoryId),
+      by: me,
+    }),
+    message: `Added ${product.name}`,
+  };
+}
+
+/**
+ * **An Inventory item added to a list** (DESIGN.md §16.8, _Add to a list_), pure. **What the person set in Inventory wins:** the item takes its name, quantity, unit and icon, and its
+ * category as it is on this list (`category`, which the caller works out, `categoryOnList`: the list's own row of a starter category, or a copy of one of the person's own, made
+ * here, in the same mutation and first). What Inventory has no value for (a field it leaves empty, a category it had only the guess for) is what the list's product remembers, if
+ * the list has one, else the guess. One more of what is open on the list is still one more, with nothing of Inventory's applied to it. A product of this list's catalog is **left as
+ * it is**: only a new one is made, from the item's own fields. The Inventory note is not carried: it is the person's, and a list may be shared. No `also`: the item is in Inventory
+ * already.
+ */
+export function planAddFromInventory(
   env: Env,
   context: Adding,
-  suggestion: Suggestion,
+  entry: Pick<InventoryEntry, 'name' | 'quantity' | 'unit' | 'icon'>,
+  category: {
+    readonly id: string | null;
+    readonly copy: Change | null;
+    readonly guessed?: boolean;
+  },
 ): Planned | Refused | null {
+  const { list, products, items, me } = context;
+  const name = entry.name.trim();
+  if (name === '' || normaliseName(name) === '') return null;
+  const product = productNamed(
+    products.filter((each) => each.listId === list.id || each.listId === null),
+    name,
+  );
+  const withCopy = (mutation: Mutation): Mutation =>
+    category.copy ? { ...mutation, changes: [category.copy, ...mutation.changes] } : mutation;
+  if (product) {
+    if (openItemOf(items, product.id)) return addOfProduct(env, context, product);
+    // The category Inventory has on this list, if it has one: a guess is not Inventory's, and the product's stands.
+    const categoryId = category.guessed ? product.categoryId : category.id;
+    return {
+      mutation: withCopy(
+        addItem(env, {
+          list,
+          product,
+          name: product.name,
+          ...(entry.quantity ? { quantity: entry.quantity } : {}),
+          ...(entry.unit ? { unit: entry.unit } : {}),
+          ...(entry.icon ? { icon: entry.icon } : {}),
+          categoryId,
+          last: lastPositionIn(items, categoryId),
+          by: me,
+        }),
+      ),
+      message: `Added ${product.name}`,
+    };
+  }
+  return newFromInventory(env, context, entry, category);
+}
+
+/**
+ * **A new item and a new product from an Inventory item** (the tail of both ways of adding one): the item's own fields, with its category as it is on this list (`category`; the
+ * copy of one of the person's own goes first). What Inventory has no value for is lent by **another list's product of that name**, as it lends to any new name (RFC 0004, §8.5):
+ * an empty quantity, unit or icon, and a category that was only the guess. Inventory first, then this list's products (the caller took one if the list had it), then the others'.
+ */
+function newFromInventory(
+  env: Env,
+  context: Adding,
+  entry: Pick<InventoryEntry, 'name' | 'quantity' | 'unit' | 'icon'>,
+  category: {
+    readonly id: string | null;
+    readonly copy: Change | null;
+    readonly guessed?: boolean;
+  },
+): Planned {
   const { list, products, items, categories, me } = context;
+  const name = entry.name.trim();
+  const lent = productNamed(products, name);
+  const lendsCategory =
+    category.guessed === true &&
+    lent?.categoryId !== null &&
+    lent?.categoryId !== undefined &&
+    categories.some((each) => each.id === lent.categoryId);
+  const categoryId = lendsCategory && lent ? lent.categoryId : category.id;
+  const quantity = entry.quantity ?? lent?.defaultQuantity ?? null;
+  const mutation = addItem(env, {
+    list,
+    name,
+    ...(quantity ? { quantity } : {}),
+    unit: entry.unit ?? lent?.defaultUnit ?? null,
+    icon: entry.icon ?? lent?.icon ?? null,
+    categoryId,
+    last: lastPositionIn(items, categoryId),
+    by: me,
+  });
+  return {
+    // The copy first: what names it is checked against the list's copies as the mutation is applied, in order.
+    mutation:
+      category.copy && !lendsCategory
+        ? { ...mutation, changes: [category.copy, ...mutation.changes] }
+        : mutation,
+    message: `Added ${name}`,
+  };
+}
+
+/** Where an add comes from, decided by name when its turn comes (`routeOf`). */
+export type Route =
+  | { readonly via: 'product'; readonly product: ProductRow }
+  | { readonly via: 'inventory'; readonly entry: InventoryEntry }
+  | { readonly via: 'template'; readonly template: ProductRow }
+  | { readonly via: 'new' };
+
+/** The Inventory entry the person has a row for that a suggestion is: by the key it carries, else by the name the entry has now (canonical). A starter entry they have not touched is the starter's. */
+function entryFor(
+  context: Adding,
+  suggestion: Suggestion,
+  name: string,
+): InventoryEntry | undefined {
+  if (!context.inventory) return undefined;
+  const entries = layerInventory(context.inventory.rows);
+  const keyed =
+    suggestion.kind === 'inventory' && suggestion.entryKey
+      ? entries.find((each) => each.key === suggestion.entryKey && each.id !== null)
+      : undefined;
+  if (keyed) return keyed;
+  const wanted = canonicalName(name);
+  return entries.find((each) => each.id !== null && canonicalName(each.name) === wanted);
+}
+
+/**
+ * **Where an add comes from, by name and not by the kind of suggestion**, from what the device holds when the add's turn comes (a suggestion was drawn a moment before, and
+ * a product may have been made since): **this list's product** of that name; else **the person's Inventory item** of it (one they made or changed: an untouched starter entry
+ * is the starter's, below); else **another list's product**, which lends what it comes with; else the starter catalog, else the guess. Typed text goes the same way as a
+ * suggestion, so that a name Inventory has is its item whichever way it was chosen. `null` for no name. Pure, and what the add field asks to know whether it must work out
+ * the item's category (`categoryOnList`, which needs the keys) before it plans.
+ */
+export function routeOf(context: Adding, suggestion: Suggestion): Route | null {
+  const { list, products } = context;
   const name = suggestion.name.trim();
   if (name === '' || normaliseName(name) === '') return null;
-
   // A product of this list's catalog, whichever way it was chosen (a typed name that is an existing product is that product). Another list's product is
   // never used (RFC 0004, 21.3): it lends its name and what it comes with to a new product of this list.
   const ownCatalog = products.filter((each) => each.listId === list.id || each.listId === null);
@@ -120,8 +281,45 @@ export function planAdd(
     chosen && (chosen.listId === list.id || chosen.listId === null)
       ? chosen
       : productNamed(ownCatalog, chosen?.name ?? name);
-  const template = product ? undefined : (chosen ?? productNamed(products, name));
-  if (template)
+  if (product) return { via: 'product', product };
+  const entry = entryFor(context, suggestion, chosen?.name ?? name);
+  if (entry) return { via: 'inventory', entry };
+  const template = chosen ?? productNamed(products, name);
+  return template ? { via: 'template', template } : { via: 'new' };
+}
+
+/**
+ * What to do for a suggestion, or why nothing can be. `resolved` is the category an Inventory item takes on this list, which the caller works out when `routeOf` says the add is
+ * one (`categoryOnList`: it may need a copy of one of the person's own categories, made under the list's keys); without it the item takes the guess.
+ */
+export function planAdd(
+  env: Env,
+  context: Adding,
+  suggestion: Suggestion,
+  resolved?: { readonly category: { id: string | null; copy: Change | null; guessed?: boolean } },
+): Planned | Refused | null {
+  const { products, items, categories, me, list } = context;
+  const route = routeOf(context, suggestion);
+  if (!route) return null;
+  const name = suggestion.name.trim();
+  if (route.via === 'product') return addOfProduct(env, context, route.product);
+  // **A new product made from an Inventory item** (RFC 0006): its name, quantity, unit and icon, and its category as it is on this list. No Inventory item is made: it is there.
+  if (route.via === 'inventory') {
+    const guess = {
+      id: categoryOfNew(route.entry.name, products, categories),
+      copy: null,
+      guessed: true,
+    };
+    return newFromInventory(env, context, route.entry, resolved?.category ?? guess);
+  }
+  const template = route.via === 'template' ? route.template : undefined;
+  if (template) {
+    // Another list's product lends what it comes with, but **a category only if it is one of this list's** (§8.3): a copy of a person's category is the list it is on's, and the
+    // server refuses an item that names another's. A starter category is every list's of the group.
+    const lent =
+      template.categoryId !== null && categories.some((each) => each.id === template.categoryId)
+        ? template.categoryId
+        : categoryOfNew(template.name, products, categories);
     return {
       mutation: addItem(env, {
         list,
@@ -129,29 +327,16 @@ export function planAdd(
         ...(template.defaultQuantity ? { quantity: template.defaultQuantity } : {}),
         unit: template.defaultUnit,
         icon: template.icon,
-        categoryId: template.categoryId,
-        last: lastPositionIn(items, template.categoryId),
+        categoryId: lent,
+        last: lastPositionIn(items, lent),
         by: me,
       }),
       message: `Added ${template.name}`,
-    };
-  if (product) {
-    const open = openItemOf(items, product.id);
-    if (open) {
-      const bumped = addToOpen(env, open, product);
-      return bumped
-        ? { mutation: bumped, message: `Added one more ${product.name}` }
-        : { refused: `There is already as much ${product.name} on the list as one item can hold.` };
-    }
-    return {
-      mutation: addItem(env, {
-        list,
-        product,
-        name: product.name,
-        last: lastPositionIn(items, product.categoryId),
-        by: me,
+      ...fills(env, context, template.name, {
+        icon: template.icon,
+        unit: template.defaultUnit,
+        quantity: template.defaultQuantity,
       }),
-      message: `Added ${product.name}`,
     };
   }
 
@@ -173,6 +358,36 @@ export function planAdd(
       by: me,
     }),
     message: `Added ${suggestion.kind === 'new' ? name : (entry?.name ?? name)}`,
+    // A starter entry is in the person's Inventory already (the starter is a layer under it), so it is a name they have; text nobody has typed is not.
+    ...fills(env, context, suggestion.kind === 'new' ? name : (entry?.name ?? name), {}),
+  };
+}
+
+/**
+ * The Inventory item a new name makes (§8.8): **marked once**, of the reader's own group, for a name their Inventory does not have, with what the product it came from
+ * remembers when it came from one. Nothing when the device has no group of the reader's own, or the name is there already.
+ */
+function fills(
+  env: Env,
+  context: Adding,
+  name: string,
+  from: {
+    icon?: string | null | undefined;
+    unit?: ProductRow['defaultUnit'];
+    quantity?: string | null | undefined;
+  },
+): { also?: Mutation } {
+  const { inventory } = context;
+  if (!inventory || inventoryHas(inventory.rows, name)) return {};
+  return {
+    also: makeInventoryItem(env, {
+      householdId: inventory.household,
+      name,
+      recurring: false,
+      ...(from.icon ? { icon: from.icon } : {}),
+      ...(from.unit ? { unit: from.unit } : {}),
+      ...(from.quantity ? { quantity: from.quantity } : {}),
+    }),
   };
 }
 

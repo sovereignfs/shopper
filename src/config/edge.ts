@@ -8,16 +8,28 @@ export function edgeSettings(env: Record<string, string | undefined> = process.e
   secure: boolean;
   /** `next dev`. */
   development: boolean;
-  /** Local sign-in is on (`SHOPPER_AUTH_LOCAL`): when it is not, the sign-in pages do not exist. */
+  /** Local sign-in is on (`SHOPPER_AUTH_LOCAL`) and no core is (suite mode wins): when it is not, the sign-in pages do not exist. */
   authLocal: boolean;
   /** Sign-in through a core is set up (`SHOPPER_CORE_URL`): the sign-in page exists for it, though the other pages of local sign-in do not. */
   authSovereign: boolean;
+  /** Core's origin when `SHOPPER_CORE_URL` is an address, for the page's policy to allow an image from (RFC 0005); `null` running alone or when it is not one. */
+  coreOrigin: string | null;
 } {
   const local = (env.SHOPPER_AUTH_LOCAL ?? '').trim().toLowerCase();
   return {
-    authLocal: local === '1' || local === 'true',
+    authLocal: (local === '1' || local === 'true') && (env.SHOPPER_CORE_URL ?? '').trim() === '',
     authSovereign: (env.SHOPPER_CORE_URL ?? '').trim() !== '',
+    coreOrigin: originOf(env.SHOPPER_CORE_URL),
     secure: (env.SHOPPER_URL ?? '').startsWith('https://'),
     development: env.NODE_ENV === 'development',
   };
+}
+
+/** The origin of an address, or `null` if it is not one: the server refuses to start on a wrong `SHOPPER_CORE_URL`, so this only keeps the proxy from throwing on it. */
+function originOf(value: string | undefined): string | null {
+  try {
+    return value && value.trim() !== '' ? new URL(value.trim()).origin : null;
+  } catch {
+    return null;
+  }
 }

@@ -1,9 +1,7 @@
-import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { isId } from '@/src/actions/format';
 import { ShopScreen } from '@/src/screens/ShopScreen';
 
-export const metadata: Metadata = { title: 'Shopping' };
 export const dynamic = 'force-dynamic';
 
 /**

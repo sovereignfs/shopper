@@ -33,6 +33,9 @@ const LIMITS: Limits = {
   householdLists: 100,
   listOpenItems: 500,
   householdProducts: 5000,
+  inventoryItems: 5000,
+  householdCategories: 100,
+  accountCards: 100,
 };
 
 let database: Database;
@@ -76,6 +79,8 @@ const listRow = (id: string, household: string): ListRow => ({
   householdId: household,
   name: 'Groceries',
   position: 'a0',
+  icon: null,
+  color: null,
   clearing: 'manual',
   archivedAt: null,
   deletedAt: null,

@@ -1,5 +1,14 @@
 import { expect, type Page } from '@playwright/test';
-import { offline, online, recordViolations, serverItems, signUp, test } from './helpers';
+import {
+  accountOf,
+  deviceRows,
+  offline,
+  online,
+  recordViolations,
+  serverItems,
+  signUp,
+  test,
+} from './helpers';
 
 /**
  * Adding, in a browser (task 8.3): the add field at the top of a list, typed with the keyboard alone, suggestions from the device, an open product bumped
@@ -79,4 +88,47 @@ test('adding works with the network cut and everything reaches the server when i
   await expect
     .poll(async () => (await serverItems(page, baseURL ?? '')).length, { timeout: 30_000 })
     .toBe(2);
+});
+
+test('a new name typed makes an Inventory item, marked once, that reaches the server, and a name the person has makes none', async ({
+  page,
+}) => {
+  await signUp(page);
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  const account = await accountOf(page);
+  const inventory = async () =>
+    (
+      await deviceRows<{ name: string | null; recurring: boolean; starterKey: string | null }>(
+        page,
+        account,
+        'inventory_item',
+      )
+    ).filter((row) => row.starterKey === null);
+  await field(page).focus({ timeout: 15_000 });
+  // A name nobody has typed is a new one: Inventory learns it, marked once.
+  await typeAndEnter(page, 'Zorblax');
+  await expect(page.getByRole('checkbox', { name: /Zorblax/ })).toBeVisible();
+  await expect
+    .poll(async () => (await inventory()).map((row) => row.name), { timeout: 15_000 })
+    .toEqual(['Zorblax']);
+  expect((await inventory())[0]?.recurring).toBe(false);
+  // The same name again bumps the item on the list; a starter entry's name is in Inventory already. Neither makes one: another new name after them is the last, and when it
+  // is there the two before it have had their turn (each write follows the list's).
+  await typeAndEnter(page, 'zorblax');
+  await typeAndEnter(page, 'bananas');
+  await typeAndEnter(page, 'Quuxle');
+  await expect
+    .poll(async () => (await inventory()).map((row) => row.name).sort(), { timeout: 15_000 })
+    .toEqual(['Quuxle', 'Zorblax']);
+  // Both writes reach the server: the outbox empties, and nothing was refused (the Inventory item is written beside the list's, in two mutations).
+  await expect
+    .poll(async () => (await deviceRows(page, account, 'outbox')).length, { timeout: 15_000 })
+    .toBe(0);
+  expect(await deviceRows(page, account, 'failed')).toEqual([]);
+  // Gone and back from the server: a reload shows Inventory as the server has it.
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: 'Groceries' })).toBeVisible();
+  await expect
+    .poll(async () => (await inventory()).map((row) => row.name).sort(), { timeout: 15_000 })
+    .toEqual(['Quuxle', 'Zorblax']);
 });

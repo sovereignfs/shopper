@@ -34,13 +34,31 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/l/[id]/settings',
     who: 'signed-in',
-    note: 'A list’s settings. The page holds nothing of it; deleting for good is the Admin’s online operation, checked in its statement.',
+    note: 'Redirects to /l/[id]?settings=general: a list’s settings are a dialog over the list, which holds nothing of it; deleting for good is the Admin’s online operation, checked in its statement.',
   },
   {
     kind: 'page',
     address: '/shop',
     who: 'signed-in',
     note: 'Shopping mode for a list. The page holds nothing of it: the device reads the list from its own copy, which has only the households the account is in.',
+  },
+  {
+    kind: 'page',
+    address: '/inventory',
+    who: 'signed-in',
+    note: "A person's Inventory. The page holds nothing of it: the device reads it from its own copy, which has the account's own items and categories alone, and every change is made through sync, which checks the owner's group in its statement.",
+  },
+  {
+    kind: 'page',
+    address: '/cards',
+    who: 'signed-in',
+    note: 'The person’s loyalty cards (RFC 0007). The page holds nothing of them: the device reads them from its own copy, which has the cards the account is on alone, and every change is made through sync, which checks the card’s Admin in its statement.',
+  },
+  {
+    kind: 'page',
+    address: '/cards/[id]',
+    who: 'signed-in',
+    note: 'One card, full screen. The page holds nothing of it: the device reads it from its own copy; a card the account is not on is not there to read, and an address that is not an id is not found.',
   },
   {
     kind: 'page',
@@ -52,7 +70,13 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/settings',
     who: 'signed-in',
-    note: "The signed-in person's own profile, sign-in and data: a visitor is sent to sign in.",
+    note: "The signed-in person's own settings, a dialog over Home with no section named (and, opened from a page, over that page: the intercepting route @modal/(.)settings is the same address); an old /settings?section=… goes to the section that took its place: a visitor is sent to sign in.",
+  },
+  {
+    kind: 'page',
+    address: '/settings/[section]',
+    who: 'signed-in',
+    note: "The signed-in person's own settings, a dialog over Home (and, opened from a page, over that page: the intercepting route @modal/(.)settings/[section] is the same address, and both ask for the session in SettingsRoute): a visitor is sent to sign in; a name that is not a section is not found.",
   },
   {
     kind: 'page',
@@ -95,13 +119,7 @@ export const ACCESS: readonly Access[] = [
     kind: 'route',
     address: '/api/auth/[...all]',
     who: 'public',
-    note: 'better-auth, which checks its own sessions; 404 without sign-in, and the mail routes 404 without mail.',
-  },
-  {
-    kind: 'route',
-    address: '/api/account/move-password',
-    who: 'public',
-    note: 'Before sign-in: a 0.1.0 password moved once to a hash of its derived value, if the password opens the stored hash. Same origin only, rate limited by address, always 204.',
+    note: 'better-auth on @sovereignfs/auth (ADR 0001), which checks its own sessions: sign-in through core, the move of a 0.1.0 password (/sv/move-password, opening no session) and the session’s key secret (/sv/key-secret, same origin, gone with the session) included; 404 without sign-in, and the mail routes 404 without mail.',
   },
   {
     kind: 'operation',
@@ -128,12 +146,6 @@ export const ACCESS: readonly Access[] = [
     note: "The session's own account's wrapped keys in Shopper's vault (RFC 0001), read and changed; the account is the session's, never the request's.",
   },
   {
-    kind: 'route',
-    address: '/api/keys/secret',
-    who: 'signed-in',
-    note: "The session's own key secret, which the browser's kept keys are wrapped by; gone with the session.",
-  },
-  {
     kind: 'page',
     address: '/keys/return',
     who: 'signed-in',
@@ -147,9 +159,27 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'route',
+    address: '/api/account/sign-out',
+    who: 'signed-in',
+    note: 'Where signing out of this session goes once the device has let go: core’s sign-out for a session that came from core (auth.md §8), or none. Reads only the session’s own sign-in through core.',
+  },
+  {
+    kind: 'route',
     address: '/api/account/delete',
     who: 'signed-in',
     note: "The session's own account only: what deleting it would do, and doing it, after the password.",
+  },
+  {
+    kind: 'route',
+    address: '/api/account/apps',
+    who: 'signed-in',
+    note: 'The apps core lists for the session’s own person only, as them with their own refresh token, in suite mode (404 alone); the request names no one, and a failure at core is an empty answer, never an error.',
+  },
+  {
+    kind: 'route',
+    address: '/api/account/export',
+    who: 'signed-in',
+    note: "The session's own account's records only, for its browser to open: after the password again, or, hosted by Sovereign, a sign-in at core in the last five minutes.",
   },
   {
     kind: 'route',
@@ -177,6 +207,48 @@ export const ACCESS: readonly Access[] = [
   },
   {
     kind: 'operation',
+    address: 'card.delete',
+    who: 'admin',
+    note: 'A card’s Admin deletes it, its people and their copies of its keys (RFC 0007); a Member of the card, a person on a list of its group, an outsider and an unknown card read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.invite.create',
+    who: 'admin',
+    note: 'A card’s Admin makes a link to it, in the statement; the link carries the card’s keys under a secret the server never sees, its token is returned once and only its hash is stored. A Member of the card, a person on a list of its group, an outsider and an unknown card read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.invite.revoke',
+    who: 'admin',
+    note: 'A card’s Admin revokes a link to it, in the statement; a Member of the card, a person on a list of its group, an outsider and a link that is gone read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.invite.list',
+    who: 'admin',
+    note: 'A card’s Admin reads its live links (who made each), never a link itself; a Member of the card, a person on a list of its group and an outsider read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.member.leave',
+    who: 'member',
+    note: 'Someone on a card leaves it, in one transaction that steps the group’s counter and deletes their copy of its keys; its Admin cannot. An outsider and a person on a list of its group read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.member.remove',
+    who: 'admin',
+    note: 'A card’s Admin removes someone from it, never an Admin; a Member’s attempt, a person on a list of its group and an outsider read as not found.',
+  },
+  {
+    kind: 'operation',
+    address: 'card.key.mine',
+    who: 'member',
+    note: 'Someone on a card keeps their own copy of its keys, wrapped under their app key: only their own row, only for a card they are on, in the statement; an outsider and a person on a list of its group read as not found.',
+  },
+  {
+    kind: 'operation',
     address: 'invite.create',
     who: 'member',
     note: 'Any member makes a link for the household; its token is returned once and only its hash is stored. An outsider reads as not found.',
@@ -191,13 +263,13 @@ export const ACCESS: readonly Access[] = [
     kind: 'page',
     address: '/invite/[token]',
     who: 'public',
-    note: 'An invitation: the household’s name and who invited, and nothing else; one page for every link that does not work. Opening it is rate limited.',
+    note: 'An invitation to a list or a card: who invited and which of the two it is, and nothing else; one page for every link that does not work. Opening it is rate limited.',
   },
   {
     kind: 'route',
     address: '/api/invite/accept',
     who: 'signed-in',
-    note: 'Accepts a link as the session’s account: one transaction that claims it, checks both limits and adds a Member. Rate limited.',
+    note: 'Accepts a link, to a list or to a card, as the session’s account: one transaction that claims it, checks its limits and adds a Member. Rate limited.',
   },
   {
     kind: 'operation',

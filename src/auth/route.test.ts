@@ -56,4 +56,36 @@ describe('/api/auth', () => {
         .status,
     ).toBe(200);
   });
+
+  it('sends a person to the sign-in page with a reason, keeping their invitation, when core cannot be reached to start a sign-in', async () => {
+    const invite = `/invite/${'a'.repeat(43)}`;
+    const failing = vi.fn(async () => new Response('{"message":"fetch failed"}', { status: 500 }));
+    const { GET } = await route({ handler: failing });
+    const reply = await GET(
+      new Request(
+        `http://localhost:3000/api/auth/sign-in/sovereign?returnTo=${encodeURIComponent(invite)}`,
+      ),
+    );
+    expect(reply.status).toBe(303);
+    expect(reply.headers.get('location')).toBe(
+      `/sign-in?error=sovereign_unreachable&next=${encodeURIComponent(invite)}`,
+    );
+    // Thrown, rather than answered, it is the same; and any other route's failure is left alone.
+    vi.resetModules();
+    const throwing = await route({
+      handler: vi.fn(async () => {
+        throw new Error('discovery failed');
+      }),
+    });
+    expect(
+      (
+        await throwing.GET(new Request('http://localhost:3000/api/auth/sign-in/sovereign'))
+      ).headers.get('location'),
+    ).toBe('/sign-in?error=sovereign_unreachable');
+    vi.resetModules();
+    const other = await route({ handler: failing });
+    expect(
+      (await other.GET(new Request('http://localhost:3000/api/auth/get-session'))).status,
+    ).toBe(500);
+  });
 });
