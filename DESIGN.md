@@ -1351,7 +1351,9 @@ list's own products are tidied where they are used, from an item's panel (§16.7
   hidden; one of the person's own is deleted too, with Undo, and its name cannot be one another category has (capitals and spaces aside). **Renaming one of the person's own also renames its
   copies on the lists they are Admin of, and moving it moves its copies on their own lists** (the owner's decision of 2026-11-24: a copy's place is a key in its list's group's aisle order,
   so it means the same only in the person's own group); a rename made while the keys are not open finds no copy, and asking again once they are renames them. A hidden category is not
-  offered, a name is never guessed into it, and what is in it shows under _Other_. The tab is `?tab=categories`.
+  offered, a name is never guessed into it, and what is in it shows under _Other_. The tab is `?tab=categories`. **A row's shape is the same in every row:** the handle, the icon (before the
+  name, its panel opening on the side with room), the name, how many items, and _Hide_ (or _Show_) and _Delete_ in places of their own, so that every name, _Other_'s too, is as wide, and
+  _Add category_'s field starts and ends where the names do; what only some rows have (_Hidden_, _Usual name_) is a line under the name and takes no width from it.
 
 ### 16.9 Sharing a list
 

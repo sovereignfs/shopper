@@ -277,6 +277,14 @@ function SortableLine({
         className={styles.handleRow}
       >
         <div className={`${styles.line} ${category.hidden ? styles.hidden : ''}`}>
+          {/* Before the name: the icon is what the name is of. The design system's panel opens on the side with room, rightwards from here. */}
+          <IconPicker
+            className={styles.picker}
+            aria-label={`Icon of ${category.name}`}
+            value={line.icon}
+            onChange={onIcon}
+            options={GROCERY_ICONS}
+          />
           <Input
             aria-label={`Name of ${category.name}`}
             className={styles.name}
@@ -285,36 +293,14 @@ function SortableLine({
             onChange={(event) => setDraft(event.target.value)}
             {...handlers}
           />
-          <span className={styles.meta}>
-            {category.hidden ? (
-              <Badge size="xs" uppercase={false}>
-                Hidden
-              </Badge>
-            ) : null}
-            <span className={styles.count}>
-              {line.count === 1 ? '1 item' : `${line.count} items`}
-            </span>
+          <span className={styles.count}>
+            {line.count === 1 ? '1 item' : `${line.count} items`}
           </span>
+          {/* Two places, always: Hide (or Show) in the first and Delete in the second, so that the name is as wide in every row, one with neither (Other) too. */}
           <span className={styles.actions}>
-            {/* At the right of the row: the design system's panel opens leftwards from its trigger and is clipped by the page where the trigger is at the left (a gap to raise in `sovereign`). */}
-            <IconPicker
-              aria-label={`Icon of ${category.name}`}
-              value={line.icon}
-              onChange={onIcon}
-              options={GROCERY_ICONS}
-            />
-            {line.renamed && usual ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Use the usual name for ${category.name}`}
-                onClick={() => onRename(null)}
-              >
-                Usual name
-              </Button>
-            ) : null}
             {line.canHide ? (
               <Button
+                className={styles.hide}
                 variant="ghost"
                 size="sm"
                 aria-label={`${category.hidden ? 'Show' : 'Hide'} ${category.name}`}
@@ -325,6 +311,7 @@ function SortableLine({
             ) : null}
             {line.canDelete ? (
               <Button
+                className={styles.delete}
                 variant="ghost"
                 size="sm"
                 aria-label={`Delete ${category.name}`}
@@ -334,6 +321,26 @@ function SortableLine({
               </Button>
             ) : null}
           </span>
+          {/* What a row has only sometimes goes under the name, a line of its own, so that it never takes width from the name. */}
+          {category.hidden || (line.renamed && usual) ? (
+            <span className={styles.notes}>
+              {category.hidden ? (
+                <Badge size="xs" uppercase={false}>
+                  Hidden
+                </Badge>
+              ) : null}
+              {line.renamed && usual ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Use the usual name for ${category.name}`}
+                  onClick={() => onRename(null)}
+                >
+                  Usual name
+                </Button>
+              ) : null}
+            </span>
+          ) : null}
         </div>
       </DragHandleRow>
     </li>

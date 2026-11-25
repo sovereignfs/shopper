@@ -689,14 +689,14 @@ test('the Categories tab on a phone keeps to the width, opens the icon panel who
   const last = page.getByRole('button', { name: 'Icon of Other' });
   await last.scrollIntoViewIfNeeded();
   await last.click();
-  // The panel is found by the design system's own (hashed) class names, which hold no role to ask for: an upgrade of `@sovereignfs/ui` may need this selector changed.
-  const inside = await page.evaluate(() => {
-    const open = document.querySelector('[class*="panel"][class*="right"]');
-    if (!open) return null;
-    const box = open.getBoundingClientRect();
-    return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
-  });
-  expect(inside).toBe(true);
+  // The panel is a dialog named for its picker, on whichever side of the icon the design system finds room (the icon is before the name, so rightwards): asked for by that,
+  // not by a class name.
+  const box = await page.getByRole('dialog', { name: 'Icon of Other options' }).boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.x).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(PHONE.width);
+  expect(box?.y).toBeGreaterThanOrEqual(0);
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(PHONE.height);
   await page.keyboard.press('Escape');
   await tab(page, 'Items').click();
   await expect(page).toHaveURL(/\/inventory$/);

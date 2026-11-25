@@ -1,7 +1,32 @@
+/* The widths the rows and _Add category_ share, so that a name is as wide, and starts and ends in the same place, in each of them: a row is the design
+ * system's handle (24px and its gap), then the icon, the name, the count and the two places for what can be done to a category; _Add category_ is the name's
+ * column and, where the count and the places are, its button. */
 .tab {
+  --handle: calc(24px + var(--sv-space-1));
+  --picker: 2.25rem;
+  --row: var(--picker);
+  --count: 5rem;
+  --place: 2.25rem;
+  --places: calc(2 * var(--place) + var(--sv-space-1));
+  --beyond-name: calc(var(--count) + var(--sv-space-3) + var(--places));
   display: flex;
   flex-direction: column;
   gap: var(--sv-space-4);
+}
+
+/* On a phone the row keeps to the icon, the name and what can be done to it: the count is not shown. */
+@media (max-width: 720px) {
+  .tab {
+    --beyond-name: var(--places);
+  }
+}
+
+/* The design system's buttons are as tall as a touch target where the pointer is coarse, and that is the height of the first line then, in a row without them
+ * (Other) as in the rest. */
+@media (pointer: coarse) {
+  .tab {
+    --row: var(--sv-touch-target-min, 44px);
+  }
 }
 
 .lede {
@@ -33,38 +58,54 @@
   border-radius: var(--sv-radius-md);
 }
 
-/* The design system's row is the handle and one container for what is in it, which is this. */
+/* The design system's row is the handle and one container for what is in it, which is this. The handle is level with the first line of a row, the icon and the
+ * name, and stays there when a row has a note under it. */
 .handleRow {
-  align-items: center;
+  align-items: flex-start;
 }
 
-/* A category: its icon, name, how many items are under it, and what can be done to it. It wraps on a phone, and never scrolls sideways. */
+.handleRow > :first-child {
+  margin-top: calc((var(--row) - 24px) / 2);
+}
+
+/* A category: its icon, name, how many items are under it, and what can be done to it, in columns of widths of their own, never wider for what is in
+ * a row: the name takes what is left. What a row has only sometimes (_Hidden_, _Usual name_) is a line under the name. Never scrolls sideways. */
 .line {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: var(--picker) minmax(0, 1fr) var(--count) var(--places);
+  grid-template-rows: minmax(var(--row), auto);
   align-items: center;
   gap: var(--sv-space-2) var(--sv-space-3);
   min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .line {
+    grid-template-columns: var(--picker) minmax(0, 1fr) var(--places);
+  }
 }
 
 .hidden .name {
   opacity: 0.6;
 }
 
+/* The icon's button is as tall as the name's input and as wide as its column, the icon in the middle of it. */
+.picker {
+  box-sizing: border-box;
+  justify-content: center;
+  width: var(--picker);
+  height: var(--picker);
+  padding: 0;
+}
+
 .name {
-  flex: 1 1 6rem;
   min-width: 0;
 }
 
-.meta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sv-space-2);
+.count {
   color: var(--sv-color-text-muted);
   font-size: var(--sv-font-size-sm);
-}
-
-.count {
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -75,22 +116,60 @@
   }
 }
 
+/* Two places that are there in every row, so that what is in one does not move what is in another. */
 .actions {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, var(--place));
   gap: var(--sv-space-1);
-  margin-left: auto;
+  justify-content: end;
 }
 
-.add {
+.hide,
+.delete {
+  width: var(--place);
+  padding-inline: 0;
+}
+
+.hide {
+  grid-column: 1;
+}
+
+.delete {
+  grid-column: 2;
+}
+
+/* Under the name, from its left edge to the end of the row. */
+.notes {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--sv-space-3);
+  gap: var(--sv-space-2);
+  grid-column: 2 / -1;
 }
 
-.add > :first-child {
-  flex: 1 1 12rem;
+/* _Add category_: the name's own column, from the same left edge to the same right one, and the button where the count and the two places are. Under the handle and
+ * the icon there is nothing, as under a row's. On a phone the button needs its own width, so the input and it share the row as they can. */
+.add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--beyond-name);
+  align-items: center;
+  gap: var(--sv-space-3);
+  padding-left: calc(var(--handle) + var(--picker) + var(--sv-space-3));
+}
+
+.add > button {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .add {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-left: 0;
+  }
+
+  .add > button {
+    width: auto;
+  }
 }
 
 .label {

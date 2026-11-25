@@ -6,6 +6,14 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.1] - 2026-11-25
+
+### Changed
+
+- **Inventory's Categories tab:** a category's icon is now before its name, and every name is as wide: _Other_'s too, and the _New category_ field below, which starts and ends where the
+  names do. _Hide_ (or _Show_) and _Delete_ have places of their own at the right, so a row with neither no longer has a longer name. _Hidden_ and _Usual name_, which only some rows have,
+  are under the name.
+
 ## [0.8.0] - 2026-11-24
 
 ### Added
