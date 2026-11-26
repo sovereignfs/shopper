@@ -12,6 +12,9 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 - **A person's export, from Shopper's _Download my data_ or from a Sovereign instance, includes the settings Shopper keeps for their account on its server** (the last list used, and when
   notices were last looked at). Nothing writes them yet, so no export changes today.
+- **Unlocking, _Download my data_, _Change password_ and _Delete account_ use what is in the password box.** A password manager can fill a box without telling the page (AutoFill on iOS,
+  until the box is focused): the button then stayed greyed out, or an empty password was used in its place. The forms of sign-in, sign-up and password reset come from the design system and are
+  not changed by this version.
 
 ## [0.8.7] - 2026-11-25
 
