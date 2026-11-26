@@ -124,7 +124,7 @@ table listing `auth` and `export`, and its line that 16.14 is not built correcte
 
 **Accepts when:** `sovereign`'s `main` carries the corrections.
 
-#### 📋 16.12 — Background Sync in `@sovereignfs/pwa`
+#### ✅ 16.12 — Background Sync in `@sovereignfs/pwa`
 
 **Goal:** the shared worker answers Background Sync, or lets an app add a handler, as it lets an app add push kinds. **Design:** §12.3. **Depends on:**
 nothing here. **Needed by:** 17.2, if the package has no way today.
@@ -133,6 +133,10 @@ nothing here. **Needed by:** 17.2, if the package has no way today.
 outbox when the connection returns with no tab in front.
 
 **Accepts when:** a `@sovereignfs/pwa` release carrying it is published, or 17.2 finds the package already does.
+
+**Done as:** `@sovereignfs/pwa` 0.3.0 (published 2026-11-22) takes `serviceWorkerSource({ sync })`. Shopper pins it and gives it its own tag and
+message (`src/sw/shared.ts`); its own handler after the package's text is gone from `src/sw/source.ts`. The package's message names the tag beside
+the type, which the page's listener does not read. The package has the app's `fetchHandlers` too, which Shopper does not use.
 
 #### 📋 16.13 — A SQLite and sqld database for `@sovereignfs/auth`
 

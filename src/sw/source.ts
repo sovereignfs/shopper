@@ -4,9 +4,9 @@ import { SYNC_MESSAGE, SYNC_TAG } from './shared';
 export { SYNC_MESSAGE, SYNC_TAG };
 
 /**
- * The service worker (DESIGN.md §16.11), as the text served at `/sw.js`: **`@sovereignfs/pwa`'s**, the one every app of the suite runs (task 17.2), with
- * Shopper's Background Sync after it. It is a string and not a module because a worker is its own script, with no bundler between it and the browser,
- * so that a test evaluates the very text that is served.
+ * The service worker (DESIGN.md §16.11), as the text served at `/sw.js`: **`@sovereignfs/pwa`'s**, the one every app of the suite runs (task 17.2). It is
+ * a string and not a module because a worker is its own script, with no bundler between it and the browser, so that a test evaluates the very text that
+ * is served.
  *
  * **What it keeps, and nothing else** (the package's allow-list): the build's own files under `/_next/static/`, the icons and the manifest, and **the one
  * shell page, `/shell`**, which holds nothing of a person. Only plain answers of this origin with no query, no `Authorization` and no cookie. Every API
@@ -18,28 +18,11 @@ export { SYNC_MESSAGE, SYNC_TAG };
  * package's own page says so. A new version waits until a page asks it to take over, which Shopper's never does, so what is in flight and the outbox
  * are not disturbed.
  *
- * **Background Sync** (DESIGN.md §12.3): where the browser has it, it wakes the worker when a connection is back after a write made without one, and the
- * worker tells the pages that are open to sync, which they do through their own loop. A worker has none of the working copy's code, so with every page
- * closed the changes wait for the next time Shopper is opened. The package has no way to say this (16.12), so it is added after the package's text,
- * and goes when the package has it.
+ * **Background Sync** (DESIGN.md §12.3), the package's: where the browser has it, it wakes the worker when a connection is back after a write made without
+ * one, and the worker tells the pages that are open to sync, which they do through their own loop. A worker has none of the working copy's code, so with
+ * every page closed the changes wait for the next time Shopper is opened.
  */
 export const CACHE_PREFIX = 'shopper-shell-';
-
-/** Shopper's addition to the package's worker: Background Sync wakes the open pages (16.12). */
-function backgroundSyncSource(): string {
-  return `
-// Background Sync (Shopper, DESIGN.md §12.3): the browser wakes the worker when a connection is back after a write made without one. It wakes the
-// pages that are open, which sync through their own loop; with none open the changes wait for the next time Shopper is opened.
-self.addEventListener('sync', function (event) {
-  if (event.tag !== ${JSON.stringify(SYNC_TAG)}) return;
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (pages) {
-      for (var i = 0; i < pages.length; i += 1) pages[i].postMessage({ type: ${JSON.stringify(SYNC_MESSAGE)} });
-    })
-  );
-});
-`;
-}
 
 /** The worker of a production build, for `version` (Next's build id), keeping `files` (the build's static files) at install. */
 export function workerSource(
@@ -48,15 +31,14 @@ export function workerSource(
   /** Whether Shopper sends pushes (RFC 0002): only then does the worker show them. A push says what happened and who did it, never a name. */
   push = false,
 ): string {
-  return (
-    serviceWorkerSource({
-      version,
-      cachePrefix: CACHE_PREFIX,
-      precache: files,
-      shell: '/shell',
-      ...(push ? { push: { name: 'Shopper', icon: '/icons/icon-192.png' } } : {}),
-    }) + backgroundSyncSource()
-  );
+  return serviceWorkerSource({
+    version,
+    cachePrefix: CACHE_PREFIX,
+    precache: files,
+    shell: '/shell',
+    sync: { tags: [SYNC_TAG], message: SYNC_MESSAGE },
+    ...(push ? { push: { name: 'Shopper', icon: '/icons/icon-192.png' } } : {}),
+  });
 }
 
 /**

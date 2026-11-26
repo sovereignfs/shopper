@@ -306,7 +306,8 @@ describe('the worker’s wake-up and its handover', () => {
     await w.dispatch('sync', { tag: 'something-else' });
     expect(w.woken).toEqual([]);
     await w.dispatch('sync', { tag: SYNC_TAG });
-    expect(w.woken).toEqual([{ type: SYNC_MESSAGE }]);
+    // The package names the tag beside the type, which is what the page listens for (`src/local/background.ts`).
+    expect(w.woken).toEqual([{ type: SYNC_MESSAGE, tag: SYNC_TAG }]);
   });
 
   it('waits for the pages using the old version to close: it takes over only when a page asks, which Shopper’s never do', async () => {

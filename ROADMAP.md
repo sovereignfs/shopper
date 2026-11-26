@@ -193,7 +193,7 @@ person sees has changed.
 | 57  | [16.14](docs/epics/upstream.md) | An app's password accounts, across to `@sovereignfs/auth` (`sovereign`) | P3       | —                   | 📋     |
 | 58  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                                      | P2       | —                   | ✅     |
 | 59  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)                         | P3       | —                   | 📋     |
-| 60  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`)                     | P2       | —                   | 📋     |
+| 60  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`)                     | P2       | —                   | ✅     |
 
 ### Milestone S — Encryption the server cannot read
 

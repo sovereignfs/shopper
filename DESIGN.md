@@ -249,7 +249,7 @@ As Tusk's: `app/` for routes, `src/` for everything else, tests beside the code.
 | `src/sovereign/`          | Core's notices, `People.deletePerson`, the bell, email, activity and directory calls (§15, §19) — **from Tusk**                                                    |
 | `src/jobs/`               | The runner and claims — **copied from Tusk**                                                                                                                       |
 | `src/mail/`               | The SMTP mailer and the mail outbox — **copied from Tally**                                                                                                        |
-| `src/sw/`                 | The service worker: `@sovereignfs/pwa`'s, with the shell page and Shopper's Background Sync                                                                        |
+| `src/sw/`                 | The service worker: `@sovereignfs/pwa`'s, with the shell page and its Background Sync                                                                              |
 | `src/screens/`, `src/ui/` | The signed-in screens and the shell                                                                                                                                |
 | `migrations/`, `deploy/`  | Generated SQL (`sqlite/`, `postgres/`, `auth/`); the Compose setups                                                                                                |
 
@@ -1404,8 +1404,7 @@ against what this design asks of it in the task that first uses it, and a gap go
 - **Installable as a PWA,** with the suite's worker, `@sovereignfs/pwa`'s (17.2): it keeps the shell by allow-list and the one shell page, which holds
   nothing of a person; with no network, every address is answered with the kept shell, which reads the device's store and shows a signed-in screen (a
   list, shopping mode, Home, Inventory, the cards, recent trips) or says that the page needs a connection. **No data is ever in a cache;** it lives in
-  IndexedDB, named per account and deleted at sign-out. Shopper adds Background Sync (§12.3) after the package's worker, until the package has it
-  (16.12).
+  IndexedDB, named per account and deleted at sign-out. Background Sync (§12.3) is the package's too (`sync`, 16.12), under Shopper's tag.
 
 ### 16.12 What the plugin paid to learn
 
