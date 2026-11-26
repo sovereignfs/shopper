@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { onCard, onList, ownerOf, reaches } from '../access/membership';
+import { memberOf, onCard, onList, ownerOf, reaches } from '../access/membership';
 import type { KeyRing } from '../crypto/keys';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -89,8 +89,9 @@ export async function personRecords(
                 ? // A list's copies of people's categories are the list's (§8.3), read by its people as its items are.
                   onList(database, sql`r.list_id`, accountId)
                 : table === 'category'
-                  ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3).
-                    sql`(r.starter_key IS NOT NULL OR ${ownerOf(database, sql`r.household_id`, accountId)})`
+                  ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3). Someone who reaches a
+                    // group by a card alone is on no list of it, and is handed none (§7.7), as the pull hands them none.
+                    sql`((r.starter_key IS NOT NULL AND ${memberOf(database, sql`r.household_id`, accountId)}) OR ${ownerOf(database, sql`r.household_id`, accountId)})`
                   : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';

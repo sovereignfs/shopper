@@ -15,6 +15,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 - **Unlocking, _Download my data_, _Change password_ and _Delete account_ use what is in the password box.** A password manager can fill a box without telling the page (AutoFill on iOS,
   until the box is focused): the button then stayed greyed out, or an empty password was used in its place. The forms of sign-in, sign-up and password reset come from the design system and are
   not changed by this version.
+- **A person who has one of your loyalty cards, and none of your lists, no longer finds your categories in their export:** the starter categories' order, icons and which of them you hid were in
+  it. Sync never handed them these.
 
 ## [0.8.7] - 2026-11-25
 

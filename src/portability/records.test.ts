@@ -324,6 +324,39 @@ describe(`a person's export (${testTarget().leg})`, () => {
     ]);
   });
 
+  it('hands someone who is on a card only none of the group’s categories: not its starter rows, their order or which are hidden (§7.7)', async () => {
+    const owner = await somebody(database, 'Aisleowner');
+    const guest = await somebody(database, 'Aisleguest');
+    const card = crypto.randomUUID();
+    await dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${owner.household}`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'card')} (id, household_id, position, created_at)
+          VALUES (${card}, ${owner.household}, ${'a1'}, 1)`,
+    );
+    await addCardMember(database, {
+      household: owner.household,
+      card,
+      person: guest.personId,
+      role: 'member',
+      seq: 1,
+      now: 1,
+    });
+    const of = async (who: Someone) =>
+      (await personRecords(database, TEST_RING, who.accountId))
+        .filter((part) => part.kind.startsWith('category'))
+        .flatMap((part) => part.records)
+        .filter((row) => row.household_id === owner.household);
+    // They reach the group by the card, and are given it.
+    const theirs = await personRecords(database, TEST_RING, guest.accountId);
+    expect(theirs.find((part) => part.kind === 'card_encrypted')?.records).toHaveLength(1);
+    expect(await of(guest)).toEqual([]);
+    expect(await of(owner)).not.toHaveLength(0);
+  });
+
   it('is nothing for an account Shopper does not know', async () => {
     expect(await personRecords(database, TEST_RING, 'nobody')).toEqual([]);
   });
