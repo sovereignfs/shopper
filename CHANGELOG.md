@@ -6,6 +6,13 @@ All notable changes to Shopper are recorded here. The format follows [Keep a Cha
 Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
 titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
+## [0.8.8] - 2026-11-26
+
+### Fixed
+
+- **A person's export, from Shopper's _Download my data_ or from a Sovereign instance, includes the settings Shopper keeps for their account on its server** (the last list used, and when
+  notices were last looked at). Nothing writes them yet, so no export changes today.
+
 ## [0.8.7] - 2026-11-25
 
 ### Fixed

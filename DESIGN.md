@@ -1478,11 +1478,12 @@ The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), 
 
 ### 18.1 Export
 
-- **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, and **every list
-  they are on, whole** (its people by name only), with its items, catalog, the categories it uses (its group's starter ones and its
-  `list_category` copies), **their own Inventory and categories** (§8.8), **every card they are on** (§7.7, its people by name only) and its links to
-  their lists, and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
-  own wrapped keys beside them (the group's for their own lists, cards and Inventory, their copies for lists and cards shared with them), so that their keys open it.
+- **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, what their account
+  keeps for itself (`account_settings`, §20.3), and **every list they are on, whole** (its people by name only), with its items, catalog, the
+  categories it uses (its group's starter ones and its `list_category` copies), **their own Inventory and categories** (§8.8), **every card they are
+  on** (§7.7, its people by name only) and its links to their lists, and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in
+  it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's own wrapped keys beside them (the group's for their
+  own lists, cards and Inventory, their copies for lists and cards shared with them), so that their keys open it.
 - **A person's own export, readable** (RFC 0005, 22.8), in both modes, from **Settings › Data**: **one JSON file**, `shopper-export-<date>.json`,
   **made in the browser,** which holds the keys. The server checks who is asking and serves the person's records as it holds them (the same records as
   core's export); the browser opens them and writes the file, so the server never reads a name to make it. **Confirmed first, as core's export is:**

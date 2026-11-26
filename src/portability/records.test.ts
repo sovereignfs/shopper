@@ -1,10 +1,12 @@
-import { sql } from 'drizzle-orm';
+import { is, sql } from 'drizzle-orm';
+import { SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_RING, join, joinList, somebody, type Someone } from '../access/test-support';
 import type { Database } from '../db/client';
 import { dbGet, dbRun } from '../db/exec';
 import { sealRow } from '../crypto/sealed';
 import { runMigrations } from '../db/migrate';
+import * as sqliteApp from '../db/schema/sqlite/app';
 import { appTable } from '../db/tables';
 import { freshDatabase, testTarget } from '../db/test-support';
 import { listCardId } from '../cards/links';
@@ -23,6 +25,41 @@ const LIMITS: Limits = {
   householdCategories: 100,
   accountCards: 100,
 };
+/**
+ * What a person's export holds of each table, **decided for every table there is** (`AGENTS.md`: a new table is exported in the same change): the tests below
+ * fail for a table that is in neither list, and for one in the first whose row is not in the export. The value is the kind it is under, with `_encrypted`
+ * after it for the content of a moved group.
+ */
+const EXPORTED: Record<string, string> = {
+  person: 'person',
+  household: 'household',
+  list_member: 'member',
+  card_member: 'card_member',
+  list_card: 'list_card',
+  list: 'list',
+  item: 'item',
+  product: 'product',
+  category: 'category',
+  inventory_item: 'inventory_item',
+  list_category: 'list_category',
+  card: 'card',
+  household_key: 'household_key',
+  list_key: 'list_key',
+  card_key: 'card_key',
+  account_settings: 'account_settings',
+};
+const NOT_EXPORTED: Record<string, string> = {
+  member:
+    'who is in a group, which is never shown (RFC 0004): the export says whether a group is the person’s own, and a list’s people are `member`',
+  invitation: 'a link’s token hash and wrapped key, which open a list or a card',
+  alias: 'what a fold left, ids only, for devices to follow',
+  tombstone: 'what was deleted, ids only, for devices to follow',
+  applied_mutation: 'the record of what was sent, so that nothing is applied twice',
+  rate_bucket: 'counters of how often something was tried',
+  push_device: 'a push service’s address for a device and the keys that send to it',
+  push_outbox: 'pushes waiting to be sent',
+};
+
 let database: Database;
 let ada: Someone;
 let grace: Someone;
@@ -177,6 +214,114 @@ describe(`a person's export (${testTarget().leg})`, () => {
     expect(members.every((member) => !('email' in member))).toBe(true);
     expect(text).not.toContain('grace');
     expect(text).not.toMatch(/password|token|secret/i);
+  });
+
+  it('decides for every table there is whether the export holds it', () => {
+    const tables = Object.values<unknown>(sqliteApp)
+      .filter((value): value is SQLiteTable => is(value, SQLiteTable))
+      .map((table) => getTableConfig(table).name);
+    expect([...Object.keys(EXPORTED), ...Object.keys(NOT_EXPORTED)].sort()).toEqual(tables.sort());
+  });
+
+  it('holds a row of every table it says it holds', async () => {
+    const who = await somebody(database, 'Everything');
+    const [product, card] = [crypto.randomUUID(), crypto.randomUUID()];
+    // A moved group, so that the keys are in the export too.
+    await dbRun(
+      database,
+      sql`UPDATE ${appTable(database, 'household')} SET encryption = 'encrypted', epoch = 1 WHERE id = ${who.household}`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'product')} (id, household_id, list_id, name_key, sealed, created_at)
+          VALUES (${product}, ${who.household}, ${who.list}, ${'milk'}, ${''}, 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'item')} (id, household_id, list_id, product_id, sealed, quantity, position, added_by, added_at)
+          VALUES (${crypto.randomUUID()}, ${who.household}, ${who.list}, ${product}, ${''}, ${'1'}, ${'a1'}, ${who.personId}, 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'inventory_item')} (id, household_id, name_key, created_at)
+          VALUES (${crypto.randomUUID()}, ${who.household}, ${'tea'}, 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'list_category')} (id, household_id, list_id, source_key, position)
+          VALUES (${crypto.randomUUID()}, ${who.household}, ${who.list}, ${'produce'}, ${'a1'})`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'card')} (id, household_id, position, created_at)
+          VALUES (${card}, ${who.household}, ${'a1'}, 1)`,
+    );
+    await addCardMember(database, {
+      household: who.household,
+      card,
+      person: who.personId,
+      role: 'admin',
+      seq: 1,
+      now: 1,
+    });
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'list_card')} (id, household_id, list_id, card_id, created_at)
+          VALUES (${listCardId(who.list, card)}, ${who.household}, ${who.list}, ${card}, 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'household_key')} (household_id, person_id, epoch, record, created_at)
+          VALUES (${who.household}, ${who.personId}, 1, 'hk1.every.thing', 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'list_key')} (list_id, person_id, household_id, epoch, record, created_at)
+          VALUES (${who.list}, ${who.personId}, ${who.household}, 1, 'lr1.every.thing', 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'card_key')} (card_id, person_id, household_id, epoch, record, created_at)
+          VALUES (${card}, ${who.personId}, ${who.household}, 1, 'cr1.every.thing', 1)`,
+    );
+    await dbRun(
+      database,
+      sql`INSERT INTO ${appTable(database, 'account_settings')} (account_id, created_at, updated_at)
+          VALUES (${who.accountId}, 1, 1)`,
+    );
+    const kinds = (await personRecords(database, TEST_RING, who.accountId)).map((part) =>
+      part.kind.replace(/_encrypted$/, ''),
+    );
+    for (const [table, kind] of Object.entries(EXPORTED)) expect(kinds, table).toContain(kind);
+  });
+
+  it('holds what a person’s account keeps for itself on the server, and no other account’s (§20.3)', async () => {
+    const mine = await somebody(database, 'Settings-mine');
+    const theirs = await somebody(database, 'Settings-theirs');
+    await join(database, mine.household, theirs);
+    for (const [who, list, seen] of [
+      [mine, mine.list, 5],
+      [theirs, theirs.list, null],
+    ] as const)
+      await dbRun(
+        database,
+        sql`INSERT INTO ${appTable(database, 'account_settings')} (account_id, last_list_id, inbox_seen_at, created_at, updated_at)
+            VALUES (${who.accountId}, ${list}, ${seen}, 3, 4)`,
+      );
+    const part = (await personRecords(database, TEST_RING, mine.accountId)).find(
+      (each) => each.kind === 'account_settings',
+    );
+    expect(part).toEqual({
+      kind: 'account_settings',
+      endToEnd: false,
+      records: [{ lastList: mine.list, inboxSeenAt: 5, createdAt: 3, updatedAt: 4 }],
+    });
+    const other = (await personRecords(database, TEST_RING, theirs.accountId)).find(
+      (each) => each.kind === 'account_settings',
+    );
+    expect(other?.records).toEqual([
+      { lastList: theirs.list, inboxSeenAt: null, createdAt: 3, updatedAt: 4 },
+    ]);
   });
 
   it('is nothing for an account Shopper does not know', async () => {
