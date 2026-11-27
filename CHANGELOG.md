@@ -8,13 +8,20 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.8.8] - 2026-11-26
 
+### Security
+
+- **A password could end up in the address.** On a server where people sign in with Shopper's own accounts, the sign-in, sign-up or password reset form, pressed before the page had finished
+  loading, was sent by the browser itself with the password in the address, which the browser's history and a reverse proxy's access log can keep. 0.8.7 and earlier are affected. The forms can
+  no longer be sent before the page runs. **If you keep access logs, search them for `password=`.** Whoever's password is there should change it in **Settings › Security**, which also signs
+  their other devices out, and those lines should be removed. Changing the password does not change the keys of their lists: someone who already had such a line and an earlier copy of the
+  database could still open them.
+
 ### Fixed
 
 - **A person's export, from Shopper's _Download my data_ or from a Sovereign instance, includes the settings Shopper keeps for their account on its server** (the last list used, and when
   notices were last looked at). Nothing writes them yet, so no export changes today.
-- **Unlocking, _Download my data_, _Change password_ and _Delete account_ use what is in the password box.** A password manager can fill a box without telling the page (AutoFill on iOS,
-  until the box is focused): the button then stayed greyed out, or an empty password was used in its place. The forms of sign-in, sign-up and password reset come from the design system and are
-  not changed by this version.
+- **Signing in, signing up, resetting a password, unlocking, _Download my data_, _Change password_ and _Delete account_ use what is in the password box.** A password manager can fill a box
+  without telling the page (AutoFill on iOS, until the box is focused): the button then stayed greyed out, or an empty password was used in its place.
 - **A person who has one of your loyalty cards, and none of your lists, no longer finds your categories in their export:** the starter categories' order, icons and which of them you hid were in
   it. Sync never handed them these.
 - **Removing someone from a loyalty card says what it does not take back:** they lose the card on their devices when they next sync, what they have already seen or noted stays theirs, and the

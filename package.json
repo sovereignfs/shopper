@@ -42,7 +42,7 @@
     "@sovereignfs/push": "0.2.0",
     "@sovereignfs/pwa": "0.3.0",
     "@sovereignfs/sdk": "2.12.0",
-    "@sovereignfs/ui": "0.107.3",
+    "@sovereignfs/ui": "0.107.4",
     "better-auth": "1.7.27",
     "drizzle-orm": "^0.45.4",
     "fractional-indexing": "^3.4.0",

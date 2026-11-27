@@ -52,7 +52,7 @@ The same as Tally's 14.2 and Roam's 17.4.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Done as:** `AvatarStack` is in `@sovereignfs/ui` 0.107.3, which Shopper pins.
+**Done as:** `AvatarStack` is in `@sovereignfs/ui` 0.107.3, and in the later release Shopper pins.
 
 #### 📋 16.4 — Grocery icons
 
@@ -74,7 +74,8 @@ The same as Tally's 14.3 and Roam's 17.5.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Done as:** `FloatingActionButton` is in `@sovereignfs/ui` 0.107.3, which Shopper pins. The screen that uses it is phase 2's (8.11).
+**Done as:** `FloatingActionButton` is in `@sovereignfs/ui` 0.107.3, and in the later release Shopper pins. The screen that uses it is phase 2's
+(8.11).
 
 #### 📋 16.6 — Charts
 

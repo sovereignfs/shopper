@@ -7,6 +7,7 @@ import {
   deleteInSettings,
   deviceRows,
   makeLink,
+  newEmail,
   signUp,
   test,
 } from './helpers';
@@ -403,4 +404,34 @@ test('the vault and the key secret are the session’s own: another person gets 
   expect((await visitor.page.request.get(`${base}/api/auth/sv/key-secret`)).status()).toBe(401);
   expect((await visitor.page.request.get(`${base}/api/keys/vault`)).status()).toBe(401);
   await visitor.context.close();
+});
+
+/**
+ * A form pressed before its script has run is sent by the browser itself: a GET with every named box in the address, which the history and a reverse
+ * proxy's access log keep. JavaScript off stands for "not run yet". Reset password is not here: this instance sends no mail, so the page is not there.
+ */
+test.describe('before a page’s script runs', () => {
+  test.use({ javaScriptEnabled: false });
+
+  for (const path of ['/sign-in', '/sign-up']) {
+    test(`${path} cannot be sent, so no password reaches an address`, async ({ page }) => {
+      await page.goto(path);
+      const boxes = page.locator('form input');
+      await expect(boxes.first()).toBeVisible();
+      for (const box of await boxes.all()) {
+        const type = await box.getAttribute('type');
+        await box.fill(type === 'email' ? newEmail() : PASSWORD);
+      }
+      const sent: string[] = [];
+      page.on('request', (request) => {
+        if (request.isNavigationRequest()) sent.push(request.url());
+      });
+      await page.locator('input[type="password"]').last().press('Enter');
+      // Nothing is to happen, so there is nothing to wait for: a navigation the browser starts is under way well within this.
+      await page.waitForTimeout(1_000);
+      expect(sent).toEqual([]);
+      expect(new URL(page.url()).search).toBe('');
+      await expect(page.locator('form button[type="submit"]')).toBeDisabled();
+    });
+  }
 });
