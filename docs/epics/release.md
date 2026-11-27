@@ -117,7 +117,7 @@ standalone account each open Home, their lists, Inventory and a card on it.
 
 **Where it stands (2026-11-27):**
 
-- **Published without its review:** cards and the rest of the workstream are out, the latest as v0.8.7.
+- **Published without its review:** cards and the rest of the workstream are out, in v0.8.7, the first release to carry them.
 - **The review is written** since, `docs/security/0.8.0.md`. Findings 1, 5 and 6 are fixed on `develop` (0.8.8), and so is finding 4's confirmation.
   Findings 2 and 3, and the card key that finding 4 leaves unchanged, wait for the owner to accept them or have them fixed.
 - **The owner's part:** those findings, and the release of 0.8.8.

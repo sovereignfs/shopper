@@ -5,7 +5,7 @@ disagrees with this file, this file is stale and should be corrected. The detail
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
 State as of 2026-11-27: **phase 1 is built; [workstream 0001](docs/workstreams/0001-suite-model.md) is published as 0.2.0, and
-[workstream 0002](docs/workstreams/0002-frame-home-cards.md) up to 0.8.7, with 0.8.8 on `develop`.** Their release tasks (12.7, 12.8) stay open until
+[workstream 0002](docs/workstreams/0002-frame-home-cards.md) as 0.8.7, with 0.8.8 on `develop`.** Their release tasks (12.7, 12.8) stay open until
 their acceptance is run, 12.8 also until the findings of its review are settled. Phase 2 has not started. The developer assigns each task; the first
 row not done, with its dependencies met, is what the order recommends.
 
