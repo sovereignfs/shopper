@@ -236,6 +236,7 @@ test('every route that changes something refuses a request from nowhere, from an
     ['/api/invite/accept', { token: 'x'.repeat(43) }],
     ['/api/account/profile', { name: 'X' }],
     ['/api/account/delete', { password: 'x' }],
+    ['/api/account/export', { password: 'x' }],
   ];
   for (const [path, data] of routes) {
     for (const origin of [undefined, 'https://evil.example', 'null']) {

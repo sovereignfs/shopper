@@ -106,7 +106,7 @@ a standalone account each open their lists on it.
 - **The owner's part:** the promotion into `main` and the publishing.
 - **Not run:** hosting it on an instance.
 
-#### 📋 12.8 — The release of workstream 0002
+#### ⏳ 12.8 — The release of workstream 0002
 
 **Goal:** the suite's frame, Home, Inventory and loyalty cards, published before phase 2. **Depends on:** epics 22 to 24, 12.7.
 
@@ -116,3 +116,11 @@ export route, cards' sharing and keys, and Inventory's exclusion from pulls; the
 
 **Accepts when:** `develop` is ready to release (the version, its changelog, the review), and once the owner promotes and publishes it, a hosted and a
 standalone account each open Home, their lists, Inventory and a card on it.
+
+**Where it stands (2026-11-27):**
+
+- **Published without its review:** cards and the rest of the workstream are out, the latest as v0.8.7.
+- **The review is written** since, `docs/security/0.8.0.md`: its finding 1 is fixed in 0.8.8, on `develop`; findings 2 to 6 wait for the owner to
+  accept them or have them fixed.
+- **The owner's part:** those findings, and the release of 0.8.8.
+- **Not run:** the acceptance, a hosted and a standalone account each opening Home, lists, Inventory and a card.
