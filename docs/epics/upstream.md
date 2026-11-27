@@ -138,7 +138,7 @@ table listing `auth` and `export`, and its line that 16.14 is not built correcte
 
 **Done as:** on `sovereign`'s `main`, `contracts/env.md` has the VAPID settings and says which apps keep `<PREFIX>_ENCRYPTION_KEY` and `_PREVIOUS`,
 `contracts/app-manifest.md` says it is manifest 5, and the guide's package table lists `auth` and `export` and no longer says moving an app's
-accounts is not built. The table still calls `auth`'s key secret not built, which 0.7.0 has: raised for `sovereign`.
+accounts is not built. The table still calls `auth`'s key secret not built, which 0.7.0 has: `sovereign`'s to correct.
 
 #### ✅ 16.12 — Background Sync in `@sovereignfs/pwa`
 
