@@ -20,7 +20,7 @@ own, with every feature, needing no instance**: its own accounts, people, mail a
 imported. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL), signing people in through a Sovereign core in a suite
 or with its own accounts alone, never both, from one image.
 
-**Nothing is built yet.** `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A starts by copying Tusk's infrastructure (`DESIGN.md`
+`DESIGN.md` is the design, and `ROADMAP.md` the order of the work and where it stands. The infrastructure began as a copy of Tusk's (`DESIGN.md`
 §5.1).
 
 **Phase 1 (0.1.0) is a minimum viable product,** built to be used as soon as it can be: sign-in by password or through a core, lists and items offline,

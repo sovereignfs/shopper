@@ -2,7 +2,8 @@
 
 ## Status
 
-📋 Planned. Leg 8 of [workstream 0001](../workstreams/0001-suite-model.md); before phase 2.
+⏳ In progress: 20.1 and 20.5 are done, and a person's own readable export is 22.8's. 20.2 to 20.4 wait. Leg 8 of
+[workstream 0001](../workstreams/0001-suite-model.md).
 
 ## Overview
 
