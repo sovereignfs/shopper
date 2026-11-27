@@ -118,7 +118,7 @@ standalone account each open Home, their lists, Inventory and a card on it.
 **Where it stands (2026-11-27):**
 
 - **Published without its review:** cards and the rest of the workstream are out, the latest as v0.8.7.
-- **The review is written** since, `docs/security/0.8.0.md`: its finding 1 is fixed in 0.8.8, on `develop`; each of findings 2 to 6 says there what
-  is fixed and what waits for the owner.
+- **The review is written** since, `docs/security/0.8.0.md`. Findings 1, 5 and 6 are fixed on `develop` (0.8.8), and so is finding 4's confirmation.
+  Findings 2 and 3, and the card key that finding 4 leaves unchanged, wait for the owner to accept them or have them fixed.
 - **The owner's part:** those findings, and the release of 0.8.8.
 - **Not run:** the acceptance, a hosted and a standalone account each opening Home, lists, Inventory and a card.

@@ -100,8 +100,9 @@ export function ExportSection({
       {!open ? (
         <>
           <p className={styles.muted}>
-            Your lists, items, products and categories, and the people on your lists by name, as one
-            file you can read. It is not encrypted: keep it somewhere safe.
+            Your lists, items, products and categories, your Inventory, your loyalty cards with
+            their numbers and codes, and the people on your lists and cards by name, as one file you
+            can read. It is not encrypted: keep it somewhere safe.
           </p>
           {done ? (
             <p role="status" className={styles.hint}>

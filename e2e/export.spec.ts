@@ -10,6 +10,10 @@ const field = (page: Page) => page.getByRole('combobox', { name: 'Add an item' }
 
 async function openDownload(page: Page) {
   await page.goto('/settings/data');
+  // What the file holds is said before it is made, loyalty cards in plain text among it.
+  await expect(
+    page.getByText(/your Inventory, your loyalty cards with their numbers and codes/),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Download my data…' }).click();
   return page.getByRole('form', { name: 'Download my data' });
 }
