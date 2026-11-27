@@ -113,8 +113,8 @@ alone. The group that holds a person's lists is never shown (§7.1).
 ### 2.3 Before phase 2: the suite's frame (workstream 0002)
 
 After workstream 0001's release (0.2.0) and before phase 2, Shopper is made to look and behave as the suite's apps do, and gains places phase 2 would
-otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens wait on releases of
-`@sovereignfs/ui` and core (16.18 to 16.25); each section says what it builds.
+otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens use what releases of
+`@sovereignfs/ui` and core carry (16.18 to 16.25); each section says what it builds.
 
 | Area            | What changes                                                                                                                                                                |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -317,11 +317,10 @@ mode it has nothing to decide: who may sign up is core's.
 
 **Signing in through core always gets an account,** whatever the value (`app-manifest.md` §4).
 
-**Why `open` for now.** Sharing is by a link, and someone with no account must be able to make one to accept it: only `open` and `invite` allow
-that. `invite` is not yet in `contracts/env.md`; adding it is the task in `sovereign` that Tally and Roam wait on (§24, epic 16), and 0.1.0 does not
-wait for it. The README says what `open` means on a server reachable from the internet, and to set `closed` once everyone who is to share has an
-account. When `invite` arrives it becomes the default, which changes what a server that never set the value does, and the changelog and the upgrade
-note say so.
+**Why `open` for now.** Sharing is by a link, and someone with no account must be able to make one to accept it: only `open` and `invite` allow that.
+`invite` is in `contracts/env.md` (16.1), and Shopper takes it in phase 2 (2.7). The README says what `open` means on a server reachable from the
+internet, and to set `closed` once everyone who is to share has an account. When `invite` arrives it becomes the default, which changes what a server
+that never set the value does, and the changelog and the upgrade note say so.
 
 ## 7. Lists and their people
 
@@ -1385,8 +1384,8 @@ against what this design asks of it in the task that first uses it, and a gap go
   to it (16.23); **`MobileFooter`'s middle button named** by the app (16.24, "Apps" today). None of them needs Shopper's data or words to work.
 
 - **Grocery icons** (phase 2): about 80, enough for the starter catalog's categories and common products (task 16.4).
-- **`AvatarStack`** (who is on a list; phase 2) and **a floating action button** (the phone's Add), the same parts Tally and Roam wait on: whichever app
-  asks first has them built for all.
+- **`AvatarStack`** (who is on a list; phase 2) and **a floating action button** (the phone's Add), the design system's, as Tally's and Roam's are
+  (16.3, 16.5).
 - **`MoneyInput`** (phase 2; a `CurrencyInput` bound to a currency's decimals), as Tally's 14.4, if it is published by then; otherwise `CurrencyInput` with the
   currency's decimals.
 - **Charts** for phase 3's insights, the same Tally's 14.1 builds.
@@ -1764,13 +1763,9 @@ rows are at least 56 px high and its text follows the person's font size. Toasts
 
 ## 24. Not settled in the platform
 
-- **`AUTH_SIGNUP`'s `invite`** (§6.3) is not in `contracts/env.md`; it is added there first, for every app, by the task in `sovereign` that Tally
-  (14.5) and Roam (17.2) also wait on (16.1 here). Until it lands, Shopper does not ship it, and 0.1.0 does not wait for it (§6.3).
 - **The directory as a person** (§15.3) uses the SDK's `tokenStore`, which the package's core sign-in fills (ADR 0001).
 - The kit of research 0004 is not published, so the infrastructure is copied (§5.1); when the kit lands, Shopper adopts it in a task of its own.
 - `AUTH_LOCAL` accepts `1` and `true` until `contracts/env.md` and the apps agree (building-an-app §15).
-- **Port 3007** is added to building-an-app §2's table in `sovereign` (16.2), with Ledger's 3003, Tally's 3004, Roam's 3005 and Wallet's 3006 if they
-  are not there yet.
 
 ## 25. Open questions
 
