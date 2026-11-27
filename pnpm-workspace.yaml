@@ -22,12 +22,12 @@ minimumReleaseAgeExclude:
   - '@sovereignfs/ui@0.107.4'
   - '@sovereignfs/auth@0.7.0'
   - '@sovereignfs/config@0.1.0'
-  - '@sovereignfs/sdk@2.12.0'
+  - '@sovereignfs/sdk@2.12.1'
   - '@sovereignfs/create@0.27.1'
   - '@sovereignfs/manifest@0.4.0'
   - '@sovereignfs/pwa@0.3.0'
   - '@sovereignfs/push@0.2.0'
-  # A dependency of @sovereignfs/sdk 2.12.0, ours and exact.
+  # A dependency of @sovereignfs/sdk 2.12.1, ours and exact.
   - '@sovereignfs/export@0.4.0'
 
 # eslint-plugin-jsx-a11y declares ESLint ^3..^9 but works on 10; allow exactly that one mismatch rather than silencing peer warnings in general.

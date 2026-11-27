@@ -18,6 +18,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ### Fixed
 
+- **Unlocking your lists through a Sovereign instance works on iPhone and iPad.** Every unlock there was refused, in Safari, in the installed app and in any other browser
+  (`@sovereignfs/sdk` 2.12.1). An unlock begun before updating and answered after it is refused once; unlock again.
 - **A person's export, from Shopper's _Download my data_ or from a Sovereign instance, includes the settings Shopper keeps for their account on its server** (the last list used, and when
   notices were last looked at). Nothing writes them yet, so no export changes today.
 - **Signing in, signing up, resetting a password, unlocking, _Download my data_, _Change password_ and _Delete account_ use what is in the password box.** A password manager can fill a box
