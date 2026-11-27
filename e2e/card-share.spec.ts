@@ -185,6 +185,10 @@ test('a card is shared by a link, shown by the person it is shared with with not
 
   // Ada removes her, after a confirmation, and the card (and the group she reached it by) leaves Grace's device.
   await dialog(page).getByRole('button', { name: 'Remove Grace' }).click();
+  // The confirmation says what removing does not take back (RFC 0007).
+  await expect(
+    page.getByText(/already seen or noted stays theirs, and the card’s key is not changed yet/),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(dialog(page).getByRole('region', { name: 'People' })).not.toContainText('Grace');
   await grace.page.goto('/cards');

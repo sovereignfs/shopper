@@ -17,6 +17,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   not changed by this version.
 - **A person who has one of your loyalty cards, and none of your lists, no longer finds your categories in their export:** the starter categories' order, icons and which of them you hid were in
   it. Sync never handed them these.
+- **Removing someone from a loyalty card says what it does not take back:** they lose the card on their devices when they next sync, what they have already seen or noted stays theirs, and the
+  card's key is not changed yet.
 
 ## [0.8.7] - 2026-11-25
 
