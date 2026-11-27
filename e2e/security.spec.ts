@@ -408,7 +408,8 @@ test('the vault and the key secret are the session’s own: another person gets 
 
 /**
  * A form pressed before its script has run is sent by the browser itself: a GET with every named box in the address, which the history and a reverse
- * proxy's access log keep. JavaScript off stands for "not run yet". Reset password is not here: this instance sends no mail, so the page is not there.
+ * proxy's access log keep. JavaScript off stands for "not run yet". Reset password is not here: this instance sends no mail, so the page is not there,
+ * and its form is checked in `src/auth/screens/reset-form.test.tsx`.
  */
 test.describe('before a page’s script runs', () => {
   test.use({ javaScriptEnabled: false });
