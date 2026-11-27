@@ -1,6 +1,6 @@
 # Workstream 0001 — Shopper on the suite's encryption, push and exports
 
-**Status:** ⏳ In Progress: legs 1 to 9 run on 2026-11-21, ready to release; what waits is listed in "Where it stands"\
+**Status:** ⏳ In Progress: legs 1 to 9 run on 2026-11-21 and published as 0.2.0; its acceptance (12.7) has not been run, and what else waits is listed in "Where it stands"\
 **Date:** November 2026\
 **Author:** Claude Code (design discussion with `kasunben`)\
 **Goal owner:** `kasunben`\

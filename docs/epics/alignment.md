@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned. Leg 1 of [workstream 0001](../workstreams/0001-suite-model.md); before phase 2.
+✅ Done. Before phase 2, in [workstream 0001](../workstreams/0001-suite-model.md).
 
 ## Overview
 

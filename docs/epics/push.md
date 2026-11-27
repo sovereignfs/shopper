@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned. 19.1 and 19.2 are leg 7 of [workstream 0001](../workstreams/0001-suite-model.md), before phase 2; 19.3 is phase 2.
+⏳ In progress: 19.1 and 19.2 are done, as leg 7 of [workstream 0001](../workstreams/0001-suite-model.md). 19.3 is phase 2.
 
 ## Overview
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress: 3.1 to 3.5 and 3.7 are done. 3.6 and 3.8 to 3.10 are phase 2.
 
 ## Overview
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-⏳ In Progress. Workstream 0002, before phase 2 (leg 6): the design (23.1) is done and approved by the owner (2026-11-23); Home (23.2) is done (0.7.0, 2026-11-24); Inventory (23.3 to 23.5) is next.
+✅ Done. Workstream 0002, before phase 2 (leg 6): the design (23.1) was approved by the owner on 2026-11-23. The workstream's release is 12.8.
 
 ## Overview
 
