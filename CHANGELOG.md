@@ -28,6 +28,8 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
   it. Sync never handed them these.
 - **Removing someone from a loyalty card says what it does not take back:** they lose the card on their devices when they next sync, what they have already seen or noted stays theirs, and the
   card's key is not changed yet.
+- **Removing someone from a list says the same:** they lose the list on their devices when they next sync, what they added stays on it under their name, what they have already seen or noted
+  stays theirs, and, if the list is encrypted on your devices, its key is not changed yet.
 - **_Download my data_ says that the file holds your Inventory and your loyalty cards,** the cards with their numbers and codes, which anyone who has the file can read.
 
 ## [0.8.7] - 2026-11-25

@@ -41,7 +41,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<
-    { kind: 'leave' } | { kind: 'remove'; member: MemberRow } | null
+    { kind: 'leave' } | { kind: 'remove'; member: MemberRow; encrypted: boolean } | null
   >(null);
 
   const load = useCallback(async () => {
@@ -112,6 +112,12 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
     void load();
   }
 
+  /** Asked at the click whether the list is encrypted on its people's devices: one the server still seals (§13.7) has no key in anyone's hands. */
+  async function askToRemove(member: MemberRow) {
+    const { encrypted } = await keysOf(household.id);
+    setConfirm({ kind: 'remove', member, encrypted });
+  }
+
   async function confirmed() {
     if (!confirm) return;
     setBusy(true);
@@ -179,7 +185,7 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
                     type="button"
                     className={styles.quiet}
                     aria-label={`Remove ${member.name}`}
-                    onClick={() => setConfirm({ kind: 'remove', member })}
+                    onClick={() => void askToRemove(member)}
                   >
                     Remove
                   </button>
@@ -261,11 +267,12 @@ export function ShareDialog({ data, onClose }: { data: Found; onClose: () => voi
         open={confirm !== null}
         onClose={() => setConfirm(null)}
         title={confirm?.kind === 'leave' ? `Leave ${list.name}?` : 'Remove this person?'}
+        // What removing does and does not take back (DESIGN.md §13.6).
         message={
           confirm?.kind === 'leave'
             ? 'You will no longer see this list. What you added stays on it under your name.'
             : confirm?.kind === 'remove'
-              ? `${confirm.member.name} will no longer see this list. What they added stays on it under their name.`
+              ? `${confirm.member.name} will lose this list on their devices when they next sync. What they added stays on it under their name. What they have already seen or noted stays theirs${confirm.encrypted ? ', and the list’s key is not changed yet' : ''}.`
               : null
         }
         confirmLabel={confirm?.kind === 'leave' ? 'Leave' : 'Remove'}
