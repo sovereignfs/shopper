@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { onCard, onList, ownerOf, reaches } from '../access/membership';
+import { memberOf, onCard, onList, ownerOf, reaches } from '../access/membership';
 import type { KeyRing } from '../crypto/keys';
 import { unsealRow } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -8,7 +8,7 @@ import { appTable } from '../db/tables';
 
 /**
  * **What a person's export holds of Shopper** (RFC 0003, `contracts/export.md`): one file of records per kind under `apps/shopper/records/`. Their own
- * person, and of every group they are on a list of, the lists they are on: those lists, items, products and categories, and its members **by name only**, with no one else's
+ * person, what their account keeps for itself, and of every group they are on a list of, the lists they are on: those lists, items, products and categories, and its members **by name only**, with no one else's
  * address. A household that has moved keeps its content as the ciphertext its devices wrote, marked end to end, with the person's own copy of its keys
  * beside it, so that their keys open it and nothing is in plain text on the way; one the server still seals is given as the server reads it, since it
  * is the person's and the server holds its key. Nothing the contract forbids: no password, session, token or other person's email.
@@ -48,6 +48,8 @@ export async function personRecords(
       records: [{ id: person.id, name: own.name ?? null, email: own.email ?? null }],
     },
   ];
+  const settings = await accountSettings(database, accountId);
+  if (settings) out.push({ kind: 'account_settings', endToEnd: false, records: [settings] });
 
   const households = await dbAll<{ id: string; encryption: string; own_of: string | null }>(
     database,
@@ -87,8 +89,9 @@ export async function personRecords(
                 ? // A list's copies of people's categories are the list's (§8.3), read by its people as its items are.
                   onList(database, sql`r.list_id`, accountId)
                 : table === 'category'
-                  ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3).
-                    sql`(r.starter_key IS NOT NULL OR ${ownerOf(database, sql`r.household_id`, accountId)})`
+                  ? // The starter categories of any group they are on a list of, and their own categories only in the group they own (§8.3). Someone who reaches a
+                    // group by a card alone is on no list of it, and is handed none (§7.7), as the pull hands them none.
+                    sql`((r.starter_key IS NOT NULL AND ${memberOf(database, sql`r.household_id`, accountId)}) OR ${ownerOf(database, sql`r.household_id`, accountId)})`
                   : sql`1 = 1`;
   for (const household of households) {
     const moved = household.encryption === 'encrypted';
@@ -246,6 +249,29 @@ export async function personRecords(
         endToEnd: true,
       });
   return out;
+}
+
+/** What an account keeps for itself on the server (DESIGN.md §20.3): its one row, by the session's own account, without the id it is kept under. */
+async function accountSettings(
+  database: Database,
+  accountId: string,
+): Promise<Record<string, unknown> | undefined> {
+  const row = await dbGet<{
+    last_list_id: string | null;
+    inbox_seen_at: number | string | null;
+    created_at: number | string;
+    updated_at: number | string;
+  }>(
+    database,
+    sql`SELECT last_list_id, inbox_seen_at, created_at, updated_at FROM ${appTable(database, 'account_settings')} WHERE account_id = ${accountId}`,
+  );
+  if (!row) return undefined;
+  return {
+    lastList: row.last_list_id,
+    inboxSeenAt: row.inbox_seen_at === null ? null : Number(row.inbox_seen_at),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
 }
 
 function parse(raw: unknown): Record<string, string> {

@@ -4,8 +4,10 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 disagrees with this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-21: **phase 1 built and 0.1.0 tagged; [workstream 0001](docs/workstreams/0001-suite-model.md) planned before phase 2, and [workstream 0002](docs/workstreams/0002-frame-home-cards.md) after it (planned 2026-11-23).** The
-developer assigns each task; the first row not done, with its dependencies met, is what the order recommends.
+State as of 2026-11-27: **phase 1 is built; [workstream 0001](docs/workstreams/0001-suite-model.md) is published as 0.2.0, and
+[workstream 0002](docs/workstreams/0002-frame-home-cards.md) as 0.8.7, with 0.8.8 on `develop`.** Their release tasks (12.7, 12.8) stay open until
+their acceptance is run, 12.8 also until the findings of its review are settled. Phase 2 has not started. The developer assigns each task; the first
+row not done, with its dependencies met, is what the order recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision · ➖ Superseded_
 
@@ -171,7 +173,7 @@ account-deleted notice removes everything personal.
 | 48  | [12.2](docs/epics/release.md)    | Security review                           | P2       | 2.4, 3.5, 6.3, 7.3 | ✅     |
 | 49  | [12.4](docs/epics/release.md)    | Release 0.1.0                             | P2       | 12.2, 12.3         | ✅     |
 | 50  | [12.5](docs/epics/release.md)    | Hosting on an instance                    | P2       | 12.4               | 📋     |
-| 51  | [16.2](docs/epics/upstream.md)   | Shopper's port in the guide (`sovereign`) | P3       | —                  | 📋     |
+| 51  | [16.2](docs/epics/upstream.md)   | Shopper's port in the guide (`sovereign`) | P3       | —                  | ✅     |
 
 ## Between phases — the suite's encryption, push and exports
 
@@ -189,11 +191,11 @@ person sees has changed.
 | 53  | [17.2](docs/epics/alignment.md) | The worker from `@sovereignfs/pwa`                                      | P1       | 17.1                | ✅     |
 | 54  | [17.3](docs/epics/alignment.md) | Sign-in and `@sovereignfs/auth`                                         | P2       | 17.1                | ✅     |
 | 55  | [17.5](docs/epics/alignment.md) | Sign-in on `@sovereignfs/auth`                                          | P0       | 16.10, 16.13, 16.14 | ✅     |
-| 56  | [16.13](docs/epics/upstream.md) | A SQLite and sqld database for `@sovereignfs/auth` (`sovereign`)        | P3       | —                   | 📋     |
-| 57  | [16.14](docs/epics/upstream.md) | An app's password accounts, across to `@sovereignfs/auth` (`sovereign`) | P3       | —                   | 📋     |
+| 56  | [16.13](docs/epics/upstream.md) | A SQLite and sqld database for `@sovereignfs/auth` (`sovereign`)        | P3       | —                   | ✅     |
+| 57  | [16.14](docs/epics/upstream.md) | An app's password accounts, across to `@sovereignfs/auth` (`sovereign`) | P3       | —                   | ✅     |
 | 58  | [17.4](docs/epics/alignment.md) | Stale lines and the settings table                                      | P2       | —                   | ✅     |
-| 59  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)                         | P3       | —                   | 📋     |
-| 60  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`)                     | P2       | —                   | 📋     |
+| 59  | [16.11](docs/epics/upstream.md) | The contracts and the guide, true (`sovereign`)                         | P3       | —                   | ✅     |
+| 60  | [16.12](docs/epics/upstream.md) | Background Sync in `@sovereignfs/pwa` (`sovereign`)                     | P2       | —                   | ✅     |
 
 ### Milestone S — Encryption the server cannot read
 
@@ -204,7 +206,7 @@ and no file on all three databases, both kinds of account unlock and share, and 
 | --- | --------------------------------- | ------------------------------------------------------------- | -------- | --------------- | ------ |
 | 61  | [18.1](docs/epics/encryption.md)  | The design                                                    | P0       | 17.1            | ✅     |
 | 62  | [18.2](docs/epics/encryption.md)  | Shopper's own vault                                           | P0       | 18.1            | ✅     |
-| 63  | [16.10](docs/epics/upstream.md)   | The key secret over an app's own session (`sovereign`)        | P0       | —               | 📋     |
+| 63  | [16.10](docs/epics/upstream.md)   | The key secret over an app's own session (`sovereign`)        | P0       | —               | ✅     |
 | 64  | [18.3](docs/epics/encryption.md)  | Key release through core                                      | P0       | 18.1, 16.10     | ✅     |
 | 65  | [18.4](docs/epics/encryption.md)  | The key in the page                                           | P0       | 18.2, 18.3      | ✅     |
 | 66  | [18.5](docs/epics/encryption.md)  | Household keys                                                | P0       | 18.4            | ✅     |
@@ -278,16 +280,16 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | 92  | [22.1](docs/epics/frame.md)     | The design: the frame and the screens              | P0       | 12.7         | ✅     |
 | 93  | [23.1](docs/epics/inventory.md) | The design: Home and Inventory                     | P0       | 22.1         | ✅     |
 | 94  | [24.1](docs/epics/cards.md)     | The design: loyalty cards                          | P0       | 22.1         | ✅     |
-| 95  | [16.17](docs/epics/upstream.md) | `prompt=create` (`sovereign`)                      | P3       | —            | ⏳     |
-| 96  | [16.18](docs/epics/upstream.md) | Icons: `square-pen`, and more (`sovereign`)        | P1       | —            | ⏳     |
-| 97  | [16.19](docs/epics/upstream.md) | `SettingsDialog` (`sovereign`)                     | P1       | —            | ⏳     |
-| 98  | [16.20](docs/epics/upstream.md) | `Header` with the app's own brand (`sovereign`)    | P1       | —            | ⏳     |
-| 99  | [16.21](docs/epics/upstream.md) | `AppSidebar` (`sovereign`)                         | P1       | —            | ⏳     |
-| 100 | [16.22](docs/epics/upstream.md) | `AppFrame` (`sovereign`)                           | P1       | 16.20, 16.21 | ⏳     |
-| 101 | [16.23](docs/epics/upstream.md) | The apps a person can open (`sovereign`)           | P1       | —            | ⏳     |
-| 102 | [16.24](docs/epics/upstream.md) | `MobileFooter`'s middle button named (`sovereign`) | P1       | —            | ⏳     |
-| 103 | [16.25](docs/epics/upstream.md) | `Barcode` (`sovereign`)                            | P1       | —            | ⏳     |
-| 104 | [16.26](docs/epics/upstream.md) | Writing an export in the browser (`sovereign`)     | P3       | —            | ⏳     |
+| 95  | [16.17](docs/epics/upstream.md) | `prompt=create` (`sovereign`)                      | P3       | —            | ✅     |
+| 96  | [16.18](docs/epics/upstream.md) | Icons: `square-pen`, and more (`sovereign`)        | P1       | —            | ✅     |
+| 97  | [16.19](docs/epics/upstream.md) | `SettingsDialog` (`sovereign`)                     | P1       | —            | ✅     |
+| 98  | [16.20](docs/epics/upstream.md) | `Header` with the app's own brand (`sovereign`)    | P1       | —            | ✅     |
+| 99  | [16.21](docs/epics/upstream.md) | `AppSidebar` (`sovereign`)                         | P1       | —            | ✅     |
+| 100 | [16.22](docs/epics/upstream.md) | `AppFrame` (`sovereign`)                           | P1       | 16.20, 16.21 | ✅     |
+| 101 | [16.23](docs/epics/upstream.md) | The apps a person can open (`sovereign`)           | P1       | —            | ✅     |
+| 102 | [16.24](docs/epics/upstream.md) | `MobileFooter`'s middle button named (`sovereign`) | P1       | —            | ✅     |
+| 103 | [16.25](docs/epics/upstream.md) | `Barcode` (`sovereign`)                            | P1       | —            | ✅     |
+| 104 | [16.26](docs/epics/upstream.md) | Writing an export in the browser (`sovereign`)     | P3       | —            | ✅     |
 
 ### Milestone X — Sign-in, Settings and a list
 
@@ -328,7 +330,7 @@ system's, `/` opens Home, Inventory and loyalty cards work, alone and in a suite
 | 121 | [24.4](docs/epics/cards.md)   | Scanning a card                   | P1       | 24.3                    | ✅     |
 | 122 | [24.5](docs/epics/cards.md)   | Sharing a card                    | P1       | 24.2                    | ✅     |
 | 123 | [24.6](docs/epics/cards.md)   | Cards on a list, in Shop mode     | P2       | 24.3, 22.5, 22.9        | ✅     |
-| 124 | [12.8](docs/epics/release.md) | The release of workstream 0002    | P2       | Milestones W to Z, 12.7 | 📋     |
+| 124 | [12.8](docs/epics/release.md) | The release of workstream 0002    | P2       | Milestones W to Z, 12.7 | ⏳     |
 
 ## Phase 2 — households, trips and the rest
 
@@ -342,7 +344,7 @@ it, invites others, changes their roles, and edits categories and products.
 
 | #   | ID                              | Task                                                              | Priority | Depends on          | Status |
 | --- | ------------------------------- | ----------------------------------------------------------------- | -------- | ------------------- | ------ |
-| 125 | [16.3](docs/epics/upstream.md)  | `AvatarStack` (`sovereign`)                                       | P1       | —                   | 📋     |
+| 125 | [16.3](docs/epics/upstream.md)  | `AvatarStack` (`sovereign`)                                       | P1       | —                   | ✅     |
 | 126 | [3.8](docs/epics/households.md) | Making households                                                 | P1       | 3.2, 8.1            | 📋     |
 | 127 | [3.9](docs/epics/households.md) | Roles, and deleting a household                                   | P1       | 3.5                 | 📋     |
 | 128 | [4.7](docs/epics/catalog.md)    | Editing categories and the aisle order (superseded by 23.3, 23.4) | P1       | 4.2, 5.2            | ➖     |
@@ -376,7 +378,7 @@ email, never the person who acted, a burst of adds becomes one digest, and journ
 | --- | -------------------------------- | ----------------------------------------- | -------- | -------------- | ------ |
 | 141 | [9.1](docs/epics/notices.md)     | The mail outbox                           | P1       | 1.6            | 📋     |
 | 142 | [3.10](docs/epics/households.md) | Inviting by email                         | P1       | 3.4, 9.1       | 📋     |
-| 143 | [16.1](docs/epics/upstream.md)   | `AUTH_SIGNUP` by invitation (`sovereign`) | P1       | —              | 📋     |
+| 143 | [16.1](docs/epics/upstream.md)   | `AUTH_SIGNUP` by invitation (`sovereign`) | P1       | —              | ✅     |
 | 144 | [2.7](docs/epics/accounts.md)    | The sign-up policy                        | P1       | 2.1, 16.1      | 📋     |
 | 145 | [9.2](docs/epics/notices.md)     | Notices and the bell                      | P1       | 5.2, 8.1, 3.5  | 📋     |
 | 146 | [9.3](docs/epics/notices.md)     | The items-added digest                    | P2       | 9.2, 1.6       | 📋     |
@@ -392,7 +394,7 @@ device shows on another within two seconds, and the rest of this milestone's tas
 | --- | ------------------------------ | ----------------------------------------------------- | -------- | ---------- | ------ |
 | 149 | [6.4](docs/epics/sync.md)      | Live updates and the freshness setting                | P1       | 6.2        | 📋     |
 | 150 | [6.6](docs/epics/sync.md)      | Keeping the history small                             | P2       | 6.1, 1.6   | 📋     |
-| 151 | [16.5](docs/epics/upstream.md) | A floating action button (`sovereign`)                | P1       | —          | 📋     |
+| 151 | [16.5](docs/epics/upstream.md) | A floating action button (`sovereign`)                | P1       | —          | ✅     |
 | 152 | [8.11](docs/epics/screens.md)  | The phone's Add button                                | P1       | 8.8, 16.5  | 📋     |
 | 153 | [2.8](docs/epics/accounts.md)  | Passkeys and the authenticator app                    | P2       | 2.1        | 📋     |
 | 154 | [2.9](docs/epics/accounts.md)  | Linking core and a local account (superseded by 22.2) | P2       | 2.3        | ➖     |

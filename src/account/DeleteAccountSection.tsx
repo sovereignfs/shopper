@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authClient } from '../auth/client';
 import { messageFor } from '../auth/messages';
 import { deleteLocal } from '../local/db';
@@ -23,8 +23,9 @@ interface Preview {
 /**
  * Settings, Data, Delete account (DESIGN.md §17, §19). **It says what goes before it asks:** the account and everything personal of it, and of its
  * lists (RFC 0004) how many are deleted because nobody else is on them, which pass to the person on them longest, and how many it simply leaves;
- * that what they added stays on the lists that carry on, under their name. It asks for the password. Other devices find
- * out at their next sync, when their session has ended (task 6.2 also deletes this device's store).
+ * that what they added stays on the lists that carry on, under their name. It asks for the password, **read from its box when the account is deleted,** since a
+ * password manager can fill it without telling the page (the box has no name, so a browser that sent the form itself would put nothing of it in the address).
+ * Other devices find out at their next sync, when their session has ended (task 6.2 also deletes this device's store).
  */
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
@@ -60,7 +61,7 @@ export function DeleteAccountSection({ email, vaultId }: { email: string; vaultI
   const { accountId } = useLocal();
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [password, setPassword] = useState('');
+  const box = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
@@ -81,7 +82,8 @@ export function DeleteAccountSection({ email, vaultId }: { email: string; vaultI
     setWorking(true);
     setProblem(null);
     try {
-      // The password is derived here and never sent (RFC 0001); with none to ask for, nothing is sent.
+      // The password is derived here and never sent (RFC 0001); with none to ask for there is no box, and nothing is sent.
+      const password = box.current?.value ?? '';
       const sent =
         password === ''
           ? ''
@@ -107,7 +109,6 @@ export function DeleteAccountSection({ email, vaultId }: { email: string; vaultI
         );
       // The account is gone, and so is its session on the server; this clears the cookie the browser still holds, so that the front address is the landing
       // page and not a sign-in for an account that does not exist.
-      setPassword('');
       await authClient.signOut().catch(() => undefined);
       // The account's lists go from this device with it: there is nothing to send them to.
       await deleteLocal(accountId).catch(() => undefined);
@@ -168,21 +169,12 @@ export function DeleteAccountSection({ email, vaultId }: { email: string; vaultI
           ) : (
             <FormField label="Your password" required>
               {(field) => (
-                <Input
-                  {...field}
-                  type="password"
-                  value={password}
-                  autoComplete="current-password"
-                  onChange={(event) => setPassword(event.target.value)}
-                />
+                <Input {...field} ref={box} type="password" autoComplete="current-password" />
               )}
             </FormField>
           )}
           <div className={styles.row}>
-            <Button
-              type="submit"
-              disabled={working || preview === null || (preview.password && password === '')}
-            >
+            <Button type="submit" disabled={working || preview === null}>
               {working ? 'Deleting…' : 'Delete my account for good'}
             </Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>

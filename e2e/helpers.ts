@@ -124,6 +124,26 @@ export async function forgetSession(page: Page): Promise<void> {
   await page.context().clearCookies();
 }
 
+/**
+ * Forgets what this browser keeps in IndexedDB, as one that lost its key would, and opens the page again. The page is left first, for an address of the app that
+ * opens no store, and each deletion is waited for: asked from an open page a deletion waits for that page to go, and WebKit then now and then hands the next page
+ * the store as it was.
+ */
+export async function forgetStores(page: Page): Promise<void> {
+  const at = page.url();
+  await page.goto(new URL('/api/health', at).href);
+  await page.evaluate(async () => {
+    for (const { name } of await indexedDB.databases())
+      if (name)
+        await new Promise((done, failed) => {
+          const request = indexedDB.deleteDatabase(name);
+          request.onsuccess = done;
+          request.onerror = failed;
+        });
+  });
+  await page.goto(at);
+}
+
 /** Records every Content-Security-Policy violation the page raises, from before it runs anything. */
 export async function recordViolations(page: Page) {
   await page.addInitScript(() => {

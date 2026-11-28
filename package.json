@@ -1,6 +1,6 @@
 {
   "name": "@sovereignfs/shopper",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -40,9 +40,9 @@
     "@sovereignfs/auth": "0.7.0",
     "@sovereignfs/config": "0.1.0",
     "@sovereignfs/push": "0.2.0",
-    "@sovereignfs/pwa": "0.2.0",
-    "@sovereignfs/sdk": "2.12.0",
-    "@sovereignfs/ui": "0.107.3",
+    "@sovereignfs/pwa": "0.3.0",
+    "@sovereignfs/sdk": "2.12.1",
+    "@sovereignfs/ui": "0.107.4",
     "better-auth": "1.7.27",
     "drizzle-orm": "^0.45.4",
     "fractional-indexing": "^3.4.0",

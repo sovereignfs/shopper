@@ -113,8 +113,8 @@ alone. The group that holds a person's lists is never shown (§7.1).
 ### 2.3 Before phase 2: the suite's frame (workstream 0002)
 
 After workstream 0001's release (0.2.0) and before phase 2, Shopper is made to look and behave as the suite's apps do, and gains places phase 2 would
-otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens wait on releases of
-`@sovereignfs/ui` and core (16.18 to 16.25); each section says what it builds.
+otherwise build twice ([RFC 0005](docs/rfcs/0005-the-frame-settings-and-screens.md) to 0007, epics 22 to 24). Its screens use what releases of
+`@sovereignfs/ui` and core carry (16.18 to 16.25); each section says what it builds.
 
 | Area            | What changes                                                                                                                                                                |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -249,7 +249,7 @@ As Tusk's: `app/` for routes, `src/` for everything else, tests beside the code.
 | `src/sovereign/`          | Core's notices, `People.deletePerson`, the bell, email, activity and directory calls (§15, §19) — **from Tusk**                                                    |
 | `src/jobs/`               | The runner and claims — **copied from Tusk**                                                                                                                       |
 | `src/mail/`               | The SMTP mailer and the mail outbox — **copied from Tally**                                                                                                        |
-| `src/sw/`                 | The service worker: `@sovereignfs/pwa`'s, with the shell page and Shopper's Background Sync                                                                        |
+| `src/sw/`                 | The service worker: `@sovereignfs/pwa`'s, with the shell page and its Background Sync                                                                              |
 | `src/screens/`, `src/ui/` | The signed-in screens and the shell                                                                                                                                |
 | `migrations/`, `deploy/`  | Generated SQL (`sqlite/`, `postgres/`, `auth/`); the Compose setups                                                                                                |
 
@@ -317,11 +317,10 @@ mode it has nothing to decide: who may sign up is core's.
 
 **Signing in through core always gets an account,** whatever the value (`app-manifest.md` §4).
 
-**Why `open` for now.** Sharing is by a link, and someone with no account must be able to make one to accept it: only `open` and `invite` allow
-that. `invite` is not yet in `contracts/env.md`; adding it is the task in `sovereign` that Tally and Roam wait on (§24, epic 16), and 0.1.0 does not
-wait for it. The README says what `open` means on a server reachable from the internet, and to set `closed` once everyone who is to share has an
-account. When `invite` arrives it becomes the default, which changes what a server that never set the value does, and the changelog and the upgrade
-note say so.
+**Why `open` for now.** Sharing is by a link, and someone with no account must be able to make one to accept it: only `open` and `invite` allow that.
+`invite` is in `contracts/env.md` (16.1), and Shopper takes it in phase 2 (2.7). The README says what `open` means on a server reachable from the
+internet, and to set `closed` once everyone who is to share has an account. When `invite` arrives it becomes the default, which changes what a server
+that never set the value does, and the changelog and the upgrade note say so.
 
 ## 7. Lists and their people
 
@@ -1105,10 +1104,10 @@ the table's.
 **On `@sovereignfs/auth`** ([ADR 0001](docs/adrs/0001-sign-in-on-sovereignfs-auth.md), `sovereign`'s auth.md): better-auth on the package's
 preset in a store of its own (`shopper_auth`), its tables the package's. **An instance signs people in one way, never both** (RFC 0005):
 
-| Mode                                      | Who signs in, and how                                                                                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Suite mode** (`SHOPPER_CORE_*` are set) | Everyone, through core: the package's `./core` on the SDK's steps (PKCE, matched by `sub`), `SHOPPER_CORE_URL` being the instance's own address       |
-| **Standalone mode** (no core)             | Everyone, with Shopper's own accounts (`SHOPPER_AUTH_LOCAL=1`): a password; **passkeys and an authenticator app with backup codes are phase 2** (2.8) |
+| Mode                                      | Who signs in, and how                                                                                                                                    |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Suite mode** (`SHOPPER_CORE_*` are set) | Everyone, through core: the package's `./core` on the SDK's steps (PKCE, matched by `sub`), `SHOPPER_CORE_URL` being the instance's own address          |
+| **Standalone mode** (no core)             | Everyone, with Shopper's own accounts (`SHOPPER_AUTH_LOCAL=true`): a password; **passkeys and an authenticator app with backup codes are phase 2** (2.8) |
 
 - **In suite mode `/sign-in` and `/sign-up` show nothing:** someone with a session goes to `next` (or `/`), anyone else straight to
   `/api/auth/sign-in/sovereign?returnTo=…`, keeping an invitation's `next` through the round trip. Coming back from core with `?error=` shows a small
@@ -1120,7 +1119,7 @@ preset in a store of its own (`shopper_auth`), its tables the package's. **An in
   person goes next. Email is verified and passwords reset only with mail set up; signing in unverified sends no link, and the sign-in page offers a
   new one. The server is sent the sign-in value the page derives, never the password, and a 0.1.0 password moves at its next sign-in for 90 days
   after the upgrade (auth.md §8.1).
-- **An instance configured with both** (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=1`) **starts in suite mode** and logs, once at start-up, that its
+- **An instance configured with both** (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=true`) **starts in suite mode** and logs, once at start-up, that its
   local sign-in is off and which setting to remove; nothing else changes, so an instance upgraded with both keeps running. Its password accounts
   cannot sign in while it is in suite mode; giving them a way across to core is a candidate (15.5), not designed.
 - A session that came from core is checked against it every hour, and signing out of one goes through core's sign-out, which decides what else it
@@ -1385,8 +1384,8 @@ against what this design asks of it in the task that first uses it, and a gap go
   to it (16.23); **`MobileFooter`'s middle button named** by the app (16.24, "Apps" today). None of them needs Shopper's data or words to work.
 
 - **Grocery icons** (phase 2): about 80, enough for the starter catalog's categories and common products (task 16.4).
-- **`AvatarStack`** (who is on a list; phase 2) and **a floating action button** (the phone's Add), the same parts Tally and Roam wait on: whichever app
-  asks first has them built for all.
+- **`AvatarStack`** (who is on a list; phase 2) and **a floating action button** (the phone's Add), the design system's, as Tally's and Roam's are
+  (16.3, 16.5).
 - **`MoneyInput`** (phase 2; a `CurrencyInput` bound to a currency's decimals), as Tally's 14.4, if it is published by then; otherwise `CurrencyInput` with the
   currency's decimals.
 - **Charts** for phase 3's insights, the same Tally's 14.1 builds.
@@ -1404,8 +1403,7 @@ against what this design asks of it in the task that first uses it, and a gap go
 - **Installable as a PWA,** with the suite's worker, `@sovereignfs/pwa`'s (17.2): it keeps the shell by allow-list and the one shell page, which holds
   nothing of a person; with no network, every address is answered with the kept shell, which reads the device's store and shows a signed-in screen (a
   list, shopping mode, Home, Inventory, the cards, recent trips) or says that the page needs a connection. **No data is ever in a cache;** it lives in
-  IndexedDB, named per account and deleted at sign-out. Shopper adds Background Sync (§12.3) after the package's worker, until the package has it
-  (16.12).
+  IndexedDB, named per account and deleted at sign-out. Background Sync (§12.3) is the package's too (`sync`, 16.12), under Shopper's tag.
 
 ### 16.12 What the plugin paid to learn
 
@@ -1478,19 +1476,21 @@ The suite's format (`contracts/export.md`, written with `@sovereignfs/export`), 
 
 ### 18.1 Export
 
-- **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, and **every list
-  they are on, whole** (its people by name only), with its items, catalog, the categories it uses (its group's starter ones and its
-  `list_category` copies), **their own Inventory and categories** (§8.8), **every card they are on** (§7.7, its people by name only) and its links to
-  their lists, and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's
-  own wrapped keys beside them (the group's for their own lists, cards and Inventory, their copies for lists and cards shared with them), so that their keys open it.
+- **Core's export of a person** (suite mode): core asks Shopper for its part (`signIn.export`, the SDK's `onExport`): the person, what their account
+  keeps for itself (`account_settings`, §20.3), and **every list they are on, whole** (its people by name only), with its items, catalog, the
+  categories it uses (its group's starter ones and its `list_category` copies), **their own Inventory and categories** (§8.8), **every card they are
+  on** (§7.7, its people by name only) and its links to their lists, and what phase 2 adds, under `apps/shopper/records/`. **Encrypted fields are in
+  it as their ciphertext** (the server cannot open them), marked as envelopes, with the person's own wrapped keys beside them (the group's for their
+  own lists, cards and Inventory, their copies for lists and cards shared with them), so that their keys open it.
 - **A person's own export, readable** (RFC 0005, 22.8), in both modes, from **Settings › Data**: **one JSON file**, `shopper-export-<date>.json`,
   **made in the browser,** which holds the keys. The server checks who is asking and serves the person's records as it holds them (the same records as
   core's export); the browser opens them and writes the file, so the server never reads a name to make it. **Confirmed first, as core's export is:**
-  standalone, the password again (the value the browser derives, never sent; a plain form like account deletion's, since `ExportPanel` is for exports a
-  server makes and downloads once); in suite mode, a fresh sign-in at core (`prompt=login`), checked with `@sovereignfs/auth`'s `coreSignedInAt` (**built
-  in `sovereign`, not released:** until it is, suite mode's Data says core's export holds Shopper's part, and the route answers 404). The file has the contract's head (`format`, `kind: "person"`, `producer`, `takenAt`, and `readable: true`) and the same kinds and fields of record,
+  standalone, the password again (the value the browser derives, never sent; a plain form like account deletion's, since `ExportPanel` is for exports
+  a server makes and downloads once); in suite mode, a fresh sign-in at core (`prompt=login`), checked with `@sovereignfs/auth`'s `coreSignedInAt`.
+  The file has the contract's head (`format`, `kind: "person"`, `producer`, `takenAt`, and `readable: true`) and the same kinds and fields of record,
   opened, **without the person's keys**: a wrapped keyring in a file passed around would open their lists. A value this browser cannot open is `null`,
-  counted in `unopened` and said on the page. It is not the contract's zip, whose writer needs Node; when `@sovereignfs/export` can write one in the browser (16.26) the file becomes it.
+  counted in `unopened` and said on the page. It is not the contract's zip yet: `@sovereignfs/export` writes one in the browser (16.26), which this
+  file has not moved to.
 - **The app's export,** standalone, for the first account, Shopper's operator, on **Settings › Data**, encrypted with age to recipients they save
   (20.3).
 - **Never in any export:** another person's email, passwords, sessions and tokens.
@@ -1654,7 +1654,7 @@ One image (Debian, for libSQL), not root, on port 3007, and three Compose setups
 
 ```bash
 docker run -v shopper:/data -e SHOPPER_DB_DIALECT=sqlite -e SHOPPER_SQLITE_URL=file:/data/shopper.db \
-  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=1 -e SHOPPER_AUTH_SECRET=… -e SHOPPER_ENCRYPTION_KEY=… ghcr.io/sovereignfs/shopper
+  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=true -e SHOPPER_AUTH_SECRET=… -e SHOPPER_ENCRYPTION_KEY=… ghcr.io/sovereignfs/shopper
 ```
 
 - **Settings** are the shared names of `contracts/env.md` (with `AUTH_SIGNUP`'s `invite` from phase 2, §6.3), and Shopper's own: `SHOPPER_WORKER`,
@@ -1764,13 +1764,9 @@ rows are at least 56 px high and its text follows the person's font size. Toasts
 
 ## 24. Not settled in the platform
 
-- **`AUTH_SIGNUP`'s `invite`** (§6.3) is not in `contracts/env.md`; it is added there first, for every app, by the task in `sovereign` that Tally
-  (14.5) and Roam (17.2) also wait on (16.1 here). Until it lands, Shopper does not ship it, and 0.1.0 does not wait for it (§6.3).
 - **The directory as a person** (§15.3) uses the SDK's `tokenStore`, which the package's core sign-in fills (ADR 0001).
 - The kit of research 0004 is not published, so the infrastructure is copied (§5.1); when the kit lands, Shopper adopts it in a task of its own.
 - `AUTH_LOCAL` accepts `1` and `true` until `contracts/env.md` and the apps agree (building-an-app §15).
-- **Port 3007** is added to building-an-app §2's table in `sovereign` (16.2), with Ledger's 3003, Tally's 3004, Roam's 3005 and Wallet's 3006 if they
-  are not there yet.
 
 ## 25. Open questions
 

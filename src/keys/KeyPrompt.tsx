@@ -1,17 +1,19 @@
 'use client';
 
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Button, FormField, Input, LockedState } from '@sovereignfs/ui';
 import { useKeys } from './keys';
 
 /**
  * What a signed-in page shows while the key is locked and there is a network to unlock it with (RFC 0001): `LockedState`, with core's Unlock or the
- * password, above the lists, which stay as the device has them. With no network it shows nothing: the lists work, and the sync waits.
+ * password, above the lists, which stay as the device has them. With no network it shows nothing: the lists work, and the sync waits. **The box is read
+ * when the form is sent,** since a password manager can fill it without telling the page; it has no name, so a browser that sent the form itself would put
+ * nothing of it in the address.
  */
 export function KeyPrompt() {
   const keys = useKeys();
   const [online, setOnline] = useState(true);
-  const [password, setPassword] = useState('');
+  const box = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [wrong, setWrong] = useState(false);
 
@@ -41,10 +43,10 @@ export function KeyPrompt() {
     event.preventDefault();
     setBusy(true);
     setWrong(false);
-    const opened = await keys.unlock(password);
+    const opened = await keys.unlock(box.current?.value ?? '');
     setBusy(false);
-    if (opened) setPassword('');
-    else setWrong(true);
+    // Opened, the prompt goes, and its box with it.
+    if (!opened) setWrong(true);
   }
 
   return (
@@ -60,12 +62,11 @@ export function KeyPrompt() {
             {(field) => (
               <Input
                 {...field}
+                ref={box}
                 type="password"
                 autoComplete="current-password"
                 required
                 disabled={busy}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
               />
             )}
           </FormField>

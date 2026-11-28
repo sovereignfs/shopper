@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress: 4.1 to 4.4 and 4.6 are done. 4.5, 4.8 and 4.9 are phase 2; 4.7 is superseded.
 
 ## Overview
 

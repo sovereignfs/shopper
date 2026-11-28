@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress: 7.3, shopping mode, is done. The rest is phase 2.
 
 ## Overview
 

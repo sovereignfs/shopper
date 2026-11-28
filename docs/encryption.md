@@ -7,22 +7,40 @@
 
 **What you write into Shopper is encrypted on your device, before it is sent,** with **keys of each list's own**, held only by the people on that list:
 the names of lists, items and products, a list's icon and colour, and notes. The server stores and syncs what it cannot read, and merges changes without opening them. This is
-the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0004](rfcs/0004-lists-of-their-own.md) and `DESIGN.md` §13.
+the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0004](rfcs/0004-lists-of-their-own.md),
+[RFC 0006](rfcs/0006-home-and-inventory.md), [RFC 0007](rfcs/0007-loyalty-cards.md) and `DESIGN.md` §13.
 
 - **A new account's lists are encrypted from their first item.** When you sign in, your device makes your keys and moves anything the server held
   before (0.1.0's lists), once. Each of your lists has its own key, worked out on your devices from yours; nobody else holds yours.
 - **Sharing a list by a link** gives that list's key, and no other: it travels in the link itself, after `#`, which a browser never sends to a server.
   Someone you share Groceries with cannot open anything of your other lists, even from a copy of the database. Send a link privately: whoever opens it
   first can join.
-- **Lists that were shared before they could move are not encrypted yet** (a 0.1.0 household with more than one person in it): the others could not
-  be given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Security** says which of your lists
-  are which.
-- **Removing someone from a list does not change that list's key yet.** They stop receiving anything from the server at once, but someone who kept the
-  key and also got a copy of the database could read what is added to that list after. A new key for those who remain comes later.
+- **Loyalty cards** are encrypted the same way, **each under a key of its own,** held only by the people on that card: the shop's name, the number,
+  the code and its kind, the name on the card, the note, and its icon and colour. A link to a card carries that card's key and no other, and sharing a
+  list gives no card's.
+- **Your Inventory and your own categories** are encrypted under keys of your own, which no link carries and nobody else is given: an Inventory item's
+  name and note, and the name you give a category. Putting an item of your own category on a list gives that list a copy of the category's name, under
+  the list's keys, which the people on it read.
+- **Lists that were shared before they could move are not encrypted yet** (a 0.1.0 household with more than one person in it): the others could not be
+  given keys without a link. The server keeps them sealed with its own key, as 0.1.0 did, and **Settings › Security** says which of your lists are
+  which. The Inventory and own categories of the account that made them are sealed the same way until then, and that account can keep no loyalty card.
+- **Removing someone from a list or a card does not change its key yet.** They stop receiving anything from the server at once, but someone who kept
+  the key and also got a copy of the database could read what is added or changed there after. What they had already seen stays theirs. A new key for
+  those who remain comes later.
 
-**Still readable by the server:** who is on which list, how many lists and items there are, quantities and units, when something was ticked, and
-sizes; a person's name and email address (mail and the invitation page need them); and an invitation's email. Those are sealed at rest with the
-server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted yet.
+**Still readable by the server:** who is on which list, how many lists and items there are, quantities and units, who added and ticked each item and
+when, and sizes; which category each item and product is in and which icon it has; the order items and categories are in; how often a product has been
+bought, and when it last was; and a fingerprint of each product's name made with the list's key, by which two of the same name on a list are folded
+into one. The server knows which starter category is which, so a category and an icon can say much about an item (that it is under _Dairy & eggs_,
+say), though not its name.
+
+The server also reads a person's name and email address (mail and the invitation page need them) and an invitation's email. Those are sealed at rest
+with the server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted yet.
+
+**Of loyalty cards and Inventory the server also sees:** who is on each card, which lists a card is linked to, how many cards and Inventory items
+there are, the order of cards, and when things changed; of an Inventory item, which starter item it changes, its category, icon, quantity and unit,
+whether it is recurring or hidden, and a fingerprint of its name made with your key, by which two of the same are folded into one; of a category,
+which starter category it is, if it is one (renamed or not), its icon, its place in the order and whether it is hidden.
 
 ## Your key
 
@@ -38,7 +56,7 @@ server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted
 
 - **It protects** what you write from someone who reads the server: a copied database, a backup, a stolen disk.
 - **It does not protect** against whoever runs the server, which sends the app your browser runs and could send a changed one. Nor the device: a
-  signed-in browser holds your lists as you see them until you sign out. Nor the people you share a list with: they see all of that list.
+  signed-in browser holds your lists as you see them until you sign out. Nor the people you share a list or a card with: they see all of it.
 - **Logs** hold ids and kinds of failure, never a name, a note or an address.
 - **Page titles:** a page's title carries a list's name, set by your browser once it has opened it; the server never has it, and until it is opened the
   title is `Shopper`. Your browser keeps titles in its history, and a history your browser syncs leaves the device with them: the one way an opened

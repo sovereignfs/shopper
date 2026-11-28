@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress: 8.1 to 8.4, 8.7 and 8.8 are done. 8.9 to 8.11 are phase 2; 8.5 and 8.6 are superseded.
 
 ## Overview
 

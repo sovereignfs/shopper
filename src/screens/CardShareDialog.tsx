@@ -225,7 +225,12 @@ export function CardShareDialog({ card, onClose }: { card: CardRow; onClose: () 
         open={confirm !== null}
         onClose={() => setConfirm(null)}
         title="Remove this person?"
-        message={confirm ? `${confirm.name} will no longer have this card on their devices.` : null}
+        // What removing does and does not take back (RFC 0007, DESIGN.md §13.6).
+        message={
+          confirm
+            ? `${confirm.name} will lose this card on their devices when they next sync. What they have already seen or noted stays theirs, and the card’s key is not changed yet.`
+            : null
+        }
         confirmLabel="Remove"
         destructive
         pending={busy}

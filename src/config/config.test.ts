@@ -116,6 +116,18 @@ describe('loading the settings', () => {
     );
   });
 
+  it('reads local sign-in as true or false, 1 or 0, and says so of anything else', () => {
+    for (const on of ['true', '1']) {
+      expect(ok({ ...alone, SHOPPER_AUTH_LOCAL: on }).auth?.local).toBe(true);
+    }
+    for (const off of ['false', '0']) {
+      expect(ok({ ...alone, SHOPPER_AUTH_LOCAL: off }).auth).toBeUndefined();
+    }
+    expect(problems({ ...alone, SHOPPER_AUTH_LOCAL: 'yes' })).toEqual([
+      'SHOPPER_AUTH_LOCAL is true or false (or 1 or 0).',
+    ]);
+  });
+
   it('sign-up is open by default and closed when told, and nothing else', () => {
     expect(ok({ ...alone, SHOPPER_AUTH_SIGNUP: 'closed' }).auth?.signUp).toBe('closed');
     expect(problems({ ...alone, SHOPPER_AUTH_SIGNUP: 'invite' })).toEqual([

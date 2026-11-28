@@ -13,6 +13,7 @@ import {
   seedItems,
   signUp,
   test,
+  waitMoved,
 } from './helpers';
 
 /**
@@ -163,6 +164,34 @@ test('a second person joins through the link, and the Admin sees them, with thei
   await grace.context.close();
 });
 
+/** What the confirmation of removing Grace says of any list; an encrypted one's goes on to speak of its key. */
+const REMOVING_GRACE =
+  'Grace will lose this list on their devices when they next sync. What they added stays on it under their name. What they have already seen or noted stays theirs';
+
+test.describe('a list the server still seals', () => {
+  // With no service worker: a request that goes through one is not the page's for a route to stop.
+  test.use({ serviceWorkers: 'block' });
+
+  test('removing someone from it says nothing of a key', async ({ page, browser, baseURL }) => {
+    const base = baseURL ?? '';
+    // This device cannot move the list to its own encryption, so the server goes on sealing it, and its link carries no key.
+    await page.route('**/api/keys/move**', (route) => route.abort());
+    await signUp(page, { name: 'Ada' });
+    const url = await linkFrom(page);
+    expect(url).not.toContain('#');
+    const grace = await joinThrough(browser, base, url, 'Grace');
+
+    await page.reload();
+    await openShare(page);
+    await expect(dialog(page).getByRole('region', { name: 'People' })).toContainText('Grace', {
+      timeout: 30_000,
+    });
+    await dialog(page).getByRole('button', { name: 'Remove Grace' }).click();
+    await expect(page.getByText(`${REMOVING_GRACE}.`, { exact: true })).toBeVisible();
+    await grace.context.close();
+  });
+});
+
 test('the Admin removes a Member after a confirmation, and the Member’s device drops the list', async ({
   page,
   browser,
@@ -170,7 +199,10 @@ test('the Admin removes a Member after a confirmation, and the Member’s device
 }) => {
   const base = baseURL ?? '';
   await signUp(page, { name: 'Ada' });
+  // The list moves to this device's encryption first, so that the link carries its key.
+  await waitMoved(page, base);
   const url = await linkFrom(page);
+  expect(url).toContain('#');
   const grace = await joinThrough(browser, base, url, 'Grace');
   const graceAccount = await accountOf(grace.page);
 
@@ -180,8 +212,10 @@ test('the Admin removes a Member after a confirmation, and the Member’s device
     timeout: 30_000,
   });
   await dialog(page).getByRole('button', { name: 'Remove Grace' }).click();
-  // Asked first: cancelling changes nothing.
-  await expect(page.getByText(/will no longer see this list/)).toBeVisible();
+  // Asked first, with what removing does not take back; cancelling changes nothing.
+  await expect(
+    page.getByText(`${REMOVING_GRACE}, and the list’s key is not changed yet.`, { exact: true }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog(page).getByRole('region', { name: 'People' })).toContainText('Grace');
   await dialog(page).getByRole('button', { name: 'Remove Grace' }).click();

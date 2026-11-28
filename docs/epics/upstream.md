@@ -2,7 +2,8 @@
 
 ## Status
 
-⏳ In Progress: 16.17 to 16.26 are built in `sovereign` (its epic 21, workstream 0012) and wait for their release.
+⏳ In Progress: done, their releases published (checked 2026-11-27): 16.1 to 16.3, 16.5, 16.10 to 16.14 and 16.17 to 16.26. Open: 16.4, 16.6 to
+16.9, 16.15 and 16.16.
 
 ## Overview
 
@@ -19,7 +20,7 @@ them; each is marked done when the release that carries it is published. **Sever
 
 ## Tasks
 
-#### 📋 16.1 — `AUTH_SIGNUP` by invitation
+#### ✅ 16.1 — `AUTH_SIGNUP` by invitation
 
 **Goal:** `invite` as a value of `AUTH_SIGNUP` for every app. **Design:** §6.3, §24. **Depends on:** nothing here. **Needed by:** 2.7 (phase 2); if it is
 released before phase 1 ends, 2.7 moves into 0.1.0.
@@ -29,7 +30,10 @@ same as Tally's 14.5 and Roam's 17.2.
 
 **Accepts when:** a `sovereign` release carrying it is published.
 
-#### 📋 16.2 — Shopper's port in the guide
+**Done as:** `contracts/env.md` on `sovereign`'s `main` gives `AUTH_SIGNUP` the value `invite`, and `@sovereignfs/config` needs nothing for it: the app
+checks its own invitation when the account is made. Shopper does not take it yet (2.7).
+
+#### ✅ 16.2 — Shopper's port in the guide
 
 **Goal:** 3007 in building-an-app §2's table. **Design:** §24. **Depends on:** nothing here.
 
@@ -37,7 +41,9 @@ same as Tally's 14.5 and Roam's 17.2.
 
 **Accepts when:** the guide on `sovereign`'s `main` lists it.
 
-#### 📋 16.3 — `AvatarStack`
+**Done as:** the port table of `docs/building-an-app.md` on `sovereign`'s `main` lists 3003 to 3007, Shopper's among them.
+
+#### ✅ 16.3 — `AvatarStack`
 
 **Goal:** overlapping avatars with "+N". **Design:** §16.9, §16.10. **Depends on:** nothing here. **Needed by:** 8.9 (phase 2).
 
@@ -45,6 +51,8 @@ same as Tally's 14.5 and Roam's 17.2.
 The same as Tally's 14.2 and Roam's 17.4.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+**Done as:** `AvatarStack` is in `@sovereignfs/ui` 0.107.3, and in the later release Shopper pins.
 
 #### 📋 16.4 — Grocery icons
 
@@ -57,7 +65,7 @@ AGPL. Started during phase 1 so that it is released by 4.8; the starter catalog 
 
 **Accepts when:** a `@sovereignfs/ui` release carrying them is published.
 
-#### 📋 16.5 — A floating action button
+#### ✅ 16.5 — A floating action button
 
 **Goal:** the phone's Add. **Design:** §16.11. **Depends on:** nothing here. **Needed by:** 8.11 (phase 2).
 
@@ -65,6 +73,9 @@ AGPL. Started during phase 1 so that it is released by 4.8; the starter catalog 
 The same as Tally's 14.3 and Roam's 17.5.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+**Done as:** `FloatingActionButton` is in `@sovereignfs/ui` 0.107.3, and in the later release Shopper pins. The screen that uses it is phase 2's
+(8.11).
 
 #### 📋 16.6 — Charts
 
@@ -105,7 +116,7 @@ fragment first, with RFC 0005's words for what a leaked link gives. Tally's and 
 
 **Accepts when:** a `@sovereignfs/sdk` release carrying it is published, or `sovereign` decides it is the app's.
 
-#### 📋 16.10 — The key secret over an app's own session
+#### ✅ 16.10 — The key secret over an app's own session
 
 **Goal:** `auth.keySecret` and `/auth/key-secret` usable by an app whose sessions are its own better-auth's, not the SDK's `nextAuth`. **Design:**
 RFC 0001, open question 1. **Depends on:** nothing here. **Needed by:** 18.3.
@@ -114,7 +125,9 @@ RFC 0001, open question 1. **Depends on:** nothing here. **Needed by:** 18.3.
 
 **Accepts when:** the guide says how, in a published release, or 17.3 moves Shopper onto `@sovereignfs/auth` and it serves it.
 
-#### 📋 16.11 — The environment contract and the guide, true
+**Done as:** `@sovereignfs/auth` 0.7.0 serves it (`keySecrets`), and Shopper uses it (`src/auth/auth.ts`).
+
+#### ✅ 16.11 — The environment contract and the guide, true
 
 **Goal:** `contracts/env.md` and `docs/building-an-app.md` say what apps use. **Design:** RFC 0001, RFC 0002. **Depends on:** nothing here.
 
@@ -124,7 +137,11 @@ table listing `auth` and `export`, and its line that 16.14 is not built correcte
 
 **Accepts when:** `sovereign`'s `main` carries the corrections.
 
-#### 📋 16.12 — Background Sync in `@sovereignfs/pwa`
+**Done as:** on `sovereign`'s `main`, `contracts/env.md` has the VAPID settings and says which apps keep `<PREFIX>_ENCRYPTION_KEY` and `_PREVIOUS`,
+`contracts/app-manifest.md` says it is manifest 5, and the guide's package table lists `auth` and `export` and no longer says moving an app's
+accounts is not built. The table still calls `auth`'s key secret not built, which 0.7.0 has: `sovereign`'s to correct.
+
+#### ✅ 16.12 — Background Sync in `@sovereignfs/pwa`
 
 **Goal:** the shared worker answers Background Sync, or lets an app add a handler, as it lets an app add push kinds. **Design:** §12.3. **Depends on:**
 nothing here. **Needed by:** 17.2, if the package has no way today.
@@ -134,7 +151,11 @@ outbox when the connection returns with no tab in front.
 
 **Accepts when:** a `@sovereignfs/pwa` release carrying it is published, or 17.2 finds the package already does.
 
-#### 📋 16.13 — A SQLite and sqld database for `@sovereignfs/auth`
+**Done as:** `@sovereignfs/pwa` 0.3.0 (published 2026-11-22) takes `serviceWorkerSource({ sync })`. Shopper pins it and gives it its own tag and
+message (`src/sw/shared.ts`); its own handler after the package's text is gone from `src/sw/source.ts`. The package's message names the tag beside
+the type, which the page's listener does not read. The package has the app's `fetchHandlers` too, which Shopper does not use.
+
+#### ✅ 16.13 — A SQLite and sqld database for `@sovereignfs/auth`
 
 **Goal:** an app on a SQLite file or sqld gives `@sovereignfs/auth` its database through a published entry, as `./postgres` does for PostgreSQL.
 **Design:** [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md). **Depends on:** nothing here. **Needed by:** nothing; 17.5 wraps Shopper's own
@@ -145,7 +166,9 @@ connection until it lands, and drops the wrapper then.
 
 **Accepts when:** a `@sovereignfs/auth` release carrying it is published.
 
-#### 📋 16.14 — An app's password accounts, across to `@sovereignfs/auth`
+**Done as:** `@sovereignfs/auth/database` (0.7.0) opens a SQLite file, sqld or PostgreSQL with the app's own driver.
+
+#### ✅ 16.14 — An app's password accounts, across to `@sovereignfs/auth`
 
 **Goal:** an app that signed people in with passwords before the package can move onto it without everyone resetting their password. **Design:**
 [ADR 0001](../adrs/0001-sign-in-on-sovereignfs-auth.md). **Depends on:** nothing here. **Needed by:** 17.5.
@@ -156,6 +179,9 @@ package's reason for refusing that, and a reset path that needs no mail. Core ch
 alone often has no mail.
 
 **Accepts when:** `sovereign` publishes the way, or decides against it and says what an app does instead.
+
+**Done as:** `@sovereignfs/auth` 0.7.0 moves a password account once (`movePasswords`, which Shopper uses) and makes a reset link with no mail
+(`resetLink`).
 
 #### 📋 16.15 — Wrapping a document key under one's own app key
 
@@ -179,7 +205,7 @@ return page.
 
 **Accepts when:** a `@sovereignfs/sdk` release carrying it is published.
 
-#### ⏳ 16.17 — `prompt=create`: an app asks core to open on its sign-up
+#### ✅ 16.17 — `prompt=create`: an app asks core to open on its sign-up
 
 **Goal:** an app's _Create an account_ lands on core's sign-up, not its sign-in. **Design:** [RFC 0005](../rfcs/0005-the-frame-settings-and-screens.md),
 "Sign-in". **Depends on:** nothing here. **Needed by:** nothing waits; 22.2 uses it when it is released.
@@ -189,9 +215,9 @@ authorize endpoint, which sends the person to `/sign-up` with the resume address
 
 **Accepts when:** releases of the SDK, `@sovereignfs/auth` and core carrying it are published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.9 (its epic 21, workstream 0012), on its `develop` at `21724b3`: core 0.86.0, SDK 2.12.0, `@sovereignfs/auth` 0.7.0: `beginSignIn({ prompt: 'create' })` and `/api/auth/sign-in/sovereign?prompt=create`; core's `/sign-up` carries the app's request and ends in its sign-in. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.9 (its epic 21, workstream 0012), on its `develop` at `21724b3`: core 0.86.0, SDK 2.12.0, `@sovereignfs/auth` 0.7.0: `beginSignIn({ prompt: 'create' })` and `/api/auth/sign-in/sovereign?prompt=create`; core's `/sign-up` carries the app's request and ends in its sign-in.
 
-#### ⏳ 16.18 — Icons: `square-pen`, and more
+#### ✅ 16.18 — Icons: `square-pen`, and more
 
 **Goal:** the icons RFC 0005 to 0007 use are in the design system. **Design:** RFC 0005, "A list". **Depends on:** nothing here. **Needed by:** 22.3,
 22.6.
@@ -201,9 +227,9 @@ clothing, gifts, garden, office, a card. Added by development, as 16.4's grocery
 
 **Accepts when:** a `@sovereignfs/ui` release carrying them is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.2 (its epic 21, workstream 0012), on its `develop` at `925dbaf`: `@sovereignfs/ui` 0.107.0: twenty icons, `square-pen`, `shopping-cart` (a new list's), `store`, `hammer`, `wrench`, `plug`, `laptop`, `headphones`, `shirt`, `gift`, `sprout`, `flower-2`, `briefcase`, `paperclip`, `pill`, `baby`, `dog`, `sofa`, `wallet-cards`, `scan-barcode`. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.2 (its epic 21, workstream 0012), on its `develop` at `925dbaf`: `@sovereignfs/ui` 0.107.0: twenty icons, `square-pen`, `shopping-cart` (a new list's), `store`, `hammer`, `wrench`, `plug`, `laptop`, `headphones`, `shirt`, `gift`, `sprout`, `flower-2`, `briefcase`, `paperclip`, `pill`, `baby`, `dog`, `sofa`, `wallet-cards`, `scan-barcode`.
 
-#### ⏳ 16.19 — `SettingsDialog`
+#### ✅ 16.19 — `SettingsDialog`
 
 **Goal:** settings as one dialog with a side navigation, for every app and core. **Design:** RFC 0005, "Settings". **Depends on:** nothing here.
 **Needed by:** 22.5, 22.7.
@@ -214,9 +240,9 @@ arrow. Controlled (`active`, `onSelect`), so that an app puts each section at an
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.1 (its epic 21, workstream 0012), on its `develop` at `5a900be`: `@sovereignfs/ui` 0.107.0: `SettingsDialog` (`groups`, `active`, `onSelect`, `search`, `renderLink`; `active: null` is the sections alone on a phone), on `Dialog`'s new `flush`. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.1 (its epic 21, workstream 0012), on its `develop` at `5a900be`: `@sovereignfs/ui` 0.107.0: `SettingsDialog` (`groups`, `active`, `onSelect`, `search`, `renderLink`; `active: null` is the sections alone on a phone), on `Dialog`'s new `flush`.
 
-#### ⏳ 16.20 — `Header` with the app's own brand
+#### ✅ 16.20 — `Header` with the app's own brand
 
 **Goal:** an app's header is the design system's, with its own wordmark. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed
 by:** 22.11.
@@ -226,9 +252,9 @@ avatar in that order, each drawn only when given.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.4 (its epic 21, workstream 0012), on its `develop` at `62c0c91`: `@sovereignfs/ui` 0.107.0: `Header`'s `brand`, beside the `leading` slot and the optional launcher, bell and avatar it already had. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.4 (its epic 21, workstream 0012), on its `develop` at `62c0c91`: `@sovereignfs/ui` 0.107.0: `Header`'s `brand`, beside the `leading` slot and the optional launcher, bell and avatar it already had.
 
-#### ⏳ 16.21 — `AppSidebar`
+#### ✅ 16.21 — `AppSidebar`
 
 **Goal:** the sidebar every app copies, once. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:** 22.11.
 
@@ -238,9 +264,9 @@ in a colour and a count.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.5 (its epic 21, workstream 0012), on its `develop` at `d2edbd1`: `@sovereignfs/ui` 0.107.0: `AppSidebar` and `useAppSidebar(appId, pageKind)`, with `src/ui/sidebar.ts`'s rules exported (`sidebarStateFor`, `toggleSidebarHidden`, `toggleSidebarRail`), kept under `sv.sidebar.<app>`; a rail names each row with its `title`. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.5 (its epic 21, workstream 0012), on its `develop` at `d2edbd1`: `@sovereignfs/ui` 0.107.0: `AppSidebar` and `useAppSidebar(appId, pageKind)`, with `src/ui/sidebar.ts`'s rules exported (`sidebarStateFor`, `toggleSidebarHidden`, `toggleSidebarRail`), kept under `sv.sidebar.<app>`; a rail names each row with its `title`.
 
-#### ⏳ 16.22 — `AppFrame`
+#### ✅ 16.22 — `AppFrame`
 
 **Goal:** the header, the sidebar, the content and a right column, wired, for every app. **Design:** RFC 0005, "The frame". **Depends on:** 16.20,
 16.21. **Needed by:** 22.11.
@@ -250,9 +276,9 @@ in a colour and a count.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.6 (its epic 21, workstream 0012), on its `develop` at `bdcac5a`: `@sovereignfs/ui` 0.107.0: `AppFrame` (`appId`, `brand`, `pageKind`, `blocks`, `footer`, `detail`, `renderLink`); the phone's middle button opens the drawer unless the footer gives its own `onOpenApps`. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.6 (its epic 21, workstream 0012), on its `develop` at `bdcac5a`: `@sovereignfs/ui` 0.107.0: `AppFrame` (`appId`, `brand`, `pageKind`, `blocks`, `footer`, `detail`, `renderLink`); the phone's middle button opens the drawer unless the footer gives its own `onOpenApps`.
 
-#### ⏳ 16.23 — The apps a person can open
+#### ✅ 16.23 — The apps a person can open
 
 **Goal:** an app's header can show the suite's launcher. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:** 22.11.
 
@@ -261,9 +287,9 @@ manifest with `signIn`), with icons served from core's own address; an SDK call 
 
 **Accepts when:** releases of core and the SDK carrying it are published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.8, on its `develop` at `6b1630e`, with a person's token (an app has one only if it asked for `offline_access`, which Shopper does from 0.6.0, 22.11): core's `GET /api/v1/apps` (`listMyApps`), the SDK's `sv.as(person).apps.list()`, and `appsLauncherItems` in `@sovereignfs/ui` for `AppsLauncher`. Its icons are served from core's own address (`/api/branding/apps/<id>`, `cb3e1a2`), fetched from each app and checked as a picture. Not published yet.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.8, on its `develop` at `6b1630e`, with a person's token (an app has one only if it asked for `offline_access`, which Shopper does from 0.6.0, 22.11): core's `GET /api/v1/apps` (`listMyApps`), the SDK's `sv.as(person).apps.list()`, and `appsLauncherItems` in `@sovereignfs/ui` for `AppsLauncher`. Its icons are served from core's own address (`/api/branding/apps/<id>`, `cb3e1a2`), fetched from each app and checked as a picture.
 
-#### ⏳ 16.24 — `MobileFooter`'s middle button, named by the app
+#### ✅ 16.24 — `MobileFooter`'s middle button, named by the app
 
 **Goal:** the middle button can be something other than the apps. **Design:** RFC 0005, "The frame". **Depends on:** nothing here. **Needed by:**
 22.11.
@@ -272,9 +298,9 @@ manifest with `signIn`), with icons served from core's own address; an SDK call 
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.3 (its epic 21, workstream 0012), on its `develop` at `ede94ac`: `@sovereignfs/ui` 0.107.0: `MobileFooter`'s `launcherLabel`, beside its `launcherIcon`. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.3 (its epic 21, workstream 0012), on its `develop` at `ede94ac`: `@sovereignfs/ui` 0.107.0: `MobileFooter`'s `launcherLabel`, beside its `launcherIcon`.
 
-#### ⏳ 16.25 — `Barcode`
+#### ✅ 16.25 — `Barcode`
 
 **Goal:** a linear barcode drawn as `QrCode` draws a QR code. **Design:** [RFC 0007](../rfcs/0007-loyalty-cards.md), "A card". **Depends on:** nothing
 here. **Needed by:** 24.3.
@@ -284,9 +310,9 @@ no third-party request.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.7 (its epic 21, workstream 0012), on its `develop` at `7a48a97`: `@sovereignfs/ui` 0.107.0: `Barcode` and `encodeBarcode` (EAN-13, EAN-8, UPC-A, Code 128, Code 39), checked against bwip-js and ZXing. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.7 (its epic 21, workstream 0012), on its `develop` at `7a48a97`: `@sovereignfs/ui` 0.107.0: `Barcode` and `encodeBarcode` (EAN-13, EAN-8, UPC-A, Code 128, Code 39), checked against bwip-js and ZXing.
 
-#### ⏳ 16.26 — Writing an export in the browser
+#### ✅ 16.26 — Writing an export in the browser
 
 **Goal:** an app whose data only the browser can open writes the contract's export there. **Design:** RFC 0005, "A readable export". **Depends on:**
 nothing here. **Needed by:** nothing waits; 22.8 writes one JSON file until then.
@@ -295,4 +321,4 @@ nothing here. **Needed by:** nothing waits; 22.8 writes one JSON file until then
 
 **Accepts when:** a `@sovereignfs/export` release carrying it is published.
 
-**Built, waiting for the release (2026-11-23):** as `sovereign`'s 21.10 (its epic 21, workstream 0012), on its `develop` at `c24f270`: `@sovereignfs/export` 0.4.0: `BrowserExportWriter` from `@sovereignfs/export/browser`, the same archive as the server's writer. Not published yet; this is done when it is.
+**Built (2026-11-23), published (checked 2026-11-27):** as `sovereign`'s 21.10 (its epic 21, workstream 0012), on its `develop` at `c24f270`: `@sovereignfs/export` 0.4.0: `BrowserExportWriter` from `@sovereignfs/export/browser`, the same archive as the server's writer. Shopper does not use it yet: 22.8 still writes its one JSON file.

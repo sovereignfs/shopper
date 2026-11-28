@@ -27,7 +27,7 @@ The smallest setup of all is one `docker run`, with no Compose:
 ```bash
 docker run -d -p 127.0.0.1:3007:3007 -v shopper:/data \
   -e SHOPPER_DB_DIALECT=sqlite -e SHOPPER_SQLITE_URL=file:/data/shopper.db \
-  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=1 \
+  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=true \
   -e SHOPPER_AUTH_SECRET="$(openssl rand -base64 48)" -e SHOPPER_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
   ghcr.io/sovereignfs/shopper
 ```
@@ -70,24 +70,24 @@ answered only when they carry a token the instance signed.
 There are two keys, and they are different things.
 
 - **`SHOPPER_AUTH_SECRET`** signs sessions and tokens. Changing it signs everyone out. Make it once (`openssl rand -base64 48`) and keep it with your secrets.
-- **`SHOPPER_ENCRYPTION_KEY`** seals, in the database, everything that says what a household buys, where and who they are: the names of households, lists, items,
-  products and categories, notes, and people's names and addresses. Nothing of that is stored in plain text, so a copy of the database, a stolen disk or a backup of the
-  volume holds none of it. **It does not hide anything from you:** the server has the key, so whoever runs it can read it. Make it once (`openssl rand -base64 32`) and
-  keep it with your secrets, **apart from the database backups**. **A lost key means the sealed content cannot be read, and nothing can recover it.** To change it,
-  put the new one in `SHOPPER_ENCRYPTION_KEY` and the old in `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, start the server once (it moves what is stored to the new key), and then
-  remove the old one.
+- **`SHOPPER_ENCRYPTION_KEY`** seals, in the database, what the server holds itself: people's names and email addresses, core's token, the keys of a device's
+  push subscription, and any list not yet encrypted. What people write is encrypted on their devices, with keys the server is not given
+  ([`docs/encryption.md`](../docs/encryption.md); **not yet audited**). **Neither hides everything from you:** the server reads what this key seals, and it sends
+  the app that people's browsers run. Make it once (`openssl rand -base64 32`) and keep it with your secrets, **apart from the database backups**. **A lost key
+  means what it seals cannot be read, and nothing can recover it.** To change it, put the new one in `SHOPPER_ENCRYPTION_KEY` and the old in
+  `SHOPPER_ENCRYPTION_KEY_PREVIOUS`, start the server once (it moves what is stored to the new key), and then remove the old one.
 
 ## Backups
 
-The database is the whole of it, apart from `SHOPPER_ENCRYPTION_KEY`, which is what makes it readable.
+The database is the whole of it, apart from `SHOPPER_ENCRYPTION_KEY`, which opens what the server seals.
 
 - **sqld:** a snapshot of the `sqld-data` volume, taken with sqld stopped or by your usual volume backup.
 - **A file:** a snapshot of the volume. For a running copy, `sqlite3 /data/shopper.db ".backup /backup/shopper.db"`, or continuous replication such as Litestream. The
   auth database, `shopper_auth.db`, is beside it and is part of it.
 - **PostgreSQL:** `pg_dump`, or your usual process.
 
-A backup of the database without `SHOPPER_ENCRYPTION_KEY` cannot be read, and the key without the backup is of no use: keep them in different places, and test a
-restore with both.
+A backup of the database without `SHOPPER_ENCRYPTION_KEY` cannot be restored to a working Shopper, and the key without the backup is of no use: keep them in
+different places, and test a restore with both.
 
 **What a backup holds of what people write** (RFC 0001, RFC 0003): a household that has moved to its devices' encryption is in the backup as ciphertext, with
 each member's keys wrapped so that only their own password, kit or core opens them. The vault's tables (`sv_key_*`) are in the app's database and so in the

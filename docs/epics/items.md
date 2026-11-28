@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress: 5.1 to 5.5 are done. 5.6 is phase 2.
 
 ## Overview
 

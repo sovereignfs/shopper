@@ -2,8 +2,9 @@
 
 ## Status
 
-📋 Planned. Legs 2 to 6 and 9 of [workstream 0001](../workstreams/0001-suite-model.md); before phase 2. **Not yet audited**, as everything built
-on `sovereign`'s RFC 0005 is, and every task's words say so.
+⏳ In progress: all but 18.8 and 18.11 are done. 18.8 waits on a way to give those who remain a new key (16.8, or core's `keys.person`), and
+18.11 on 18.8. Legs 2 to 6 and 9 of [workstream 0001](../workstreams/0001-suite-model.md); before phase 2. **Not yet audited**, as everything
+built on `sovereign`'s RFC 0005 is, and every task's words say so.
 
 ## Overview
 

@@ -6,6 +6,10 @@ instance.
 - **Lists** you add to quickly, with suggestions that learn what you buy, and items shown by aisle.
 - **Shopping mode** for the aisle: large rows, the screen kept on, ticked items dropping into the basket, and a _Finish shopping_ that clears what you bought.
 - **Sharing** list by list, by a link: the people you invite see and change that list, and nothing else of yours.
+- **Home** to start from: carry on with the list you used last, or pick another, and see at a glance what is open.
+- **Inventory**, your own library of what you buy, beyond groceries, offered first as you add. It is shared with nobody.
+- **Loyalty cards**, scanned or typed, shown full screen at the till with no network, shared card by card by a link, and one tap away in shopping mode
+  on a list they are linked to.
 - **Offline first:** everything works with no network and syncs in the background. It opens with no network too, once it has been opened once.
 - **Private:** names, notes and the like are encrypted on your device, under keys of each list's own, before they reach the server
   ([what that does and does not do](#encryption)). Not yet audited.
@@ -17,12 +21,13 @@ fully on its own. One set up both ways signs in through Sovereign only, and says
 ## What it does, and does not do yet
 
 **It does:** accounts (a password, or a Sovereign core); lists and items with quantities, units, categories, icons and notes; suggestions from what you buy and a
-starter catalog; ticking off, _Bought_, _Clear bought_ and undo; shopping mode; sharing a list by a link, with leaving and removing, list by list; working with no
-network, and syncing; encryption on your device; Web Push; a person's own readable export (alone) and a person's export from a Sovereign core; deleting your account.
+starter catalog; ticking off, _Bought_, _Clear bought_ and undo; shopping mode; sharing a list by a link, with leaving and removing, list by list; Home; Inventory;
+loyalty cards, kept, scanned, shared and linked to lists; working with no network, and syncing; encryption on your device; Web Push; a person's own readable export and a
+person's export from a Sovereign core; deleting your account.
 
 **It does not do yet:** roles other than Admin and Member; trips, shops, prices and
 totals; invitations by email, notices and the bell; live updates (a device asks every 20 seconds, every 10 in shopping mode, unless you set it); import;
-a pantry, barcodes and photos. [`ROADMAP.md`](ROADMAP.md) has the order they come in. What needs a network, and what a person cannot hide from others on a list
+a pantry, looking products up by their barcode, and photos. [`ROADMAP.md`](ROADMAP.md) has the order they come in. What needs a network, and what a person cannot hide from others on a list
 they share, is in [`docs/working-offline.md`](docs/working-offline.md) and [`docs/sharing.md`](docs/sharing.md).
 
 ## Run it
@@ -42,7 +47,7 @@ ready. It stops on SIGTERM within seconds. Put a reverse proxy with TLS in front
 ```bash
 docker run -d -p 127.0.0.1:3007:3007 -v shopper:/data \
   -e SHOPPER_DB_DIALECT=sqlite -e SHOPPER_SQLITE_URL=file:/data/shopper.db \
-  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=1 \
+  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=true \
   -e SHOPPER_AUTH_SECRET="$(openssl rand -base64 48)" -e SHOPPER_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
   shopper
 ```
@@ -80,7 +85,7 @@ instead of `NAME=value`, so that it is never in the process list. The server sto
 | Setting                                                                                                     | What                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SHOPPER_URL`                                                                                               | The address people use: https, except on localhost, with no path. Emailed links, cookies and the Sovereign redirect are made from it. Required with either way of signing in                  |
-| `SHOPPER_AUTH_LOCAL`                                                                                        | `1`: sign in with an email and a password. Off means off: the sign-in and sign-up pages answer 404                                                                                            |
+| `SHOPPER_AUTH_LOCAL`                                                                                        | `true` (or `1`): sign in with an email and a password. Off means off: the sign-in and sign-up pages answer 404                                                                                |
 | `SHOPPER_AUTH_SECRET`                                                                                       | 32 characters or more, to sign sessions and tokens (`openssl rand -base64 48`). Changing it signs everyone out                                                                                |
 | `SHOPPER_AUTH_SIGNUP`                                                                                       | `open` (the default) or `closed`: see below                                                                                                                                                   |
 | `SHOPPER_AUTH_PASSWORD_MIN_LENGTH`                                                                          | The shortest password, 8 to 128. Default 10                                                                                                                                                   |

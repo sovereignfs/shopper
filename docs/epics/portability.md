@@ -2,8 +2,7 @@
 
 ## Status
 
-📋 Planned; 11.1 and 11.2 superseded by epic 20. **All of epic 11 is phase 2.** Until it lands a person can delete their account (2.5) but not take a file of their lists with them;
-the README says so.
+📋 Planned: 11.3, import from the plugin, which is phase 2. 11.1 and 11.2 are superseded by epic 20, and a person's own readable export is 22.8's.
 
 ## Overview
 

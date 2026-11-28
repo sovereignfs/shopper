@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useKeys } from '../keys/keys';
 import { addressOf, shopperVault } from '../keys/vault-client';
 import {
@@ -18,7 +18,8 @@ import styles from './Account.module.css';
  * again, which this derives and never sends) and serves the person's records as it holds them; this opens what was encrypted for the person with the
  * keys this browser holds, and writes one `.json` file that nothing leaves the page to make. **Hosted by a Sovereign instance there is no password:** the confirmation
  * is a sign-in at core in the last few minutes, which the server checks; when it is older this says so and sends the person through core with `prompt=login`, which
- * comes back to Settings › Data.
+ * comes back to Settings › Data. **The password box is read when the file is asked for,** since a password manager can fill it without telling the page; it has no
+ * name, so a browser that sent the form itself would put nothing of it in the address.
  */
 export function ExportSection({
   suite,
@@ -32,7 +33,7 @@ export function ExportSection({
 }) {
   const keys = useKeys();
   const [open, setOpen] = useState(false);
-  const [password, setPassword] = useState('');
+  const box = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<{ unopened: number } | null>(null);
   const [working, setWorking] = useState(false);
@@ -53,7 +54,11 @@ export function ExportSection({
       // Running alone the password is derived here and never sent (RFC 0001). Hosted by Sovereign there is none to give: the server asks core when they last signed in.
       const sent = suite
         ? {}
-        : { password: (await shopperVault(vaultId).derive(password, addressOf(email))).signIn };
+        : {
+            password: (
+              await shopperVault(vaultId).derive(box.current?.value ?? '', addressOf(email))
+            ).signIn,
+          };
       const reply = await fetch('/api/account/export', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -80,7 +85,6 @@ export function ExportSection({
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setPassword('');
       setDone({ unopened: file.unopened });
       setOpen(false);
     } catch {
@@ -96,8 +100,9 @@ export function ExportSection({
       {!open ? (
         <>
           <p className={styles.muted}>
-            Your lists, items, products and categories, and the people on your lists by name, as one
-            file you can read. It is not encrypted: keep it somewhere safe.
+            Your lists, items, products and categories, your Inventory, your loyalty cards with
+            their numbers and codes, and the people on your lists and cards by name, as one file you
+            can read. It is not encrypted: keep it somewhere safe.
           </p>
           {done ? (
             <p role="status" className={styles.hint}>
@@ -149,17 +154,11 @@ export function ExportSection({
           {problem ? <Alert variant="error">{problem}</Alert> : null}
           <FormField label="Your password" required>
             {(field) => (
-              <Input
-                {...field}
-                type="password"
-                value={password}
-                autoComplete="current-password"
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              <Input {...field} ref={box} type="password" autoComplete="current-password" />
             )}
           </FormField>
           <div className={styles.row}>
-            <Button type="submit" disabled={working || password === ''}>
+            <Button type="submit" disabled={working}>
               {working ? 'Making the file…' : 'Download'}
             </Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>
