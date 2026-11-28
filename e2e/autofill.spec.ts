@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { PASSWORD, sessionOf, signUp, test } from './helpers';
+import { PASSWORD, forgetStores, sessionOf, signUp, test } from './helpers';
 
 /**
  * A password manager can fill a box without telling the page (AutoFill on iOS, until a box is focused). **Shopper's own password forms send what is in
@@ -26,19 +26,7 @@ function requestsTo(page: Page, path: string): () => number {
 test('a filled password unlocks the lists of a browser that lost its key', async ({ page }) => {
   await signUp(page);
   await expect(page.getByRole('heading', { name: 'Groceries', level: 1 })).toBeVisible();
-  // Its stores are emptied from an address of the app that opens none, and each deletion waited for: asked from an open page a deletion waits for that page to
-  // go, and WebKit then now and then hands the next page the store as it was.
-  await page.goto('/api/health');
-  await page.evaluate(async () => {
-    for (const { name } of await indexedDB.databases())
-      if (name)
-        await new Promise((done, failed) => {
-          const request = indexedDB.deleteDatabase(name);
-          request.onsuccess = done;
-          request.onerror = failed;
-        });
-  });
-  await page.goto('/');
+  await forgetStores(page);
   const unlock = page.getByRole('form', { name: 'Unlock' });
   await expect(unlock).toBeVisible({ timeout: 15_000 });
 

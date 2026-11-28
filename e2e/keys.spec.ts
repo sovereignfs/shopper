@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { PASSWORD, anotherDevice, signUp, test } from './helpers';
+import { PASSWORD, anotherDevice, forgetStores, signUp, test } from './helpers';
 
 /**
  * The key in the page (task 18.4, RFC 0001): open after signing up; when this browser no longer holds it, the lists stay and a prompt above them asks
@@ -13,11 +13,7 @@ test('a locked key asks for the password above the lists, opens with it, and not
   await expect(page.getByRole('form', { name: 'Unlock' })).toHaveCount(0);
 
   // This browser forgets what it kept of the key (its stores emptied), as one would whose kept key was lost.
-  await page.evaluate(async () => {
-    for (const database of await indexedDB.databases())
-      if (database.name) indexedDB.deleteDatabase(database.name);
-  });
-  await page.reload();
+  await forgetStores(page);
   // Its household has moved, so with its store emptied and its key locked there is nothing it can open: the prompt says what to do.
   const unlock = page.getByRole('form', { name: 'Unlock' });
   await expect(unlock).toBeVisible({ timeout: 15_000 });

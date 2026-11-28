@@ -234,5 +234,6 @@ device alone. It turned up a leg 5 bug (a client reads `/home`, the page `/` is 
 **Leg 4 is done** (0.5.0, on `develop`, 2026-11-23): with `@sovereignfs/ui` 0.107.0 pinned (in `minimumReleaseAgeExclude` until it is a day old), **22.3 to 22.6, 22.9 and
 22.10** are built, committed and verified; the leg's owner gate is none. Two gaps to raise in `sovereign`: `IconPicker`'s options have no accessible names, and its
 panel is clipped by a scrolling container. The data-layer tests ran on the `file:` database only, not on sqld or PostgreSQL. Known: `e2e/keys.spec.ts`'s locked-key
-test fails in WebKit on most runs of the commit before this leg too, and `src/catalog/suggest.test.ts`'s ten-millisecond test failed once under load and passes alone.
+test fails in WebKit on most runs of the commit before this leg too (since 2026-11-28 it waits for the stores to be deleted before it opens the page again), and
+`src/catalog/suggest.test.ts`'s ten-millisecond test failed once under load and passes alone.
 **Leg 3 is done** (0.5.0, `develop`, 2026-11-23): 22.2, 22.7 and 22.8 are built and verified, with `@sovereignfs/auth` 0.7.0 and the SDK 2.12.0 pinned for 22.8's suite half and 22.2's `prompt=create`, which needs Sovereign 0.140.0 or later (its export, 0.142.0). The export's button in suite mode is not browser-tested (the fake core releases no key).
