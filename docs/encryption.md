@@ -28,14 +28,19 @@ the design of [RFC 0001](rfcs/0001-encryption-the-server-cannot-read.md), [RFC 0
   the key and also got a copy of the database could read what is added or changed there after. What they had already seen stays theirs. A new key for
   those who remain comes later.
 
-**Still readable by the server:** who is on which list, how many lists and items there are, quantities and units, when something was ticked, and
-sizes; a person's name and email address (mail and the invitation page need them); and an invitation's email. Those are sealed at rest with the
-server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted yet.
+**Still readable by the server:** who is on which list, how many lists and items there are, quantities and units, who added and ticked each item and
+when, and sizes; which category each item and product is in and which icon it has; the order items and categories are in; how often a product has been
+bought, and when it last was; and a fingerprint of each product's name made with the list's key, by which two of the same name on a list are folded
+into one. The server knows which starter category is which, so a category and an icon can say much about an item (that it is under _Dairy & eggs_,
+say), though not its name.
+
+The server also reads a person's name and email address (mail and the invitation page need them) and an invitation's email. Those are sealed at rest
+with the server's own key, `SHOPPER_ENCRYPTION_KEY` (below), as is any list not encrypted yet.
 
 **Of loyalty cards and Inventory the server also sees:** who is on each card, which lists a card is linked to, how many cards and Inventory items
 there are, the order of cards, and when things changed; of an Inventory item, which starter item it changes, its category, icon, quantity and unit,
-whether it is recurring or hidden, and a fingerprint of its name made with your key, by which two of the same are folded into one; of a category, its
-icon, its place in the order and whether it is hidden.
+whether it is recurring or hidden, and a fingerprint of its name made with your key, by which two of the same are folded into one; of a category,
+which starter category it is, if it is one (renamed or not), its icon, its place in the order and whether it is hidden.
 
 ## Your key
 

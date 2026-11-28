@@ -1104,10 +1104,10 @@ the table's.
 **On `@sovereignfs/auth`** ([ADR 0001](docs/adrs/0001-sign-in-on-sovereignfs-auth.md), `sovereign`'s auth.md): better-auth on the package's
 preset in a store of its own (`shopper_auth`), its tables the package's. **An instance signs people in one way, never both** (RFC 0005):
 
-| Mode                                      | Who signs in, and how                                                                                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Suite mode** (`SHOPPER_CORE_*` are set) | Everyone, through core: the package's `./core` on the SDK's steps (PKCE, matched by `sub`), `SHOPPER_CORE_URL` being the instance's own address       |
-| **Standalone mode** (no core)             | Everyone, with Shopper's own accounts (`SHOPPER_AUTH_LOCAL=1`): a password; **passkeys and an authenticator app with backup codes are phase 2** (2.8) |
+| Mode                                      | Who signs in, and how                                                                                                                                    |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Suite mode** (`SHOPPER_CORE_*` are set) | Everyone, through core: the package's `./core` on the SDK's steps (PKCE, matched by `sub`), `SHOPPER_CORE_URL` being the instance's own address          |
+| **Standalone mode** (no core)             | Everyone, with Shopper's own accounts (`SHOPPER_AUTH_LOCAL=true`): a password; **passkeys and an authenticator app with backup codes are phase 2** (2.8) |
 
 - **In suite mode `/sign-in` and `/sign-up` show nothing:** someone with a session goes to `next` (or `/`), anyone else straight to
   `/api/auth/sign-in/sovereign?returnTo=…`, keeping an invitation's `next` through the round trip. Coming back from core with `?error=` shows a small
@@ -1119,7 +1119,7 @@ preset in a store of its own (`shopper_auth`), its tables the package's. **An in
   person goes next. Email is verified and passwords reset only with mail set up; signing in unverified sends no link, and the sign-in page offers a
   new one. The server is sent the sign-in value the page derives, never the password, and a 0.1.0 password moves at its next sign-in for 90 days
   after the upgrade (auth.md §8.1).
-- **An instance configured with both** (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=1`) **starts in suite mode** and logs, once at start-up, that its
+- **An instance configured with both** (`SHOPPER_CORE_*` and `SHOPPER_AUTH_LOCAL=true`) **starts in suite mode** and logs, once at start-up, that its
   local sign-in is off and which setting to remove; nothing else changes, so an instance upgraded with both keeps running. Its password accounts
   cannot sign in while it is in suite mode; giving them a way across to core is a candidate (15.5), not designed.
 - A session that came from core is checked against it every hour, and signing out of one goes through core's sign-out, which decides what else it
@@ -1654,7 +1654,7 @@ One image (Debian, for libSQL), not root, on port 3007, and three Compose setups
 
 ```bash
 docker run -v shopper:/data -e SHOPPER_DB_DIALECT=sqlite -e SHOPPER_SQLITE_URL=file:/data/shopper.db \
-  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=1 -e SHOPPER_AUTH_SECRET=… -e SHOPPER_ENCRYPTION_KEY=… ghcr.io/sovereignfs/shopper
+  -e SHOPPER_URL=https://shopper.example.com -e SHOPPER_AUTH_LOCAL=true -e SHOPPER_AUTH_SECRET=… -e SHOPPER_ENCRYPTION_KEY=… ghcr.io/sovereignfs/shopper
 ```
 
 - **Settings** are the shared names of `contracts/env.md` (with `AUTH_SIGNUP`'s `invite` from phase 2, §6.3), and Shopper's own: `SHOPPER_WORKER`,
