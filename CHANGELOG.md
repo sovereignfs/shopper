@@ -31,6 +31,7 @@ titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 - **Removing someone from a list says the same:** they lose the list on their devices when they next sync, what they added stays on it under their name, what they have already seen or noted
   stays theirs, and, if the list is encrypted on your devices, its key is not changed yet.
 - **_Download my data_ says that the file holds your Inventory and your loyalty cards,** the cards with their numbers and codes, which anyone who has the file can read.
+- **A wrong `SHOPPER_AUTH_LOCAL` is answered with every value it takes:** the server, which does not start with one, now says `true` or `false` (or `1` or `0`), where it said only `1` or `0`.
 
 ## [0.8.7] - 2026-11-25
 

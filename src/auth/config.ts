@@ -188,6 +188,6 @@ function readFlag(read: Read, name: string, problems: Problem[]): boolean {
   const value = read(name)?.toLowerCase();
   if (value === undefined || value === '0' || value === 'false') return false;
   if (value === '1' || value === 'true') return true;
-  problems.push(`${name} is 1 or 0.`);
+  problems.push(`${name} is true or false (or 1 or 0).`);
   return false;
 }
